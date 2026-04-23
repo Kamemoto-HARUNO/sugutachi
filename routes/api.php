@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BookingCancellationController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\BookingQuoteController;
 use App\Http\Controllers\Api\BookingStatusController;
@@ -49,6 +50,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/bookings/{booking:public_id}', [BookingController::class, 'show']);
     Route::post('/bookings/{booking:public_id}/payment-intents', [PaymentIntentController::class, 'store']);
     Route::post('/bookings/{booking:public_id}/payment-sync', [PaymentSyncController::class, 'store']);
+    Route::post('/bookings/{booking:public_id}/cancel-preview', [BookingCancellationController::class, 'preview']);
+    Route::post('/bookings/{booking:public_id}/cancel', [BookingCancellationController::class, 'store']);
     Route::post('/bookings/{booking:public_id}/accept', [BookingStatusController::class, 'accept']);
     Route::post('/bookings/{booking:public_id}/reject', [BookingStatusController::class, 'reject']);
     Route::post('/bookings/{booking:public_id}/moving', [BookingStatusController::class, 'moving']);

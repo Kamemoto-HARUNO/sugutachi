@@ -448,10 +448,14 @@ payment_authorizing
   "data": {
     "cancel_fee_amount": 4900,
     "refund_amount": 4900,
-    "policy_label": "3時間前以降キャンセル"
+    "policy_code": "within_3_hours_full",
+    "policy_label": "3時間前以降キャンセル",
+    "payment_action": "capture_full_amount"
   }
 }
 ```
+
+キャンセル確定時は予約ステータスを `canceled` に変更し、`booking_status_logs.metadata_json` にキャンセル料、返金予定額、ポリシー、必要な決済アクションを保存する。Stripeの与信取消・キャンセル料capture・差額返金は、後続の決済処理で `payment_action` に従って実行する。
 
 ### 8.5 同意・体調確認
 

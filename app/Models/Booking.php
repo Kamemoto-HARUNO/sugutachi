@@ -24,6 +24,8 @@ class Booking extends Model
 
     public const STATUS_PAYMENT_CANCELED = 'payment_canceled';
 
+    public const STATUS_CANCELED = 'canceled';
+
     public const STATUS_MOVING = 'moving';
 
     public const STATUS_ARRIVED = 'arrived';
