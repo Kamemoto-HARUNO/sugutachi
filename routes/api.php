@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AccountBlockController;
+use App\Http\Controllers\Api\AdminRefundRequestController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingCancellationController;
 use App\Http\Controllers\Api\BookingController;
@@ -41,6 +42,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/accounts/{account:public_id}/block', [AccountBlockController::class, 'destroy']);
     Route::post('/reports', [ReportController::class, 'store']);
     Route::get('/reports/{report:public_id}', [ReportController::class, 'show']);
+    Route::get('/admin/refund-requests', [AdminRefundRequestController::class, 'index']);
+    Route::post('/admin/refund-requests/{refund:public_id}/approve', [AdminRefundRequestController::class, 'approve']);
+    Route::post('/admin/refund-requests/{refund:public_id}/reject', [AdminRefundRequestController::class, 'reject']);
     Route::get('/therapists/{therapistProfile:public_id}/reviews', [ReviewController::class, 'therapistReviews']);
     Route::get('/me/reviews', [ReviewController::class, 'me']);
 
