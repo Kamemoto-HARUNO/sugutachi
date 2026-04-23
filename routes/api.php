@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AdminIdentityVerificationController;
 use App\Http\Controllers\Api\AdminPayoutRequestController;
 use App\Http\Controllers\Api\AdminProfilePhotoController;
 use App\Http\Controllers\Api\AdminRefundRequestController;
+use App\Http\Controllers\Api\AdminReportController;
 use App\Http\Controllers\Api\AdminTherapistProfileController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingCancellationController;
@@ -65,6 +66,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/admin/profile-photos', [AdminProfilePhotoController::class, 'index']);
     Route::post('/admin/profile-photos/{profilePhoto}/approve', [AdminProfilePhotoController::class, 'approve']);
     Route::post('/admin/profile-photos/{profilePhoto}/reject', [AdminProfilePhotoController::class, 'reject']);
+    Route::get('/admin/reports', [AdminReportController::class, 'index']);
+    Route::get('/admin/reports/{report:public_id}', [AdminReportController::class, 'show']);
+    Route::post('/admin/reports/{report:public_id}/actions', [AdminReportController::class, 'action']);
+    Route::post('/admin/reports/{report:public_id}/resolve', [AdminReportController::class, 'resolve']);
     Route::get('/therapists/{therapistProfile:public_id}/reviews', [ReviewController::class, 'therapistReviews']);
     Route::get('/me/reviews', [ReviewController::class, 'me']);
 

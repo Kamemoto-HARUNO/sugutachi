@@ -14,6 +14,7 @@ class ReportResource extends JsonResource
             'booking_public_id' => $this->whenLoaded('booking', fn () => $this->booking?->public_id),
             'reporter_account_id' => $this->reporter?->public_id,
             'target_account_id' => $this->target?->public_id,
+            'assigned_admin_account_id' => $this->assignedAdmin?->public_id,
             'category' => $this->category,
             'severity' => $this->severity,
             'status' => $this->status,
