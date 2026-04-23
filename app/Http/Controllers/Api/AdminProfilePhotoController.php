@@ -2,10 +2,10 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Concerns\AuthorizesAdminRequests;
+use App\Http\Controllers\Api\Concerns\RecordsAdminAuditLogs;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ProfilePhotoResource;
-use App\Models\Account;
-use App\Models\AdminAuditLog;
 use App\Models\ProfilePhoto;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -13,6 +13,9 @@ use Illuminate\Validation\Rule;
 
 class AdminProfilePhotoController extends Controller
 {
+    use AuthorizesAdminRequests;
+    use RecordsAdminAuditLogs;
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorizeAdmin($request->user());
@@ -55,7 +58,7 @@ class AdminProfilePhotoController extends Controller
             ])->save();
         }
 
-        $this->audit($request, 'profile_photo.approve', $profilePhoto, $before, $this->snapshot($profilePhoto->refresh()));
+        $this->recordAdminAudit($request, 'profile_photo.approve', $profilePhoto, $before, $this->snapshot($profilePhoto->refresh()));
 
         return new ProfilePhotoResource($profilePhoto->load(['account', 'therapistProfile', 'reviewedBy']));
     }
@@ -84,35 +87,9 @@ class AdminProfilePhotoController extends Controller
             ])->save();
         }
 
-        $this->audit($request, 'profile_photo.reject', $profilePhoto, $before, $this->snapshot($profilePhoto->refresh()));
+        $this->recordAdminAudit($request, 'profile_photo.reject', $profilePhoto, $before, $this->snapshot($profilePhoto->refresh()));
 
         return new ProfilePhotoResource($profilePhoto->load(['account', 'therapistProfile', 'reviewedBy']));
-    }
-
-    private function authorizeAdmin(Account $account): void
-    {
-        $isAdmin = $account->roleAssignments()
-            ->where('role', 'admin')
-            ->where('status', 'active')
-            ->whereNull('revoked_at')
-            ->exists();
-
-        abort_unless($isAdmin, 403);
-    }
-
-    private function audit(Request $request, string $action, ProfilePhoto $profilePhoto, array $before, array $after): void
-    {
-        AdminAuditLog::create([
-            'actor_account_id' => $request->user()->id,
-            'action' => $action,
-            'target_type' => ProfilePhoto::class,
-            'target_id' => $profilePhoto->id,
-            'ip_hash' => $request->ip() ? hash('sha256', $request->ip()) : null,
-            'user_agent_hash' => $request->userAgent() ? hash('sha256', $request->userAgent()) : null,
-            'before_json' => $before,
-            'after_json' => $after,
-            'created_at' => now(),
-        ]);
     }
 
     private function snapshot(ProfilePhoto $profilePhoto): array

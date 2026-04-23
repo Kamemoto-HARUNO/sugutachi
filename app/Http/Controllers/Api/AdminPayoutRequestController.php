@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Contracts\Payments\PayoutGateway;
+use App\Http\Controllers\Api\Concerns\AuthorizesAdminRequests;
+use App\Http\Controllers\Api\Concerns\RecordsAdminAuditLogs;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PayoutRequestResource;
-use App\Models\Account;
-use App\Models\AdminAuditLog;
 use App\Models\PayoutRequest;
 use App\Models\StripeConnectedAccount;
 use App\Models\TherapistLedgerEntry;
@@ -16,6 +16,9 @@ use Illuminate\Support\Facades\DB;
 
 class AdminPayoutRequestController extends Controller
 {
+    use AuthorizesAdminRequests;
+    use RecordsAdminAuditLogs;
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorizeAdmin($request->user());
@@ -55,7 +58,7 @@ class AdminPayoutRequestController extends Controller
             ]);
         });
 
-        $this->audit($request, 'payout.hold', $payoutRequest, $before, $this->snapshot($payoutRequest->refresh()));
+        $this->recordAdminAudit($request, 'payout.hold', $payoutRequest, $before, $this->snapshot($payoutRequest->refresh()));
 
         return new PayoutRequestResource($payoutRequest->load(['therapistAccount', 'stripeConnectedAccount', 'ledgerEntries']));
     }
@@ -87,7 +90,7 @@ class AdminPayoutRequestController extends Controller
             ]);
         });
 
-        $this->audit($request, 'payout.release', $payoutRequest, $before, $this->snapshot($payoutRequest->refresh()));
+        $this->recordAdminAudit($request, 'payout.release', $payoutRequest, $before, $this->snapshot($payoutRequest->refresh()));
 
         return new PayoutRequestResource($payoutRequest->load(['therapistAccount', 'stripeConnectedAccount', 'ledgerEntries']));
     }
@@ -138,20 +141,9 @@ class AdminPayoutRequestController extends Controller
             }
         });
 
-        $this->audit($request, 'payout.process', $payoutRequest, $before, $this->snapshot($payoutRequest->refresh()));
+        $this->recordAdminAudit($request, 'payout.process', $payoutRequest, $before, $this->snapshot($payoutRequest->refresh()));
 
         return new PayoutRequestResource($payoutRequest->load(['therapistAccount', 'stripeConnectedAccount', 'ledgerEntries']));
-    }
-
-    private function authorizeAdmin(Account $account): void
-    {
-        $isAdmin = $account->roleAssignments()
-            ->where('role', 'admin')
-            ->where('status', 'active')
-            ->whereNull('revoked_at')
-            ->exists();
-
-        abort_unless($isAdmin, 403);
     }
 
     private function assertPayoutReady(?StripeConnectedAccount $connectedAccount): void
@@ -168,21 +160,6 @@ class AdminPayoutRequestController extends Controller
             'failed', 'canceled' => PayoutRequest::STATUS_FAILED,
             default => PayoutRequest::STATUS_PROCESSING,
         };
-    }
-
-    private function audit(Request $request, string $action, PayoutRequest $payoutRequest, array $before, array $after): void
-    {
-        AdminAuditLog::create([
-            'actor_account_id' => $request->user()->id,
-            'action' => $action,
-            'target_type' => PayoutRequest::class,
-            'target_id' => $payoutRequest->id,
-            'ip_hash' => $request->ip() ? hash('sha256', $request->ip()) : null,
-            'user_agent_hash' => $request->userAgent() ? hash('sha256', $request->userAgent()) : null,
-            'before_json' => $before,
-            'after_json' => $after,
-            'created_at' => now(),
-        ]);
     }
 
     private function snapshot(PayoutRequest $payoutRequest): array

@@ -2,11 +2,11 @@
 
 namespace App\Http\Controllers\Api;
 
+use App\Http\Controllers\Api\Concerns\AuthorizesAdminRequests;
+use App\Http\Controllers\Api\Concerns\RecordsAdminAuditLogs;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AdminReportResource;
 use App\Http\Resources\ReportResource;
-use App\Models\Account;
-use App\Models\AdminAuditLog;
 use App\Models\Report;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -15,6 +15,9 @@ use Illuminate\Validation\Rule;
 
 class AdminReportController extends Controller
 {
+    use AuthorizesAdminRequests;
+    use RecordsAdminAuditLogs;
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorizeAdmin($request->user());
@@ -44,7 +47,7 @@ class AdminReportController extends Controller
         $this->authorizeAdmin($request->user());
         $report->load(['booking', 'reporter', 'target', 'assignedAdmin', 'actions.admin']);
 
-        $this->audit($request, 'report.view', $report, [], $this->snapshot($report));
+        $this->recordAdminAudit($request, 'report.view', $report, [], $this->snapshot($report));
 
         return new AdminReportResource($report);
     }
@@ -75,7 +78,7 @@ class AdminReportController extends Controller
             $report->forceFill(['assigned_admin_account_id' => $admin->id])->save();
         }
 
-        $this->audit($request, 'report.action', $report, $before, $this->snapshot($report->refresh()));
+        $this->recordAdminAudit($request, 'report.action', $report, $before, $this->snapshot($report->refresh()));
 
         return new AdminReportResource($report->load(['booking', 'reporter', 'target', 'assignedAdmin', 'actions.admin']));
     }
@@ -108,35 +111,9 @@ class AdminReportController extends Controller
             'created_at' => now(),
         ]);
 
-        $this->audit($request, 'report.resolve', $report, $before, $this->snapshot($report->refresh()));
+        $this->recordAdminAudit($request, 'report.resolve', $report, $before, $this->snapshot($report->refresh()));
 
         return new AdminReportResource($report->load(['booking', 'reporter', 'target', 'assignedAdmin', 'actions.admin']));
-    }
-
-    private function authorizeAdmin(Account $account): void
-    {
-        $isAdmin = $account->roleAssignments()
-            ->where('role', 'admin')
-            ->where('status', 'active')
-            ->whereNull('revoked_at')
-            ->exists();
-
-        abort_unless($isAdmin, 403);
-    }
-
-    private function audit(Request $request, string $action, Report $report, array $before, array $after): void
-    {
-        AdminAuditLog::create([
-            'actor_account_id' => $request->user()->id,
-            'action' => $action,
-            'target_type' => Report::class,
-            'target_id' => $report->id,
-            'ip_hash' => $request->ip() ? hash('sha256', $request->ip()) : null,
-            'user_agent_hash' => $request->userAgent() ? hash('sha256', $request->userAgent()) : null,
-            'before_json' => $before,
-            'after_json' => $after,
-            'created_at' => now(),
-        ]);
     }
 
     private function snapshot(Report $report): array

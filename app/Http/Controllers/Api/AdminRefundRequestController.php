@@ -3,10 +3,10 @@
 namespace App\Http\Controllers\Api;
 
 use App\Contracts\Payments\RefundGateway;
+use App\Http\Controllers\Api\Concerns\AuthorizesAdminRequests;
+use App\Http\Controllers\Api\Concerns\RecordsAdminAuditLogs;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\RefundResource;
-use App\Models\Account;
-use App\Models\AdminAuditLog;
 use App\Models\PaymentIntent;
 use App\Models\Refund;
 use Illuminate\Http\Request;
@@ -15,6 +15,9 @@ use Illuminate\Support\Facades\DB;
 
 class AdminRefundRequestController extends Controller
 {
+    use AuthorizesAdminRequests;
+    use RecordsAdminAuditLogs;
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorizeAdmin($request->user());
@@ -58,7 +61,7 @@ class AdminRefundRequestController extends Controller
             ])->save();
         });
 
-        $this->audit($request, 'refund.approve', $refund, $before, $this->snapshot($refund->refresh()));
+        $this->recordAdminAudit($request, 'refund.approve', $refund, $before, $this->snapshot($refund->refresh()));
 
         return new RefundResource($refund->load('booking'));
     }
@@ -82,20 +85,9 @@ class AdminRefundRequestController extends Controller
             'reviewed_at' => now(),
         ])->save();
 
-        $this->audit($request, 'refund.reject', $refund, $before, $this->snapshot($refund->refresh()));
+        $this->recordAdminAudit($request, 'refund.reject', $refund, $before, $this->snapshot($refund->refresh()));
 
         return new RefundResource($refund->load('booking'));
-    }
-
-    private function authorizeAdmin(Account $account): void
-    {
-        $isAdmin = $account->roleAssignments()
-            ->where('role', 'admin')
-            ->where('status', 'active')
-            ->whereNull('revoked_at')
-            ->exists();
-
-        abort_unless($isAdmin, 403);
     }
 
     private function paymentIntentForRefund(Refund $refund): PaymentIntent
@@ -106,21 +98,6 @@ class AdminRefundRequestController extends Controller
         abort_unless($paymentIntent->stripe_payment_intent_id, 409, 'Stripe PaymentIntent id is missing.');
 
         return $paymentIntent;
-    }
-
-    private function audit(Request $request, string $action, Refund $refund, array $before, array $after): void
-    {
-        AdminAuditLog::create([
-            'actor_account_id' => $request->user()->id,
-            'action' => $action,
-            'target_type' => Refund::class,
-            'target_id' => $refund->id,
-            'ip_hash' => $request->ip() ? hash('sha256', $request->ip()) : null,
-            'user_agent_hash' => $request->userAgent() ? hash('sha256', $request->userAgent()) : null,
-            'before_json' => $before,
-            'after_json' => $after,
-            'created_at' => now(),
-        ]);
     }
 
     private function snapshot(Refund $refund): array
