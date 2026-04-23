@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\BookingQuoteController;
 use App\Http\Controllers\Api\BookingStatusController;
 use App\Http\Controllers\Api\IdentityVerificationController;
 use App\Http\Controllers\Api\PaymentIntentController;
+use App\Http\Controllers\Api\PaymentSyncController;
 use App\Http\Controllers\Api\ServiceAddressController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\Api\TempFileController;
@@ -47,6 +48,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/bookings', [BookingController::class, 'store']);
     Route::get('/bookings/{booking:public_id}', [BookingController::class, 'show']);
     Route::post('/bookings/{booking:public_id}/payment-intents', [PaymentIntentController::class, 'store']);
+    Route::post('/bookings/{booking:public_id}/payment-sync', [PaymentSyncController::class, 'store']);
     Route::post('/bookings/{booking:public_id}/accept', [BookingStatusController::class, 'accept']);
     Route::post('/bookings/{booking:public_id}/reject', [BookingStatusController::class, 'reject']);
     Route::post('/bookings/{booking:public_id}/moving', [BookingStatusController::class, 'moving']);

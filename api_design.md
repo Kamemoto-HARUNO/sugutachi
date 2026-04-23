@@ -399,6 +399,8 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
 
 PaymentIntentは原則manual captureとし、与信成功はStripe Webhookを正とする。クライアントからの `payment-sync` は画面更新用であり、決済確定の唯一の根拠にはしない。
 
+`payment-sync` はStripeへ再照会せず、Webhookで反映済みのローカル状態を返す。レスポンスには現在の予約状態と `is_current = true` のPaymentIntentを含める。
+
 ### 8.3 セラピスト承諾・進行
 
 | Method | Path | 権限 | 用途 |

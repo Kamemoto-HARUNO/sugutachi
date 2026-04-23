@@ -19,6 +19,10 @@ class PaymentIntentResource extends JsonResource
             'application_fee_amount' => $this->application_fee_amount,
             'transfer_amount' => $this->transfer_amount,
             'is_current' => $this->is_current,
+            'authorized_at' => $this->authorized_at,
+            'captured_at' => $this->captured_at,
+            'canceled_at' => $this->canceled_at,
+            'last_stripe_event_id' => $this->last_stripe_event_id,
         ];
     }
 }

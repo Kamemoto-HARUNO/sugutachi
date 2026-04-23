@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Attributes\Guarded;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 
 #[Guarded(['id'])]
 class Booking extends Model
@@ -96,6 +97,13 @@ class Booking extends Model
     public function paymentIntents(): HasMany
     {
         return $this->hasMany(PaymentIntent::class);
+    }
+
+    public function currentPaymentIntent(): HasOne
+    {
+        return $this->hasOne(PaymentIntent::class)
+            ->where('is_current', true)
+            ->latestOfMany();
     }
 
     public function refunds(): HasMany
