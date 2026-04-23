@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\BookingResource;
 use App\Models\Booking;
+use App\Models\TherapistLedgerEntry;
 use App\Services\Bookings\BookingStatusTransitionService;
 use Illuminate\Http\Request;
 
@@ -140,6 +141,22 @@ class BookingStatusController extends Controller
             allowedFromStatuses: [Booking::STATUS_THERAPIST_COMPLETED],
             toStatus: Booking::STATUS_COMPLETED,
             reasonCode: 'user_completed',
+        );
+
+        $booking->ledgerEntries()->firstOrCreate(
+            [
+                'entry_type' => TherapistLedgerEntry::TYPE_BOOKING_SALE,
+            ],
+            [
+                'therapist_account_id' => $booking->therapist_account_id,
+                'amount_signed' => $booking->therapist_net_amount,
+                'status' => TherapistLedgerEntry::STATUS_PENDING,
+                'available_at' => now()->addDays(7),
+                'description' => 'Booking sale pending release',
+                'metadata_json' => [
+                    'booking_public_id' => $booking->public_id,
+                ],
+            ],
         );
 
         return new BookingResource($booking->load('currentQuote'));

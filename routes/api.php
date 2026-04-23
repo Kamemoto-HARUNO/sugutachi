@@ -19,7 +19,9 @@ use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\ServiceAddressController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\Api\TempFileController;
+use App\Http\Controllers\Api\TherapistLedgerController;
 use App\Http\Controllers\Api\TherapistMenuController;
+use App\Http\Controllers\Api\TherapistPayoutRequestController;
 use App\Http\Controllers\Api\TherapistProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -64,6 +66,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::put('/me/therapist/location', [TherapistProfileController::class, 'updateLocation']);
     Route::get('/me/therapist/menus', [TherapistMenuController::class, 'index']);
     Route::post('/me/therapist/menus', [TherapistMenuController::class, 'store']);
+    Route::get('/me/therapist/ledger', [TherapistLedgerController::class, 'index']);
+    Route::get('/me/therapist/payout-requests', [TherapistPayoutRequestController::class, 'index']);
+    Route::post('/me/therapist/payout-requests', [TherapistPayoutRequestController::class, 'store']);
 
     Route::post('/booking-quotes', [BookingQuoteController::class, 'store']);
     Route::get('/me/therapist/booking-requests', [BookingController::class, 'therapistRequests']);

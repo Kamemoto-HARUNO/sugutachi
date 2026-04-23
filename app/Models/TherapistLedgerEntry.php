@@ -9,6 +9,20 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Guarded(['id'])]
 class TherapistLedgerEntry extends Model
 {
+    public const TYPE_BOOKING_SALE = 'booking_sale';
+
+    public const TYPE_REFUND_ADJUSTMENT = 'refund_adjustment';
+
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_AVAILABLE = 'available';
+
+    public const STATUS_PAYOUT_REQUESTED = 'payout_requested';
+
+    public const STATUS_PAID = 'paid';
+
+    public const STATUS_HELD = 'held';
+
     public function therapistAccount(): BelongsTo
     {
         return $this->belongsTo(Account::class, 'therapist_account_id');
