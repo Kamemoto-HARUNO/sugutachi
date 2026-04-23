@@ -11,7 +11,7 @@
 ### 2.1 ベースURL
 * 本番Web: `https://sugutachi.com`
 * API: `https://sugutachi.com/api/v1`
-* Stripe Webhook: `https://sugutachi.com/webhooks/stripe`
+* Stripe Webhook: `https://sugutachi.com/webhooks/stripe`（API alias: `/api/webhooks/stripe`）
 
 ### 2.2 認証方式
 * React PWAとLaravelを同一ドメインで運用する前提で、MVPではLaravel SanctumのSPA Cookie認証を第一候補とする。
@@ -395,6 +395,7 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
 | POST | `/bookings/{public_id}/payment-intents` | User | PaymentIntent作成、client_secret取得 |
 | POST | `/bookings/{public_id}/payment-sync` | User | Webhook後の状態同期 |
 | POST | `/webhooks/stripe` | Stripe | Stripe Webhook受信 |
+| POST | `/api/webhooks/stripe` | Stripe | Stripe Webhook受信のAPI alias |
 
 PaymentIntentは原則manual captureとし、与信成功はStripe Webhookを正とする。クライアントからの `payment-sync` は画面更新用であり、決済確定の唯一の根拠にはしない。
 
@@ -416,14 +417,16 @@ PaymentIntentは原則manual captureとし、与信成功はStripe Webhookを正
 MVPの基本ステータス遷移:
 
 ```text
-requested
-  ├─ accepted
-  │   └─ moving
-  │       └─ arrived
-  │           └─ in_progress
-  │               └─ therapist_completed
-  │                   └─ completed
-  └─ rejected
+payment_authorizing
+  ├─ requested
+  │   ├─ accepted
+  │   │   └─ moving
+  │   │       └─ arrived
+  │   │           └─ in_progress
+  │   │               └─ therapist_completed
+  │   │                   └─ completed
+  │   └─ rejected
+  └─ payment_canceled
 ```
 
 `complete` はセラピスト側の施術終了報告、`user-complete-confirmation` はユーザー側の終了確認とする。決済captureはStripe Webhook/運営ルールと接続するため、MVP初期のステータスAPI単体では実行しない。
@@ -617,9 +620,9 @@ requested
 
 主な処理対象:
 * `account.updated`: Connected Account状態同期。
-* `payment_intent.amount_capturable_updated`: 与信成功、予約を `payment_authorized` から `requested` へ進める。
+* `payment_intent.amount_capturable_updated`: 与信成功、予約を `payment_authorizing` から `requested` へ進める。
 * `payment_intent.succeeded`: 決済確定。
-* `payment_intent.canceled`: 与信取消。
+* `payment_intent.canceled`: 与信取消。承諾前の予約は `payment_canceled` へ進める。
 * `charge.refunded`: 返金反映。
 * `charge.dispute.created`: チャージバック作成、売上保留。
 * `charge.dispute.closed`: チャージバック結果反映。

@@ -1,0 +1,232 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Account;
+use App\Models\Booking;
+use App\Models\PaymentIntent;
+use App\Models\ServiceAddress;
+use App\Models\StripeWebhookEvent;
+use App\Models\TherapistMenu;
+use App\Models\TherapistProfile;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Testing\TestResponse;
+use Tests\TestCase;
+
+class StripeWebhookTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_payment_intent_authorization_webhook_marks_booking_requested(): void
+    {
+        config()->set('services.stripe.webhook_secret', 'whsec_test');
+
+        [$booking, $paymentIntent] = $this->createPaymentIntentFixture();
+        $payload = $this->paymentIntentPayload(
+            eventId: 'evt_authorized',
+            type: 'payment_intent.amount_capturable_updated',
+            stripePaymentIntentId: $paymentIntent->stripe_payment_intent_id,
+            status: PaymentIntent::STRIPE_STATUS_REQUIRES_CAPTURE,
+        );
+
+        $this->sendStripeWebhook($payload)
+            ->assertOk()
+            ->assertJsonPath('received', true)
+            ->assertJsonPath('status', StripeWebhookEvent::STATUS_PROCESSED);
+
+        $paymentIntent->refresh();
+        $booking->refresh();
+
+        $this->assertSame(PaymentIntent::STRIPE_STATUS_REQUIRES_CAPTURE, $paymentIntent->status);
+        $this->assertSame('evt_authorized', $paymentIntent->last_stripe_event_id);
+        $this->assertNotNull($paymentIntent->authorized_at);
+        $this->assertSame(Booking::STATUS_REQUESTED, $booking->status);
+        $this->assertNotNull($booking->request_expires_at);
+        $this->assertDatabaseHas('booking_status_logs', [
+            'booking_id' => $booking->id,
+            'from_status' => Booking::STATUS_PAYMENT_AUTHORIZING,
+            'to_status' => Booking::STATUS_REQUESTED,
+            'actor_role' => 'system',
+            'reason_code' => 'payment_authorized',
+        ]);
+        $this->assertDatabaseHas('stripe_webhook_events', [
+            'stripe_event_id' => 'evt_authorized',
+            'event_type' => 'payment_intent.amount_capturable_updated',
+            'processed_status' => StripeWebhookEvent::STATUS_PROCESSED,
+        ]);
+
+        $this->sendStripeWebhook($payload)->assertOk();
+
+        $this->assertDatabaseCount('stripe_webhook_events', 1);
+        $this->assertDatabaseCount('booking_status_logs', 1);
+    }
+
+    public function test_payment_intent_succeeded_webhook_updates_capture_status(): void
+    {
+        config()->set('services.stripe.webhook_secret', 'whsec_test');
+
+        [$booking, $paymentIntent] = $this->createPaymentIntentFixture(Booking::STATUS_COMPLETED);
+        $payload = $this->paymentIntentPayload(
+            eventId: 'evt_succeeded',
+            type: 'payment_intent.succeeded',
+            stripePaymentIntentId: $paymentIntent->stripe_payment_intent_id,
+            status: PaymentIntent::STRIPE_STATUS_SUCCEEDED,
+        );
+
+        $this->sendStripeWebhook($payload)
+            ->assertOk()
+            ->assertJsonPath('status', StripeWebhookEvent::STATUS_PROCESSED);
+
+        $paymentIntent->refresh();
+        $booking->refresh();
+
+        $this->assertSame(PaymentIntent::STRIPE_STATUS_SUCCEEDED, $paymentIntent->status);
+        $this->assertSame('evt_succeeded', $paymentIntent->last_stripe_event_id);
+        $this->assertNotNull($paymentIntent->captured_at);
+        $this->assertSame(Booking::STATUS_COMPLETED, $booking->status);
+    }
+
+    public function test_payment_intent_canceled_webhook_cancels_pending_booking(): void
+    {
+        config()->set('services.stripe.webhook_secret', 'whsec_test');
+
+        [$booking, $paymentIntent] = $this->createPaymentIntentFixture(Booking::STATUS_REQUESTED);
+        $payload = $this->paymentIntentPayload(
+            eventId: 'evt_canceled',
+            type: 'payment_intent.canceled',
+            stripePaymentIntentId: $paymentIntent->stripe_payment_intent_id,
+            status: PaymentIntent::STRIPE_STATUS_CANCELED,
+        );
+
+        $this->sendStripeWebhook($payload)
+            ->assertOk()
+            ->assertJsonPath('status', StripeWebhookEvent::STATUS_PROCESSED);
+
+        $paymentIntent->refresh();
+        $booking->refresh();
+
+        $this->assertSame(PaymentIntent::STRIPE_STATUS_CANCELED, $paymentIntent->status);
+        $this->assertSame('evt_canceled', $paymentIntent->last_stripe_event_id);
+        $this->assertNotNull($paymentIntent->canceled_at);
+        $this->assertSame(Booking::STATUS_PAYMENT_CANCELED, $booking->status);
+        $this->assertSame('payment_intent_canceled', $booking->cancel_reason_code);
+    }
+
+    public function test_stripe_webhook_rejects_invalid_signature(): void
+    {
+        config()->set('services.stripe.webhook_secret', 'whsec_test');
+
+        $payload = $this->paymentIntentPayload(
+            eventId: 'evt_invalid_signature',
+            type: 'payment_intent.succeeded',
+            stripePaymentIntentId: 'pi_missing',
+            status: PaymentIntent::STRIPE_STATUS_SUCCEEDED,
+        );
+
+        $this->call('POST', '/webhooks/stripe', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_STRIPE_SIGNATURE' => 'bad-signature',
+        ], $payload)->assertBadRequest();
+
+        $this->assertDatabaseCount('stripe_webhook_events', 0);
+    }
+
+    private function createPaymentIntentFixture(string $bookingStatus = Booking::STATUS_PAYMENT_AUTHORIZING): array
+    {
+        $user = Account::factory()->create(['public_id' => 'acc_user_webhook']);
+        $therapist = Account::factory()->create(['public_id' => 'acc_therapist_webhook']);
+
+        $therapistProfile = TherapistProfile::create([
+            'account_id' => $therapist->id,
+            'public_id' => 'thp_webhook',
+            'public_name' => 'Webhook Therapist',
+            'profile_status' => 'approved',
+        ]);
+
+        $menu = TherapistMenu::create([
+            'public_id' => 'menu_webhook_60',
+            'therapist_profile_id' => $therapistProfile->id,
+            'name' => 'Body care 60',
+            'duration_minutes' => 60,
+            'base_price_amount' => 12000,
+        ]);
+
+        $address = ServiceAddress::create([
+            'public_id' => 'addr_webhook',
+            'account_id' => $user->id,
+            'place_type' => 'hotel',
+            'address_line_encrypted' => 'encrypted-address',
+            'lat' => '35.6812360',
+            'lng' => '139.7671250',
+        ]);
+
+        $booking = Booking::create([
+            'public_id' => 'book_webhook',
+            'user_account_id' => $user->id,
+            'therapist_account_id' => $therapist->id,
+            'therapist_profile_id' => $therapistProfile->id,
+            'therapist_menu_id' => $menu->id,
+            'service_address_id' => $address->id,
+            'status' => $bookingStatus,
+            'duration_minutes' => 60,
+            'request_expires_at' => $bookingStatus === Booking::STATUS_REQUESTED ? now()->addMinutes(10) : null,
+            'total_amount' => 12300,
+            'therapist_net_amount' => 10800,
+            'platform_fee_amount' => 1200,
+            'matching_fee_amount' => 300,
+        ]);
+
+        $paymentIntent = PaymentIntent::create([
+            'booking_id' => $booking->id,
+            'payer_account_id' => $user->id,
+            'stripe_payment_intent_id' => 'pi_webhook',
+            'status' => 'requires_payment_method',
+            'capture_method' => 'manual',
+            'currency' => 'jpy',
+            'amount' => 12300,
+            'application_fee_amount' => 1500,
+            'transfer_amount' => 10800,
+            'is_current' => true,
+        ]);
+
+        return [$booking, $paymentIntent];
+    }
+
+    private function paymentIntentPayload(
+        string $eventId,
+        string $type,
+        string $stripePaymentIntentId,
+        string $status,
+    ): string {
+        return json_encode([
+            'id' => $eventId,
+            'object' => 'event',
+            'type' => $type,
+            'data' => [
+                'object' => [
+                    'id' => $stripePaymentIntentId,
+                    'object' => 'payment_intent',
+                    'status' => $status,
+                    'amount' => 12300,
+                    'currency' => 'jpy',
+                ],
+            ],
+        ], JSON_THROW_ON_ERROR);
+    }
+
+    private function sendStripeWebhook(string $payload): TestResponse
+    {
+        return $this->call('POST', '/webhooks/stripe', [], [], [], [
+            'CONTENT_TYPE' => 'application/json',
+            'HTTP_STRIPE_SIGNATURE' => $this->stripeSignature($payload, 'whsec_test'),
+        ], $payload);
+    }
+
+    private function stripeSignature(string $payload, string $secret): string
+    {
+        $timestamp = time();
+        $signature = hash_hmac('sha256', "{$timestamp}.{$payload}", $secret);
+
+        return "t={$timestamp},v1={$signature}";
+    }
+}

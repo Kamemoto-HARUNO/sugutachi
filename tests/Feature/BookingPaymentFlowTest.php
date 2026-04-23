@@ -104,7 +104,7 @@ class BookingPaymentFlowTest extends TestCase
                 'quote_id' => $quoteId,
             ])
             ->assertCreated()
-            ->assertJsonPath('data.status', 'requested')
+            ->assertJsonPath('data.status', Booking::STATUS_PAYMENT_AUTHORIZING)
             ->assertJsonPath('data.total_amount', 12300)
             ->json('data.public_id');
 
@@ -118,7 +118,7 @@ class BookingPaymentFlowTest extends TestCase
 
         $this->assertDatabaseHas('bookings', [
             'public_id' => $bookingId,
-            'status' => 'requested',
+            'status' => Booking::STATUS_PAYMENT_AUTHORIZING,
             'total_amount' => 12300,
         ]);
 

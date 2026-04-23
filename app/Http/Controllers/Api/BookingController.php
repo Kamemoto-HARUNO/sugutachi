@@ -73,13 +73,13 @@ class BookingController extends Controller
                 'therapist_profile_id' => $quote->therapist_profile_id,
                 'therapist_menu_id' => $quote->therapist_menu_id,
                 'service_address_id' => $serviceAddress->id,
-                'status' => Booking::STATUS_REQUESTED,
+                'status' => Booking::STATUS_PAYMENT_AUTHORIZING,
                 'is_on_demand' => $input['is_on_demand'] ?? true,
                 'requested_start_at' => $requestedStartAt,
                 'scheduled_start_at' => $requestedStartAt,
                 'scheduled_end_at' => $requestedStartAt ? CarbonImmutable::parse($requestedStartAt)->addMinutes($durationMinutes) : null,
                 'duration_minutes' => $durationMinutes,
-                'request_expires_at' => now()->addMinutes(10),
+                'request_expires_at' => null,
                 'total_amount' => $quote->total_amount,
                 'therapist_net_amount' => $quote->therapist_net_amount,
                 'platform_fee_amount' => $quote->platform_fee_amount,
@@ -100,7 +100,7 @@ class BookingController extends Controller
             $booking->update(['current_quote_id' => $quote->id]);
 
             $booking->statusLogs()->create([
-                'to_status' => 'requested',
+                'to_status' => Booking::STATUS_PAYMENT_AUTHORIZING,
                 'actor_account_id' => $request->user()->id,
                 'actor_role' => 'user',
                 'reason_code' => 'booking_created',

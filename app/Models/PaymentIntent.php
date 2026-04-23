@@ -10,6 +10,12 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Guarded(['id'])]
 class PaymentIntent extends Model
 {
+    public const STRIPE_STATUS_REQUIRES_CAPTURE = 'requires_capture';
+
+    public const STRIPE_STATUS_SUCCEEDED = 'succeeded';
+
+    public const STRIPE_STATUS_CANCELED = 'canceled';
+
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);

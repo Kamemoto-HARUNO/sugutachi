@@ -16,7 +16,11 @@ class PaymentIntentController extends Controller
     public function store(Request $request, Booking $booking, PaymentIntentGateway $gateway): JsonResponse
     {
         abort_unless($booking->user_account_id === $request->user()->id, 404);
-        abort_unless($booking->status === 'requested', 409, 'Payment can only be created for requested bookings.');
+        abort_unless(
+            $booking->status === Booking::STATUS_PAYMENT_AUTHORIZING,
+            409,
+            'Payment can only be created before the booking request is sent.'
+        );
 
         $booking->load(['currentQuote', 'userAccount', 'therapistAccount', 'therapistProfile.stripeConnectedAccount']);
         $quote = $booking->currentQuote;

@@ -13,11 +13,15 @@ class Booking extends Model
 {
     use UsesPublicIdRouteKey;
 
+    public const STATUS_PAYMENT_AUTHORIZING = 'payment_authorizing';
+
     public const STATUS_REQUESTED = 'requested';
 
     public const STATUS_ACCEPTED = 'accepted';
 
     public const STATUS_REJECTED = 'rejected';
+
+    public const STATUS_PAYMENT_CANCELED = 'payment_canceled';
 
     public const STATUS_MOVING = 'moving';
 

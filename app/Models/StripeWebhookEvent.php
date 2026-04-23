@@ -8,6 +8,14 @@ use Illuminate\Database\Eloquent\Model;
 #[Guarded(['id'])]
 class StripeWebhookEvent extends Model
 {
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_PROCESSED = 'processed';
+
+    public const STATUS_IGNORED = 'ignored';
+
+    public const STATUS_FAILED = 'failed';
+
     protected function casts(): array
     {
         return [

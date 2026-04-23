@@ -7,10 +7,13 @@ use App\Http\Controllers\Api\BookingStatusController;
 use App\Http\Controllers\Api\IdentityVerificationController;
 use App\Http\Controllers\Api\PaymentIntentController;
 use App\Http\Controllers\Api\ServiceAddressController;
+use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\Api\TempFileController;
 use App\Http\Controllers\Api\TherapistMenuController;
 use App\Http\Controllers\Api\TherapistProfileController;
 use Illuminate\Support\Facades\Route;
+
+Route::post('/webhooks/stripe', StripeWebhookController::class);
 
 Route::prefix('auth')->group(function (): void {
     Route::post('/register', [AuthController::class, 'register']);
