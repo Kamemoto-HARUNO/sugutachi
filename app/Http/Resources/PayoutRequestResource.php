@@ -20,6 +20,15 @@ class PayoutRequestResource extends JsonResource
             'processed_at' => $this->processed_at,
             'stripe_payout_id' => $this->stripe_payout_id,
             'failure_reason' => $this->failure_reason,
+            'therapist_account' => $this->whenLoaded('therapistAccount', fn () => [
+                'public_id' => $this->therapistAccount?->public_id,
+                'display_name' => $this->therapistAccount?->display_name,
+            ]),
+            'stripe_connected_account' => $this->whenLoaded('stripeConnectedAccount', fn () => [
+                'stripe_account_id' => $this->stripeConnectedAccount?->stripe_account_id,
+                'status' => $this->stripeConnectedAccount?->status,
+                'payouts_enabled' => $this->stripeConnectedAccount?->payouts_enabled,
+            ]),
             'ledger_entries' => TherapistLedgerEntryResource::collection($this->whenLoaded('ledgerEntries')),
             'created_at' => $this->created_at,
         ];

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AccountBlockController;
+use App\Http\Controllers\Api\AdminPayoutRequestController;
 use App\Http\Controllers\Api\AdminRefundRequestController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingCancellationController;
@@ -47,6 +48,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/admin/refund-requests', [AdminRefundRequestController::class, 'index']);
     Route::post('/admin/refund-requests/{refund:public_id}/approve', [AdminRefundRequestController::class, 'approve']);
     Route::post('/admin/refund-requests/{refund:public_id}/reject', [AdminRefundRequestController::class, 'reject']);
+    Route::get('/admin/payout-requests', [AdminPayoutRequestController::class, 'index']);
+    Route::post('/admin/payout-requests/{payoutRequest:public_id}/hold', [AdminPayoutRequestController::class, 'hold']);
+    Route::post('/admin/payout-requests/{payoutRequest:public_id}/release', [AdminPayoutRequestController::class, 'release']);
+    Route::post('/admin/payout-requests/{payoutRequest:public_id}/process', [AdminPayoutRequestController::class, 'process']);
     Route::get('/therapists/{therapistProfile:public_id}/reviews', [ReviewController::class, 'therapistReviews']);
     Route::get('/me/reviews', [ReviewController::class, 'me']);
 

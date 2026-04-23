@@ -4,10 +4,12 @@ namespace App\Services\Payments;
 
 use App\Models\Booking;
 use App\Models\PaymentIntent;
+use App\Models\PayoutRequest;
 use App\Models\Refund;
 use App\Models\StripeConnectedAccount;
 use App\Models\StripeDispute;
 use App\Models\StripeWebhookEvent;
+use App\Models\TherapistLedgerEntry;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -30,6 +32,10 @@ class StripeWebhookHandler
     public const EVENT_PAYMENT_INTENT_SUCCEEDED = 'payment_intent.succeeded';
 
     public const EVENT_PAYMENT_INTENT_CANCELED = 'payment_intent.canceled';
+
+    public const EVENT_PAYOUT_FAILED = 'payout.failed';
+
+    public const EVENT_PAYOUT_PAID = 'payout.paid';
 
     public function handle(StripeEvent $event): StripeWebhookEvent
     {
@@ -77,6 +83,11 @@ class StripeWebhookHandler
                         payload: $payload,
                         eventType: (string) $event->type,
                         eventId: (string) $event->id,
+                    ),
+                    self::EVENT_PAYOUT_FAILED,
+                    self::EVENT_PAYOUT_PAID => $this->processPayoutEvent(
+                        payload: $payload,
+                        eventType: (string) $event->type,
                     ),
                     default => StripeWebhookEvent::STATUS_IGNORED,
                 };
@@ -288,6 +299,55 @@ class StripeWebhookHandler
                 'last_stripe_event_id' => $eventId,
             ],
         );
+
+        return StripeWebhookEvent::STATUS_PROCESSED;
+    }
+
+    private function processPayoutEvent(array $payload, string $eventType): string
+    {
+        $stripePayout = $payload['data']['object'] ?? null;
+
+        if (! is_array($stripePayout) || blank($stripePayout['id'] ?? null)) {
+            throw new RuntimeException('Stripe webhook payload is missing a Payout object.');
+        }
+
+        $payoutRequest = PayoutRequest::query()
+            ->where('stripe_payout_id', (string) $stripePayout['id'])
+            ->lockForUpdate()
+            ->first();
+
+        if (! $payoutRequest) {
+            throw new RuntimeException("PayoutRequest for Stripe Payout [{$stripePayout['id']}] was not found.");
+        }
+
+        if ($eventType === self::EVENT_PAYOUT_PAID) {
+            $payoutRequest->forceFill([
+                'status' => PayoutRequest::STATUS_PAID,
+                'failure_reason' => null,
+                'processed_at' => $payoutRequest->processed_at ?? now(),
+            ])->save();
+
+            $payoutRequest->ledgerEntries()->update([
+                'status' => TherapistLedgerEntry::STATUS_PAID,
+                'updated_at' => now(),
+            ]);
+
+            return StripeWebhookEvent::STATUS_PROCESSED;
+        }
+
+        $failureReason = $stripePayout['failure_message'] ?? $stripePayout['failure_code'] ?? 'stripe_payout_failed';
+
+        $payoutRequest->forceFill([
+            'status' => PayoutRequest::STATUS_FAILED,
+            'failure_reason' => (string) $failureReason,
+            'processed_at' => $payoutRequest->processed_at ?? now(),
+        ])->save();
+
+        $payoutRequest->ledgerEntries()->update([
+            'payout_request_id' => null,
+            'status' => TherapistLedgerEntry::STATUS_AVAILABLE,
+            'updated_at' => now(),
+        ]);
 
         return StripeWebhookEvent::STATUS_PROCESSED;
     }

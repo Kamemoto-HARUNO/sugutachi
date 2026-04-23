@@ -5,11 +5,13 @@ namespace Tests\Feature;
 use App\Models\Account;
 use App\Models\Booking;
 use App\Models\PaymentIntent;
+use App\Models\PayoutRequest;
 use App\Models\Refund;
 use App\Models\ServiceAddress;
 use App\Models\StripeConnectedAccount;
 use App\Models\StripeDispute;
 use App\Models\StripeWebhookEvent;
+use App\Models\TherapistLedgerEntry;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -265,6 +267,42 @@ class StripeWebhookTest extends TestCase
         ]);
     }
 
+    public function test_payout_webhooks_mark_paid_and_failed_payout_requests(): void
+    {
+        config()->set('services.stripe.webhook_secret', 'whsec_test');
+
+        [$paidPayoutRequest, $paidLedgerEntry] = $this->createPayoutWebhookFixture('paid', 'po_webhook_paid');
+
+        $this->sendStripeWebhook($this->payoutPayload(
+            eventId: 'evt_payout_paid',
+            type: 'payout.paid',
+            stripePayoutId: 'po_webhook_paid',
+            status: 'paid',
+        ))
+            ->assertOk()
+            ->assertJsonPath('status', StripeWebhookEvent::STATUS_PROCESSED);
+
+        $this->assertSame(PayoutRequest::STATUS_PAID, $paidPayoutRequest->refresh()->status);
+        $this->assertSame(TherapistLedgerEntry::STATUS_PAID, $paidLedgerEntry->refresh()->status);
+
+        [$failedPayoutRequest, $failedLedgerEntry] = $this->createPayoutWebhookFixture('failed', 'po_webhook_failed');
+
+        $this->sendStripeWebhook($this->payoutPayload(
+            eventId: 'evt_payout_failed',
+            type: 'payout.failed',
+            stripePayoutId: 'po_webhook_failed',
+            status: 'failed',
+            failureCode: 'bank_account_closed',
+        ))
+            ->assertOk()
+            ->assertJsonPath('status', StripeWebhookEvent::STATUS_PROCESSED);
+
+        $this->assertSame(PayoutRequest::STATUS_FAILED, $failedPayoutRequest->refresh()->status);
+        $this->assertSame('bank_account_closed', $failedPayoutRequest->failure_reason);
+        $this->assertSame(TherapistLedgerEntry::STATUS_AVAILABLE, $failedLedgerEntry->refresh()->status);
+        $this->assertNull($failedLedgerEntry->payout_request_id);
+    }
+
     private function createPaymentIntentFixture(string $bookingStatus = Booking::STATUS_PAYMENT_AUTHORIZING): array
     {
         $user = Account::factory()->create(['public_id' => 'acc_user_webhook']);
@@ -324,6 +362,52 @@ class StripeWebhookTest extends TestCase
         ]);
 
         return [$booking, $paymentIntent];
+    }
+
+    private function createPayoutWebhookFixture(string $suffix, string $stripePayoutId): array
+    {
+        $therapist = Account::factory()->create(['public_id' => "acc_payout_webhook_{$suffix}"]);
+
+        $therapistProfile = TherapistProfile::create([
+            'account_id' => $therapist->id,
+            'public_id' => "thp_payout_webhook_{$suffix}",
+            'public_name' => 'Webhook Payout Therapist',
+            'profile_status' => 'approved',
+        ]);
+
+        $connectedAccount = StripeConnectedAccount::create([
+            'account_id' => $therapist->id,
+            'therapist_profile_id' => $therapistProfile->id,
+            'stripe_account_id' => "acct_payout_webhook_{$suffix}",
+            'account_type' => 'express',
+            'status' => StripeConnectedAccount::STATUS_ACTIVE,
+            'charges_enabled' => true,
+            'payouts_enabled' => true,
+            'details_submitted' => true,
+        ]);
+
+        $payoutRequest = PayoutRequest::create([
+            'public_id' => "pay_webhook_{$suffix}",
+            'therapist_account_id' => $therapist->id,
+            'stripe_connected_account_id' => $connectedAccount->id,
+            'status' => PayoutRequest::STATUS_PROCESSING,
+            'requested_amount' => 10800,
+            'net_amount' => 10800,
+            'requested_at' => now()->subDays(3),
+            'scheduled_process_date' => now()->subDay(),
+            'processed_at' => now()->subHour(),
+            'stripe_payout_id' => $stripePayoutId,
+        ]);
+
+        $ledgerEntry = TherapistLedgerEntry::create([
+            'therapist_account_id' => $therapist->id,
+            'payout_request_id' => $payoutRequest->id,
+            'entry_type' => TherapistLedgerEntry::TYPE_BOOKING_SALE,
+            'amount_signed' => 10800,
+            'status' => TherapistLedgerEntry::STATUS_PAYOUT_REQUESTED,
+        ]);
+
+        return [$payoutRequest, $ledgerEntry];
     }
 
     private function paymentIntentPayload(
@@ -440,6 +524,30 @@ class StripeWebhookTest extends TestCase
                     'outcome' => $outcome ? [
                         'type' => $outcome,
                     ] : null,
+                ],
+            ],
+        ], JSON_THROW_ON_ERROR);
+    }
+
+    private function payoutPayload(
+        string $eventId,
+        string $type,
+        string $stripePayoutId,
+        string $status,
+        ?string $failureCode = null,
+    ): string {
+        return json_encode([
+            'id' => $eventId,
+            'object' => 'event',
+            'type' => $type,
+            'data' => [
+                'object' => [
+                    'id' => $stripePayoutId,
+                    'object' => 'payout',
+                    'status' => $status,
+                    'amount' => 10800,
+                    'currency' => 'jpy',
+                    'failure_code' => $failureCode,
                 ],
             ],
         ], JSON_THROW_ON_ERROR);
