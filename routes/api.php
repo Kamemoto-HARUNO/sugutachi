@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\Api\AccountBlockController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingCancellationController;
 use App\Http\Controllers\Api\BookingController;
@@ -12,6 +13,8 @@ use App\Http\Controllers\Api\PaymentIntentController;
 use App\Http\Controllers\Api\PaymentSyncController;
 use App\Http\Controllers\Api\PushSubscriptionController;
 use App\Http\Controllers\Api\RefundRequestController;
+use App\Http\Controllers\Api\ReportController;
+use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\ServiceAddressController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\Api\TempFileController;
@@ -34,6 +37,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'read']);
     Route::post('/push-subscriptions', [PushSubscriptionController::class, 'store']);
     Route::delete('/push-subscriptions/{pushSubscription}', [PushSubscriptionController::class, 'destroy']);
+    Route::post('/accounts/{account:public_id}/block', [AccountBlockController::class, 'store']);
+    Route::delete('/accounts/{account:public_id}/block', [AccountBlockController::class, 'destroy']);
+    Route::post('/reports', [ReportController::class, 'store']);
+    Route::get('/reports/{report:public_id}', [ReportController::class, 'show']);
+    Route::get('/therapists/{therapistProfile:public_id}/reviews', [ReviewController::class, 'therapistReviews']);
+    Route::get('/me/reviews', [ReviewController::class, 'me']);
 
     Route::post('/temp-files', [TempFileController::class, 'store']);
     Route::delete('/temp-files/{tempFile:file_id}', [TempFileController::class, 'destroy']);
@@ -66,6 +75,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/bookings/{booking:public_id}/messages', [BookingMessageController::class, 'index']);
     Route::post('/bookings/{booking:public_id}/messages', [BookingMessageController::class, 'store']);
     Route::post('/bookings/{booking:public_id}/messages/{message}/read', [BookingMessageController::class, 'read']);
+    Route::post('/bookings/{booking:public_id}/reviews', [ReviewController::class, 'store']);
     Route::get('/refund-requests/{refund:public_id}', [RefundRequestController::class, 'show']);
     Route::post('/bookings/{booking:public_id}/accept', [BookingStatusController::class, 'accept']);
     Route::post('/bookings/{booking:public_id}/reject', [BookingStatusController::class, 'reject']);

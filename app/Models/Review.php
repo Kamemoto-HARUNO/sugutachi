@@ -9,6 +9,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Guarded(['id'])]
 class Review extends Model
 {
+    public const STATUS_VISIBLE = 'visible';
+
+    public const STATUS_HIDDEN = 'hidden';
+
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);

@@ -13,6 +13,18 @@ class Report extends Model
 {
     use UsesPublicIdRouteKey;
 
+    public const STATUS_OPEN = 'open';
+
+    public const STATUS_RESOLVED = 'resolved';
+
+    public const SEVERITY_LOW = 'low';
+
+    public const SEVERITY_MEDIUM = 'medium';
+
+    public const SEVERITY_HIGH = 'high';
+
+    public const SEVERITY_CRITICAL = 'critical';
+
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);
