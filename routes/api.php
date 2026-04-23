@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AccountBlockController;
+use App\Http\Controllers\Api\AdminIdentityVerificationController;
 use App\Http\Controllers\Api\AdminPayoutRequestController;
 use App\Http\Controllers\Api\AdminRefundRequestController;
 use App\Http\Controllers\Api\AuthController;
@@ -52,6 +53,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/admin/payout-requests/{payoutRequest:public_id}/hold', [AdminPayoutRequestController::class, 'hold']);
     Route::post('/admin/payout-requests/{payoutRequest:public_id}/release', [AdminPayoutRequestController::class, 'release']);
     Route::post('/admin/payout-requests/{payoutRequest:public_id}/process', [AdminPayoutRequestController::class, 'process']);
+    Route::get('/admin/identity-verifications', [AdminIdentityVerificationController::class, 'index']);
+    Route::post('/admin/identity-verifications/{identityVerification}/approve', [AdminIdentityVerificationController::class, 'approve']);
+    Route::post('/admin/identity-verifications/{identityVerification}/reject', [AdminIdentityVerificationController::class, 'reject']);
     Route::get('/therapists/{therapistProfile:public_id}/reviews', [ReviewController::class, 'therapistReviews']);
     Route::get('/me/reviews', [ReviewController::class, 'me']);
 
