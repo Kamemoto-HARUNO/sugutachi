@@ -30,6 +30,18 @@ class BookingController extends Controller
         );
     }
 
+    public function therapistRequests(Request $request): AnonymousResourceCollection
+    {
+        return BookingResource::collection(
+            Booking::query()
+                ->with('currentQuote')
+                ->where('therapist_account_id', $request->user()->id)
+                ->where('status', Booking::STATUS_REQUESTED)
+                ->oldest()
+                ->get()
+        );
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -61,7 +73,7 @@ class BookingController extends Controller
                 'therapist_profile_id' => $quote->therapist_profile_id,
                 'therapist_menu_id' => $quote->therapist_menu_id,
                 'service_address_id' => $serviceAddress->id,
-                'status' => 'requested',
+                'status' => Booking::STATUS_REQUESTED,
                 'is_on_demand' => $input['is_on_demand'] ?? true,
                 'requested_start_at' => $requestedStartAt,
                 'scheduled_start_at' => $requestedStartAt,

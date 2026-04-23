@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\BookingQuoteController;
+use App\Http\Controllers\Api\BookingStatusController;
 use App\Http\Controllers\Api\IdentityVerificationController;
 use App\Http\Controllers\Api\PaymentIntentController;
 use App\Http\Controllers\Api\ServiceAddressController;
@@ -38,8 +39,16 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/me/therapist/menus', [TherapistMenuController::class, 'store']);
 
     Route::post('/booking-quotes', [BookingQuoteController::class, 'store']);
+    Route::get('/me/therapist/booking-requests', [BookingController::class, 'therapistRequests']);
     Route::get('/bookings', [BookingController::class, 'index']);
     Route::post('/bookings', [BookingController::class, 'store']);
     Route::get('/bookings/{booking:public_id}', [BookingController::class, 'show']);
     Route::post('/bookings/{booking:public_id}/payment-intents', [PaymentIntentController::class, 'store']);
+    Route::post('/bookings/{booking:public_id}/accept', [BookingStatusController::class, 'accept']);
+    Route::post('/bookings/{booking:public_id}/reject', [BookingStatusController::class, 'reject']);
+    Route::post('/bookings/{booking:public_id}/moving', [BookingStatusController::class, 'moving']);
+    Route::post('/bookings/{booking:public_id}/arrived', [BookingStatusController::class, 'arrived']);
+    Route::post('/bookings/{booking:public_id}/start', [BookingStatusController::class, 'start']);
+    Route::post('/bookings/{booking:public_id}/complete', [BookingStatusController::class, 'complete']);
+    Route::post('/bookings/{booking:public_id}/user-complete-confirmation', [BookingStatusController::class, 'userCompleteConfirmation']);
 });

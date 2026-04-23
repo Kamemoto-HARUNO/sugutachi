@@ -413,6 +413,21 @@ PaymentIntentは原則manual captureとし、与信成功はStripe Webhookを正
 
 各ステータス変更APIは、現在ステータスが許可された遷移元でない場合 `409 Conflict` を返す。
 
+MVPの基本ステータス遷移:
+
+```text
+requested
+  ├─ accepted
+  │   └─ moving
+  │       └─ arrived
+  │           └─ in_progress
+  │               └─ therapist_completed
+  │                   └─ completed
+  └─ rejected
+```
+
+`complete` はセラピスト側の施術終了報告、`user-complete-confirmation` はユーザー側の終了確認とする。決済captureはStripe Webhook/運営ルールと接続するため、MVP初期のステータスAPI単体では実行しない。
+
 ### 8.4 キャンセル・中断
 
 | Method | Path | 権限 | 用途 |

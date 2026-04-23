@@ -13,6 +13,22 @@ class Booking extends Model
 {
     use UsesPublicIdRouteKey;
 
+    public const STATUS_REQUESTED = 'requested';
+
+    public const STATUS_ACCEPTED = 'accepted';
+
+    public const STATUS_REJECTED = 'rejected';
+
+    public const STATUS_MOVING = 'moving';
+
+    public const STATUS_ARRIVED = 'arrived';
+
+    public const STATUS_IN_PROGRESS = 'in_progress';
+
+    public const STATUS_THERAPIST_COMPLETED = 'therapist_completed';
+
+    public const STATUS_COMPLETED = 'completed';
+
     public function userAccount(): BelongsTo
     {
         return $this->belongsTo(Account::class, 'user_account_id');
