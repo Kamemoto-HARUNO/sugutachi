@@ -12,6 +12,14 @@ class Refund extends Model
 {
     use UsesPublicIdRouteKey;
 
+    public const STATUS_REQUESTED = 'requested';
+
+    public const STATUS_APPROVED = 'approved';
+
+    public const STATUS_REJECTED = 'rejected';
+
+    public const STATUS_PROCESSED = 'processed';
+
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);

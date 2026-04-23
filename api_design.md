@@ -524,6 +524,8 @@ payment_authorizing
 | GET | `/bookings/{public_id}/refund-requests` | User/Therapist/Admin | 返金申請一覧 |
 | GET | `/refund-requests/{public_id}` | User/Therapist/Admin | 返金申請詳細 |
 
+返金申請はMVPでは `requested` として保存し、運営審査後に管理APIから承認・却下する。ユーザーは `therapist_completed`、`completed`、`canceled` の予約に対して申請でき、同一予約に未処理申請がある場合は `409 Conflict` を返す。
+
 ## 11. 売上・出金API
 
 | Method | Path | 権限 | 用途 |

@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\BookingStatusController;
 use App\Http\Controllers\Api\IdentityVerificationController;
 use App\Http\Controllers\Api\PaymentIntentController;
 use App\Http\Controllers\Api\PaymentSyncController;
+use App\Http\Controllers\Api\RefundRequestController;
 use App\Http\Controllers\Api\ServiceAddressController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\Api\TempFileController;
@@ -52,6 +53,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/bookings/{booking:public_id}/payment-sync', [PaymentSyncController::class, 'store']);
     Route::post('/bookings/{booking:public_id}/cancel-preview', [BookingCancellationController::class, 'preview']);
     Route::post('/bookings/{booking:public_id}/cancel', [BookingCancellationController::class, 'store']);
+    Route::get('/bookings/{booking:public_id}/refund-requests', [RefundRequestController::class, 'index']);
+    Route::post('/bookings/{booking:public_id}/refund-requests', [RefundRequestController::class, 'store']);
+    Route::get('/refund-requests/{refund:public_id}', [RefundRequestController::class, 'show']);
     Route::post('/bookings/{booking:public_id}/accept', [BookingStatusController::class, 'accept']);
     Route::post('/bookings/{booking:public_id}/reject', [BookingStatusController::class, 'reject']);
     Route::post('/bookings/{booking:public_id}/moving', [BookingStatusController::class, 'moving']);
