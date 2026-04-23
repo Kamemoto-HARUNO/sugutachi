@@ -24,6 +24,10 @@ class Account extends Authenticatable
     use SoftDeletes;
     use UsesPublicIdRouteKey;
 
+    public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_SUSPENDED = 'suspended';
+
     public function roleAssignments(): HasMany
     {
         return $this->hasMany(AccountRole::class);

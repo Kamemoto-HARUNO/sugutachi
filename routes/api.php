@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AccountBlockController;
+use App\Http\Controllers\Api\AdminAccountController;
 use App\Http\Controllers\Api\AdminIdentityVerificationController;
 use App\Http\Controllers\Api\AdminPayoutRequestController;
 use App\Http\Controllers\Api\AdminProfilePhotoController;
@@ -70,6 +71,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/admin/reports/{report:public_id}', [AdminReportController::class, 'show']);
     Route::post('/admin/reports/{report:public_id}/actions', [AdminReportController::class, 'action']);
     Route::post('/admin/reports/{report:public_id}/resolve', [AdminReportController::class, 'resolve']);
+    Route::get('/admin/accounts', [AdminAccountController::class, 'index']);
+    Route::get('/admin/accounts/{account:public_id}', [AdminAccountController::class, 'show']);
+    Route::post('/admin/accounts/{account:public_id}/suspend', [AdminAccountController::class, 'suspend']);
+    Route::post('/admin/accounts/{account:public_id}/restore', [AdminAccountController::class, 'restore']);
     Route::get('/therapists/{therapistProfile:public_id}/reviews', [ReviewController::class, 'therapistReviews']);
     Route::get('/me/reviews', [ReviewController::class, 'me']);
 
