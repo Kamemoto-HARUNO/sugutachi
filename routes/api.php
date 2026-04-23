@@ -5,7 +5,9 @@ use App\Http\Controllers\Api\AdminAccountController;
 use App\Http\Controllers\Api\AdminAuditLogController;
 use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\Api\AdminIdentityVerificationController;
+use App\Http\Controllers\Api\AdminLegalDocumentController;
 use App\Http\Controllers\Api\AdminPayoutRequestController;
+use App\Http\Controllers\Api\AdminPlatformFeeSettingController;
 use App\Http\Controllers\Api\AdminProfilePhotoController;
 use App\Http\Controllers\Api\AdminRefundRequestController;
 use App\Http\Controllers\Api\AdminReportController;
@@ -79,6 +81,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/admin/accounts/{account:public_id}/suspend', [AdminAccountController::class, 'suspend']);
     Route::post('/admin/accounts/{account:public_id}/restore', [AdminAccountController::class, 'restore']);
     Route::get('/admin/audit-logs', [AdminAuditLogController::class, 'index']);
+    Route::get('/admin/platform-fee-settings', [AdminPlatformFeeSettingController::class, 'index']);
+    Route::post('/admin/platform-fee-settings', [AdminPlatformFeeSettingController::class, 'store']);
+    Route::get('/admin/legal-documents', [AdminLegalDocumentController::class, 'index']);
+    Route::post('/admin/legal-documents', [AdminLegalDocumentController::class, 'store']);
+    Route::patch('/admin/legal-documents/{legalDocument}', [AdminLegalDocumentController::class, 'update']);
     Route::get('/therapists/{therapistProfile:public_id}/reviews', [ReviewController::class, 'therapistReviews']);
     Route::get('/me/reviews', [ReviewController::class, 'me']);
 
