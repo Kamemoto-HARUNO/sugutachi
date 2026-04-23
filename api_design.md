@@ -485,6 +485,8 @@ payment_authorizing
 | POST | `/push-subscriptions` | Auth | Web Push購読登録 |
 | DELETE | `/push-subscriptions/{id}` | Auth | Web Push購読解除 |
 
+Push購読情報はエンドポイントをハッシュ化して重複管理し、エンドポイント・鍵情報は暗号化して保存する。MVPではアプリ内通知の保存・既読管理とPush購読管理までを実装し、実配信は後続のキュー処理で接続する。
+
 ## 10. レビュー・通報・返金API
 
 ### 10.1 レビュー

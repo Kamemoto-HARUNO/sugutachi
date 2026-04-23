@@ -7,8 +7,10 @@ use App\Http\Controllers\Api\BookingMessageController;
 use App\Http\Controllers\Api\BookingQuoteController;
 use App\Http\Controllers\Api\BookingStatusController;
 use App\Http\Controllers\Api\IdentityVerificationController;
+use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PaymentIntentController;
 use App\Http\Controllers\Api\PaymentSyncController;
+use App\Http\Controllers\Api\PushSubscriptionController;
 use App\Http\Controllers\Api\RefundRequestController;
 use App\Http\Controllers\Api\ServiceAddressController;
 use App\Http\Controllers\Api\StripeWebhookController;
@@ -27,6 +29,11 @@ Route::prefix('auth')->group(function (): void {
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
+
+    Route::get('/notifications', [NotificationController::class, 'index']);
+    Route::post('/notifications/{notification}/read', [NotificationController::class, 'read']);
+    Route::post('/push-subscriptions', [PushSubscriptionController::class, 'store']);
+    Route::delete('/push-subscriptions/{pushSubscription}', [PushSubscriptionController::class, 'destroy']);
 
     Route::post('/temp-files', [TempFileController::class, 'store']);
     Route::delete('/temp-files/{tempFile:file_id}', [TempFileController::class, 'destroy']);
