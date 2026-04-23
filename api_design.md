@@ -474,7 +474,7 @@ payment_authorizing
 | POST | `/bookings/{public_id}/messages` | User/Therapist | メッセージ送信 |
 | POST | `/bookings/{public_id}/messages/{message_id}/read` | User/Therapist | 既読化 |
 
-メッセージ送信時は、電話番号、SNS ID、メールアドレス、外部決済情報らしき文字列を検知し、必要に応じて `422` または `202 flagged` として扱う。
+メッセージ送信時は、電話番号、SNS ID、メールアドレス、外部決済情報らしき文字列を検知する。MVPでは検知時に `422` を返し、送信・保存しない。
 
 ### 9.2 通知
 

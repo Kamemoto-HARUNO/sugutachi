@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingCancellationController;
 use App\Http\Controllers\Api\BookingController;
+use App\Http\Controllers\Api\BookingMessageController;
 use App\Http\Controllers\Api\BookingQuoteController;
 use App\Http\Controllers\Api\BookingStatusController;
 use App\Http\Controllers\Api\IdentityVerificationController;
@@ -55,6 +56,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/bookings/{booking:public_id}/cancel', [BookingCancellationController::class, 'store']);
     Route::get('/bookings/{booking:public_id}/refund-requests', [RefundRequestController::class, 'index']);
     Route::post('/bookings/{booking:public_id}/refund-requests', [RefundRequestController::class, 'store']);
+    Route::get('/bookings/{booking:public_id}/messages', [BookingMessageController::class, 'index']);
+    Route::post('/bookings/{booking:public_id}/messages', [BookingMessageController::class, 'store']);
+    Route::post('/bookings/{booking:public_id}/messages/{message}/read', [BookingMessageController::class, 'read']);
     Route::get('/refund-requests/{refund:public_id}', [RefundRequestController::class, 'show']);
     Route::post('/bookings/{booking:public_id}/accept', [BookingStatusController::class, 'accept']);
     Route::post('/bookings/{booking:public_id}/reject', [BookingStatusController::class, 'reject']);
