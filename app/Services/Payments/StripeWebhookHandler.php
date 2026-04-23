@@ -4,8 +4,11 @@ namespace App\Services\Payments;
 
 use App\Models\Booking;
 use App\Models\PaymentIntent;
+use App\Models\Refund;
 use App\Models\StripeConnectedAccount;
+use App\Models\StripeDispute;
 use App\Models\StripeWebhookEvent;
+use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use RuntimeException;
@@ -15,6 +18,12 @@ use Throwable;
 class StripeWebhookHandler
 {
     public const EVENT_ACCOUNT_UPDATED = 'account.updated';
+
+    public const EVENT_CHARGE_REFUNDED = 'charge.refunded';
+
+    public const EVENT_CHARGE_DISPUTE_CREATED = 'charge.dispute.created';
+
+    public const EVENT_CHARGE_DISPUTE_CLOSED = 'charge.dispute.closed';
 
     public const EVENT_PAYMENT_INTENT_AUTHORIZED = 'payment_intent.amount_capturable_updated';
 
@@ -53,6 +62,14 @@ class StripeWebhookHandler
                 $processedStatus = match ($event->type) {
                     self::EVENT_ACCOUNT_UPDATED => $this->processAccountUpdatedEvent(
                         payload: $payload,
+                    ),
+                    self::EVENT_CHARGE_REFUNDED => $this->processChargeRefundedEvent(
+                        payload: $payload,
+                    ),
+                    self::EVENT_CHARGE_DISPUTE_CREATED,
+                    self::EVENT_CHARGE_DISPUTE_CLOSED => $this->processDisputeEvent(
+                        payload: $payload,
+                        eventId: (string) $event->id,
                     ),
                     self::EVENT_PAYMENT_INTENT_AUTHORIZED,
                     self::EVENT_PAYMENT_INTENT_SUCCEEDED,
@@ -188,6 +205,93 @@ class StripeWebhookHandler
         return StripeWebhookEvent::STATUS_PROCESSED;
     }
 
+    private function processChargeRefundedEvent(array $payload): string
+    {
+        $charge = $payload['data']['object'] ?? null;
+
+        if (! is_array($charge) || blank($charge['payment_intent'] ?? null)) {
+            throw new RuntimeException('Stripe webhook payload is missing a Charge payment_intent.');
+        }
+
+        $paymentIntent = $this->paymentIntentForStripeId((string) $charge['payment_intent']);
+        $stripeRefunds = $charge['refunds']['data'] ?? [];
+
+        if (! is_array($stripeRefunds) || $stripeRefunds === []) {
+            throw new RuntimeException('Stripe charge.refunded payload is missing refund data.');
+        }
+
+        foreach ($stripeRefunds as $stripeRefund) {
+            if (! is_array($stripeRefund) || blank($stripeRefund['id'] ?? null)) {
+                continue;
+            }
+
+            $status = match ((string) ($stripeRefund['status'] ?? '')) {
+                'succeeded' => Refund::STATUS_PROCESSED,
+                'failed', 'canceled' => Refund::STATUS_REJECTED,
+                default => Refund::STATUS_APPROVED,
+            };
+            $amount = (int) ($stripeRefund['amount'] ?? $charge['amount_refunded'] ?? 0);
+            $refund = Refund::query()
+                ->where('stripe_refund_id', (string) $stripeRefund['id'])
+                ->first() ?? new Refund([
+                    'public_id' => 'ref_'.Str::ulid(),
+                    'booking_id' => $paymentIntent->booking_id,
+                    'payment_intent_id' => $paymentIntent->id,
+                    'requested_by_account_id' => $paymentIntent->payer_account_id,
+                    'reason_code' => (string) ($stripeRefund['reason'] ?? 'stripe_refund'),
+                    'requested_amount' => $amount,
+                ]);
+
+            $refund->forceFill([
+                'booking_id' => $paymentIntent->booking_id,
+                'payment_intent_id' => $paymentIntent->id,
+                'status' => $status,
+                'approved_amount' => $amount,
+                'stripe_refund_id' => (string) $stripeRefund['id'],
+                'processed_at' => $status === Refund::STATUS_PROCESSED
+                    ? ($refund->processed_at ?? now())
+                    : null,
+            ])->save();
+        }
+
+        return StripeWebhookEvent::STATUS_PROCESSED;
+    }
+
+    private function processDisputeEvent(array $payload, string $eventId): string
+    {
+        $stripeDispute = $payload['data']['object'] ?? null;
+
+        if (! is_array($stripeDispute) || blank($stripeDispute['id'] ?? null)) {
+            throw new RuntimeException('Stripe webhook payload is missing a Dispute object.');
+        }
+
+        $paymentIntent = filled($stripeDispute['payment_intent'] ?? null)
+            ? $this->paymentIntentForStripeId((string) $stripeDispute['payment_intent'])
+            : null;
+
+        $evidenceDueBy = $stripeDispute['evidence_details']['due_by'] ?? null;
+        $outcome = $stripeDispute['outcome']['type'] ?? null;
+
+        StripeDispute::query()->updateOrCreate(
+            ['stripe_dispute_id' => (string) $stripeDispute['id']],
+            [
+                'booking_id' => $paymentIntent?->booking_id,
+                'payment_intent_id' => $paymentIntent?->id,
+                'status' => (string) ($stripeDispute['status'] ?? 'unknown'),
+                'reason' => $stripeDispute['reason'] ?? null,
+                'amount' => (int) ($stripeDispute['amount'] ?? 0),
+                'currency' => strtolower((string) ($stripeDispute['currency'] ?? 'jpy')),
+                'evidence_due_by' => is_numeric($evidenceDueBy)
+                    ? CarbonImmutable::createFromTimestamp((int) $evidenceDueBy)
+                    : null,
+                'outcome' => filled($outcome) ? (string) $outcome : null,
+                'last_stripe_event_id' => $eventId,
+            ],
+        );
+
+        return StripeWebhookEvent::STATUS_PROCESSED;
+    }
+
     private function assertPaymentIntentMatches(PaymentIntent $paymentIntent, array $stripePaymentIntent): void
     {
         if (isset($stripePaymentIntent['amount']) && (int) $stripePaymentIntent['amount'] !== $paymentIntent->amount) {
@@ -199,6 +303,20 @@ class StripeWebhookHandler
         if ($stripeCurrency && strtolower((string) $stripeCurrency) !== strtolower($paymentIntent->currency)) {
             throw new RuntimeException("PaymentIntent [{$paymentIntent->stripe_payment_intent_id}] currency mismatch.");
         }
+    }
+
+    private function paymentIntentForStripeId(string $stripePaymentIntentId): PaymentIntent
+    {
+        $paymentIntent = PaymentIntent::query()
+            ->where('stripe_payment_intent_id', $stripePaymentIntentId)
+            ->lockForUpdate()
+            ->first();
+
+        if (! $paymentIntent) {
+            throw new RuntimeException("PaymentIntent [{$stripePaymentIntentId}] was not found.");
+        }
+
+        return $paymentIntent;
     }
 
     private function fallbackPaymentIntentStatus(string $eventType): string

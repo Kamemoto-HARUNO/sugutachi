@@ -5,8 +5,10 @@ namespace Tests\Feature;
 use App\Models\Account;
 use App\Models\Booking;
 use App\Models\PaymentIntent;
+use App\Models\Refund;
 use App\Models\ServiceAddress;
 use App\Models\StripeConnectedAccount;
+use App\Models\StripeDispute;
 use App\Models\StripeWebhookEvent;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
@@ -182,6 +184,87 @@ class StripeWebhookTest extends TestCase
         ]);
     }
 
+    public function test_charge_refunded_webhook_records_processed_refund(): void
+    {
+        config()->set('services.stripe.webhook_secret', 'whsec_test');
+
+        [, $paymentIntent] = $this->createPaymentIntentFixture(Booking::STATUS_COMPLETED);
+        $paymentIntent->update([
+            'status' => PaymentIntent::STRIPE_STATUS_SUCCEEDED,
+            'captured_at' => now(),
+        ]);
+
+        $payload = $this->chargeRefundedPayload(
+            eventId: 'evt_charge_refunded',
+            stripePaymentIntentId: $paymentIntent->stripe_payment_intent_id,
+            stripeRefundId: 're_webhook',
+            amount: 5000,
+        );
+
+        $this->sendStripeWebhook($payload)
+            ->assertOk()
+            ->assertJsonPath('status', StripeWebhookEvent::STATUS_PROCESSED);
+
+        $this->assertDatabaseHas('refunds', [
+            'booking_id' => $paymentIntent->booking_id,
+            'payment_intent_id' => $paymentIntent->id,
+            'requested_by_account_id' => $paymentIntent->payer_account_id,
+            'status' => Refund::STATUS_PROCESSED,
+            'stripe_refund_id' => 're_webhook',
+            'approved_amount' => 5000,
+        ]);
+    }
+
+    public function test_dispute_webhooks_create_and_close_stripe_dispute(): void
+    {
+        config()->set('services.stripe.webhook_secret', 'whsec_test');
+
+        [, $paymentIntent] = $this->createPaymentIntentFixture(Booking::STATUS_COMPLETED);
+        $evidenceDueBy = now()->addDays(7)->timestamp;
+
+        $this->sendStripeWebhook($this->disputePayload(
+            eventId: 'evt_dispute_created',
+            type: 'charge.dispute.created',
+            stripeDisputeId: 'dp_webhook',
+            stripePaymentIntentId: $paymentIntent->stripe_payment_intent_id,
+            status: StripeDispute::STATUS_NEEDS_RESPONSE,
+            outcome: null,
+            evidenceDueBy: $evidenceDueBy,
+        ))
+            ->assertOk()
+            ->assertJsonPath('status', StripeWebhookEvent::STATUS_PROCESSED);
+
+        $this->assertDatabaseHas('stripe_disputes', [
+            'booking_id' => $paymentIntent->booking_id,
+            'payment_intent_id' => $paymentIntent->id,
+            'stripe_dispute_id' => 'dp_webhook',
+            'status' => StripeDispute::STATUS_NEEDS_RESPONSE,
+            'reason' => 'fraudulent',
+            'amount' => 12300,
+            'currency' => 'jpy',
+            'last_stripe_event_id' => 'evt_dispute_created',
+        ]);
+
+        $this->sendStripeWebhook($this->disputePayload(
+            eventId: 'evt_dispute_closed',
+            type: 'charge.dispute.closed',
+            stripeDisputeId: 'dp_webhook',
+            stripePaymentIntentId: $paymentIntent->stripe_payment_intent_id,
+            status: StripeDispute::STATUS_WON,
+            outcome: 'won',
+            evidenceDueBy: $evidenceDueBy,
+        ))
+            ->assertOk()
+            ->assertJsonPath('status', StripeWebhookEvent::STATUS_PROCESSED);
+
+        $this->assertDatabaseHas('stripe_disputes', [
+            'stripe_dispute_id' => 'dp_webhook',
+            'status' => StripeDispute::STATUS_WON,
+            'outcome' => 'won',
+            'last_stripe_event_id' => 'evt_dispute_closed',
+        ]);
+    }
+
     private function createPaymentIntentFixture(string $bookingStatus = Booking::STATUS_PAYMENT_AUTHORIZING): array
     {
         $user = Account::factory()->create(['public_id' => 'acc_user_webhook']);
@@ -291,6 +374,72 @@ class StripeWebhookTest extends TestCase
                         'past_due' => $pastDue,
                         'disabled_reason' => $disabledReason,
                     ],
+                ],
+            ],
+        ], JSON_THROW_ON_ERROR);
+    }
+
+    private function chargeRefundedPayload(
+        string $eventId,
+        string $stripePaymentIntentId,
+        string $stripeRefundId,
+        int $amount,
+    ): string {
+        return json_encode([
+            'id' => $eventId,
+            'object' => 'event',
+            'type' => 'charge.refunded',
+            'data' => [
+                'object' => [
+                    'id' => 'ch_webhook',
+                    'object' => 'charge',
+                    'payment_intent' => $stripePaymentIntentId,
+                    'amount_refunded' => $amount,
+                    'refunds' => [
+                        'object' => 'list',
+                        'data' => [
+                            [
+                                'id' => $stripeRefundId,
+                                'object' => 'refund',
+                                'amount' => $amount,
+                                'status' => 'succeeded',
+                                'reason' => 'requested_by_customer',
+                            ],
+                        ],
+                    ],
+                ],
+            ],
+        ], JSON_THROW_ON_ERROR);
+    }
+
+    private function disputePayload(
+        string $eventId,
+        string $type,
+        string $stripeDisputeId,
+        string $stripePaymentIntentId,
+        string $status,
+        ?string $outcome,
+        int $evidenceDueBy,
+    ): string {
+        return json_encode([
+            'id' => $eventId,
+            'object' => 'event',
+            'type' => $type,
+            'data' => [
+                'object' => [
+                    'id' => $stripeDisputeId,
+                    'object' => 'dispute',
+                    'payment_intent' => $stripePaymentIntentId,
+                    'status' => $status,
+                    'reason' => 'fraudulent',
+                    'amount' => 12300,
+                    'currency' => 'jpy',
+                    'evidence_details' => [
+                        'due_by' => $evidenceDueBy,
+                    ],
+                    'outcome' => $outcome ? [
+                        'type' => $outcome,
+                    ] : null,
                 ],
             ],
         ], JSON_THROW_ON_ERROR);

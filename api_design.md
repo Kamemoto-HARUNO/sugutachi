@@ -631,9 +631,9 @@ payment_authorizing
 * `payment_intent.amount_capturable_updated`: 与信成功、予約を `payment_authorizing` から `requested` へ進める。
 * `payment_intent.succeeded`: 決済確定。
 * `payment_intent.canceled`: 与信取消。承諾前の予約は `payment_canceled` へ進める。
-* `charge.refunded`: 返金反映。
-* `charge.dispute.created`: チャージバック作成、売上保留。
-* `charge.dispute.closed`: チャージバック結果反映。
+* `charge.refunded`: Stripe上で処理された返金を `refunds` に反映する。
+* `charge.dispute.created`: チャージバックを `stripe_disputes` に作成し、運営確認・売上保留対象にする。
+* `charge.dispute.closed`: チャージバック結果を `stripe_disputes` に反映する。
 * `payout.paid`: 出金成功。
 * `payout.failed`: 出金失敗。
 
