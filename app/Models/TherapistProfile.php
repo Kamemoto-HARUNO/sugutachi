@@ -14,6 +14,16 @@ class TherapistProfile extends Model
 {
     use UsesPublicIdRouteKey;
 
+    public const STATUS_APPROVED = 'approved';
+
+    public const STATUS_DRAFT = 'draft';
+
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_REJECTED = 'rejected';
+
+    public const STATUS_SUSPENDED = 'suspended';
+
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);
