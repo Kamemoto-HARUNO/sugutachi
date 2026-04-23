@@ -45,6 +45,7 @@ MVPでは、以下を重視する。
 accounts
   ├─ account_roles
   ├─ identity_verifications
+  ├─ temp_files
   ├─ user_profiles
   ├─ therapist_profiles
   │    ├─ therapist_menus
@@ -212,6 +213,7 @@ accounts
 | --- | --- | --- | --- |
 | id | bigint unsigned | No | 主キー |
 | account_id | bigint unsigned | No | accounts.id |
+| public_id | varchar(36) | No | 外部公開ID |
 | public_name | varchar(80) | No | 表示名 |
 | bio | text | Yes | 自己紹介 |
 | profile_status | varchar(50) | No | draft, pending_review, approved, rejected, suspended |
@@ -229,6 +231,7 @@ accounts
 
 インデックス:
 * unique: `account_id`
+* unique: `public_id`
 * index: `profile_status, is_online`
 * index: `training_status`
 * index: `rating_average`
@@ -255,6 +258,29 @@ accounts
 * index: `account_id, usage_type`
 * index: `therapist_profile_id, status, sort_order`
 * index: `status, created_at`
+
+### 5.5 temp_files
+本人確認書類、セルフィー、プロフィール写真などの提出前アップロードを一時的に保持する。
+
+| カラム | 型 | Null | 説明 |
+| --- | --- | --- | --- |
+| id | bigint unsigned | No | 主キー |
+| file_id | varchar(64) | No | APIで参照する一時ファイルID |
+| account_id | bigint unsigned | No | accounts.id |
+| purpose | varchar(50) | No | identity_document, selfie, profile_photo等 |
+| storage_key_encrypted | text | No | 一時保存先 |
+| original_name | varchar(255) | Yes | 元ファイル名 |
+| mime_type | varchar(100) | Yes | MIMEタイプ |
+| size_bytes | bigint unsigned | Yes | ファイルサイズ |
+| status | varchar(50) | No | uploaded, used, deleted, expired |
+| expires_at | timestamp | No | 有効期限 |
+| used_at | timestamp | Yes | 提出APIで使用された日時 |
+| created_at / updated_at | timestamp | Yes | Laravel標準 |
+
+インデックス:
+* unique: `file_id`
+* index: `account_id, purpose, status`
+* index: `expires_at, status`
 
 ## 6. 提供メニュー・料金
 
@@ -1014,6 +1040,7 @@ Webhookの冪等性・再処理用ログ。
 16. `payout_requests`, `therapist_ledger_entries`
 17. `reviews`, `reports`, `report_actions`, `account_blocks`
 18. `admin_audit_logs`, `admin_notes`
+19. `temp_files`
 
 補足:
 * `bookings.current_quote_id` は `booking_quotes` 作成後に外部キーを追加するか、MVPでは外部キー制約なしで運用する。
