@@ -1,0 +1,127 @@
+<?php
+
+namespace App\Http\Controllers\Api;
+
+use App\Http\Controllers\Controller;
+use App\Http\Resources\AccountResource;
+use App\Models\Account;
+use App\Models\LegalDocument;
+use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
+
+class AuthController extends Controller
+{
+    public function register(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email:rfc', 'max:255', 'unique:accounts,email'],
+            'phone_e164' => ['nullable', 'string', 'max:32', 'regex:/^\+[1-9]\d{7,14}$/', 'unique:accounts,phone_e164'],
+            'password' => ['required', 'string', 'min:10', 'confirmed'],
+            'display_name' => ['nullable', 'string', 'max:80'],
+            'initial_role' => ['nullable', Rule::in(['user', 'therapist'])],
+            'accepted_terms_version' => ['required', 'string', 'max:50'],
+            'accepted_privacy_version' => ['required', 'string', 'max:50'],
+            'is_over_18' => ['accepted'],
+            'relaxation_purpose_agreed' => ['accepted'],
+        ]);
+
+        $role = $validated['initial_role'] ?? 'user';
+
+        $account = DB::transaction(function () use ($request, $validated, $role): Account {
+            $account = Account::create([
+                'public_id' => 'acc_'.Str::ulid(),
+                'email' => Str::lower($validated['email']),
+                'phone_e164' => $validated['phone_e164'] ?? null,
+                'password' => $validated['password'],
+                'display_name' => $validated['display_name'] ?? null,
+                'status' => 'active',
+                'last_active_role' => $role,
+                'registered_ip_hash' => $request->ip() ? hash('sha256', $request->ip()) : null,
+            ]);
+
+            $account->roleAssignments()->create([
+                'role' => $role,
+                'status' => 'active',
+                'granted_at' => now(),
+            ]);
+
+            LegalDocument::query()
+                ->where(function ($query) use ($validated): void {
+                    $query
+                        ->where(fn ($query) => $query
+                            ->where('document_type', 'terms')
+                            ->where('version', $validated['accepted_terms_version']))
+                        ->orWhere(fn ($query) => $query
+                            ->where('document_type', 'privacy')
+                            ->where('version', $validated['accepted_privacy_version']));
+                })
+                ->get()
+                ->each(fn (LegalDocument $document) => $account->legalAcceptances()->create([
+                    'legal_document_id' => $document->id,
+                    'accepted_at' => now(),
+                    'ip_hash' => $request->ip() ? hash('sha256', $request->ip()) : null,
+                    'user_agent_hash' => $request->userAgent() ? hash('sha256', $request->userAgent()) : null,
+                ]));
+
+            return $account;
+        });
+
+        return $this->tokenResponse($account, 201);
+    }
+
+    public function login(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'email' => ['required', 'email'],
+            'password' => ['required', 'string'],
+        ]);
+
+        $account = Account::query()
+            ->where('email', Str::lower($validated['email']))
+            ->first();
+
+        if (! $account || ! Hash::check($validated['password'], $account->password)) {
+            throw ValidationException::withMessages([
+                'email' => __('auth.failed'),
+            ]);
+        }
+
+        if ($account->status !== 'active') {
+            abort(403, 'This account is not active.');
+        }
+
+        $account->forceFill(['last_login_at' => now()])->save();
+
+        return $this->tokenResponse($account);
+    }
+
+    public function me(Request $request): AccountResource
+    {
+        return new AccountResource(
+            $request->user()->load(['roleAssignments', 'latestIdentityVerification'])
+        );
+    }
+
+    public function logout(Request $request): JsonResponse
+    {
+        $request->user()->tokens()->delete();
+
+        return response()->json(null, 204);
+    }
+
+    private function tokenResponse(Account $account, int $status = 200): JsonResponse
+    {
+        $token = $account->createToken('api')->plainTextToken;
+
+        return response()->json([
+            'token_type' => 'Bearer',
+            'access_token' => $token,
+            'account' => new AccountResource($account->load(['roleAssignments', 'latestIdentityVerification'])),
+        ], $status);
+    }
+}

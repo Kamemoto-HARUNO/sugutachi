@@ -111,13 +111,19 @@
 
 ```json
 {
-  "data": {
-    "account": {
-      "public_id": "acc_xxx",
-      "display_name": "表示名",
-      "roles": ["user"],
-      "status": "active"
-    }
+  "token_type": "Bearer",
+  "access_token": "plain_text_token",
+  "account": {
+    "public_id": "acc_xxx",
+    "email": "user@example.com",
+    "display_name": "表示名",
+    "roles": [
+      {
+        "role": "user",
+        "status": "active"
+      }
+    ],
+    "status": "active"
   }
 }
 ```

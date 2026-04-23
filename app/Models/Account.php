@@ -12,13 +12,14 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['public_id', 'email', 'phone_e164', 'password', 'display_name', 'status', 'last_active_role'])]
+#[Fillable(['public_id', 'email', 'phone_e164', 'password', 'display_name', 'status', 'last_active_role', 'registered_ip_hash'])]
 #[Hidden(['password', 'remember_token'])]
 class Account extends Authenticatable
 {
     /** @use HasFactory<AccountFactory> */
-    use HasFactory, Notifiable;
+    use HasApiTokens, HasFactory, Notifiable;
 
     use SoftDeletes;
     use UsesPublicIdRouteKey;
