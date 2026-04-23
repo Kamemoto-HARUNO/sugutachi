@@ -29,6 +29,7 @@ class BookingQuoteController extends Controller
         $therapistProfile = TherapistProfile::query()
             ->with('location')
             ->where('public_id', $validated['therapist_profile_id'])
+            ->where('profile_status', TherapistProfile::STATUS_APPROVED)
             ->firstOrFail();
 
         $menu = TherapistMenu::query()

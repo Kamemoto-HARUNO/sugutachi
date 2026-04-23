@@ -102,6 +102,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::get('/me/therapist-profile', [TherapistProfileController::class, 'show']);
     Route::put('/me/therapist-profile', [TherapistProfileController::class, 'upsert']);
+    Route::post('/me/therapist-profile/submit-review', [TherapistProfileController::class, 'submitReview']);
+    Route::get('/me/therapist-profile/review-status', [TherapistProfileController::class, 'reviewStatus']);
     Route::put('/me/therapist/location', [TherapistProfileController::class, 'updateLocation']);
     Route::get('/me/therapist/menus', [TherapistMenuController::class, 'index']);
     Route::post('/me/therapist/menus', [TherapistMenuController::class, 'store']);

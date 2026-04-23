@@ -7,7 +7,9 @@ use App\Contracts\Payments\PaymentIntentGateway;
 use App\Models\Account;
 use App\Models\Booking;
 use App\Models\BookingQuote;
+use App\Models\IdentityVerification;
 use App\Models\StripeConnectedAccount;
+use App\Models\TherapistProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -44,18 +46,16 @@ class BookingPaymentFlowTest extends TestCase
                 'training_status' => 'completed',
             ])
             ->assertOk()
-            ->assertJsonPath('data.profile_status', 'approved')
+            ->assertJsonPath('data.profile_status', 'draft')
             ->json('data.public_id');
 
-        $this->withToken($therapistToken)
-            ->putJson('/api/me/therapist/location', [
-                'lat' => 35.681236,
-                'lng' => 139.767125,
-                'accuracy_m' => 30,
-                'source' => 'test',
-            ])
-            ->assertOk()
-            ->assertJsonPath('data.is_online', true);
+        IdentityVerification::create([
+            'account_id' => $therapist->id,
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'is_age_verified' => true,
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now(),
+        ]);
 
         $therapistMenuId = $this->withToken($therapistToken)
             ->postJson('/api/me/therapist/menus', [
@@ -66,6 +66,30 @@ class BookingPaymentFlowTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.base_price_amount', 12000)
             ->json('data.public_id');
+
+        $this->withToken($therapistToken)
+            ->postJson('/api/me/therapist-profile/submit-review')
+            ->assertOk()
+            ->assertJsonPath('data.profile_status', 'pending');
+
+        TherapistProfile::query()
+            ->where('public_id', $therapistProfileId)
+            ->firstOrFail()
+            ->forceFill([
+                'profile_status' => TherapistProfile::STATUS_APPROVED,
+                'approved_at' => now(),
+            ])
+            ->save();
+
+        $this->withToken($therapistToken)
+            ->putJson('/api/me/therapist/location', [
+                'lat' => 35.681236,
+                'lng' => 139.767125,
+                'accuracy_m' => 30,
+                'source' => 'test',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.is_online', true);
 
         $serviceAddressId = $this->withToken($userToken)
             ->postJson('/api/me/service-addresses', [
