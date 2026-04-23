@@ -1,0 +1,177 @@
+<?php
+
+namespace Tests\Feature;
+
+use App\Models\Account;
+use App\Models\Booking;
+use App\Models\IdentityVerification;
+use App\Models\PayoutRequest;
+use App\Models\ProfilePhoto;
+use App\Models\Refund;
+use App\Models\Report;
+use App\Models\ServiceAddress;
+use App\Models\StripeConnectedAccount;
+use App\Models\TherapistMenu;
+use App\Models\TherapistProfile;
+use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
+use Tests\TestCase;
+
+class AdminDashboardTest extends TestCase
+{
+    use RefreshDatabase;
+
+    public function test_admin_can_view_dashboard_summary(): void
+    {
+        $admin = Account::factory()->create(['public_id' => 'acc_admin_dashboard']);
+        $admin->roleAssignments()->create([
+            'role' => 'admin',
+            'status' => 'active',
+            'granted_at' => now(),
+        ]);
+
+        $suspendedUser = Account::factory()->create([
+            'public_id' => 'acc_dashboard_suspended',
+            'status' => Account::STATUS_SUSPENDED,
+            'suspended_at' => now(),
+        ]);
+        $therapist = Account::factory()->create(['public_id' => 'acc_dashboard_therapist']);
+
+        $therapistProfile = TherapistProfile::create([
+            'account_id' => $therapist->id,
+            'public_id' => 'thp_dashboard',
+            'public_name' => 'Dashboard Therapist',
+            'profile_status' => TherapistProfile::STATUS_PENDING,
+            'photo_review_status' => ProfilePhoto::STATUS_PENDING,
+        ]);
+        $connectedAccount = StripeConnectedAccount::create([
+            'account_id' => $therapist->id,
+            'therapist_profile_id' => $therapistProfile->id,
+            'stripe_account_id' => 'acct_dashboard',
+            'account_type' => 'express',
+            'status' => 'pending',
+        ]);
+        $therapistMenu = TherapistMenu::create([
+            'public_id' => 'menu_dashboard_60',
+            'therapist_profile_id' => $therapistProfile->id,
+            'name' => 'Body care 60',
+            'duration_minutes' => 60,
+            'base_price_amount' => 12000,
+        ]);
+        $serviceAddress = ServiceAddress::create([
+            'public_id' => 'addr_dashboard',
+            'account_id' => $suspendedUser->id,
+            'place_type' => 'hotel',
+            'address_line_encrypted' => Crypt::encryptString('dashboard address'),
+            'lat' => '35.6812360',
+            'lng' => '139.7671250',
+        ]);
+
+        IdentityVerification::create([
+            'account_id' => $suspendedUser->id,
+            'status' => IdentityVerification::STATUS_PENDING,
+            'self_declared_male' => true,
+        ]);
+        ProfilePhoto::create([
+            'account_id' => $therapist->id,
+            'therapist_profile_id' => $therapistProfile->id,
+            'usage_type' => 'therapist_profile',
+            'storage_key_encrypted' => Crypt::encryptString('photos/dashboard.jpg'),
+            'status' => ProfilePhoto::STATUS_PENDING,
+        ]);
+        $requestedBooking = Booking::create([
+            'public_id' => 'book_dashboard_requested',
+            'user_account_id' => $suspendedUser->id,
+            'therapist_account_id' => $therapist->id,
+            'therapist_profile_id' => $therapistProfile->id,
+            'therapist_menu_id' => $therapistMenu->id,
+            'service_address_id' => $serviceAddress->id,
+            'status' => Booking::STATUS_REQUESTED,
+            'duration_minutes' => 60,
+            'total_amount' => 12300,
+            'therapist_net_amount' => 10800,
+            'platform_fee_amount' => 1200,
+            'matching_fee_amount' => 300,
+        ]);
+        $inProgressBooking = Booking::create([
+            'public_id' => 'book_dashboard_progress',
+            'user_account_id' => $suspendedUser->id,
+            'therapist_account_id' => $therapist->id,
+            'therapist_profile_id' => $therapistProfile->id,
+            'therapist_menu_id' => $therapistMenu->id,
+            'service_address_id' => $serviceAddress->id,
+            'status' => Booking::STATUS_IN_PROGRESS,
+            'duration_minutes' => 60,
+            'total_amount' => 12300,
+            'therapist_net_amount' => 10800,
+            'platform_fee_amount' => 1200,
+            'matching_fee_amount' => 300,
+        ]);
+        $completedBooking = Booking::create([
+            'public_id' => 'book_dashboard_completed',
+            'user_account_id' => $suspendedUser->id,
+            'therapist_account_id' => $therapist->id,
+            'therapist_profile_id' => $therapistProfile->id,
+            'therapist_menu_id' => $therapistMenu->id,
+            'service_address_id' => $serviceAddress->id,
+            'status' => Booking::STATUS_COMPLETED,
+            'duration_minutes' => 60,
+            'total_amount' => 12300,
+            'therapist_net_amount' => 10800,
+            'platform_fee_amount' => 1200,
+            'matching_fee_amount' => 300,
+            'updated_at' => now(),
+        ]);
+        Report::create([
+            'public_id' => 'rep_dashboard',
+            'booking_id' => $requestedBooking->id,
+            'reporter_account_id' => $suspendedUser->id,
+            'target_account_id' => $therapist->id,
+            'category' => 'boundary_violation',
+            'severity' => Report::SEVERITY_HIGH,
+            'status' => Report::STATUS_OPEN,
+        ]);
+        Refund::create([
+            'public_id' => 'ref_dashboard',
+            'booking_id' => $completedBooking->id,
+            'requested_by_account_id' => $suspendedUser->id,
+            'status' => Refund::STATUS_REQUESTED,
+            'reason_code' => 'service_issue',
+            'requested_amount' => 5000,
+        ]);
+        PayoutRequest::create([
+            'public_id' => 'pay_dashboard',
+            'therapist_account_id' => $therapist->id,
+            'stripe_connected_account_id' => $connectedAccount->id,
+            'status' => PayoutRequest::STATUS_REQUESTED,
+            'requested_amount' => 10800,
+            'net_amount' => 10800,
+            'requested_at' => now(),
+            'scheduled_process_date' => today(),
+        ]);
+
+        $this->withToken($admin->createToken('api')->plainTextToken)
+            ->getJson('/api/admin/dashboard')
+            ->assertOk()
+            ->assertJsonPath('data.accounts.total', 3)
+            ->assertJsonPath('data.accounts.suspended', 1)
+            ->assertJsonPath('data.reviews.pending_identity_verifications', 1)
+            ->assertJsonPath('data.reviews.pending_therapist_profiles', 1)
+            ->assertJsonPath('data.reviews.pending_profile_photos', 1)
+            ->assertJsonPath('data.operations.open_reports', 1)
+            ->assertJsonPath('data.operations.requested_refunds', 1)
+            ->assertJsonPath('data.operations.requested_payouts', 1)
+            ->assertJsonPath('data.bookings.requested', 1)
+            ->assertJsonPath('data.bookings.in_progress', 1)
+            ->assertJsonPath('data.bookings.completed_today', 1);
+    }
+
+    public function test_non_admin_cannot_view_dashboard_summary(): void
+    {
+        $user = Account::factory()->create();
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->getJson('/api/admin/dashboard')
+            ->assertForbidden();
+    }
+}
