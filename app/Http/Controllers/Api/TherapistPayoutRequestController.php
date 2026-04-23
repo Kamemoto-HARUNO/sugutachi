@@ -29,6 +29,16 @@ class TherapistPayoutRequestController extends Controller
         );
     }
 
+    public function show(Request $request, PayoutRequest $payoutRequest): PayoutRequestResource
+    {
+        abort_unless($request->user()->therapistProfile()->exists(), 404);
+        abort_unless($payoutRequest->therapist_account_id === $request->user()->id, 404);
+
+        return new PayoutRequestResource(
+            $payoutRequest->load(['ledgerEntries.booking'])
+        );
+    }
+
     public function store(Request $request): JsonResponse
     {
         $account = $request->user();

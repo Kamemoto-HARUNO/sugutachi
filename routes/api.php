@@ -69,6 +69,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me/therapist/ledger', [TherapistLedgerController::class, 'index']);
     Route::get('/me/therapist/payout-requests', [TherapistPayoutRequestController::class, 'index']);
     Route::post('/me/therapist/payout-requests', [TherapistPayoutRequestController::class, 'store']);
+    Route::get('/me/therapist/payout-requests/{payoutRequest:public_id}', [TherapistPayoutRequestController::class, 'show']);
 
     Route::post('/booking-quotes', [BookingQuoteController::class, 'store']);
     Route::get('/me/therapist/booking-requests', [BookingController::class, 'therapistRequests']);

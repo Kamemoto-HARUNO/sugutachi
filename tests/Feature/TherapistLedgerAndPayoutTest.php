@@ -11,6 +11,7 @@ use App\Models\TherapistLedgerEntry;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Artisan;
 use Tests\TestCase;
 
 class TherapistLedgerAndPayoutTest extends TestCase
@@ -111,6 +112,60 @@ class TherapistLedgerAndPayoutTest extends TestCase
                 'requested_amount' => 1000,
             ])
             ->assertConflict();
+    }
+
+    public function test_therapist_can_view_own_payout_request_detail(): void
+    {
+        [, $therapist, $booking, $connectedAccount] = $this->createPayoutFixture();
+        $payoutRequest = PayoutRequest::create([
+            'public_id' => 'pay_detail',
+            'therapist_account_id' => $therapist->id,
+            'stripe_connected_account_id' => $connectedAccount->id,
+            'status' => PayoutRequest::STATUS_REQUESTED,
+            'requested_amount' => 10800,
+            'net_amount' => 10800,
+            'requested_at' => now(),
+            'scheduled_process_date' => now()->addDay(),
+        ]);
+        TherapistLedgerEntry::create([
+            'therapist_account_id' => $therapist->id,
+            'booking_id' => $booking->id,
+            'payout_request_id' => $payoutRequest->id,
+            'entry_type' => TherapistLedgerEntry::TYPE_BOOKING_SALE,
+            'amount_signed' => 10800,
+            'status' => TherapistLedgerEntry::STATUS_PAYOUT_REQUESTED,
+        ]);
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->getJson("/api/me/therapist/payout-requests/{$payoutRequest->public_id}")
+            ->assertOk()
+            ->assertJsonPath('data.public_id', 'pay_detail')
+            ->assertJsonPath('data.requested_amount', 10800)
+            ->assertJsonPath('data.ledger_entries.0.booking_public_id', $booking->public_id);
+    }
+
+    public function test_release_available_command_moves_matured_pending_entries(): void
+    {
+        [, $therapist] = $this->createPayoutFixture();
+        $matured = TherapistLedgerEntry::create([
+            'therapist_account_id' => $therapist->id,
+            'entry_type' => TherapistLedgerEntry::TYPE_BOOKING_SALE,
+            'amount_signed' => 10800,
+            'status' => TherapistLedgerEntry::STATUS_PENDING,
+            'available_at' => now()->subMinute(),
+        ]);
+        $future = TherapistLedgerEntry::create([
+            'therapist_account_id' => $therapist->id,
+            'entry_type' => TherapistLedgerEntry::TYPE_BOOKING_SALE,
+            'amount_signed' => 5000,
+            'status' => TherapistLedgerEntry::STATUS_PENDING,
+            'available_at' => now()->addDay(),
+        ]);
+
+        Artisan::call('ledger:release-available');
+
+        $this->assertSame(TherapistLedgerEntry::STATUS_AVAILABLE, $matured->refresh()->status);
+        $this->assertSame(TherapistLedgerEntry::STATUS_PENDING, $future->refresh()->status);
     }
 
     private function createPayoutFixture(

@@ -20,6 +20,7 @@ class PayoutRequestResource extends JsonResource
             'processed_at' => $this->processed_at,
             'stripe_payout_id' => $this->stripe_payout_id,
             'failure_reason' => $this->failure_reason,
+            'ledger_entries' => TherapistLedgerEntryResource::collection($this->whenLoaded('ledgerEntries')),
             'created_at' => $this->created_at,
         ];
     }
