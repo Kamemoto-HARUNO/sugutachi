@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\Booking;
 use App\Models\PaymentIntent;
 use App\Models\ServiceAddress;
+use App\Models\StripeConnectedAccount;
 use App\Models\StripeWebhookEvent;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
@@ -131,6 +132,56 @@ class StripeWebhookTest extends TestCase
         $this->assertDatabaseCount('stripe_webhook_events', 0);
     }
 
+    public function test_account_updated_webhook_syncs_connected_account_status(): void
+    {
+        config()->set('services.stripe.webhook_secret', 'whsec_test');
+
+        $therapist = Account::factory()->create(['public_id' => 'acc_connect_therapist']);
+        $therapistProfile = TherapistProfile::create([
+            'account_id' => $therapist->id,
+            'public_id' => 'thp_connect',
+            'public_name' => 'Connect Therapist',
+            'profile_status' => 'approved',
+        ]);
+        $connectedAccount = StripeConnectedAccount::create([
+            'account_id' => $therapist->id,
+            'therapist_profile_id' => $therapistProfile->id,
+            'stripe_account_id' => 'acct_webhook',
+            'account_type' => 'express',
+            'status' => StripeConnectedAccount::STATUS_PENDING,
+        ]);
+
+        $payload = $this->accountUpdatedPayload(
+            eventId: 'evt_account_updated',
+            stripeAccountId: $connectedAccount->stripe_account_id,
+            chargesEnabled: true,
+            payoutsEnabled: false,
+            detailsSubmitted: true,
+            currentlyDue: ['external_account'],
+        );
+
+        $this->sendStripeWebhook($payload)
+            ->assertOk()
+            ->assertJsonPath('status', StripeWebhookEvent::STATUS_PROCESSED);
+
+        $connectedAccount->refresh();
+
+        $this->assertSame(StripeConnectedAccount::STATUS_REQUIREMENTS_DUE, $connectedAccount->status);
+        $this->assertTrue($connectedAccount->charges_enabled);
+        $this->assertFalse($connectedAccount->payouts_enabled);
+        $this->assertTrue($connectedAccount->details_submitted);
+        $this->assertSame(['external_account'], $connectedAccount->requirements_currently_due_json);
+        $this->assertSame([], $connectedAccount->requirements_past_due_json);
+        $this->assertNull($connectedAccount->disabled_reason);
+        $this->assertNotNull($connectedAccount->onboarding_completed_at);
+        $this->assertNotNull($connectedAccount->last_synced_at);
+        $this->assertDatabaseHas('stripe_webhook_events', [
+            'stripe_event_id' => 'evt_account_updated',
+            'event_type' => 'account.updated',
+            'processed_status' => StripeWebhookEvent::STATUS_PROCESSED,
+        ]);
+    }
+
     private function createPaymentIntentFixture(string $bookingStatus = Booking::STATUS_PAYMENT_AUTHORIZING): array
     {
         $user = Account::factory()->create(['public_id' => 'acc_user_webhook']);
@@ -209,6 +260,37 @@ class StripeWebhookTest extends TestCase
                     'status' => $status,
                     'amount' => 12300,
                     'currency' => 'jpy',
+                ],
+            ],
+        ], JSON_THROW_ON_ERROR);
+    }
+
+    private function accountUpdatedPayload(
+        string $eventId,
+        string $stripeAccountId,
+        bool $chargesEnabled,
+        bool $payoutsEnabled,
+        bool $detailsSubmitted,
+        array $currentlyDue = [],
+        array $pastDue = [],
+        ?string $disabledReason = null,
+    ): string {
+        return json_encode([
+            'id' => $eventId,
+            'object' => 'event',
+            'type' => 'account.updated',
+            'data' => [
+                'object' => [
+                    'id' => $stripeAccountId,
+                    'object' => 'account',
+                    'charges_enabled' => $chargesEnabled,
+                    'payouts_enabled' => $payoutsEnabled,
+                    'details_submitted' => $detailsSubmitted,
+                    'requirements' => [
+                        'currently_due' => $currentlyDue,
+                        'past_due' => $pastDue,
+                        'disabled_reason' => $disabledReason,
+                    ],
                 ],
             ],
         ], JSON_THROW_ON_ERROR);

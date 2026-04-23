@@ -621,7 +621,7 @@ payment_authorizing
 | POST | `/webhooks/stripe` | Stripe署名 | Stripeイベント受信 |
 
 主な処理対象:
-* `account.updated`: Connected Account状態同期。
+* `account.updated`: Connected Account状態同期。`charges_enabled`、`payouts_enabled`、`details_submitted`、追加確認項目、無効理由、最終同期日時を更新する。
 * `payment_intent.amount_capturable_updated`: 与信成功、予約を `payment_authorizing` から `requested` へ進める。
 * `payment_intent.succeeded`: 決済確定。
 * `payment_intent.canceled`: 与信取消。承諾前の予約は `payment_canceled` へ進める。

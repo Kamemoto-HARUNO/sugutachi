@@ -4,6 +4,7 @@ namespace App\Services\Payments;
 
 use App\Models\Booking;
 use App\Models\PaymentIntent;
+use App\Models\StripeConnectedAccount;
 use App\Models\StripeWebhookEvent;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -13,6 +14,8 @@ use Throwable;
 
 class StripeWebhookHandler
 {
+    public const EVENT_ACCOUNT_UPDATED = 'account.updated';
+
     public const EVENT_PAYMENT_INTENT_AUTHORIZED = 'payment_intent.amount_capturable_updated';
 
     public const EVENT_PAYMENT_INTENT_SUCCEEDED = 'payment_intent.succeeded';
@@ -48,6 +51,9 @@ class StripeWebhookHandler
                 }
 
                 $processedStatus = match ($event->type) {
+                    self::EVENT_ACCOUNT_UPDATED => $this->processAccountUpdatedEvent(
+                        payload: $payload,
+                    ),
                     self::EVENT_PAYMENT_INTENT_AUTHORIZED,
                     self::EVENT_PAYMENT_INTENT_SUCCEEDED,
                     self::EVENT_PAYMENT_INTENT_CANCELED => $this->processPaymentIntentEvent(
@@ -131,6 +137,57 @@ class StripeWebhookHandler
         return StripeWebhookEvent::STATUS_PROCESSED;
     }
 
+    private function processAccountUpdatedEvent(array $payload): string
+    {
+        $stripeAccount = $payload['data']['object'] ?? null;
+
+        if (! is_array($stripeAccount) || blank($stripeAccount['id'] ?? null)) {
+            throw new RuntimeException('Stripe webhook payload is missing an Account object.');
+        }
+
+        $connectedAccount = StripeConnectedAccount::query()
+            ->where('stripe_account_id', (string) $stripeAccount['id'])
+            ->lockForUpdate()
+            ->first();
+
+        if (! $connectedAccount) {
+            throw new RuntimeException("Stripe Connected Account [{$stripeAccount['id']}] was not found.");
+        }
+
+        $requirements = $stripeAccount['requirements'] ?? [];
+        $currentlyDue = $this->stringList($requirements['currently_due'] ?? []);
+        $pastDue = $this->stringList($requirements['past_due'] ?? []);
+        $disabledReason = filled($requirements['disabled_reason'] ?? null)
+            ? (string) $requirements['disabled_reason']
+            : null;
+        $chargesEnabled = (bool) ($stripeAccount['charges_enabled'] ?? false);
+        $payoutsEnabled = (bool) ($stripeAccount['payouts_enabled'] ?? false);
+        $detailsSubmitted = (bool) ($stripeAccount['details_submitted'] ?? false);
+
+        $connectedAccount->forceFill([
+            'status' => $this->connectedAccountStatus(
+                chargesEnabled: $chargesEnabled,
+                payoutsEnabled: $payoutsEnabled,
+                detailsSubmitted: $detailsSubmitted,
+                currentlyDue: $currentlyDue,
+                pastDue: $pastDue,
+                disabledReason: $disabledReason,
+            ),
+            'charges_enabled' => $chargesEnabled,
+            'payouts_enabled' => $payoutsEnabled,
+            'details_submitted' => $detailsSubmitted,
+            'requirements_currently_due_json' => $currentlyDue,
+            'requirements_past_due_json' => $pastDue,
+            'disabled_reason' => $disabledReason,
+            'onboarding_completed_at' => $detailsSubmitted
+                ? ($connectedAccount->onboarding_completed_at ?? now())
+                : null,
+            'last_synced_at' => now(),
+        ])->save();
+
+        return StripeWebhookEvent::STATUS_PROCESSED;
+    }
+
     private function assertPaymentIntentMatches(PaymentIntent $paymentIntent, array $stripePaymentIntent): void
     {
         if (isset($stripePaymentIntent['amount']) && (int) $stripePaymentIntent['amount'] !== $paymentIntent->amount) {
@@ -152,6 +209,38 @@ class StripeWebhookHandler
             self::EVENT_PAYMENT_INTENT_CANCELED => PaymentIntent::STRIPE_STATUS_CANCELED,
             default => throw new RuntimeException("Unsupported PaymentIntent event [{$eventType}]."),
         };
+    }
+
+    private function connectedAccountStatus(
+        bool $chargesEnabled,
+        bool $payoutsEnabled,
+        bool $detailsSubmitted,
+        array $currentlyDue,
+        array $pastDue,
+        ?string $disabledReason,
+    ): string {
+        if ($disabledReason || $pastDue !== []) {
+            return StripeConnectedAccount::STATUS_RESTRICTED;
+        }
+
+        if ($currentlyDue !== []) {
+            return StripeConnectedAccount::STATUS_REQUIREMENTS_DUE;
+        }
+
+        if ($detailsSubmitted && $chargesEnabled && $payoutsEnabled) {
+            return StripeConnectedAccount::STATUS_ACTIVE;
+        }
+
+        return StripeConnectedAccount::STATUS_PENDING;
+    }
+
+    private function stringList(mixed $value): array
+    {
+        if (! is_array($value)) {
+            return [];
+        }
+
+        return array_values(array_map('strval', $value));
     }
 
     private function markBookingRequested(Booking $booking, string $eventId): void

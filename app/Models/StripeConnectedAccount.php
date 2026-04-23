@@ -10,6 +10,14 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Guarded(['id'])]
 class StripeConnectedAccount extends Model
 {
+    public const STATUS_PENDING = 'pending';
+
+    public const STATUS_REQUIREMENTS_DUE = 'requirements_due';
+
+    public const STATUS_ACTIVE = 'active';
+
+    public const STATUS_RESTRICTED = 'restricted';
+
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);
