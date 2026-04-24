@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\Booking;
+use App\Models\BookingMessage;
 use App\Models\BookingQuote;
 use App\Models\PaymentIntent;
 use App\Models\Refund;
@@ -138,6 +139,33 @@ class AdminBookingTest extends TestCase
         $this->withToken($user->createToken('api')->plainTextToken)
             ->getJson("/api/admin/bookings/{$booking->public_id}")
             ->assertForbidden();
+    }
+
+    public function test_admin_can_view_booking_messages_with_filters(): void
+    {
+        [$admin, $user, $therapist, , $booking] = $this->createBookingFixture();
+
+        $this->withToken($admin->createToken('api')->plainTextToken)
+            ->getJson("/api/admin/bookings/{$booking->public_id}/messages?sender_account_id={$user->public_id}&read_status=unread")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.sender.public_id', $user->public_id)
+            ->assertJsonPath('data.0.body', 'I am in the hotel lobby.')
+            ->assertJsonPath('data.0.detected_contact_exchange', false);
+
+        $this->withToken($admin->createToken('api')->plainTextToken)
+            ->getJson("/api/admin/bookings/{$booking->public_id}/messages?sender_account_id={$therapist->public_id}&detected_contact_exchange=1")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.sender.public_id', $therapist->public_id)
+            ->assertJsonPath('data.0.detected_contact_exchange', true);
+
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'actor_account_id' => $admin->id,
+            'action' => 'booking.messages.view',
+            'target_type' => Booking::class,
+            'target_id' => $booking->id,
+        ]);
     }
 
     private function createBookingFixture(): array
@@ -281,6 +309,25 @@ class AdminBookingTest extends TestCase
             'currency' => 'jpy',
             'evidence_due_by' => now()->addDays(7),
             'last_stripe_event_id' => 'evt_admin_booking',
+        ]);
+        BookingMessage::create([
+            'booking_id' => $booking->id,
+            'sender_account_id' => $user->id,
+            'message_type' => 'text',
+            'body_encrypted' => Crypt::encryptString('I am in the hotel lobby.'),
+            'detected_contact_exchange' => false,
+            'moderation_status' => 'ok',
+            'sent_at' => now()->subMinutes(10),
+        ]);
+        BookingMessage::create([
+            'booking_id' => $booking->id,
+            'sender_account_id' => $therapist->id,
+            'message_type' => 'text',
+            'body_encrypted' => Crypt::encryptString('Call me at 090-0000-0000.'),
+            'detected_contact_exchange' => true,
+            'moderation_status' => 'blocked',
+            'sent_at' => now()->subMinutes(5),
+            'read_at' => now()->subMinutes(4),
         ]);
 
         $booking->statusLogs()->create([

@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\Concerns\ResolvesAdminFilterIds;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AdminBookingDetailResource;
 use App\Http\Resources\AdminBookingListResource;
+use App\Http\Resources\AdminBookingMessageResource;
 use App\Models\Booking;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -148,6 +149,52 @@ class AdminBookingController extends Controller
         $this->recordAdminAudit($request, 'booking.view', $booking, [], $this->snapshot($booking));
 
         return new AdminBookingDetailResource($booking);
+    }
+
+    public function messages(Request $request, Booking $booking): AnonymousResourceCollection
+    {
+        $this->authorizeAdmin($request->user());
+
+        $validated = $request->validate([
+            'sender_account_id' => ['nullable', 'string', 'max:36'],
+            'moderation_status' => ['nullable', 'string', 'max:50'],
+            'detected_contact_exchange' => ['nullable', 'boolean'],
+            'read_status' => ['nullable', Rule::in(['read', 'unread'])],
+        ]);
+        $senderAccountId = $this->resolveAccountId($validated['sender_account_id'] ?? null);
+
+        $messages = $booking->messages()
+            ->with(['booking', 'sender'])
+            ->when($senderAccountId, fn ($query, int $id) => $query->where('sender_account_id', $id))
+            ->when(
+                $validated['moderation_status'] ?? null,
+                fn ($query, string $status) => $query->where('moderation_status', $status)
+            )
+            ->when(
+                array_key_exists('detected_contact_exchange', $validated),
+                fn ($query) => $query->where(
+                    'detected_contact_exchange',
+                    (bool) $validated['detected_contact_exchange']
+                )
+            )
+            ->when(
+                $validated['read_status'] ?? null,
+                fn ($query, string $readStatus) => $readStatus === 'read'
+                    ? $query->whereNotNull('read_at')
+                    : $query->whereNull('read_at')
+            )
+            ->oldest('sent_at')
+            ->get();
+
+        $this->recordAdminAudit($request, 'booking.messages.view', $booking, [], array_merge(
+            $this->snapshot($booking),
+            [
+                'filters' => $validated,
+                'message_count' => $messages->count(),
+            ],
+        ));
+
+        return AdminBookingMessageResource::collection($messages);
     }
 
     private function bookingStatuses(): array
