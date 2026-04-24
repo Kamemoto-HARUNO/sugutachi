@@ -65,6 +65,49 @@ class TherapistLedgerAndPayoutTest extends TestCase
             ->assertJsonCount(2, 'data.entries');
     }
 
+    public function test_therapist_can_view_balance_summary(): void
+    {
+        [, $therapist, $booking, $connectedAccount] = $this->createPayoutFixture();
+
+        $payoutRequest = PayoutRequest::create([
+            'public_id' => 'pay_balance',
+            'therapist_account_id' => $therapist->id,
+            'stripe_connected_account_id' => $connectedAccount->id,
+            'status' => PayoutRequest::STATUS_REQUESTED,
+            'requested_amount' => 10800,
+            'net_amount' => 10800,
+            'requested_at' => now(),
+            'scheduled_process_date' => now()->addDay()->toDateString(),
+        ]);
+
+        TherapistLedgerEntry::create([
+            'therapist_account_id' => $therapist->id,
+            'booking_id' => $booking->id,
+            'entry_type' => TherapistLedgerEntry::TYPE_BOOKING_SALE,
+            'amount_signed' => 10800,
+            'status' => TherapistLedgerEntry::STATUS_AVAILABLE,
+            'available_at' => now()->subMinute(),
+        ]);
+        TherapistLedgerEntry::create([
+            'therapist_account_id' => $therapist->id,
+            'booking_id' => $booking->id,
+            'payout_request_id' => $payoutRequest->id,
+            'entry_type' => TherapistLedgerEntry::TYPE_BOOKING_SALE,
+            'amount_signed' => 5000,
+            'status' => TherapistLedgerEntry::STATUS_PAYOUT_REQUESTED,
+            'available_at' => now()->subMinute(),
+        ]);
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->getJson('/api/me/therapist/balance')
+            ->assertOk()
+            ->assertJsonPath('data.available_amount', 10800)
+            ->assertJsonPath('data.requestable_amount', 10800)
+            ->assertJsonPath('data.payout_requested_amount', 5000)
+            ->assertJsonPath('data.active_payout_request_count', 1)
+            ->assertJsonPath('data.next_scheduled_process_date', $payoutRequest->scheduled_process_date->toDateString());
+    }
+
     public function test_therapist_can_request_full_available_payout(): void
     {
         [, $therapist, $booking, $connectedAccount] = $this->createPayoutFixture();

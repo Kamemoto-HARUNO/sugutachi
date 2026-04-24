@@ -148,6 +148,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me/service-addresses', [ServiceAddressController::class, 'index']);
     Route::post('/me/service-addresses', [ServiceAddressController::class, 'store']);
     Route::get('/me/service-addresses/{serviceAddress:public_id}', [ServiceAddressController::class, 'show']);
+    Route::patch('/me/service-addresses/{serviceAddress:public_id}', [ServiceAddressController::class, 'update']);
+    Route::post('/me/service-addresses/{serviceAddress:public_id}/default', [ServiceAddressController::class, 'setDefault']);
     Route::delete('/me/service-addresses/{serviceAddress:public_id}', [ServiceAddressController::class, 'destroy']);
 
     Route::get('/me/therapist-profile', [TherapistProfileController::class, 'show']);
@@ -170,6 +172,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::patch('/me/therapist/menus/{therapistMenu:public_id}', [TherapistMenuController::class, 'update']);
     Route::delete('/me/therapist/menus/{therapistMenu:public_id}', [TherapistMenuController::class, 'destroy']);
     Route::get('/me/therapist/ledger', [TherapistLedgerController::class, 'index']);
+    Route::get('/me/therapist/balance', [TherapistLedgerController::class, 'balance']);
     Route::get('/me/therapist/payout-requests', [TherapistPayoutRequestController::class, 'index']);
     Route::post('/me/therapist/payout-requests', [TherapistPayoutRequestController::class, 'store']);
     Route::get('/me/therapist/payout-requests/{payoutRequest:public_id}', [TherapistPayoutRequestController::class, 'show']);
