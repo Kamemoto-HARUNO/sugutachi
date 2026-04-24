@@ -12,24 +12,54 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Validation\Rule;
+use Laravel\Sanctum\PersonalAccessToken;
 
 class BookingMessageController extends Controller
 {
     public function index(Request $request, Booking $booking): AnonymousResourceCollection
     {
-        $this->authorizeParticipant($booking, $request->user());
+        $actor = $this->authenticatedActor($request);
+        $this->authorizeParticipant($booking, $actor);
+        $validated = $request->validate([
+            'read_status' => ['nullable', Rule::in(['read', 'unread'])],
+        ]);
 
-        return BookingMessageResource::collection(
-            $booking->messages()
-                ->with(['booking', 'sender'])
-                ->oldest('sent_at')
-                ->get()
-        );
+        $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);
+        $messages = $booking->messages()
+            ->with(['booking', 'sender'])
+            ->when(
+                $validated['read_status'] ?? null,
+                fn ($query, string $readStatus) => $readStatus === 'read'
+                    ? $query->whereNotNull('read_at')
+                    : $query->whereNull('read_at')
+            )
+            ->oldest('sent_at')
+            ->get();
+        $messages->each(fn (BookingMessage $message) => $message->setAttribute('viewer_account_id', $actor->id));
+
+        $unreadCount = $booking->messages()
+            ->whereNull('read_at')
+            ->where('sender_account_id', '!=', $actor->id)
+            ->count();
+
+        return BookingMessageResource::collection($messages)->additional([
+            'meta' => [
+                'booking_public_id' => $booking->public_id,
+                'booking_status' => $booking->status,
+                'unread_count' => $unreadCount,
+                'counterparty' => $this->counterparty($booking, $actor),
+                'filters' => [
+                    'read_status' => $validated['read_status'] ?? null,
+                ],
+            ],
+        ]);
     }
 
     public function store(Request $request, Booking $booking, ContactExchangeDetector $detector): JsonResponse
     {
-        $this->authorizeParticipant($booking, $request->user());
+        $actor = $this->authenticatedActor($request);
+        $this->authorizeParticipant($booking, $actor);
 
         $validated = $request->validate([
             'body' => ['required', 'string', 'min:1', 'max:1000'],
@@ -42,13 +72,15 @@ class BookingMessageController extends Controller
         }
 
         $message = $booking->messages()->create([
-            'sender_account_id' => $request->user()->id,
+            'sender_account_id' => $actor->id,
             'message_type' => 'text',
             'body_encrypted' => Crypt::encryptString($validated['body']),
             'detected_contact_exchange' => false,
             'moderation_status' => BookingMessage::MODERATION_STATUS_OK,
             'sent_at' => now(),
         ]);
+
+        $message->setAttribute('viewer_account_id', $actor->id);
 
         return (new BookingMessageResource($message->load(['booking', 'sender'])))
             ->response()
@@ -57,14 +89,18 @@ class BookingMessageController extends Controller
 
     public function read(Request $request, Booking $booking, BookingMessage $message): BookingMessageResource
     {
-        $this->authorizeParticipant($booking, $request->user());
+        $actor = $this->authenticatedActor($request);
+        $this->authorizeParticipant($booking, $actor);
         abort_unless($message->booking_id === $booking->id, 404);
 
-        if (! $message->read_at) {
+        if (! $message->read_at && $message->sender_account_id !== $actor->id) {
             $message->forceFill(['read_at' => now()])->save();
         }
 
-        return new BookingMessageResource($message->refresh()->load(['booking', 'sender']));
+        $message = $message->refresh()->load(['booking', 'sender']);
+        $message->setAttribute('viewer_account_id', $actor->id);
+
+        return new BookingMessageResource($message);
     }
 
     private function authorizeParticipant(Booking $booking, Account $actor): void
@@ -73,5 +109,51 @@ class BookingMessageController extends Controller
             $booking->user_account_id === $actor->id || $booking->therapist_account_id === $actor->id,
             404
         );
+    }
+
+    private function authenticatedActor(Request $request): Account
+    {
+        $bearerToken = $request->bearerToken();
+
+        if ($bearerToken) {
+            $token = PersonalAccessToken::findToken($bearerToken);
+
+            if ($token?->tokenable instanceof Account) {
+                return $token->tokenable;
+            }
+        }
+
+        abort_unless($request->user() instanceof Account, 401);
+
+        return $request->user();
+    }
+
+    private function counterparty(Booking $booking, Account $actor): ?array
+    {
+        if ($booking->user_account_id === $actor->id) {
+            return $booking->therapistAccount
+                ? [
+                    'role' => 'therapist',
+                    'public_id' => $booking->therapistAccount->public_id,
+                    'display_name' => $booking->therapistProfile?->public_name ?? $booking->therapistAccount->display_name,
+                    'account_status' => $booking->therapistAccount->status,
+                    'therapist_profile_public_id' => $booking->therapistProfile?->public_id,
+                ]
+                : null;
+        }
+
+        if ($booking->therapist_account_id === $actor->id) {
+            return $booking->userAccount
+                ? [
+                    'role' => 'user',
+                    'public_id' => $booking->userAccount->public_id,
+                    'display_name' => $booking->userAccount->display_name,
+                    'account_status' => $booking->userAccount->status,
+                    'therapist_profile_public_id' => null,
+                ]
+                : null;
+        }
+
+        return null;
     }
 }

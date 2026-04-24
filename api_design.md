@@ -664,6 +664,8 @@ payment_authorizing
 
 メッセージ送信時は、電話番号、SNS ID、メールアドレス、外部決済情報らしき文字列を検知する。MVPでは検知時に `422` を返し、送信・保存しない。
 
+`GET /bookings/{public_id}/messages` は `read_status=read|unread` で絞り込める。レスポンス `meta` には `booking_public_id` / `booking_status` / `unread_count` / `counterparty` を含め、各メッセージには `sender` / `sender_role` / `is_own` / `is_read` を返す。`POST /bookings/{public_id}/messages/{message_id}/read` は相手から届いた未読メッセージのみ既読化し、送信者本人が叩いた場合は状態を変更しない。
+
 ### 9.2 出張リクエスト
 
 | Method | Path | 権限 | 用途 |

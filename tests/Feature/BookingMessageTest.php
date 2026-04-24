@@ -26,6 +26,10 @@ class BookingMessageTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.body', 'I am in the hotel lobby.')
             ->assertJsonPath('data.sender_account_id', $user->public_id)
+            ->assertJsonPath('data.sender.public_id', $user->public_id)
+            ->assertJsonPath('data.sender_role', 'user')
+            ->assertJsonPath('data.is_own', true)
+            ->assertJsonPath('data.is_read', false)
             ->json('data.id');
 
         $this->assertDatabaseHas('booking_messages', [
@@ -41,13 +45,30 @@ class BookingMessageTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $messageId)
-            ->assertJsonPath('data.0.body', 'I am in the hotel lobby.');
+            ->assertJsonPath('data.0.body', 'I am in the hotel lobby.')
+            ->assertJsonPath('data.0.sender.public_id', $user->public_id)
+            ->assertJsonPath('data.0.sender_role', 'user')
+            ->assertJsonPath('data.0.is_own', false)
+            ->assertJsonPath('data.0.is_read', false)
+            ->assertJsonPath('meta.booking_public_id', $booking->public_id)
+            ->assertJsonPath('meta.booking_status', Booking::STATUS_ACCEPTED)
+            ->assertJsonPath('meta.unread_count', 1)
+            ->assertJsonPath('meta.counterparty.public_id', $user->public_id)
+            ->assertJsonPath('meta.counterparty.role', 'user');
 
         $this->withToken($therapist->createToken('api')->plainTextToken)
             ->postJson("/api/bookings/{$booking->public_id}/messages/{$messageId}/read")
-            ->assertOk();
+            ->assertOk()
+            ->assertJsonPath('data.is_read', true);
 
         $this->assertNotNull(BookingMessage::query()->findOrFail($messageId)->read_at);
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->getJson("/api/bookings/{$booking->public_id}/messages?read_status=unread")
+            ->assertOk()
+            ->assertJsonCount(0, 'data')
+            ->assertJsonPath('meta.unread_count', 0)
+            ->assertJsonPath('meta.filters.read_status', 'unread');
     }
 
     public function test_message_rejects_contact_exchange(): void
