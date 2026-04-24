@@ -54,9 +54,11 @@ class PublicTherapistAvailabilityApiTest extends TestCase
             ->assertJsonPath('data.estimated_total_amount_range.min', 12300)
             ->assertJsonPath('data.estimated_total_amount_range.max', 13300)
             ->assertJsonCount(2, 'data.windows')
+            ->assertJsonPath('data.windows.0.availability_slot_id', $defaultSlot->public_id)
             ->assertJsonPath('data.windows.0.start_at', $defaultSlot->start_at->toJSON())
             ->assertJsonPath('data.windows.0.end_at', $defaultSlot->end_at->toJSON())
             ->assertJsonPath('data.windows.0.dispatch_area_label', '天神周辺')
+            ->assertJsonPath('data.windows.1.availability_slot_id', $customSlot->public_id)
             ->assertJsonPath('data.windows.1.start_at', $customSlot->start_at->toJSON())
             ->assertJsonPath('data.windows.1.end_at', $customSlot->end_at->toJSON())
             ->assertJsonPath('data.windows.1.dispatch_area_label', '博多駅周辺');
@@ -127,9 +129,11 @@ class PublicTherapistAvailabilityApiTest extends TestCase
             ->assertJsonPath('data.estimated_total_amount_range.min', 12300)
             ->assertJsonPath('data.estimated_total_amount_range.max', 12300)
             ->assertJsonCount(2, 'data.windows')
+            ->assertJsonPath('data.windows.0.availability_slot_id', $publishedSlot->public_id)
             ->assertJsonPath('data.windows.0.start_at', CarbonImmutable::parse('2030-01-05 14:00:00')->toJSON())
             ->assertJsonPath('data.windows.0.end_at', CarbonImmutable::parse('2030-01-05 15:00:00')->toJSON())
             ->assertJsonPath('data.windows.0.booking_deadline_at', CarbonImmutable::parse('2030-01-05 13:00:00')->toJSON())
+            ->assertJsonPath('data.windows.1.availability_slot_id', $publishedSlot->public_id)
             ->assertJsonPath('data.windows.1.start_at', CarbonImmutable::parse('2030-01-05 16:00:00')->toJSON())
             ->assertJsonPath('data.windows.1.end_at', CarbonImmutable::parse('2030-01-05 18:00:00')->toJSON());
     }
@@ -172,6 +176,7 @@ class PublicTherapistAvailabilityApiTest extends TestCase
             ->getJson("/api/therapists/{$profile->public_id}/availability?service_address_id={$serviceAddress->public_id}&therapist_menu_id={$menu->public_id}&date=2030-01-05")
             ->assertOk()
             ->assertJsonCount(1, 'data.windows')
+            ->assertJsonPath('data.windows.0.availability_slot_id', 'slot_public_blocked')
             ->assertJsonPath('data.windows.0.start_at', CarbonImmutable::parse('2030-01-05 16:30:00')->toJSON())
             ->assertJsonPath('data.windows.0.end_at', CarbonImmutable::parse('2030-01-05 18:00:00')->toJSON())
             ->assertJsonPath('data.windows.0.booking_deadline_at', CarbonImmutable::parse('2030-01-05 15:30:00')->toJSON());

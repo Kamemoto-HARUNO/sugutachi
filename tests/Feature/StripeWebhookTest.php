@@ -14,6 +14,7 @@ use App\Models\StripeWebhookEvent;
 use App\Models\TherapistLedgerEntry;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
 use Tests\TestCase;
@@ -64,6 +65,37 @@ class StripeWebhookTest extends TestCase
 
         $this->assertDatabaseCount('stripe_webhook_events', 1);
         $this->assertDatabaseCount('booking_status_logs', 1);
+    }
+
+    public function test_scheduled_payment_intent_authorization_uses_scheduled_request_expiry(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2030-01-05 10:00:00'));
+        config()->set('services.stripe.webhook_secret', 'whsec_test');
+
+        [$booking, $paymentIntent] = $this->createPaymentIntentFixture(
+            bookingStatus: Booking::STATUS_PAYMENT_AUTHORIZING,
+            isOnDemand: false,
+            requestedStartAt: CarbonImmutable::parse('2030-01-05 15:00:00'),
+            leadTimeMinutes: 120,
+        );
+        $payload = $this->paymentIntentPayload(
+            eventId: 'evt_authorized_scheduled',
+            type: 'payment_intent.amount_capturable_updated',
+            stripePaymentIntentId: $paymentIntent->stripe_payment_intent_id,
+            status: PaymentIntent::STRIPE_STATUS_REQUIRES_CAPTURE,
+        );
+
+        $this->sendStripeWebhook($payload)
+            ->assertOk()
+            ->assertJsonPath('status', StripeWebhookEvent::STATUS_PROCESSED);
+
+        $booking->refresh();
+
+        $this->assertSame(Booking::STATUS_REQUESTED, $booking->status);
+        $this->assertSame(
+            CarbonImmutable::parse('2030-01-05 13:00:00')->toJSON(),
+            $booking->request_expires_at->toJSON(),
+        );
     }
 
     public function test_payment_intent_succeeded_webhook_updates_capture_status(): void
@@ -303,8 +335,12 @@ class StripeWebhookTest extends TestCase
         $this->assertNull($failedLedgerEntry->payout_request_id);
     }
 
-    private function createPaymentIntentFixture(string $bookingStatus = Booking::STATUS_PAYMENT_AUTHORIZING): array
-    {
+    private function createPaymentIntentFixture(
+        string $bookingStatus = Booking::STATUS_PAYMENT_AUTHORIZING,
+        bool $isOnDemand = true,
+        ?CarbonImmutable $requestedStartAt = null,
+        int $leadTimeMinutes = 60,
+    ): array {
         $user = Account::factory()->create(['public_id' => 'acc_user_webhook']);
         $therapist = Account::factory()->create(['public_id' => 'acc_therapist_webhook']);
 
@@ -314,6 +350,15 @@ class StripeWebhookTest extends TestCase
             'public_name' => 'Webhook Therapist',
             'profile_status' => 'approved',
         ]);
+
+        if (! $isOnDemand) {
+            $therapistProfile->bookingSetting()->create([
+                'booking_request_lead_time_minutes' => $leadTimeMinutes,
+                'scheduled_base_label' => 'Tenjin Base',
+                'scheduled_base_lat' => '33.5907000',
+                'scheduled_base_lng' => '130.4020000',
+            ]);
+        }
 
         $menu = TherapistMenu::create([
             'public_id' => 'menu_webhook_60',
@@ -340,6 +385,10 @@ class StripeWebhookTest extends TestCase
             'therapist_menu_id' => $menu->id,
             'service_address_id' => $address->id,
             'status' => $bookingStatus,
+            'is_on_demand' => $isOnDemand,
+            'requested_start_at' => $requestedStartAt,
+            'scheduled_start_at' => $requestedStartAt,
+            'scheduled_end_at' => $requestedStartAt?->addMinutes(60),
             'duration_minutes' => 60,
             'request_expires_at' => $bookingStatus === Booking::STATUS_REQUESTED ? now()->addMinutes(10) : null,
             'total_amount' => 12300,

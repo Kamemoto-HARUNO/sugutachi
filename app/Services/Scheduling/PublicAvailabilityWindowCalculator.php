@@ -158,6 +158,7 @@ class PublicAvailabilityWindowCalculator
                     : min($bestWalkingMinutes, $walking['walking_time_minutes']);
 
                 $windows->push([
+                    'availability_slot_id' => $slot->public_id,
                     'start_at' => $freeStart,
                     'end_at' => $freeEnd,
                     'booking_deadline_at' => $freeStart->subMinutes($leadTimeMinutes),

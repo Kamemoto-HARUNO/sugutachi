@@ -6,29 +6,65 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\BookingQuoteResource;
 use App\Models\BookingQuote;
 use App\Models\ServiceAddress;
+use App\Models\TherapistAvailabilitySlot;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
+use App\Services\Bookings\ScheduledBookingPolicy;
 use App\Services\Pricing\BookingQuoteCalculator;
+use App\Services\Scheduling\PublicAvailabilityWindowCalculator;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class BookingQuoteController extends Controller
 {
-    public function store(Request $request, BookingQuoteCalculator $calculator): JsonResponse
-    {
+    public function store(
+        Request $request,
+        BookingQuoteCalculator $calculator,
+        PublicAvailabilityWindowCalculator $availabilityCalculator,
+        ScheduledBookingPolicy $scheduledBookingPolicy,
+    ): JsonResponse {
         $validated = $request->validate([
             'therapist_profile_id' => ['required', 'string', 'max:36'],
             'therapist_menu_id' => ['required', 'string', 'max:36'],
             'service_address_id' => ['required', 'string', 'max:36'],
             'duration_minutes' => ['required', 'integer', 'min:30', 'max:240'],
             'is_on_demand' => ['sometimes', 'boolean'],
+            'availability_slot_id' => ['nullable', 'string', 'max:36'],
             'requested_start_at' => ['nullable', 'date', 'after_or_equal:now'],
         ]);
 
+        $isOnDemand = $validated['is_on_demand'] ?? true;
+        $requestedStartAt = filled($validated['requested_start_at'] ?? null)
+            ? CarbonImmutable::parse($validated['requested_start_at'])
+            : null;
+
+        if (! $isOnDemand) {
+            if (! $requestedStartAt) {
+                throw ValidationException::withMessages([
+                    'requested_start_at' => ['The requested start time is required for scheduled bookings.'],
+                ]);
+            }
+
+            if (! filled($validated['availability_slot_id'] ?? null)) {
+                throw ValidationException::withMessages([
+                    'availability_slot_id' => ['The availability slot is required for scheduled bookings.'],
+                ]);
+            }
+
+            $scheduledBookingPolicy->assertQuarterHourAligned($requestedStartAt);
+            $scheduledBookingPolicy->assertQuarterHourDuration($validated['duration_minutes']);
+        }
+
         $therapistProfile = TherapistProfile::query()
-            ->with('location')
-            ->discoverableTo($request->user())
+            ->with(['location', 'bookingSetting'])
+            ->when(
+                $isOnDemand,
+                fn ($query) => $query->discoverableTo($request->user()),
+                fn ($query) => $query->scheduledDiscoverableTo($request->user()),
+            )
             ->where('public_id', $validated['therapist_profile_id'])
             ->firstOrFail();
 
@@ -43,14 +79,51 @@ class BookingQuoteController extends Controller
             ->where('account_id', $request->user()->id)
             ->firstOrFail();
 
+        $slot = null;
+        $originLat = null;
+        $originLng = null;
+
+        if (! $isOnDemand) {
+            $slot = TherapistAvailabilitySlot::query()
+                ->where('public_id', $validated['availability_slot_id'])
+                ->where('therapist_profile_id', $therapistProfile->id)
+                ->where('status', TherapistAvailabilitySlot::STATUS_PUBLISHED)
+                ->firstOrFail();
+
+            $availability = $availabilityCalculator->calculate(
+                profile: $therapistProfile,
+                menu: $menu,
+                serviceAddress: $serviceAddress,
+                date: $requestedStartAt->startOfDay(),
+            );
+
+            $matchingWindow = collect($availability['windows'])
+                ->first(fn (array $window): bool => $window['availability_slot_id'] === $slot->public_id
+                    && CarbonImmutable::instance($window['start_at'])->lte($requestedStartAt)
+                    && CarbonImmutable::instance($window['end_at'])->gte($requestedStartAt->addMinutes($validated['duration_minutes'])));
+
+            abort_if(
+                ! $matchingWindow,
+                409,
+                'The requested time is no longer available for that slot.'
+            );
+
+            [$originLat, $originLng] = $this->dispatchCoordinates($therapistProfile, $slot);
+        }
+
         $amounts = $calculator->calculate(
             therapistProfile: $therapistProfile,
             menu: $menu,
             serviceAddress: $serviceAddress,
             durationMinutes: $validated['duration_minutes'],
-            isOnDemand: $validated['is_on_demand'] ?? true,
-            requestedStartAt: $validated['requested_start_at'] ?? null,
+            isOnDemand: $isOnDemand,
+            requestedStartAt: $requestedStartAt?->toIso8601String(),
+            originLat: $originLat,
+            originLng: $originLng,
         );
+
+        $amounts['input_snapshot_json']['availability_slot_id'] = $slot?->public_id;
+        $amounts['input_snapshot_json']['dispatch_area_label'] = $slot?->dispatch_area_label;
 
         $quote = BookingQuote::create([
             'public_id' => 'quote_'.Str::ulid(),
@@ -76,5 +149,25 @@ class BookingQuoteController extends Controller
         return (new BookingQuoteResource($quote))
             ->response()
             ->setStatusCode(201);
+    }
+
+    /**
+     * @return array{0: float, 1: float}
+     */
+    private function dispatchCoordinates(
+        TherapistProfile $therapistProfile,
+        TherapistAvailabilitySlot $slot,
+    ): array {
+        if ($slot->dispatch_base_type === TherapistAvailabilitySlot::DISPATCH_BASE_TYPE_CUSTOM) {
+            return [
+                (float) $slot->custom_dispatch_base_lat,
+                (float) $slot->custom_dispatch_base_lng,
+            ];
+        }
+
+        return [
+            (float) $therapistProfile->bookingSetting->scheduled_base_lat,
+            (float) $therapistProfile->bookingSetting->scheduled_base_lng,
+        ];
     }
 }

@@ -15,6 +15,7 @@ class PublicTherapistAvailabilityResource extends JsonResource
             'estimated_total_amount_range' => data_get($this->resource, 'estimated_total_amount_range'),
             'windows' => collect(data_get($this->resource, 'windows', []))
                 ->map(fn (array $window): array => [
+                    'availability_slot_id' => $window['availability_slot_id'],
                     'start_at' => $window['start_at'],
                     'end_at' => $window['end_at'],
                     'booking_deadline_at' => $window['booking_deadline_at'],

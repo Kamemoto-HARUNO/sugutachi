@@ -7,7 +7,12 @@ use App\Http\Resources\BookingResource;
 use App\Models\Account;
 use App\Models\Booking;
 use App\Models\BookingQuote;
+use App\Models\ServiceAddress;
+use App\Models\TherapistAvailabilitySlot;
+use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
+use App\Services\Bookings\ScheduledBookingPolicy;
+use App\Services\Scheduling\PublicAvailabilityWindowCalculator;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -44,30 +49,66 @@ class BookingController extends Controller
         );
     }
 
-    public function store(Request $request): JsonResponse
-    {
+    public function store(
+        Request $request,
+        PublicAvailabilityWindowCalculator $availabilityCalculator,
+        ScheduledBookingPolicy $scheduledBookingPolicy,
+    ): JsonResponse {
         $validated = $request->validate([
             'quote_id' => ['required', 'string', 'max:36'],
         ]);
 
-        $quote = BookingQuote::query()
-            ->with(['therapistProfile.account', 'therapistMenu'])
+        $quoteSnapshot = BookingQuote::query()
             ->where('public_id', $validated['quote_id'])
-            ->whereNull('booking_id')
             ->firstOrFail();
-
-        abort_if($quote->expires_at && $quote->expires_at->isPast(), 409, 'The quote has expired.');
-        $this->ensureQuoteStillBookable($request->user(), $quote);
 
         $serviceAddress = $request->user()
             ->serviceAddresses()
-            ->where('public_id', $quote->input_snapshot_json['service_address_id'] ?? null)
+            ->where('public_id', data_get($quoteSnapshot->input_snapshot_json, 'service_address_id'))
             ->firstOrFail();
 
-        $booking = DB::transaction(function () use ($request, $quote, $serviceAddress): Booking {
+        $booking = DB::transaction(function () use (
+            $availabilityCalculator,
+            $request,
+            $scheduledBookingPolicy,
+            $serviceAddress,
+            $validated
+        ): Booking {
+            $quote = BookingQuote::query()
+                ->with(['therapistProfile.account', 'therapistProfile.bookingSetting', 'therapistMenu'])
+                ->where('public_id', $validated['quote_id'])
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            abort_if($quote->booking_id !== null, 409, 'The quote has already been used.');
+            abort_if($quote->expires_at && $quote->expires_at->isPast(), 409, 'The quote has expired.');
+
             $input = $quote->input_snapshot_json;
-            $requestedStartAt = $input['requested_start_at'] ?? null;
+            $requestedStartAt = filled($input['requested_start_at'] ?? null)
+                ? CarbonImmutable::parse($input['requested_start_at'])
+                : null;
             $durationMinutes = $quote->duration_minutes;
+            $isOnDemand = $input['is_on_demand'] ?? true;
+            $slot = null;
+
+            if ($isOnDemand) {
+                $this->ensureOnDemandQuoteStillBookable($request->user(), $quote);
+            } else {
+                abort_if(! $requestedStartAt, 409, 'The scheduled quote is missing a requested start time.');
+
+                $slot = $this->ensureScheduledQuoteStillBookable(
+                    viewer: $request->user(),
+                    quote: $quote,
+                    serviceAddress: $serviceAddress,
+                    availabilityCalculator: $availabilityCalculator,
+                );
+
+                $scheduledBookingPolicy->assertCanCreateRequest(
+                    user: $request->user(),
+                    therapistProfileId: $quote->therapist_profile_id,
+                    requestedStartAt: $requestedStartAt,
+                );
+            }
 
             $booking = Booking::create([
                 'public_id' => 'book_'.Str::ulid(),
@@ -76,12 +117,15 @@ class BookingController extends Controller
                 'therapist_profile_id' => $quote->therapist_profile_id,
                 'therapist_menu_id' => $quote->therapist_menu_id,
                 'service_address_id' => $serviceAddress->id,
+                'availability_slot_id' => $slot?->id,
                 'status' => Booking::STATUS_PAYMENT_AUTHORIZING,
-                'is_on_demand' => $input['is_on_demand'] ?? true,
+                'is_on_demand' => $isOnDemand,
                 'requested_start_at' => $requestedStartAt,
                 'scheduled_start_at' => $requestedStartAt,
-                'scheduled_end_at' => $requestedStartAt ? CarbonImmutable::parse($requestedStartAt)->addMinutes($durationMinutes) : null,
+                'scheduled_end_at' => $requestedStartAt?->addMinutes($durationMinutes),
                 'duration_minutes' => $durationMinutes,
+                'buffer_before_minutes' => 0,
+                'buffer_after_minutes' => 0,
                 'request_expires_at' => null,
                 'total_amount' => $quote->total_amount,
                 'therapist_net_amount' => $quote->therapist_net_amount,
@@ -112,10 +156,10 @@ class BookingController extends Controller
                 ],
             ]);
 
-            return $booking;
+            return $booking->load('currentQuote');
         });
 
-        return (new BookingResource($booking->load('currentQuote')))
+        return (new BookingResource($booking))
             ->response()
             ->setStatusCode(201);
     }
@@ -132,7 +176,7 @@ class BookingController extends Controller
         return new BookingResource($booking->load('currentQuote'));
     }
 
-    private function ensureQuoteStillBookable(Account $viewer, BookingQuote $quote): void
+    private function ensureOnDemandQuoteStillBookable(Account $viewer, BookingQuote $quote): void
     {
         $isBookable = TherapistProfile::query()
             ->discoverableTo($viewer)
@@ -143,5 +187,51 @@ class BookingController extends Controller
             ->exists();
 
         abort_unless($isBookable, 404);
+    }
+
+    private function ensureScheduledQuoteStillBookable(
+        Account $viewer,
+        BookingQuote $quote,
+        ServiceAddress $serviceAddress,
+        PublicAvailabilityWindowCalculator $availabilityCalculator,
+    ): TherapistAvailabilitySlot {
+        $profile = TherapistProfile::query()
+            ->scheduledDiscoverableTo($viewer)
+            ->with('bookingSetting')
+            ->whereKey($quote->therapist_profile_id)
+            ->firstOrFail();
+
+        $menu = TherapistMenu::query()
+            ->whereKey($quote->therapist_menu_id)
+            ->where('therapist_profile_id', $profile->id)
+            ->where('is_active', true)
+            ->firstOrFail();
+
+        $requestedStartAt = CarbonImmutable::parse($quote->input_snapshot_json['requested_start_at']);
+        $slot = TherapistAvailabilitySlot::query()
+            ->where('public_id', $quote->input_snapshot_json['availability_slot_id'] ?? null)
+            ->where('therapist_profile_id', $profile->id)
+            ->where('status', TherapistAvailabilitySlot::STATUS_PUBLISHED)
+            ->firstOrFail();
+
+        $availability = $availabilityCalculator->calculate(
+            profile: $profile,
+            menu: $menu,
+            serviceAddress: $serviceAddress,
+            date: $requestedStartAt->startOfDay(),
+        );
+
+        $matchingWindow = collect($availability['windows'])
+            ->first(fn (array $window): bool => $window['availability_slot_id'] === $slot->public_id
+                && CarbonImmutable::instance($window['start_at'])->lte($requestedStartAt)
+                && CarbonImmutable::instance($window['end_at'])->gte($requestedStartAt->addMinutes($quote->duration_minutes)));
+
+        abort_if(
+            ! $matchingWindow,
+            409,
+            'The requested time is no longer available for that slot.'
+        );
+
+        return $slot;
     }
 }

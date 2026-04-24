@@ -7,13 +7,34 @@ use App\Http\Resources\BookingResource;
 use App\Models\Booking;
 use App\Models\TherapistLedgerEntry;
 use App\Services\Bookings\BookingStatusTransitionService;
+use App\Services\Bookings\ScheduledBookingPolicy;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class BookingStatusController extends Controller
 {
-    public function accept(Request $request, Booking $booking, BookingStatusTransitionService $transition): BookingResource
-    {
+    public function accept(
+        Request $request,
+        Booking $booking,
+        BookingStatusTransitionService $transition,
+        ScheduledBookingPolicy $scheduledBookingPolicy,
+    ): BookingResource {
         $this->authorizeTherapist($request, $booking);
+
+        $validated = $request->validate([
+            'buffer_before_minutes' => ['sometimes', 'integer', 'min:0', 'max:360'],
+            'buffer_after_minutes' => ['sometimes', 'integer', 'min:0', 'max:360'],
+        ]);
+
+        if (! $booking->is_on_demand && (! array_key_exists('buffer_before_minutes', $validated) || ! array_key_exists('buffer_after_minutes', $validated))) {
+            throw ValidationException::withMessages([
+                'buffer_before_minutes' => ['The buffer before minutes field is required for scheduled bookings.'],
+                'buffer_after_minutes' => ['The buffer after minutes field is required for scheduled bookings.'],
+            ]);
+        }
+
+        $bufferBeforeMinutes = $validated['buffer_before_minutes'] ?? 0;
+        $bufferAfterMinutes = $validated['buffer_after_minutes'] ?? 0;
 
         $booking = $transition->transition(
             booking: $booking,
@@ -25,8 +46,15 @@ class BookingStatusController extends Controller
             attributes: [
                 'accepted_at' => now(),
                 'confirmed_at' => now(),
+                'buffer_before_minutes' => $bufferBeforeMinutes,
+                'buffer_after_minutes' => $bufferAfterMinutes,
                 'request_expires_at' => null,
             ],
+            beforeTransition: fn (Booking $lockedBooking) => $scheduledBookingPolicy->assertCanAccept(
+                booking: $lockedBooking,
+                bufferBeforeMinutes: $bufferBeforeMinutes,
+                bufferAfterMinutes: $bufferAfterMinutes,
+            ),
         );
 
         return new BookingResource($booking->load('currentQuote'));

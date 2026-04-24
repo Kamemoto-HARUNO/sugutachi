@@ -4,9 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\Booking;
+use App\Models\IdentityVerification;
 use App\Models\ServiceAddress;
+use App\Models\TherapistBookingSetting;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -112,6 +115,84 @@ class BookingStatusFlowTest extends TestCase
         ]);
     }
 
+    public function test_scheduled_accept_requires_buffers(): void
+    {
+        [, $therapist, $booking] = $this->createRequestedScheduledBooking();
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/accept")
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['buffer_before_minutes', 'buffer_after_minutes']);
+    }
+
+    public function test_scheduled_accept_rejects_overlap_when_buffers_are_applied(): void
+    {
+        [$user, $therapist, $booking] = $this->createRequestedScheduledBooking();
+
+        Booking::create([
+            'public_id' => 'book_scheduled_conflict',
+            'user_account_id' => $user->id,
+            'therapist_account_id' => $therapist->id,
+            'therapist_profile_id' => $booking->therapist_profile_id,
+            'therapist_menu_id' => $booking->therapist_menu_id,
+            'service_address_id' => $booking->service_address_id,
+            'status' => Booking::STATUS_ACCEPTED,
+            'is_on_demand' => false,
+            'requested_start_at' => CarbonImmutable::parse('2030-01-06 15:45:00'),
+            'scheduled_start_at' => CarbonImmutable::parse('2030-01-06 15:45:00'),
+            'scheduled_end_at' => CarbonImmutable::parse('2030-01-06 16:45:00'),
+            'duration_minutes' => 60,
+            'buffer_before_minutes' => 30,
+            'buffer_after_minutes' => 30,
+            'accepted_at' => now(),
+            'confirmed_at' => now(),
+            'total_amount' => 12300,
+            'therapist_net_amount' => 10800,
+            'platform_fee_amount' => 1200,
+            'matching_fee_amount' => 300,
+        ]);
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/accept", [
+                'buffer_before_minutes' => 30,
+                'buffer_after_minutes' => 30,
+            ])
+            ->assertConflict();
+    }
+
+    public function test_scheduled_accept_rejects_when_active_on_demand_booking_exists_within_six_hours(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2030-01-06 10:00:00'));
+
+        [$user, $therapist, $booking] = $this->createRequestedScheduledBooking();
+
+        Booking::create([
+            'public_id' => 'book_active_ondemand_accept',
+            'user_account_id' => $user->id,
+            'therapist_account_id' => $therapist->id,
+            'therapist_profile_id' => $booking->therapist_profile_id,
+            'therapist_menu_id' => $booking->therapist_menu_id,
+            'service_address_id' => $booking->service_address_id,
+            'status' => Booking::STATUS_ACCEPTED,
+            'is_on_demand' => true,
+            'requested_start_at' => CarbonImmutable::parse('2030-01-06 10:30:00'),
+            'duration_minutes' => 60,
+            'accepted_at' => now(),
+            'confirmed_at' => now(),
+            'total_amount' => 12300,
+            'therapist_net_amount' => 10800,
+            'platform_fee_amount' => 1200,
+            'matching_fee_amount' => 300,
+        ]);
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/accept", [
+                'buffer_before_minutes' => 15,
+                'buffer_after_minutes' => 15,
+            ])
+            ->assertConflict();
+    }
+
     private function createRequestedBooking(): array
     {
         $user = Account::factory()->create(['public_id' => 'acc_user_'.fake()->unique()->numberBetween(1000, 9999)]);
@@ -151,6 +232,78 @@ class BookingStatusFlowTest extends TestCase
             'status' => Booking::STATUS_REQUESTED,
             'duration_minutes' => 60,
             'request_expires_at' => now()->addMinutes(10),
+            'total_amount' => 12300,
+            'therapist_net_amount' => 10800,
+            'platform_fee_amount' => 1200,
+            'matching_fee_amount' => 300,
+        ]);
+
+        return [$user, $therapist, $booking];
+    }
+
+    private function createRequestedScheduledBooking(): array
+    {
+        $user = Account::factory()->create(['public_id' => 'acc_user_sched_'.fake()->unique()->numberBetween(1000, 9999)]);
+        $therapist = Account::factory()->create(['public_id' => 'acc_therapist_sched_'.fake()->unique()->numberBetween(1000, 9999)]);
+
+        IdentityVerification::create([
+            'account_id' => $therapist->id,
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'is_age_verified' => true,
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now(),
+        ]);
+
+        $therapistProfile = TherapistProfile::create([
+            'account_id' => $therapist->id,
+            'public_id' => 'thp_sched_'.fake()->unique()->numberBetween(1000, 9999),
+            'public_name' => 'Scheduled Therapist',
+            'profile_status' => TherapistProfile::STATUS_APPROVED,
+            'training_status' => 'completed',
+            'photo_review_status' => 'approved',
+        ]);
+
+        TherapistBookingSetting::create([
+            'therapist_profile_id' => $therapistProfile->id,
+            'booking_request_lead_time_minutes' => 60,
+            'scheduled_base_label' => 'Tenjin Base',
+            'scheduled_base_lat' => '33.5907000',
+            'scheduled_base_lng' => '130.4020000',
+        ]);
+
+        $menu = TherapistMenu::create([
+            'public_id' => 'menu_sched_'.fake()->unique()->numberBetween(1000, 9999),
+            'therapist_profile_id' => $therapistProfile->id,
+            'name' => 'Body care 60',
+            'duration_minutes' => 60,
+            'base_price_amount' => 12000,
+        ]);
+
+        $address = ServiceAddress::create([
+            'public_id' => 'addr_sched_'.fake()->unique()->numberBetween(1000, 9999),
+            'account_id' => $user->id,
+            'place_type' => 'hotel',
+            'address_line_encrypted' => 'encrypted-address',
+            'lat' => '35.6812360',
+            'lng' => '139.7671250',
+        ]);
+
+        $booking = Booking::create([
+            'public_id' => 'book_sched_'.fake()->unique()->numberBetween(1000, 9999),
+            'user_account_id' => $user->id,
+            'therapist_account_id' => $therapist->id,
+            'therapist_profile_id' => $therapistProfile->id,
+            'therapist_menu_id' => $menu->id,
+            'service_address_id' => $address->id,
+            'status' => Booking::STATUS_REQUESTED,
+            'is_on_demand' => false,
+            'requested_start_at' => CarbonImmutable::parse('2030-01-06 14:30:00'),
+            'scheduled_start_at' => CarbonImmutable::parse('2030-01-06 14:30:00'),
+            'scheduled_end_at' => CarbonImmutable::parse('2030-01-06 15:30:00'),
+            'duration_minutes' => 60,
+            'buffer_before_minutes' => 0,
+            'buffer_after_minutes' => 0,
+            'request_expires_at' => now()->addHours(6),
             'total_amount' => 12300,
             'therapist_net_amount' => 10800,
             'platform_fee_amount' => 1200,

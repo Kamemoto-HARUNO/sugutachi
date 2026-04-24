@@ -328,6 +328,7 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
     },
     "windows": [
       {
+        "availability_slot_id": "slot_xxx",
         "start_at": "2026-04-25T14:00:00+09:00",
         "end_at": "2026-04-25T18:00:00+09:00",
         "booking_deadline_at": "2026-04-25T13:00:00+09:00",
@@ -509,6 +510,7 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
   "therapist_profile_id": "thp_xxx",
   "therapist_menu_id": "menu_xxx",
   "service_address_id": "addr_xxx",
+  "availability_slot_id": "slot_xxx",
   "duration_minutes": 90,
   "is_on_demand": false,
   "requested_start_at": "2026-04-25T14:00:00+09:00"
@@ -517,7 +519,7 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
 
 見積もり対象のセラピストは、公開検索に表示可能な条件を満たしていることを前提とする。`is_on_demand=true` の場合は、アクティブなアカウント、承認済み本人確認、承認済みかつオンラインのセラピストプロフィール、有効なメニュー、検索可能な待機位置、相互ブロックなし、を満たさない場合は見積もりを作成できない。
 
-`is_on_demand=false` の場合は、承認済み本人確認、承認済みプロフィール、有効メニュー、予定予約用基本地点または枠専用出動拠点、公開中の空き時間、相互ブロックなしに加え、`requested_start_at` が15分単位であること、指定メニューが連続予約可能時間帯に収まること、セラピスト設定の受付締切前であることを満たす必要がある。距離・徒歩目安・交通費算定は現在地ではなく、対象空き枠に紐づく出動拠点を使う。
+`is_on_demand=false` の場合は、承認済み本人確認、承認済みプロフィール、有効メニュー、予定予約用基本地点または枠専用出動拠点、公開中の空き時間、相互ブロックなしに加え、`availability_slot_id` が対象セラピストの公開枠であること、`requested_start_at` と `duration_minutes` が15分単位であること、指定した開始時刻と所要時間が対象枠の連続予約可能時間帯に収まること、セラピスト設定の受付締切前であることを満たす必要がある。距離・徒歩目安・交通費算定は現在地ではなく、対象空き枠に紐づく出動拠点を使う。
 
 予定予約の `POST /bookings` は仮押さえ付き予約を作成する。作成時点で、同一ユーザーによる同一セラピスト向けの未処理予定予約が存在しないこと、かつ全セラピスト合計で同一ユーザーの未処理予定予約が2件以下であることを検証する。`request_expires_at` は `created_at + 6時間`、`requested_start_at - booking_request_lead_time_minutes`、`requested_start_at` のうち最も早い時刻を採用し、その時刻に未承諾なら `expired` へ遷移する。セラピストがオンデマンドで稼働中の場合、現在時刻から6時間以内に開始する予定予約は作成できない。
 
@@ -528,6 +530,9 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
   "data": {
     "quote_id": "quote_xxx",
     "expires_at": "2026-04-23T12:00:00+09:00",
+    "is_on_demand": false,
+    "requested_start_at": "2026-04-25T14:00:00+09:00",
+    "availability_slot_id": "slot_xxx",
     "amounts": {
       "base_amount": 9000,
       "travel_fee_amount": 500,

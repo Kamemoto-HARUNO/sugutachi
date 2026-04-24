@@ -10,6 +10,7 @@ use App\Models\StripeConnectedAccount;
 use App\Models\StripeDispute;
 use App\Models\StripeWebhookEvent;
 use App\Models\TherapistLedgerEntry;
+use App\Services\Bookings\ScheduledBookingPolicy;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -39,6 +40,7 @@ class StripeWebhookHandler
 
     public function __construct(
         private readonly StripeConnectedAccountSynchronizer $connectedAccountSynchronizer,
+        private readonly ScheduledBookingPolicy $scheduledBookingPolicy,
     ) {}
 
     public function handle(StripeEvent $event): StripeWebhookEvent
@@ -375,9 +377,17 @@ class StripeWebhookHandler
             return;
         }
 
+        $requestExpiresAt = $lockedBooking->is_on_demand
+            ? now()->addMinutes(10)
+            : $this->scheduledBookingPolicy->requestExpiresAt(
+                bookingSetting: $lockedBooking->therapistProfile->bookingSetting,
+                requestedStartAt: CarbonImmutable::instance($lockedBooking->requested_start_at),
+                createdAt: CarbonImmutable::instance($lockedBooking->created_at),
+            );
+
         $lockedBooking->forceFill([
             'status' => Booking::STATUS_REQUESTED,
-            'request_expires_at' => now()->addMinutes(10),
+            'request_expires_at' => $requestExpiresAt,
         ])->save();
 
         $lockedBooking->statusLogs()->create([

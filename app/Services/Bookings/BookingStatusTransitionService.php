@@ -16,8 +16,18 @@ class BookingStatusTransitionService
         string $toStatus,
         string $reasonCode,
         array $attributes = [],
+        ?callable $beforeTransition = null,
     ): Booking {
-        return DB::transaction(function () use ($actor, $actorRole, $allowedFromStatuses, $attributes, $booking, $reasonCode, $toStatus): Booking {
+        return DB::transaction(function () use (
+            $actor,
+            $actorRole,
+            $allowedFromStatuses,
+            $attributes,
+            $beforeTransition,
+            $booking,
+            $reasonCode,
+            $toStatus
+        ): Booking {
             $lockedBooking = Booking::query()
                 ->whereKey($booking->id)
                 ->lockForUpdate()
@@ -28,6 +38,10 @@ class BookingStatusTransitionService
                 409,
                 "Booking status [{$lockedBooking->status}] cannot transition to [{$toStatus}]."
             );
+
+            if ($beforeTransition) {
+                $beforeTransition($lockedBooking);
+            }
 
             $fromStatus = $lockedBooking->status;
 
