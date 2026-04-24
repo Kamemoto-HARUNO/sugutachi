@@ -4,8 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\IdentityVerification;
+use App\Models\ServiceAddress;
+use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class TherapistProfileReviewTest extends TestCase
@@ -109,16 +113,11 @@ class TherapistProfileReviewTest extends TestCase
         $therapist = Account::factory()->create(['public_id' => 'acc_therapist_profile_review']);
         $userToken = $user->createToken('api')->plainTextToken;
         $therapistToken = $therapist->createToken('api')->plainTextToken;
-
-        $profileId = $this->withToken($therapistToken)
-            ->putJson('/api/me/therapist-profile', [
-                'public_name' => 'Approved Therapist',
-                'bio' => 'Relaxation focused body care.',
-                'training_status' => 'completed',
-            ])
-            ->assertOk()
-            ->assertJsonPath('data.profile_status', 'draft')
-            ->json('data.public_id');
+        $therapist->roleAssignments()->create([
+            'role' => 'therapist',
+            'status' => 'active',
+            'granted_at' => now(),
+        ]);
 
         IdentityVerification::create([
             'account_id' => $therapist->id,
@@ -128,81 +127,75 @@ class TherapistProfileReviewTest extends TestCase
             'reviewed_at' => now(),
         ]);
 
-        $menuId = $this->withToken($therapistToken)
-            ->postJson('/api/me/therapist/menus', [
-                'name' => 'Body care 60',
-                'duration_minutes' => 60,
-                'base_price_amount' => 12000,
-            ])
-            ->assertCreated()
-            ->json('data.public_id');
+        $profile = TherapistProfile::create([
+            'account_id' => $therapist->id,
+            'public_id' => 'thp_profile_review',
+            'public_name' => 'Approved Therapist',
+            'bio' => 'Relaxation focused body care.',
+            'profile_status' => TherapistProfile::STATUS_APPROVED,
+            'training_status' => 'completed',
+            'photo_review_status' => 'approved',
+            'is_online' => true,
+            'online_since' => now()->subMinutes(5),
+            'approved_at' => now(),
+        ]);
+        $menu = TherapistMenu::create([
+            'public_id' => 'menu_profile_review_60',
+            'therapist_profile_id' => $profile->id,
+            'name' => 'Body care 60',
+            'duration_minutes' => 60,
+            'base_price_amount' => 12000,
+            'is_active' => true,
+        ]);
+        $profile->location()->create([
+            'lat' => 35.681236,
+            'lng' => 139.767125,
+            'accuracy_m' => 30,
+            'source' => 'test',
+            'is_searchable' => true,
+        ]);
 
-        $this->withToken($therapistToken)
-            ->postJson('/api/me/therapist-profile/submit-review')
-            ->assertOk()
-            ->assertJsonPath('data.profile_status', 'pending');
+        $serviceAddressId = ServiceAddress::create([
+            'public_id' => 'addr_profile_review',
+            'account_id' => $user->id,
+            'label' => 'Hotel',
+            'place_type' => 'hotel',
+            'prefecture' => 'Tokyo',
+            'city' => 'Chiyoda',
+            'address_line_encrypted' => Crypt::encryptString('secret address'),
+            'lat' => 35.682000,
+            'lng' => 139.768000,
+            'is_default' => true,
+        ])->public_id;
 
-        TherapistProfile::query()
-            ->where('public_id', $profileId)
-            ->firstOrFail()
-            ->forceFill([
-                'profile_status' => TherapistProfile::STATUS_APPROVED,
-                'approved_at' => now(),
-            ])
-            ->save();
-
-        $this->withToken($therapistToken)
-            ->putJson('/api/me/therapist/location', [
-                'lat' => 35.681236,
-                'lng' => 139.767125,
-                'accuracy_m' => 30,
-                'source' => 'test',
-            ])
-            ->assertOk()
-            ->assertJsonPath('data.is_online', true);
-
-        $serviceAddressId = $this->withToken($userToken)
-            ->postJson('/api/me/service-addresses', [
-                'label' => 'Hotel',
-                'place_type' => 'hotel',
-                'prefecture' => 'Tokyo',
-                'city' => 'Chiyoda',
-                'address_line' => 'secret address',
-                'lat' => 35.682000,
-                'lng' => 139.768000,
-                'is_default' => true,
-            ])
-            ->assertCreated()
-            ->json('data.public_id');
-
-        $this->withToken($userToken)
-            ->postJson('/api/booking-quotes', [
-                'therapist_profile_id' => $profileId,
-                'therapist_menu_id' => $menuId,
-                'service_address_id' => $serviceAddressId,
-                'duration_minutes' => 60,
-                'is_on_demand' => true,
-            ])
+        Sanctum::actingAs($user);
+        $this->postJson('/api/booking-quotes', [
+            'therapist_profile_id' => $profile->public_id,
+            'therapist_menu_id' => $menu->public_id,
+            'service_address_id' => $serviceAddressId,
+            'duration_minutes' => 60,
+            'is_on_demand' => true,
+        ])
             ->assertCreated();
 
-        $this->withToken($therapistToken)
-            ->putJson('/api/me/therapist-profile', [
-                'public_name' => 'Approved Therapist',
-                'bio' => 'Updated profile text that needs review again.',
-                'training_status' => 'completed',
-            ])
+        Sanctum::actingAs($therapist);
+        $this->putJson('/api/me/therapist-profile', [
+            'public_name' => 'Approved Therapist',
+            'bio' => 'Updated profile text that needs review again.',
+            'training_status' => 'completed',
+        ])
             ->assertOk()
             ->assertJsonPath('data.profile_status', 'draft')
             ->assertJsonPath('data.is_online', false);
 
-        $this->withToken($userToken)
-            ->postJson('/api/booking-quotes', [
-                'therapist_profile_id' => $profileId,
-                'therapist_menu_id' => $menuId,
-                'service_address_id' => $serviceAddressId,
-                'duration_minutes' => 60,
-                'is_on_demand' => true,
-            ])
+        Sanctum::actingAs($user);
+        $this->postJson('/api/booking-quotes', [
+            'therapist_profile_id' => $profile->public_id,
+            'therapist_menu_id' => $menu->public_id,
+            'service_address_id' => $serviceAddressId,
+            'duration_minutes' => 60,
+            'is_on_demand' => true,
+        ])
             ->assertNotFound();
     }
 }

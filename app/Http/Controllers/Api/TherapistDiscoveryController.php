@@ -6,7 +6,6 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\PublicTherapistDetailResource;
 use App\Http\Resources\PublicTherapistSearchResultResource;
 use App\Models\Account;
-use App\Models\IdentityVerification;
 use App\Models\LocationSearchLog;
 use App\Models\ProfilePhoto;
 use App\Models\ServiceAddress;
@@ -77,6 +76,7 @@ class TherapistDiscoveryController extends Controller
     private function discoverableProfilesQuery(Account $viewer): Builder
     {
         return TherapistProfile::query()
+            ->discoverableTo($viewer)
             ->with([
                 'location',
                 'menus' => fn ($query) => $query
@@ -87,22 +87,7 @@ class TherapistDiscoveryController extends Controller
                     ->where('status', ProfilePhoto::STATUS_APPROVED)
                     ->orderBy('sort_order')
                     ->orderBy('id'),
-            ])
-            ->where('account_id', '!=', $viewer->id)
-            ->where('profile_status', TherapistProfile::STATUS_APPROVED)
-            ->where('is_online', true)
-            ->whereHas('menus', fn ($query) => $query->where('is_active', true))
-            ->whereHas('location', fn ($query) => $query->where('is_searchable', true))
-            ->whereHas('account', function (Builder $query) use ($viewer): void {
-                $query
-                    ->where('status', Account::STATUS_ACTIVE)
-                    ->whereDoesntHave('blockedByAccounts', fn ($blockedBy) => $blockedBy
-                        ->where('blocker_account_id', $viewer->id))
-                    ->whereDoesntHave('blockedAccounts', fn ($blocked) => $blocked
-                        ->where('blocked_account_id', $viewer->id));
-            })
-            ->whereHas('account.latestIdentityVerification', fn ($query) => $query
-                ->where('status', IdentityVerification::STATUS_APPROVED));
+            ]);
     }
 
     private function buildSearchResults(

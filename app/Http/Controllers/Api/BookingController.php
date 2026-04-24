@@ -4,8 +4,10 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\BookingResource;
+use App\Models\Account;
 use App\Models\Booking;
 use App\Models\BookingQuote;
+use App\Models\TherapistProfile;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -55,6 +57,7 @@ class BookingController extends Controller
             ->firstOrFail();
 
         abort_if($quote->expires_at && $quote->expires_at->isPast(), 409, 'The quote has expired.');
+        $this->ensureQuoteStillBookable($request->user(), $quote);
 
         $serviceAddress = $request->user()
             ->serviceAddresses()
@@ -127,5 +130,18 @@ class BookingController extends Controller
         );
 
         return new BookingResource($booking->load('currentQuote'));
+    }
+
+    private function ensureQuoteStillBookable(Account $viewer, BookingQuote $quote): void
+    {
+        $isBookable = TherapistProfile::query()
+            ->discoverableTo($viewer)
+            ->whereKey($quote->therapist_profile_id)
+            ->whereHas('menus', fn ($query) => $query
+                ->whereKey($quote->therapist_menu_id)
+                ->where('is_active', true))
+            ->exists();
+
+        abort_unless($isBookable, 404);
     }
 }

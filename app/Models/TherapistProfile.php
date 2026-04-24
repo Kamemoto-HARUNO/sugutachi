@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Models\Concerns\UsesPublicIdRouteKey;
 use Illuminate\Database\Eloquent\Attributes\Guarded;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -23,6 +24,26 @@ class TherapistProfile extends Model
     public const STATUS_REJECTED = 'rejected';
 
     public const STATUS_SUSPENDED = 'suspended';
+
+    public function scopeDiscoverableTo(Builder $query, Account $viewer): Builder
+    {
+        return $query
+            ->where('account_id', '!=', $viewer->id)
+            ->where('profile_status', self::STATUS_APPROVED)
+            ->where('is_online', true)
+            ->whereHas('menus', fn (Builder $query) => $query->where('is_active', true))
+            ->whereHas('location', fn (Builder $query) => $query->where('is_searchable', true))
+            ->whereHas('account', function (Builder $query) use ($viewer): void {
+                $query
+                    ->where('status', Account::STATUS_ACTIVE)
+                    ->whereDoesntHave('blockedByAccounts', fn (Builder $blockedBy) => $blockedBy
+                        ->where('blocker_account_id', $viewer->id))
+                    ->whereDoesntHave('blockedAccounts', fn (Builder $blocked) => $blocked
+                        ->where('blocked_account_id', $viewer->id));
+            })
+            ->whereHas('account.latestIdentityVerification', fn (Builder $query) => $query
+                ->where('status', IdentityVerification::STATUS_APPROVED));
+    }
 
     public function account(): BelongsTo
     {

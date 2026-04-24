@@ -17,6 +17,15 @@ trait SuspendsAccounts
             'suspension_reason' => $reasonCode,
         ])->save();
         $account->tokens()->delete();
+
+        $account->loadMissing('therapistProfile');
+
+        if ($account->therapistProfile) {
+            $account->therapistProfile->forceFill([
+                'is_online' => false,
+                'online_since' => null,
+            ])->save();
+        }
     }
 
     protected function restoreAccount(Account $account): void

@@ -8,9 +8,12 @@ use App\Models\Account;
 use App\Models\Booking;
 use App\Models\BookingQuote;
 use App\Models\IdentityVerification;
+use App\Models\ServiceAddress;
 use App\Models\StripeConnectedAccount;
+use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
 use Tests\TestCase;
 
 class BookingPaymentFlowTest extends TestCase
@@ -34,77 +37,7 @@ class BookingPaymentFlowTest extends TestCase
             }
         });
 
-        $user = Account::factory()->create(['public_id' => 'acc_user_flow']);
-        $therapist = Account::factory()->create(['public_id' => 'acc_therapist_flow']);
-        $userToken = $user->createToken('api')->plainTextToken;
-        $therapistToken = $therapist->createToken('api')->plainTextToken;
-
-        $therapistProfileId = $this->withToken($therapistToken)
-            ->putJson('/api/me/therapist-profile', [
-                'public_name' => 'Test Therapist',
-                'bio' => 'Relaxation focused body care.',
-                'training_status' => 'completed',
-            ])
-            ->assertOk()
-            ->assertJsonPath('data.profile_status', 'draft')
-            ->json('data.public_id');
-
-        IdentityVerification::create([
-            'account_id' => $therapist->id,
-            'status' => IdentityVerification::STATUS_APPROVED,
-            'is_age_verified' => true,
-            'submitted_at' => now()->subDay(),
-            'reviewed_at' => now(),
-        ]);
-
-        $therapistMenuId = $this->withToken($therapistToken)
-            ->postJson('/api/me/therapist/menus', [
-                'name' => 'Body care 60',
-                'duration_minutes' => 60,
-                'base_price_amount' => 12000,
-            ])
-            ->assertCreated()
-            ->assertJsonPath('data.base_price_amount', 12000)
-            ->json('data.public_id');
-
-        $this->withToken($therapistToken)
-            ->postJson('/api/me/therapist-profile/submit-review')
-            ->assertOk()
-            ->assertJsonPath('data.profile_status', 'pending');
-
-        TherapistProfile::query()
-            ->where('public_id', $therapistProfileId)
-            ->firstOrFail()
-            ->forceFill([
-                'profile_status' => TherapistProfile::STATUS_APPROVED,
-                'approved_at' => now(),
-            ])
-            ->save();
-
-        $this->withToken($therapistToken)
-            ->putJson('/api/me/therapist/location', [
-                'lat' => 35.681236,
-                'lng' => 139.767125,
-                'accuracy_m' => 30,
-                'source' => 'test',
-            ])
-            ->assertOk()
-            ->assertJsonPath('data.is_online', true);
-
-        $serviceAddressId = $this->withToken($userToken)
-            ->postJson('/api/me/service-addresses', [
-                'label' => 'Hotel',
-                'place_type' => 'hotel',
-                'prefecture' => 'Tokyo',
-                'city' => 'Chiyoda',
-                'address_line' => 'secret address',
-                'lat' => 35.682000,
-                'lng' => 139.768000,
-                'is_default' => true,
-            ])
-            ->assertCreated()
-            ->assertJsonPath('data.place_type', 'hotel')
-            ->json('data.public_id');
+        [, , $userToken, $therapistProfileId, $therapistMenuId, $serviceAddressId] = $this->createBookableFixture();
 
         $quoteId = $this->withToken($userToken)
             ->postJson('/api/booking-quotes', [
@@ -151,5 +84,137 @@ class BookingPaymentFlowTest extends TestCase
             'amount' => 12300,
             'is_current' => true,
         ]);
+    }
+
+    public function test_quote_and_booking_require_therapist_to_remain_discoverable(): void
+    {
+        [$user, $therapist, $userToken, $therapistProfileId, $therapistMenuId, $serviceAddressId] = $this->createBookableFixture();
+
+        $quoteId = $this->withToken($userToken)
+            ->postJson('/api/booking-quotes', [
+                'therapist_profile_id' => $therapistProfileId,
+                'therapist_menu_id' => $therapistMenuId,
+                'service_address_id' => $serviceAddressId,
+                'duration_minutes' => 60,
+                'is_on_demand' => true,
+            ])
+            ->assertCreated()
+            ->json('data.quote_id');
+
+        $therapist->forceFill([
+            'status' => Account::STATUS_SUSPENDED,
+            'suspended_at' => now(),
+            'suspension_reason' => 'policy_violation',
+        ])->save();
+
+        $this->withToken($userToken)
+            ->postJson('/api/booking-quotes', [
+                'therapist_profile_id' => $therapistProfileId,
+                'therapist_menu_id' => $therapistMenuId,
+                'service_address_id' => $serviceAddressId,
+                'duration_minutes' => 60,
+                'is_on_demand' => true,
+            ])
+            ->assertNotFound();
+
+        $this->withToken($userToken)
+            ->postJson('/api/bookings', [
+                'quote_id' => $quoteId,
+            ])
+            ->assertNotFound();
+
+        $this->assertDatabaseMissing('bookings', [
+            'current_quote_id' => BookingQuote::query()->where('public_id', $quoteId)->value('id'),
+        ]);
+    }
+
+    private function createBookableFixture(): array
+    {
+        $user = Account::factory()->create(['public_id' => 'acc_user_flow']);
+        $therapist = Account::factory()->create(['public_id' => 'acc_therapist_flow']);
+        $userToken = $user->createToken('api')->plainTextToken;
+        $therapist->roleAssignments()->create([
+            'role' => 'therapist',
+            'status' => 'active',
+            'granted_at' => now(),
+        ]);
+
+        IdentityVerification::create([
+            'account_id' => $therapist->id,
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'is_age_verified' => true,
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now(),
+        ]);
+
+        $therapistProfile = TherapistProfile::create([
+            'account_id' => $therapist->id,
+            'public_id' => 'thp_quote_flow',
+            'public_name' => 'Test Therapist',
+            'bio' => 'Relaxation focused body care.',
+            'profile_status' => TherapistProfile::STATUS_APPROVED,
+            'training_status' => 'completed',
+            'photo_review_status' => 'approved',
+            'is_online' => true,
+            'online_since' => now()->subMinutes(5),
+            'approved_at' => now(),
+        ]);
+        $therapistMenu = TherapistMenu::create([
+            'public_id' => 'menu_quote_flow_60',
+            'therapist_profile_id' => $therapistProfile->id,
+            'name' => 'Body care 60',
+            'duration_minutes' => 60,
+            'base_price_amount' => 12000,
+            'is_active' => true,
+        ]);
+        $therapistProfile->location()->create([
+            'lat' => 35.681236,
+            'lng' => 139.767125,
+            'accuracy_m' => 30,
+            'source' => 'test',
+            'is_searchable' => true,
+        ]);
+
+        $serviceAddressId = ServiceAddress::create([
+            'public_id' => 'addr_quote_flow',
+            'account_id' => $user->id,
+            'label' => 'Hotel',
+            'place_type' => 'hotel',
+            'prefecture' => 'Tokyo',
+            'city' => 'Chiyoda',
+            'address_line_encrypted' => Crypt::encryptString('secret address'),
+            'lat' => 35.682000,
+            'lng' => 139.768000,
+            'is_default' => true,
+        ])->public_id;
+
+        $this->assertTrue(
+            TherapistProfile::query()
+                ->discoverableTo($user)
+                ->where('public_id', $therapistProfile->public_id)
+                ->exists()
+        );
+
+        $discoverableProfile = TherapistProfile::query()
+            ->discoverableTo($user)
+            ->where('public_id', $therapistProfile->public_id)
+            ->first();
+
+        $this->assertNotNull($discoverableProfile);
+        $this->assertTrue(
+            TherapistMenu::query()
+                ->where('public_id', $therapistMenu->public_id)
+                ->where('therapist_profile_id', $discoverableProfile->id)
+                ->where('is_active', true)
+                ->exists()
+        );
+        $this->assertTrue(
+            ServiceAddress::query()
+                ->where('public_id', $serviceAddressId)
+                ->where('account_id', $user->id)
+                ->exists()
+        );
+
+        return [$user, $therapist, $userToken, $therapistProfile->public_id, $therapistMenu->public_id, $serviceAddressId];
     }
 }

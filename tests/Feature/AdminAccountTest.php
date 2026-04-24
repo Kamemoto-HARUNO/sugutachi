@@ -20,7 +20,7 @@ class AdminAccountTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.public_id', $user->public_id)
-            ->assertJsonPath('data.0.roles.0.role', 'user');
+            ->assertJsonFragment(['role' => 'user']);
 
         $this->withToken($token)
             ->getJson("/api/admin/accounts/{$user->public_id}")
@@ -45,12 +45,18 @@ class AdminAccountTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('data.status', Account::STATUS_SUSPENDED)
-            ->assertJsonPath('data.suspension_reason', 'policy_violation');
+            ->assertJsonPath('data.suspension_reason', 'policy_violation')
+            ->assertJsonPath('data.therapist_profile.is_online', false);
 
         $this->assertDatabaseHas('accounts', [
             'id' => $user->id,
             'status' => Account::STATUS_SUSPENDED,
             'suspension_reason' => 'policy_violation',
+        ]);
+        $this->assertDatabaseHas('therapist_profiles', [
+            'account_id' => $user->id,
+            'profile_status' => 'approved',
+            'is_online' => false,
         ]);
         $this->assertDatabaseMissing('personal_access_tokens', [
             'tokenable_id' => $user->id,
@@ -67,7 +73,8 @@ class AdminAccountTest extends TestCase
             ->postJson("/api/admin/accounts/{$user->public_id}/restore")
             ->assertOk()
             ->assertJsonPath('data.status', Account::STATUS_ACTIVE)
-            ->assertJsonPath('data.suspension_reason', null);
+            ->assertJsonPath('data.suspension_reason', null)
+            ->assertJsonPath('data.therapist_profile.is_online', false);
 
         $this->assertDatabaseHas('accounts', [
             'id' => $user->id,
@@ -121,6 +128,19 @@ class AdminAccountTest extends TestCase
             'role' => 'user',
             'status' => 'active',
             'granted_at' => now(),
+        ]);
+        $user->roleAssignments()->create([
+            'role' => 'therapist',
+            'status' => 'active',
+            'granted_at' => now(),
+        ]);
+        $user->therapistProfile()->create([
+            'public_id' => 'thp_managed_user',
+            'public_name' => 'Managed Therapist',
+            'profile_status' => 'approved',
+            'training_status' => 'completed',
+            'is_online' => true,
+            'online_since' => now()->subMinutes(5),
         ]);
 
         return [$admin, $user];
