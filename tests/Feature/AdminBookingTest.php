@@ -52,7 +52,8 @@ class AdminBookingTest extends TestCase
             ->assertJsonPath('data.0.current_payment_intent_status', 'requires_capture')
             ->assertJsonPath('data.0.refund_count', 1)
             ->assertJsonPath('data.0.report_count', 1)
-            ->assertJsonPath('data.0.open_dispute_count', 1);
+            ->assertJsonPath('data.0.open_dispute_count', 1)
+            ->assertJsonPath('data.0.flagged_message_count', 1);
 
         $this->withToken($token)
             ->getJson("/api/admin/bookings/{$booking->public_id}")
@@ -126,7 +127,7 @@ class AdminBookingTest extends TestCase
         ]);
 
         $this->withToken($admin->createToken('api')->plainTextToken)
-            ->getJson('/api/admin/bookings?is_on_demand=1&payment_intent_status=requires_capture&has_refund_request=1&has_open_report=1&has_open_dispute=1&request_expires_to='.today()->toDateString())
+            ->getJson('/api/admin/bookings?is_on_demand=1&payment_intent_status=requires_capture&has_refund_request=1&has_open_report=1&has_open_dispute=1&has_flagged_message=1&request_expires_to='.today()->toDateString())
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.public_id', $booking->public_id);

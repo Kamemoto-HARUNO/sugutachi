@@ -19,6 +19,15 @@ class PublicInfoApiTest extends TestCase
         config()->set('service_meta.fees.currency', 'jpy');
         config()->set('service_meta.fees.matching_fee_amount', 300);
         config()->set('service_meta.fees.platform_fee_rate', 0.1);
+        config()->set('service_meta.commerce.operator_name', '合同会社すぐタチ');
+        config()->set('service_meta.commerce.representative_name', '亀本 春乃');
+        config()->set('service_meta.commerce.business_address', '東京都渋谷区...');
+        config()->set('service_meta.commerce.phone_number', '03-0000-0000');
+        config()->set('service_meta.commerce.inquiry_hours', '平日 10:00-18:00');
+        config()->set('service_meta.commerce.payment_timing', '予約時にクレジットカード決済');
+        config()->set('service_meta.commerce.service_delivery_timing', '予約成立後、予約日時に役務提供');
+        config()->set('service_meta.commerce.cancellation_policy_summary', 'キャンセルポリシーに従います。');
+        config()->set('service_meta.commerce.refund_policy_summary', '返金ポリシーに従います。');
 
         $this->getJson('/api/service-meta')
             ->assertOk()
@@ -30,7 +39,19 @@ class PublicInfoApiTest extends TestCase
             ->assertJsonPath('data.fees.matching_fee_amount', 300)
             ->assertJsonPath('data.fees.platform_fee_rate', 0.1)
             ->assertJsonPath('data.booking.minimum_age', 18)
-            ->assertJsonPath('data.booking.payment_methods.0', 'card');
+            ->assertJsonPath('data.booking.payment_methods.0', 'card')
+            ->assertJsonPath('data.commerce_notice.operator_name', '合同会社すぐタチ')
+            ->assertJsonPath('data.commerce_notice.representative_name', '亀本 春乃')
+            ->assertJsonPath('data.commerce_notice.business_address', '東京都渋谷区...')
+            ->assertJsonPath('data.commerce_notice.phone_number', '03-0000-0000')
+            ->assertJsonPath('data.commerce_notice.contact_email', 'support@sugutachi.com')
+            ->assertJsonPath('data.commerce_notice.inquiry_hours', '平日 10:00-18:00')
+            ->assertJsonPath('data.commerce_notice.payment_timing', '予約時にクレジットカード決済')
+            ->assertJsonPath('data.commerce_notice.service_delivery_timing', '予約成立後、予約日時に役務提供')
+            ->assertJsonPath('data.commerce_notice.cancellation_policy_summary', 'キャンセルポリシーに従います。')
+            ->assertJsonPath('data.commerce_notice.refund_policy_summary', '返金ポリシーに従います。')
+            ->assertJsonPath('data.commerce_notice.supported_payment_methods.0', 'card')
+            ->assertJsonPath('data.commerce_notice.legal_document_type', 'commerce');
     }
 
     public function test_guest_can_get_help_faqs(): void

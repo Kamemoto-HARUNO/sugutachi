@@ -70,6 +70,9 @@ class AdminDashboardController extends Controller
                         ->where('status', Booking::STATUS_COMPLETED)
                         ->whereDate('updated_at', today())
                         ->count(),
+                    'needs_message_review' => Booking::query()
+                        ->whereHas('messages', fn ($query) => $query->flagged())
+                        ->count(),
                 ],
                 'navigation' => [
                     'accounts' => [
@@ -172,6 +175,14 @@ class AdminDashboardController extends Controller
                             'query' => [
                                 'status' => Booking::STATUS_COMPLETED,
                                 'completed_on' => today()->toDateString(),
+                                'sort' => 'updated_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
+                        'needs_message_review' => [
+                            'path' => '/api/admin/bookings',
+                            'query' => [
+                                'has_flagged_message' => true,
                                 'sort' => 'updated_at',
                                 'direction' => 'desc',
                             ],

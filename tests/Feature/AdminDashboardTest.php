@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\Booking;
+use App\Models\BookingMessage;
 use App\Models\ContactInquiry;
 use App\Models\IdentityVerification;
 use App\Models\PayoutRequest;
@@ -172,6 +173,15 @@ class AdminDashboardTest extends TestCase
             'evidence_due_by' => now()->addDays(7),
             'last_stripe_event_id' => 'evt_dashboard_dispute',
         ]);
+        BookingMessage::create([
+            'booking_id' => $requestedBooking->id,
+            'sender_account_id' => $therapist->id,
+            'message_type' => 'text',
+            'body_encrypted' => Crypt::encryptString('Call me directly at 090-1111-1111'),
+            'detected_contact_exchange' => true,
+            'moderation_status' => 'blocked',
+            'sent_at' => now()->subMinutes(5),
+        ]);
 
         $this->withToken($admin->createToken('api')->plainTextToken)
             ->getJson('/api/admin/dashboard')
@@ -189,6 +199,7 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.bookings.requested', 1)
             ->assertJsonPath('data.bookings.in_progress', 1)
             ->assertJsonPath('data.bookings.completed_today', 1)
+            ->assertJsonPath('data.bookings.needs_message_review', 1)
             ->assertJsonPath('data.navigation.accounts.suspended.path', '/api/admin/accounts')
             ->assertJsonPath('data.navigation.accounts.suspended.query.status', Account::STATUS_SUSPENDED)
             ->assertJsonPath('data.navigation.reviews.pending_identity_verifications.path', '/api/admin/identity-verifications')
@@ -200,7 +211,8 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.navigation.operations.requested_payouts.path', '/api/admin/payout-requests')
             ->assertJsonPath('data.navigation.operations.requested_payouts.query.direction', 'asc')
             ->assertJsonPath('data.navigation.bookings.requested.path', '/api/admin/bookings')
-            ->assertJsonPath('data.navigation.bookings.completed_today.query.completed_on', today()->toDateString());
+            ->assertJsonPath('data.navigation.bookings.completed_today.query.completed_on', today()->toDateString())
+            ->assertJsonPath('data.navigation.bookings.needs_message_review.query.has_flagged_message', true);
     }
 
     public function test_non_admin_cannot_view_dashboard_summary(): void

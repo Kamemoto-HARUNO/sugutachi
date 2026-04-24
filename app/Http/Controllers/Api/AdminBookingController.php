@@ -34,6 +34,7 @@ class AdminBookingController extends Controller
             'has_refund_request' => ['nullable', 'boolean'],
             'has_open_report' => ['nullable', 'boolean'],
             'has_open_dispute' => ['nullable', 'boolean'],
+            'has_flagged_message' => ['nullable', 'boolean'],
             'scheduled_from' => ['nullable', 'date'],
             'scheduled_to' => ['nullable', 'date'],
             'completed_on' => ['nullable', 'date'],
@@ -66,6 +67,7 @@ class AdminBookingController extends Controller
                         'needs_response',
                         'under_review',
                     ]),
+                    'messages as flagged_messages_count' => fn ($query) => $query->flagged(),
                 ])
                 ->when($userAccountId, fn ($query, int $id) => $query->where('user_account_id', $id))
                 ->when($therapistAccountId, fn ($query, int $id) => $query->where('therapist_account_id', $id))
@@ -96,6 +98,12 @@ class AdminBookingController extends Controller
                     fn ($query) => $validated['has_open_dispute']
                         ? $query->whereHas('disputes', fn ($query) => $query->whereIn('status', ['needs_response', 'under_review']))
                         : $query->whereDoesntHave('disputes', fn ($query) => $query->whereIn('status', ['needs_response', 'under_review']))
+                )
+                ->when(
+                    array_key_exists('has_flagged_message', $validated),
+                    fn ($query) => $validated['has_flagged_message']
+                        ? $query->whereHas('messages', fn ($query) => $query->flagged())
+                        : $query->whereDoesntHave('messages', fn ($query) => $query->flagged())
                 )
                 ->when($validated['scheduled_from'] ?? null, fn ($query, string $date) => $query->whereDate('scheduled_start_at', '>=', $date))
                 ->when($validated['scheduled_to'] ?? null, fn ($query, string $date) => $query->whereDate('scheduled_start_at', '<=', $date))

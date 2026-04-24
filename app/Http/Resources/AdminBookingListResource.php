@@ -46,6 +46,7 @@ class AdminBookingListResource extends JsonResource
             'refund_count' => $this->refunds_count,
             'report_count' => $this->reports_count,
             'open_dispute_count' => $this->open_disputes_count,
+            'flagged_message_count' => $this->flagged_messages_count,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];
