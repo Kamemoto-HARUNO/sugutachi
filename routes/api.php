@@ -144,6 +144,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
 
     Route::get('/me/identity-verification', [IdentityVerificationController::class, 'latest']);
     Route::post('/me/identity-verification', [IdentityVerificationController::class, 'store']);
+    Route::post('/me/identity-verification/resubmit', [IdentityVerificationController::class, 'resubmit']);
 
     Route::get('/me/service-addresses', [ServiceAddressController::class, 'index']);
     Route::post('/me/service-addresses', [ServiceAddressController::class, 'store']);

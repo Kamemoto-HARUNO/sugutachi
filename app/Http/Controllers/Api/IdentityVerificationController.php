@@ -18,6 +18,26 @@ class IdentityVerificationController extends Controller
 {
     public function store(Request $request): JsonResponse
     {
+        return $this->submit($request);
+    }
+
+    public function resubmit(Request $request): JsonResponse
+    {
+        return $this->submit($request, requiresRejectedLatest: true);
+    }
+
+    public function latest(Request $request): IdentityVerificationResource
+    {
+        $verification = $request->user()
+            ->identityVerifications()
+            ->latest('submitted_at')
+            ->firstOrFail();
+
+        return new IdentityVerificationResource($verification);
+    }
+
+    private function submit(Request $request, bool $requiresRejectedLatest = false): JsonResponse
+    {
         $oldestAllowedBirthdate = now()->subYears(18)->toDateString();
 
         $validated = $request->validate([
@@ -31,6 +51,16 @@ class IdentityVerificationController extends Controller
         ]);
 
         $account = $request->user();
+        $latestVerification = $account->identityVerifications()->latest('submitted_at')->first();
+
+        if ($requiresRejectedLatest) {
+            abort_unless(
+                $latestVerification?->status === IdentityVerification::STATUS_REJECTED,
+                409,
+                'Only rejected identity verifications can be resubmitted.'
+            );
+        }
+
         $documentFile = $this->findUsableTempFile($validated['document_file_id'], $account->id, 'identity_document');
         $selfieFile = $this->findUsableTempFile($validated['selfie_file_id'], $account->id, 'selfie');
         $birthdate = CarbonImmutable::parse($validated['birthdate']);
@@ -39,7 +69,7 @@ class IdentityVerificationController extends Controller
             $verification = IdentityVerification::create([
                 'account_id' => $account->id,
                 'provider' => 'manual',
-                'status' => 'pending',
+                'status' => IdentityVerification::STATUS_PENDING,
                 'full_name_encrypted' => Crypt::encryptString($validated['full_name']),
                 'birthdate_encrypted' => Crypt::encryptString($birthdate->toDateString()),
                 'birth_year' => $birthdate->year,
@@ -52,6 +82,9 @@ class IdentityVerificationController extends Controller
                 'document_storage_key_encrypted' => $documentFile->storage_key_encrypted,
                 'selfie_storage_key_encrypted' => $selfieFile->storage_key_encrypted,
                 'submitted_at' => now(),
+                'reviewed_by_account_id' => null,
+                'reviewed_at' => null,
+                'rejection_reason_code' => null,
                 'purge_after' => now()->addDays(30),
             ]);
 
@@ -69,16 +102,6 @@ class IdentityVerificationController extends Controller
         return (new IdentityVerificationResource($verification))
             ->response()
             ->setStatusCode(201);
-    }
-
-    public function latest(Request $request): IdentityVerificationResource
-    {
-        $verification = $request->user()
-            ->identityVerifications()
-            ->latest('submitted_at')
-            ->firstOrFail();
-
-        return new IdentityVerificationResource($verification);
     }
 
     private function findUsableTempFile(string $fileId, int $accountId, string $purpose): TempFile

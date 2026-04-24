@@ -198,6 +198,8 @@
 }
 ```
 
+`POST /me/identity-verification/resubmit` は、最新の本人確認レコードが `rejected` の場合のみ受け付ける。差し戻し済みレコードは履歴として残しつつ、新しい `pending` レコードを作成する。
+
 MVPでは、Stripe Connect側で本人確認できるセラピストについては、アプリ本体の本人確認書類長期保存を避ける。
 
 ### 5.2 共通プロフィール
