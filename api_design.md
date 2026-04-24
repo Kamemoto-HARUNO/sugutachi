@@ -205,6 +205,8 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
 | POST | `/me/profile/photos` | Auth | 写真アップロード |
 | DELETE | `/me/profile/photos/{photo_id}` | Auth | 写真削除 |
 
+`POST /me/profile/photos` は、事前に `POST /temp-files` でアップロードした `purpose=profile_photo` の一時ファイルを `temp_file_id` で受け取り、正式なプロフィール写真として保存する。セラピストプロフィールが存在する場合は `usage_type=therapist_profile` を優先し、アップロード時点では写真ステータスを `pending` にする。
+
 ### 5.3 ユーザープロフィール
 
 | Method | Path | 権限 | 用途 |

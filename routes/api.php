@@ -25,6 +25,7 @@ use App\Http\Controllers\Api\LegalDocumentController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PaymentIntentController;
 use App\Http\Controllers\Api\PaymentSyncController;
+use App\Http\Controllers\Api\ProfilePhotoController;
 use App\Http\Controllers\Api\PushSubscriptionController;
 use App\Http\Controllers\Api\RefundRequestController;
 use App\Http\Controllers\Api\ReportController;
@@ -58,6 +59,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::post('/legal-documents/{legalDocument:public_id}/accept', [LegalDocumentController::class, 'accept']);
+    Route::post('/me/profile/photos', [ProfilePhotoController::class, 'store']);
+    Route::delete('/me/profile/photos/{profilePhoto}', [ProfilePhotoController::class, 'destroy']);
 
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'read']);
