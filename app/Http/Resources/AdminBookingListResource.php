@@ -45,6 +45,7 @@ class AdminBookingListResource extends JsonResource
             'current_payment_intent_status' => $this->whenLoaded('currentPaymentIntent', fn () => $this->currentPaymentIntent?->status),
             'refund_count' => $this->refunds_count,
             'report_count' => $this->reports_count,
+            'open_dispute_count' => $this->open_disputes_count,
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

@@ -29,6 +29,11 @@ class AdminContactInquiryController extends Controller
             'status' => ['nullable', Rule::in([ContactInquiry::STATUS_PENDING, ContactInquiry::STATUS_RESOLVED])],
             'category' => ['nullable', Rule::in(['service', 'account', 'booking', 'payment', 'safety', 'other'])],
             'source' => ['nullable', Rule::in([ContactInquiry::SOURCE_AUTHENTICATED, ContactInquiry::SOURCE_GUEST])],
+            'has_notes' => ['nullable', 'boolean'],
+            'submitted_from' => ['nullable', 'date'],
+            'submitted_to' => ['nullable', 'date'],
+            'resolved_from' => ['nullable', 'date'],
+            'resolved_to' => ['nullable', 'date'],
             'q' => ['nullable', 'string', 'max:100'],
             'sort' => ['nullable', Rule::in(['created_at', 'resolved_at', 'category'])],
             'direction' => ['nullable', Rule::in(['asc', 'desc'])],
@@ -40,10 +45,21 @@ class AdminContactInquiryController extends Controller
         return AdminContactInquiryResource::collection(
             ContactInquiry::query()
                 ->with('account')
+                ->withCount('adminNotes')
                 ->when($accountId, fn ($query, int $id) => $query->where('account_id', $id))
                 ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
                 ->when($validated['category'] ?? null, fn ($query, string $category) => $query->where('category', $category))
                 ->when($validated['source'] ?? null, fn ($query, string $source) => $query->where('source', $source))
+                ->when(
+                    array_key_exists('has_notes', $validated),
+                    fn ($query) => $validated['has_notes']
+                        ? $query->whereHas('adminNotes')
+                        : $query->whereDoesntHave('adminNotes')
+                )
+                ->when($validated['submitted_from'] ?? null, fn ($query, string $date) => $query->whereDate('created_at', '>=', $date))
+                ->when($validated['submitted_to'] ?? null, fn ($query, string $date) => $query->whereDate('created_at', '<=', $date))
+                ->when($validated['resolved_from'] ?? null, fn ($query, string $date) => $query->whereDate('resolved_at', '>=', $date))
+                ->when($validated['resolved_to'] ?? null, fn ($query, string $date) => $query->whereDate('resolved_at', '<=', $date))
                 ->when($validated['q'] ?? null, fn ($query, string $term) => $query->where(function ($query) use ($term): void {
                     $query
                         ->where('public_id', $term)

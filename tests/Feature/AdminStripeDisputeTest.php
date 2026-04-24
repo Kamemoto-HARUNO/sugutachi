@@ -35,7 +35,7 @@ class AdminStripeDisputeTest extends TestCase
         ]);
 
         $this->withToken($admin->createToken('api')->plainTextToken)
-            ->getJson("/api/admin/stripe-disputes?booking_id={$booking->public_id}&status=needs_response&sort=evidence_due_by&direction=asc")
+            ->getJson("/api/admin/stripe-disputes?booking_id={$booking->public_id}&therapist_account_id={$booking->therapistAccount->public_id}&status_group=open&evidence_due_to=".today()->addDays(10)->toDateString().'&sort=evidence_due_by&direction=asc')
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.stripe_dispute_id', 'dp_admin_open')

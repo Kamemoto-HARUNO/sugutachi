@@ -28,9 +28,16 @@ class AdminBookingController extends Controller
             'therapist_account_id' => ['nullable', 'string', 'max:36'],
             'therapist_profile_id' => ['nullable', 'string', 'max:36'],
             'status' => ['nullable', Rule::in($this->bookingStatuses())],
+            'is_on_demand' => ['nullable', 'boolean'],
+            'payment_intent_status' => ['nullable', 'string', 'max:50'],
+            'has_refund_request' => ['nullable', 'boolean'],
+            'has_open_report' => ['nullable', 'boolean'],
+            'has_open_dispute' => ['nullable', 'boolean'],
             'scheduled_from' => ['nullable', 'date'],
             'scheduled_to' => ['nullable', 'date'],
             'completed_on' => ['nullable', 'date'],
+            'request_expires_from' => ['nullable', 'date'],
+            'request_expires_to' => ['nullable', 'date'],
             'q' => ['nullable', 'string', 'max:100'],
             'sort' => ['nullable', Rule::in(['created_at', 'updated_at', 'scheduled_start_at', 'total_amount'])],
             'direction' => ['nullable', Rule::in(['asc', 'desc'])],
@@ -51,16 +58,51 @@ class AdminBookingController extends Controller
                     'serviceAddress',
                     'currentPaymentIntent',
                 ])
-                ->withCount(['refunds', 'reports'])
+                ->withCount([
+                    'refunds',
+                    'reports',
+                    'disputes as open_disputes_count' => fn ($query) => $query->whereIn('status', [
+                        'needs_response',
+                        'under_review',
+                    ]),
+                ])
                 ->when($userAccountId, fn ($query, int $id) => $query->where('user_account_id', $id))
                 ->when($therapistAccountId, fn ($query, int $id) => $query->where('therapist_account_id', $id))
                 ->when($therapistProfileId, fn ($query, int $id) => $query->where('therapist_profile_id', $id))
                 ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
+                ->when(
+                    array_key_exists('is_on_demand', $validated),
+                    fn ($query) => $query->where('is_on_demand', (bool) $validated['is_on_demand'])
+                )
+                ->when(
+                    $validated['payment_intent_status'] ?? null,
+                    fn ($query, string $status) => $query->whereHas('currentPaymentIntent', fn ($query) => $query->where('status', $status))
+                )
+                ->when(
+                    array_key_exists('has_refund_request', $validated),
+                    fn ($query) => $validated['has_refund_request']
+                        ? $query->whereHas('refunds')
+                        : $query->whereDoesntHave('refunds')
+                )
+                ->when(
+                    array_key_exists('has_open_report', $validated),
+                    fn ($query) => $validated['has_open_report']
+                        ? $query->whereHas('reports', fn ($query) => $query->where('status', 'open'))
+                        : $query->whereDoesntHave('reports', fn ($query) => $query->where('status', 'open'))
+                )
+                ->when(
+                    array_key_exists('has_open_dispute', $validated),
+                    fn ($query) => $validated['has_open_dispute']
+                        ? $query->whereHas('disputes', fn ($query) => $query->whereIn('status', ['needs_response', 'under_review']))
+                        : $query->whereDoesntHave('disputes', fn ($query) => $query->whereIn('status', ['needs_response', 'under_review']))
+                )
                 ->when($validated['scheduled_from'] ?? null, fn ($query, string $date) => $query->whereDate('scheduled_start_at', '>=', $date))
                 ->when($validated['scheduled_to'] ?? null, fn ($query, string $date) => $query->whereDate('scheduled_start_at', '<=', $date))
                 ->when($validated['completed_on'] ?? null, fn ($query, string $date) => $query
                     ->where('status', Booking::STATUS_COMPLETED)
                     ->whereDate('updated_at', $date))
+                ->when($validated['request_expires_from'] ?? null, fn ($query, string $date) => $query->whereDate('request_expires_at', '>=', $date))
+                ->when($validated['request_expires_to'] ?? null, fn ($query, string $date) => $query->whereDate('request_expires_at', '<=', $date))
                 ->when($validated['q'] ?? null, function ($query, string $term): void {
                     $query->where(function ($query) use ($term): void {
                         $query

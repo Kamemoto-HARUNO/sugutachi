@@ -22,18 +22,26 @@ class AdminStripeDisputeController extends Controller
 
         $validated = $request->validate([
             'booking_id' => ['nullable', 'string', 'max:36'],
+            'user_account_id' => ['nullable', 'string', 'max:36'],
+            'therapist_account_id' => ['nullable', 'string', 'max:36'],
             'status' => ['nullable', Rule::in([
                 StripeDispute::STATUS_NEEDS_RESPONSE,
                 StripeDispute::STATUS_UNDER_REVIEW,
                 StripeDispute::STATUS_WON,
                 StripeDispute::STATUS_LOST,
             ])],
+            'status_group' => ['nullable', Rule::in(['open', 'closed'])],
             'reason' => ['nullable', 'string', 'max:100'],
+            'outcome' => ['nullable', 'string', 'max:50'],
+            'evidence_due_from' => ['nullable', 'date'],
+            'evidence_due_to' => ['nullable', 'date'],
             'q' => ['nullable', 'string', 'max:100'],
             'sort' => ['nullable', Rule::in(['created_at', 'updated_at', 'evidence_due_by', 'amount'])],
             'direction' => ['nullable', Rule::in(['asc', 'desc'])],
         ]);
         $bookingId = $this->resolveBookingId($validated['booking_id'] ?? null);
+        $userAccountId = $this->resolveAccountId($validated['user_account_id'] ?? null);
+        $therapistAccountId = $this->resolveAccountId($validated['therapist_account_id'] ?? null);
         $sort = $validated['sort'] ?? 'created_at';
         $direction = $validated['direction'] ?? 'desc';
 
@@ -41,8 +49,19 @@ class AdminStripeDisputeController extends Controller
             StripeDispute::query()
                 ->with(['booking.userAccount', 'booking.therapistAccount', 'paymentIntent'])
                 ->when($bookingId, fn ($query, int $id) => $query->where('booking_id', $id))
+                ->when($userAccountId, fn ($query, int $id) => $query->whereHas('booking', fn ($query) => $query->where('user_account_id', $id)))
+                ->when($therapistAccountId, fn ($query, int $id) => $query->whereHas('booking', fn ($query) => $query->where('therapist_account_id', $id)))
                 ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
+                ->when($validated['status_group'] ?? null, function ($query, string $statusGroup): void {
+                    $query->whereIn('status', match ($statusGroup) {
+                        'open' => [StripeDispute::STATUS_NEEDS_RESPONSE, StripeDispute::STATUS_UNDER_REVIEW],
+                        'closed' => [StripeDispute::STATUS_WON, StripeDispute::STATUS_LOST],
+                    });
+                })
                 ->when($validated['reason'] ?? null, fn ($query, string $reason) => $query->where('reason', $reason))
+                ->when($validated['outcome'] ?? null, fn ($query, string $outcome) => $query->where('outcome', $outcome))
+                ->when($validated['evidence_due_from'] ?? null, fn ($query, string $date) => $query->whereDate('evidence_due_by', '>=', $date))
+                ->when($validated['evidence_due_to'] ?? null, fn ($query, string $date) => $query->whereDate('evidence_due_by', '<=', $date))
                 ->when($validated['q'] ?? null, function ($query, string $term): void {
                     $query->where(function ($query) use ($term): void {
                         $query

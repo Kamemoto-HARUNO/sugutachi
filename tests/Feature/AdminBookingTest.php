@@ -9,6 +9,7 @@ use App\Models\PaymentIntent;
 use App\Models\Refund;
 use App\Models\Report;
 use App\Models\ServiceAddress;
+use App\Models\StripeDispute;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -49,7 +50,8 @@ class AdminBookingTest extends TestCase
             ->assertJsonPath('data.0.therapist_profile.public_id', $therapistProfile->public_id)
             ->assertJsonPath('data.0.current_payment_intent_status', 'requires_capture')
             ->assertJsonPath('data.0.refund_count', 1)
-            ->assertJsonPath('data.0.report_count', 1);
+            ->assertJsonPath('data.0.report_count', 1)
+            ->assertJsonPath('data.0.open_dispute_count', 1);
 
         $this->withToken($token)
             ->getJson("/api/admin/bookings/{$booking->public_id}")
@@ -99,6 +101,34 @@ class AdminBookingTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.public_id', $todayCompleted->public_id);
+    }
+
+    public function test_admin_can_filter_bookings_by_operational_flags(): void
+    {
+        [$admin, $user, $therapist, $therapistProfile, $booking] = $this->createBookingFixture();
+
+        Booking::create([
+            'public_id' => 'book_admin_booking_plain',
+            'user_account_id' => $user->id,
+            'therapist_account_id' => $therapist->id,
+            'therapist_profile_id' => $therapistProfile->id,
+            'therapist_menu_id' => $booking->therapist_menu_id,
+            'service_address_id' => $booking->service_address_id,
+            'status' => Booking::STATUS_REQUESTED,
+            'is_on_demand' => false,
+            'duration_minutes' => 60,
+            'request_expires_at' => now()->addDays(5),
+            'total_amount' => 10000,
+            'therapist_net_amount' => 8500,
+            'platform_fee_amount' => 1200,
+            'matching_fee_amount' => 300,
+        ]);
+
+        $this->withToken($admin->createToken('api')->plainTextToken)
+            ->getJson('/api/admin/bookings?is_on_demand=1&payment_intent_status=requires_capture&has_refund_request=1&has_open_report=1&has_open_dispute=1&request_expires_to='.today()->toDateString())
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.public_id', $booking->public_id);
     }
 
     public function test_non_admin_cannot_access_booking_admin_api(): void
@@ -240,6 +270,17 @@ class AdminBookingTest extends TestCase
             'category' => 'boundary_violation',
             'severity' => Report::SEVERITY_HIGH,
             'status' => Report::STATUS_OPEN,
+        ]);
+        StripeDispute::create([
+            'booking_id' => $booking->id,
+            'payment_intent_id' => PaymentIntent::query()->where('booking_id', $booking->id)->value('id'),
+            'stripe_dispute_id' => 'dp_admin_booking',
+            'status' => StripeDispute::STATUS_NEEDS_RESPONSE,
+            'reason' => 'fraudulent',
+            'amount' => 12300,
+            'currency' => 'jpy',
+            'evidence_due_by' => now()->addDays(7),
+            'last_stripe_event_id' => 'evt_admin_booking',
         ]);
 
         $booking->statusLogs()->create([

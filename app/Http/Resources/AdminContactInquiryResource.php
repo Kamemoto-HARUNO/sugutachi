@@ -22,6 +22,7 @@ class AdminContactInquiryResource extends JsonResource
             'message' => $this->message,
             'status' => $this->status,
             'source' => $this->source,
+            'admin_note_count' => $this->admin_notes_count,
             'resolved_at' => $this->resolved_at,
             'notes' => AdminNoteResource::collection($this->whenLoaded('adminNotes')),
             'submitted_at' => $this->created_at,

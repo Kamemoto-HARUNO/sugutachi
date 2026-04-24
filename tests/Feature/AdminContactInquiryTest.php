@@ -107,6 +107,32 @@ class AdminContactInquiryTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_admin_can_filter_contact_inquiries_by_notes_and_dates(): void
+    {
+        [$admin, $member] = $this->createInquiryFixture();
+
+        ContactInquiry::create([
+            'public_id' => 'ctc_old_admin',
+            'account_id' => $member->id,
+            'name' => 'Old Inquiry',
+            'email' => 'old@example.com',
+            'category' => 'service',
+            'message' => 'Older inquiry without notes.',
+            'status' => ContactInquiry::STATUS_RESOLVED,
+            'source' => ContactInquiry::SOURCE_AUTHENTICATED,
+            'resolved_at' => now()->subDay(),
+            'created_at' => now()->subDays(3),
+            'updated_at' => now()->subDay(),
+        ]);
+
+        $this->withToken($admin->createToken('api')->plainTextToken)
+            ->getJson('/api/admin/contact-inquiries?has_notes=1&submitted_from='.today()->subDay()->toDateString())
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.public_id', 'ctc_pending_admin')
+            ->assertJsonPath('data.0.admin_note_count', 1);
+    }
+
     private function createInquiryFixture(): array
     {
         $admin = Account::factory()->create(['public_id' => 'acc_admin_contact']);

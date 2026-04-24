@@ -128,7 +128,7 @@ class AdminDashboardController extends Controller
                         'open_stripe_disputes' => [
                             'path' => '/api/admin/stripe-disputes',
                             'query' => [
-                                'status' => StripeDispute::STATUS_NEEDS_RESPONSE,
+                                'status_group' => 'open',
                                 'sort' => 'evidence_due_by',
                                 'direction' => 'asc',
                             ],

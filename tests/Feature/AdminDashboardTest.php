@@ -196,7 +196,7 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.navigation.operations.pending_contact_inquiries.path', '/api/admin/contact-inquiries')
             ->assertJsonPath('data.navigation.operations.pending_contact_inquiries.query.status', ContactInquiry::STATUS_PENDING)
             ->assertJsonPath('data.navigation.operations.open_stripe_disputes.path', '/api/admin/stripe-disputes')
-            ->assertJsonPath('data.navigation.operations.open_stripe_disputes.query.status', StripeDispute::STATUS_NEEDS_RESPONSE)
+            ->assertJsonPath('data.navigation.operations.open_stripe_disputes.query.status_group', 'open')
             ->assertJsonPath('data.navigation.operations.requested_payouts.path', '/api/admin/payout-requests')
             ->assertJsonPath('data.navigation.operations.requested_payouts.query.direction', 'asc')
             ->assertJsonPath('data.navigation.bookings.requested.path', '/api/admin/bookings')
