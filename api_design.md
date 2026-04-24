@@ -629,7 +629,7 @@ payment_authorizing
 }
 ```
 
-キャンセル確定時は予約ステータスを実行主体に応じて `canceled_by_user` または `canceled_by_therapist` に変更し、`booking_status_logs.metadata_json` にキャンセル料、返金予定額、ポリシー、必要な決済アクションを保存する。Stripeの与信取消・キャンセル料capture・差額返金は、後続の決済処理で `payment_action` に従って実行する。
+キャンセル確定時は予約ステータスを `canceled` に変更し、`canceled_by_account_id` / `cancel_reason_code` / `booking_status_logs.metadata_json` にキャンセル料、返金予定額、ポリシー、必要な決済アクションを保存する。`payment_action=void_authorization` の場合は現在の PaymentIntent 与信をその場で取消し、それ以外のキャンセル料capture・差額返金は後続の決済処理で `payment_action` に従って実行する。
 
 セラピスト都合キャンセルでは `reason_code` に加えてユーザー向け表示用の `reason_note` を必須とし、通知本文にも反映する。確定時にはセラピスト都合キャンセル回数を加算し、公開プロフィール詳細でユーザーが確認できるようにする。
 

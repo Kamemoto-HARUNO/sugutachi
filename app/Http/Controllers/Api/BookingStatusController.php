@@ -8,6 +8,7 @@ use App\Models\Booking;
 use App\Models\TherapistLedgerEntry;
 use App\Services\Bookings\BookingStatusTransitionService;
 use App\Services\Bookings\ScheduledBookingPolicy;
+use App\Services\Payments\BookingPaymentIntentCancellationService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -60,8 +61,12 @@ class BookingStatusController extends Controller
         return new BookingResource($booking->load('currentQuote'));
     }
 
-    public function reject(Request $request, Booking $booking, BookingStatusTransitionService $transition): BookingResource
-    {
+    public function reject(
+        Request $request,
+        Booking $booking,
+        BookingStatusTransitionService $transition,
+        BookingPaymentIntentCancellationService $paymentIntentCancellationService,
+    ): BookingResource {
         $this->authorizeTherapist($request, $booking);
 
         $booking = $transition->transition(
@@ -77,6 +82,11 @@ class BookingStatusController extends Controller
                 'cancel_reason_code' => 'therapist_rejected',
                 'request_expires_at' => null,
             ],
+        );
+
+        $paymentIntentCancellationService->cancelCurrentForBooking(
+            booking: $booking,
+            lastStripeEventId: 'system.therapist_rejected',
         );
 
         return new BookingResource($booking->load('currentQuote'));

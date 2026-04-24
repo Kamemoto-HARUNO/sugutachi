@@ -2,10 +2,15 @@
 
 namespace Tests\Feature;
 
+use App\Contracts\Payments\CreatedPaymentIntent;
+use App\Contracts\Payments\PaymentIntentGateway;
 use App\Models\Account;
 use App\Models\Booking;
+use App\Models\BookingQuote;
 use App\Models\IdentityVerification;
+use App\Models\PaymentIntent;
 use App\Models\ServiceAddress;
+use App\Models\StripeConnectedAccount;
 use App\Models\TherapistAvailabilitySlot;
 use App\Models\TherapistBookingSetting;
 use App\Models\TherapistMenu;
@@ -81,7 +86,10 @@ class BookingStatusFlowTest extends TestCase
 
     public function test_therapist_can_reject_requested_booking(): void
     {
-        [, $therapist, $booking] = $this->createRequestedBooking();
+        $gatewayState = (object) ['canceledStripeIds' => []];
+        $this->bindPaymentIntentGateway($gatewayState);
+
+        [, $therapist, $booking, $paymentIntent] = $this->createRequestedBooking(withPaymentIntent: true);
 
         $this->withToken($therapist->createToken('api')->plainTextToken)
             ->postJson("/api/bookings/{$booking->public_id}/reject")
@@ -94,6 +102,12 @@ class BookingStatusFlowTest extends TestCase
             'status' => Booking::STATUS_REJECTED,
             'cancel_reason_code' => 'therapist_rejected',
         ]);
+        $this->assertDatabaseHas('payment_intents', [
+            'id' => $paymentIntent->id,
+            'status' => PaymentIntent::STRIPE_STATUS_CANCELED,
+            'last_stripe_event_id' => 'system.therapist_rejected',
+        ]);
+        $this->assertSame([$paymentIntent->stripe_payment_intent_id], $gatewayState->canceledStripeIds);
     }
 
     public function test_user_can_confirm_therapist_completed_booking(): void
@@ -214,7 +228,7 @@ class BookingStatusFlowTest extends TestCase
             ->assertJsonPath('data.0.request_expires_in_minutes', 360);
     }
 
-    private function createRequestedBooking(): array
+    private function createRequestedBooking(bool $withPaymentIntent = false): array
     {
         $user = Account::factory()->create(['public_id' => 'acc_user_'.fake()->unique()->numberBetween(1000, 9999)]);
         $therapist = Account::factory()->create(['public_id' => 'acc_therapist_'.fake()->unique()->numberBetween(1000, 9999)]);
@@ -259,7 +273,23 @@ class BookingStatusFlowTest extends TestCase
             'matching_fee_amount' => 300,
         ]);
 
-        return [$user, $therapist, $booking];
+        $paymentIntent = $withPaymentIntent
+            ? PaymentIntent::create([
+                'booking_id' => $booking->id,
+                'payer_account_id' => $user->id,
+                'stripe_payment_intent_id' => 'pi_'.$booking->public_id,
+                'status' => PaymentIntent::STRIPE_STATUS_REQUIRES_CAPTURE,
+                'capture_method' => 'manual',
+                'currency' => 'jpy',
+                'amount' => 12300,
+                'application_fee_amount' => 1500,
+                'transfer_amount' => 10800,
+                'is_current' => true,
+                'authorized_at' => now()->subMinute(),
+            ])
+            : null;
+
+        return [$user, $therapist, $booking, $paymentIntent];
     }
 
     private function createRequestedScheduledBooking(): array
@@ -345,5 +375,34 @@ class BookingStatusFlowTest extends TestCase
         ]);
 
         return [$user, $therapist, $booking];
+    }
+
+    private function bindPaymentIntentGateway(object $gatewayState): void
+    {
+        $this->app->bind(PaymentIntentGateway::class, fn () => new class($gatewayState) implements PaymentIntentGateway
+        {
+            public function __construct(
+                private readonly object $gatewayState,
+            ) {}
+
+            public function create(
+                Booking $booking,
+                BookingQuote $quote,
+                ?StripeConnectedAccount $connectedAccount = null,
+            ): CreatedPaymentIntent {
+                return new CreatedPaymentIntent(
+                    id: 'pi_unused_'.$booking->public_id,
+                    clientSecret: null,
+                    status: 'requires_payment_method',
+                );
+            }
+
+            public function cancel(PaymentIntent $paymentIntent): string
+            {
+                $this->gatewayState->canceledStripeIds[] = $paymentIntent->stripe_payment_intent_id;
+
+                return PaymentIntent::STRIPE_STATUS_CANCELED;
+            }
+        });
     }
 }

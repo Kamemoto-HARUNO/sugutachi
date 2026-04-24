@@ -2,9 +2,9 @@
 
 namespace App\Services\Bookings;
 
-use App\Contracts\Payments\PaymentIntentGateway;
 use App\Models\Booking;
 use App\Models\PaymentIntent;
+use App\Services\Payments\BookingPaymentIntentCancellationService;
 use Carbon\CarbonInterface;
 use Illuminate\Support\Facades\DB;
 use Throwable;
@@ -17,7 +17,7 @@ class BookingRequestExpirationService
     ];
 
     public function __construct(
-        private readonly PaymentIntentGateway $paymentIntentGateway,
+        private readonly BookingPaymentIntentCancellationService $paymentIntentCancellationService,
     ) {}
 
     /**
@@ -69,11 +69,11 @@ class BookingRequestExpirationService
                         PaymentIntent::STRIPE_STATUS_SUCCEEDED,
                         PaymentIntent::STRIPE_STATUS_CANCELED,
                     ], true)) {
-                        $paymentIntent->forceFill([
-                            'status' => $this->paymentIntentGateway->cancel($paymentIntent),
-                            'canceled_at' => $paymentIntent->canceled_at ?? $now,
-                            'last_stripe_event_id' => 'system.booking_request_expired',
-                        ])->save();
+                        $this->paymentIntentCancellationService->cancel(
+                            paymentIntent: $paymentIntent,
+                            lastStripeEventId: 'system.booking_request_expired',
+                            now: $now,
+                        );
                     }
 
                     $fromStatus = $booking->status;

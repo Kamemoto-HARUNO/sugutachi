@@ -2,9 +2,14 @@
 
 namespace Tests\Feature;
 
+use App\Contracts\Payments\CreatedPaymentIntent;
+use App\Contracts\Payments\PaymentIntentGateway;
 use App\Models\Account;
 use App\Models\Booking;
+use App\Models\BookingQuote;
+use App\Models\PaymentIntent;
 use App\Models\ServiceAddress;
+use App\Models\StripeConnectedAccount;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -16,7 +21,13 @@ class BookingCancellationTest extends TestCase
 
     public function test_user_can_preview_and_cancel_before_acceptance_for_free(): void
     {
-        [$user, , $booking] = $this->createBookingFixture(Booking::STATUS_REQUESTED);
+        $gatewayState = (object) ['canceledStripeIds' => []];
+        $this->bindPaymentIntentGateway($gatewayState);
+
+        [$user, , $booking, $paymentIntent] = $this->createBookingFixture(
+            Booking::STATUS_REQUESTED,
+            withPaymentIntent: true,
+        );
 
         $this->withToken($user->createToken('api')->plainTextToken)
             ->postJson("/api/bookings/{$booking->public_id}/cancel-preview")
@@ -44,6 +55,11 @@ class BookingCancellationTest extends TestCase
             'id' => $booking->therapist_profile_id,
             'therapist_cancellation_count' => 0,
         ]);
+        $this->assertDatabaseHas('payment_intents', [
+            'id' => $paymentIntent->id,
+            'status' => PaymentIntent::STRIPE_STATUS_CANCELED,
+            'last_stripe_event_id' => 'system.user_booking_canceled',
+        ]);
         $this->assertDatabaseHas('booking_status_logs', [
             'booking_id' => $booking->id,
             'from_status' => Booking::STATUS_REQUESTED,
@@ -51,6 +67,7 @@ class BookingCancellationTest extends TestCase
             'actor_role' => 'user',
             'reason_code' => 'user_schedule_changed',
         ]);
+        $this->assertSame([$paymentIntent->stripe_payment_intent_id], $gatewayState->canceledStripeIds);
     }
 
     public function test_user_cancel_within_24_hours_calculates_half_service_fee_plus_matching_fee(): void
@@ -71,9 +88,13 @@ class BookingCancellationTest extends TestCase
 
     public function test_therapist_cancel_after_acceptance_is_full_refund(): void
     {
-        [, $therapist, $booking] = $this->createBookingFixture(
+        $gatewayState = (object) ['canceledStripeIds' => []];
+        $this->bindPaymentIntentGateway($gatewayState);
+
+        [, $therapist, $booking, $paymentIntent] = $this->createBookingFixture(
             status: Booking::STATUS_ACCEPTED,
             scheduledStartAt: now()->addHours(2),
+            withPaymentIntent: true,
         );
 
         $this->withToken($therapist->createToken('api')->plainTextToken)
@@ -95,6 +116,12 @@ class BookingCancellationTest extends TestCase
             'id' => $booking->therapist_profile_id,
             'therapist_cancellation_count' => 1,
         ]);
+        $this->assertDatabaseHas('payment_intents', [
+            'id' => $paymentIntent->id,
+            'status' => PaymentIntent::STRIPE_STATUS_CANCELED,
+            'last_stripe_event_id' => 'system.therapist_booking_canceled',
+        ]);
+        $this->assertSame([$paymentIntent->stripe_payment_intent_id], $gatewayState->canceledStripeIds);
     }
 
     public function test_therapist_cannot_cancel_before_acceptance(): void
@@ -126,8 +153,11 @@ class BookingCancellationTest extends TestCase
             ->assertConflict();
     }
 
-    private function createBookingFixture(string $status, mixed $scheduledStartAt = null): array
-    {
+    private function createBookingFixture(
+        string $status,
+        mixed $scheduledStartAt = null,
+        bool $withPaymentIntent = false,
+    ): array {
         $user = Account::factory()->create(['public_id' => 'acc_user_cancel']);
         $therapist = Account::factory()->create(['public_id' => 'acc_therapist_cancel']);
 
@@ -172,6 +202,51 @@ class BookingCancellationTest extends TestCase
             'matching_fee_amount' => 300,
         ]);
 
-        return [$user, $therapist, $booking];
+        $paymentIntent = $withPaymentIntent
+            ? PaymentIntent::create([
+                'booking_id' => $booking->id,
+                'payer_account_id' => $user->id,
+                'stripe_payment_intent_id' => 'pi_'.$booking->public_id,
+                'status' => PaymentIntent::STRIPE_STATUS_REQUIRES_CAPTURE,
+                'capture_method' => 'manual',
+                'currency' => 'jpy',
+                'amount' => 12300,
+                'application_fee_amount' => 1500,
+                'transfer_amount' => 10800,
+                'is_current' => true,
+                'authorized_at' => now()->subMinute(),
+            ])
+            : null;
+
+        return [$user, $therapist, $booking, $paymentIntent];
+    }
+
+    private function bindPaymentIntentGateway(object $gatewayState): void
+    {
+        $this->app->bind(PaymentIntentGateway::class, fn () => new class($gatewayState) implements PaymentIntentGateway
+        {
+            public function __construct(
+                private readonly object $gatewayState,
+            ) {}
+
+            public function create(
+                Booking $booking,
+                BookingQuote $quote,
+                ?StripeConnectedAccount $connectedAccount = null,
+            ): CreatedPaymentIntent {
+                return new CreatedPaymentIntent(
+                    id: 'pi_unused_'.$booking->public_id,
+                    clientSecret: null,
+                    status: 'requires_payment_method',
+                );
+            }
+
+            public function cancel(PaymentIntent $paymentIntent): string
+            {
+                $this->gatewayState->canceledStripeIds[] = $paymentIntent->stripe_payment_intent_id;
+
+                return PaymentIntent::STRIPE_STATUS_CANCELED;
+            }
+        });
     }
 }
