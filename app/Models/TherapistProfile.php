@@ -70,6 +70,16 @@ class TherapistProfile extends Model
         return $this->hasMany(TherapistPricingRule::class);
     }
 
+    public function bookingSetting(): HasOne
+    {
+        return $this->hasOne(TherapistBookingSetting::class);
+    }
+
+    public function availabilitySlots(): HasMany
+    {
+        return $this->hasMany(TherapistAvailabilitySlot::class);
+    }
+
     public function location(): HasOne
     {
         return $this->hasOne(TherapistLocation::class);
@@ -90,6 +100,11 @@ class TherapistProfile extends Model
         return $this->hasOne(StripeConnectedAccount::class);
     }
 
+    public function travelRequests(): HasMany
+    {
+        return $this->hasMany(TherapistTravelRequest::class);
+    }
+
     protected function casts(): array
     {
         return [
@@ -97,6 +112,7 @@ class TherapistProfile extends Model
             'online_since' => 'datetime',
             'last_location_updated_at' => 'datetime',
             'rating_average' => 'decimal:2',
+            'therapist_cancellation_count' => 'integer',
             'approved_at' => 'datetime',
         ];
     }

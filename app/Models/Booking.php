@@ -36,6 +36,11 @@ class Booking extends Model
 
     public const STATUS_COMPLETED = 'completed';
 
+    public function availabilitySlot(): BelongsTo
+    {
+        return $this->belongsTo(TherapistAvailabilitySlot::class, 'availability_slot_id');
+    }
+
     public function userAccount(): BelongsTo
     {
         return $this->belongsTo(Account::class, 'user_account_id');
@@ -137,6 +142,8 @@ class Booking extends Model
     {
         return [
             'is_on_demand' => 'boolean',
+            'buffer_before_minutes' => 'integer',
+            'buffer_after_minutes' => 'integer',
             'requested_start_at' => 'datetime',
             'scheduled_start_at' => 'datetime',
             'scheduled_end_at' => 'datetime',

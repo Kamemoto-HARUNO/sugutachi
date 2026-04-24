@@ -108,6 +108,16 @@ class Account extends Authenticatable
         return $this->hasMany(BookingMessage::class, 'sender_account_id');
     }
 
+    public function sentTravelRequests(): HasMany
+    {
+        return $this->hasMany(TherapistTravelRequest::class, 'user_account_id');
+    }
+
+    public function receivedTravelRequests(): HasMany
+    {
+        return $this->hasMany(TherapistTravelRequest::class, 'therapist_account_id');
+    }
+
     public function pushSubscriptions(): HasMany
     {
         return $this->hasMany(PushSubscription::class);
