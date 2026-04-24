@@ -91,6 +91,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/admin/identity-verifications/{identityVerification}/approve', [AdminIdentityVerificationController::class, 'approve']);
     Route::post('/admin/identity-verifications/{identityVerification}/reject', [AdminIdentityVerificationController::class, 'reject']);
     Route::get('/admin/therapist-profiles', [AdminTherapistProfileController::class, 'index']);
+    Route::get('/admin/therapist-profiles/{therapistProfile:public_id}', [AdminTherapistProfileController::class, 'show']);
     Route::post('/admin/therapist-profiles/{therapistProfile:public_id}/approve', [AdminTherapistProfileController::class, 'approve']);
     Route::post('/admin/therapist-profiles/{therapistProfile:public_id}/reject', [AdminTherapistProfileController::class, 'reject']);
     Route::post('/admin/therapist-profiles/{therapistProfile:public_id}/suspend', [AdminTherapistProfileController::class, 'suspend']);

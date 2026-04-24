@@ -3,8 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\IdentityVerification;
+use App\Models\ProfilePhoto;
+use App\Models\StripeConnectedAccount;
 use App\Models\TherapistProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
 use Tests\TestCase;
 
 class AdminTherapistProfileTest extends TestCase
@@ -30,7 +34,9 @@ class AdminTherapistProfileTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.public_id', $profile->public_id)
-            ->assertJsonPath('data.0.account.public_id', $therapist->public_id);
+            ->assertJsonPath('data.0.account.public_id', $therapist->public_id)
+            ->assertJsonPath('data.0.available_actions.approve', true)
+            ->assertJsonPath('data.0.available_actions.restore', false);
 
         $this->withToken($token)
             ->postJson("/api/admin/therapist-profiles/{$profile->public_id}/approve")
@@ -47,6 +53,76 @@ class AdminTherapistProfileTest extends TestCase
         $this->assertDatabaseHas('admin_audit_logs', [
             'actor_account_id' => $admin->id,
             'action' => 'therapist_profile.approve',
+            'target_type' => TherapistProfile::class,
+            'target_id' => $profile->id,
+        ]);
+    }
+
+    public function test_admin_can_view_therapist_profile_detail_with_operational_context(): void
+    {
+        [$admin, $profile, $therapist] = $this->createAdminTherapistProfileFixture(TherapistProfile::STATUS_SUSPENDED);
+
+        IdentityVerification::create([
+            'account_id' => $therapist->id,
+            'public_id' => 'idv_admin_therapist_review',
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'document_type' => 'driver_license',
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now()->subHours(12),
+            'is_age_verified' => true,
+        ]);
+
+        $profile->location()->create([
+            'lat' => 35.681236,
+            'lng' => 139.767125,
+            'accuracy_m' => 25,
+            'source' => 'browser',
+            'is_searchable' => true,
+        ]);
+
+        $photo = ProfilePhoto::create([
+            'account_id' => $therapist->id,
+            'therapist_profile_id' => $profile->id,
+            'usage_type' => 'therapist_profile',
+            'storage_key_encrypted' => Crypt::encryptString('photos/admin-review.jpg'),
+            'content_hash' => 'hash-admin-review',
+            'status' => ProfilePhoto::STATUS_APPROVED,
+            'sort_order' => 1,
+            'reviewed_by_account_id' => $admin->id,
+            'reviewed_at' => now()->subHours(6),
+        ]);
+
+        StripeConnectedAccount::create([
+            'account_id' => $therapist->id,
+            'therapist_profile_id' => $profile->id,
+            'stripe_account_id' => 'acct_admin_therapist_review',
+            'account_type' => 'express',
+            'status' => StripeConnectedAccount::STATUS_ACTIVE,
+            'charges_enabled' => true,
+            'payouts_enabled' => true,
+            'details_submitted' => true,
+            'onboarding_completed_at' => now()->subDay(),
+            'last_synced_at' => now(),
+        ]);
+
+        $this->withToken($admin->createToken('api')->plainTextToken)
+            ->getJson("/api/admin/therapist-profiles/{$profile->public_id}")
+            ->assertOk()
+            ->assertJsonPath('data.public_id', $profile->public_id)
+            ->assertJsonPath('data.account.public_id', $therapist->public_id)
+            ->assertJsonPath('data.account.status', $therapist->status)
+            ->assertJsonPath('data.latest_identity_verification.status', IdentityVerification::STATUS_APPROVED)
+            ->assertJsonPath('data.location.is_searchable', true)
+            ->assertJsonPath('data.photos.0.id', $photo->id)
+            ->assertJsonPath('data.photos.0.status', ProfilePhoto::STATUS_APPROVED)
+            ->assertJsonPath('data.stripe_connected_account.has_account', true)
+            ->assertJsonPath('data.stripe_connected_account.status', StripeConnectedAccount::STATUS_ACTIVE)
+            ->assertJsonPath('data.available_actions.restore', true)
+            ->assertJsonPath('data.available_actions.approve', false);
+
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'actor_account_id' => $admin->id,
+            'action' => 'therapist_profile.view',
             'target_type' => TherapistProfile::class,
             'target_id' => $profile->id,
         ]);
@@ -131,6 +207,10 @@ class AdminTherapistProfileTest extends TestCase
     public function test_non_admin_cannot_review_therapist_profile(): void
     {
         [, $profile, $therapist] = $this->createAdminTherapistProfileFixture();
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->getJson("/api/admin/therapist-profiles/{$profile->public_id}")
+            ->assertForbidden();
 
         $this->withToken($therapist->createToken('api')->plainTextToken)
             ->postJson("/api/admin/therapist-profiles/{$profile->public_id}/approve")

@@ -6,7 +6,7 @@ use App\Http\Controllers\Api\Concerns\AuthorizesAdminRequests;
 use App\Http\Controllers\Api\Concerns\RecordsAdminAuditLogs;
 use App\Http\Controllers\Api\Concerns\ResolvesAdminFilterIds;
 use App\Http\Controllers\Controller;
-use App\Http\Resources\TherapistProfileResource;
+use App\Http\Resources\AdminTherapistProfileResource;
 use App\Models\TherapistProfile;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -40,7 +40,7 @@ class AdminTherapistProfileController extends Controller
         $sort = $validated['sort'] ?? 'created_at';
         $direction = $validated['direction'] ?? 'desc';
 
-        return TherapistProfileResource::collection(
+        return AdminTherapistProfileResource::collection(
             TherapistProfile::query()
                 ->with(['account', 'approvedBy', 'menus'])
                 ->when($accountId, fn ($query, int $id) => $query->where('account_id', $id))
@@ -65,7 +65,27 @@ class AdminTherapistProfileController extends Controller
         );
     }
 
-    public function approve(Request $request, TherapistProfile $therapistProfile): TherapistProfileResource
+    public function show(Request $request, TherapistProfile $therapistProfile): AdminTherapistProfileResource
+    {
+        $this->authorizeAdmin($request->user());
+
+        $therapistProfile->load([
+            'account.latestIdentityVerification.reviewedBy',
+            'approvedBy',
+            'menus',
+            'location',
+            'photos.account',
+            'photos.therapistProfile',
+            'photos.reviewedBy',
+            'stripeConnectedAccount',
+        ]);
+
+        $this->recordAdminAudit($request, 'therapist_profile.view', $therapistProfile, [], $this->snapshot($therapistProfile));
+
+        return new AdminTherapistProfileResource($therapistProfile);
+    }
+
+    public function approve(Request $request, TherapistProfile $therapistProfile): AdminTherapistProfileResource
     {
         $admin = $request->user();
         $this->authorizeAdmin($admin);
@@ -82,10 +102,10 @@ class AdminTherapistProfileController extends Controller
 
         $this->recordAdminAudit($request, 'therapist_profile.approve', $therapistProfile, $before, $this->snapshot($therapistProfile->refresh()));
 
-        return new TherapistProfileResource($therapistProfile->load(['account', 'approvedBy', 'menus']));
+        return new AdminTherapistProfileResource($therapistProfile->load(['account', 'approvedBy', 'menus']));
     }
 
-    public function reject(Request $request, TherapistProfile $therapistProfile): TherapistProfileResource
+    public function reject(Request $request, TherapistProfile $therapistProfile): AdminTherapistProfileResource
     {
         $admin = $request->user();
         $this->authorizeAdmin($admin);
@@ -106,10 +126,10 @@ class AdminTherapistProfileController extends Controller
 
         $this->recordAdminAudit($request, 'therapist_profile.reject', $therapistProfile, $before, $this->snapshot($therapistProfile->refresh()));
 
-        return new TherapistProfileResource($therapistProfile->load(['account', 'approvedBy', 'menus']));
+        return new AdminTherapistProfileResource($therapistProfile->load(['account', 'approvedBy', 'menus']));
     }
 
-    public function suspend(Request $request, TherapistProfile $therapistProfile): TherapistProfileResource
+    public function suspend(Request $request, TherapistProfile $therapistProfile): AdminTherapistProfileResource
     {
         $admin = $request->user();
         $this->authorizeAdmin($admin);
@@ -128,10 +148,10 @@ class AdminTherapistProfileController extends Controller
 
         $this->recordAdminAudit($request, 'therapist_profile.suspend', $therapistProfile, $before, $this->snapshot($therapistProfile->refresh()));
 
-        return new TherapistProfileResource($therapistProfile->load(['account', 'approvedBy', 'menus']));
+        return new AdminTherapistProfileResource($therapistProfile->load(['account', 'approvedBy', 'menus']));
     }
 
-    public function restore(Request $request, TherapistProfile $therapistProfile): TherapistProfileResource
+    public function restore(Request $request, TherapistProfile $therapistProfile): AdminTherapistProfileResource
     {
         $admin = $request->user();
         $this->authorizeAdmin($admin);
@@ -149,7 +169,7 @@ class AdminTherapistProfileController extends Controller
 
         $this->recordAdminAudit($request, 'therapist_profile.restore', $therapistProfile, $before, $this->snapshot($therapistProfile->refresh()));
 
-        return new TherapistProfileResource($therapistProfile->load(['account', 'approvedBy', 'menus']));
+        return new AdminTherapistProfileResource($therapistProfile->load(['account', 'approvedBy', 'menus']));
     }
 
     private function snapshot(TherapistProfile $therapistProfile): array
