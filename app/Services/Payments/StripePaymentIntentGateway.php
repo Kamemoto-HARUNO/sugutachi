@@ -6,6 +6,7 @@ use App\Contracts\Payments\CreatedPaymentIntent;
 use App\Contracts\Payments\PaymentIntentGateway;
 use App\Models\Booking;
 use App\Models\BookingQuote;
+use App\Models\PaymentIntent;
 use App\Models\StripeConnectedAccount;
 use RuntimeException;
 use Stripe\StripeClient;
@@ -52,5 +53,20 @@ class StripePaymentIntentGateway implements PaymentIntentGateway
             clientSecret: $intent->client_secret,
             status: $intent->status,
         );
+    }
+
+    public function cancel(PaymentIntent $paymentIntent): string
+    {
+        $secret = config('services.stripe.secret');
+
+        if (! $secret) {
+            throw new RuntimeException('Stripe secret key is not configured.');
+        }
+
+        $intent = (new StripeClient($secret))
+            ->paymentIntents
+            ->cancel($paymentIntent->stripe_payment_intent_id);
+
+        return (string) $intent->status;
     }
 }

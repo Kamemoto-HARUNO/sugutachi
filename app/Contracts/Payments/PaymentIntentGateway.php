@@ -4,6 +4,7 @@ namespace App\Contracts\Payments;
 
 use App\Models\Booking;
 use App\Models\BookingQuote;
+use App\Models\PaymentIntent;
 use App\Models\StripeConnectedAccount;
 
 interface PaymentIntentGateway
@@ -13,4 +14,6 @@ interface PaymentIntentGateway
         BookingQuote $quote,
         ?StripeConnectedAccount $connectedAccount = null
     ): CreatedPaymentIntent;
+
+    public function cancel(PaymentIntent $paymentIntent): string;
 }

@@ -90,6 +90,7 @@ class BookingController extends Controller
             $durationMinutes = $quote->duration_minutes;
             $isOnDemand = $input['is_on_demand'] ?? true;
             $slot = null;
+            $requestExpiresAt = null;
 
             if ($isOnDemand) {
                 $this->ensureOnDemandQuoteStillBookable($request->user(), $quote);
@@ -106,6 +107,11 @@ class BookingController extends Controller
                 $scheduledBookingPolicy->assertCanCreateRequest(
                     user: $request->user(),
                     therapistProfileId: $quote->therapist_profile_id,
+                    requestedStartAt: $requestedStartAt,
+                );
+
+                $requestExpiresAt = $scheduledBookingPolicy->requestExpiresAt(
+                    bookingSetting: $quote->therapistProfile->bookingSetting,
                     requestedStartAt: $requestedStartAt,
                 );
             }
@@ -126,7 +132,7 @@ class BookingController extends Controller
                 'duration_minutes' => $durationMinutes,
                 'buffer_before_minutes' => 0,
                 'buffer_after_minutes' => 0,
-                'request_expires_at' => null,
+                'request_expires_at' => $requestExpiresAt,
                 'total_amount' => $quote->total_amount,
                 'therapist_net_amount' => $quote->therapist_net_amount,
                 'platform_fee_amount' => $quote->platform_fee_amount,

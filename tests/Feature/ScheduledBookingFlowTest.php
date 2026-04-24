@@ -28,6 +28,7 @@ class ScheduledBookingFlowTest extends TestCase
 
         $token = $user->createToken('api')->plainTextToken;
         $requestedStartAt = CarbonImmutable::parse('2030-01-05 14:15:00');
+        $requestExpiresAt = CarbonImmutable::parse('2030-01-05 13:15:00');
 
         $quoteId = $this->withToken($token)
             ->postJson('/api/booking-quotes', [
@@ -55,6 +56,7 @@ class ScheduledBookingFlowTest extends TestCase
             ->assertJsonPath('data.availability_slot_id', $slot->public_id)
             ->assertJsonPath('data.scheduled_start_at', fn (string $value) => CarbonImmutable::parse($value)->equalTo($requestedStartAt))
             ->assertJsonPath('data.scheduled_end_at', fn (string $value) => CarbonImmutable::parse($value)->equalTo($requestedStartAt->addMinutes(90)))
+            ->assertJsonPath('data.request_expires_at', fn (string $value) => CarbonImmutable::parse($value)->equalTo($requestExpiresAt))
             ->assertJsonPath('data.buffer_before_minutes', 0)
             ->assertJsonPath('data.buffer_after_minutes', 0)
             ->json('data.public_id');
@@ -65,6 +67,7 @@ class ScheduledBookingFlowTest extends TestCase
             'status' => Booking::STATUS_PAYMENT_AUTHORIZING,
             'is_on_demand' => false,
             'duration_minutes' => 90,
+            'request_expires_at' => $requestExpiresAt->toDateTimeString(),
         ]);
     }
 

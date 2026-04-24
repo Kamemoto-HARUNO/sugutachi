@@ -8,6 +8,7 @@ use App\Models\Account;
 use App\Models\Booking;
 use App\Models\BookingQuote;
 use App\Models\IdentityVerification;
+use App\Models\PaymentIntent;
 use App\Models\ServiceAddress;
 use App\Models\StripeConnectedAccount;
 use App\Models\TherapistMenu;
@@ -34,6 +35,11 @@ class BookingPaymentFlowTest extends TestCase
                     clientSecret: 'pi_test_secret_'.$booking->public_id,
                     status: 'requires_payment_method',
                 );
+            }
+
+            public function cancel(PaymentIntent $paymentIntent): string
+            {
+                return PaymentIntent::STRIPE_STATUS_CANCELED;
             }
         });
 

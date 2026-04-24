@@ -2,6 +2,7 @@
 
 use App\Models\LegalDocument;
 use App\Models\TherapistLedgerEntry;
+use App\Services\Bookings\BookingRequestExpirationService;
 use Illuminate\Console\Command;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -25,6 +26,14 @@ Artisan::command('ledger:release-available', function (): int {
 
     return Command::SUCCESS;
 })->purpose('Release matured therapist ledger entries to available balance');
+
+Artisan::command('bookings:expire-pending-requests', function (BookingRequestExpirationService $service): int {
+    $result = $service->expireDueScheduledRequests();
+
+    $this->info("Expired {$result['expired']} scheduled booking requests. failed={$result['failed']}");
+
+    return $result['failed'] > 0 ? Command::FAILURE : Command::SUCCESS;
+})->purpose('Expire due scheduled booking requests and release their payment authorization');
 
 Artisan::command('legal-documents:sync-default-drafts', function (): int {
     $replacements = [
