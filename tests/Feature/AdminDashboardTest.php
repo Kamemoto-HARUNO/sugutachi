@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\Booking;
+use App\Models\ContactInquiry;
 use App\Models\IdentityVerification;
 use App\Models\PayoutRequest;
 use App\Models\ProfilePhoto;
@@ -149,6 +150,16 @@ class AdminDashboardTest extends TestCase
             'requested_at' => now(),
             'scheduled_process_date' => today(),
         ]);
+        ContactInquiry::create([
+            'public_id' => 'ctc_dashboard',
+            'account_id' => $suspendedUser->id,
+            'name' => 'Dashboard User',
+            'email' => 'dashboard@example.com',
+            'category' => 'booking',
+            'message' => 'Need help with a booking.',
+            'status' => ContactInquiry::STATUS_PENDING,
+            'source' => ContactInquiry::SOURCE_AUTHENTICATED,
+        ]);
 
         $this->withToken($admin->createToken('api')->plainTextToken)
             ->getJson('/api/admin/dashboard')
@@ -159,6 +170,7 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.reviews.pending_therapist_profiles', 1)
             ->assertJsonPath('data.reviews.pending_profile_photos', 1)
             ->assertJsonPath('data.operations.open_reports', 1)
+            ->assertJsonPath('data.operations.pending_contact_inquiries', 1)
             ->assertJsonPath('data.operations.requested_refunds', 1)
             ->assertJsonPath('data.operations.requested_payouts', 1)
             ->assertJsonPath('data.bookings.requested', 1)
@@ -168,8 +180,12 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.navigation.accounts.suspended.query.status', Account::STATUS_SUSPENDED)
             ->assertJsonPath('data.navigation.reviews.pending_identity_verifications.path', '/api/admin/identity-verifications')
             ->assertJsonPath('data.navigation.reviews.pending_identity_verifications.query.sort', 'submitted_at')
+            ->assertJsonPath('data.navigation.operations.pending_contact_inquiries.path', '/api/admin/contact-inquiries')
+            ->assertJsonPath('data.navigation.operations.pending_contact_inquiries.query.status', ContactInquiry::STATUS_PENDING)
             ->assertJsonPath('data.navigation.operations.requested_payouts.path', '/api/admin/payout-requests')
-            ->assertJsonPath('data.navigation.operations.requested_payouts.query.direction', 'asc');
+            ->assertJsonPath('data.navigation.operations.requested_payouts.query.direction', 'asc')
+            ->assertJsonPath('data.navigation.bookings.requested.path', '/api/admin/bookings')
+            ->assertJsonPath('data.navigation.bookings.completed_today.query.completed_on', today()->toDateString());
     }
 
     public function test_non_admin_cannot_view_dashboard_summary(): void

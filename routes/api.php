@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AccountBlockController;
 use App\Http\Controllers\Api\AdminAccountController;
 use App\Http\Controllers\Api\AdminAuditLogController;
+use App\Http\Controllers\Api\AdminBookingController;
 use App\Http\Controllers\Api\AdminContactInquiryController;
 use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\Api\AdminIdentityVerificationController;
@@ -99,6 +100,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/admin/reports/{report:public_id}', [AdminReportController::class, 'show']);
     Route::post('/admin/reports/{report:public_id}/actions', [AdminReportController::class, 'action']);
     Route::post('/admin/reports/{report:public_id}/resolve', [AdminReportController::class, 'resolve']);
+    Route::get('/admin/bookings', [AdminBookingController::class, 'index']);
+    Route::get('/admin/bookings/{booking:public_id}', [AdminBookingController::class, 'show']);
     Route::get('/admin/dashboard', [AdminDashboardController::class, 'index']);
     Route::get('/admin/accounts', [AdminAccountController::class, 'index']);
     Route::get('/admin/accounts/{account:public_id}', [AdminAccountController::class, 'show']);

@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Concerns\AuthorizesAdminRequests;
 use App\Http\Controllers\Controller;
 use App\Models\Account;
 use App\Models\Booking;
+use App\Models\ContactInquiry;
 use App\Models\IdentityVerification;
 use App\Models\PayoutRequest;
 use App\Models\ProfilePhoto;
@@ -44,6 +45,9 @@ class AdminDashboardController extends Controller
                 'operations' => [
                     'open_reports' => Report::query()
                         ->where('status', Report::STATUS_OPEN)
+                        ->count(),
+                    'pending_contact_inquiries' => ContactInquiry::query()
+                        ->where('status', ContactInquiry::STATUS_PENDING)
                         ->count(),
                     'requested_refunds' => Refund::query()
                         ->where('status', Refund::STATUS_REQUESTED)
@@ -106,6 +110,14 @@ class AdminDashboardController extends Controller
                                 'direction' => 'desc',
                             ],
                         ],
+                        'pending_contact_inquiries' => [
+                            'path' => '/api/admin/contact-inquiries',
+                            'query' => [
+                                'status' => ContactInquiry::STATUS_PENDING,
+                                'sort' => 'created_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
                         'requested_refunds' => [
                             'path' => '/api/admin/refund-requests',
                             'query' => [
@@ -120,6 +132,33 @@ class AdminDashboardController extends Controller
                                 'status' => PayoutRequest::STATUS_REQUESTED,
                                 'sort' => 'scheduled_process_date',
                                 'direction' => 'asc',
+                            ],
+                        ],
+                    ],
+                    'bookings' => [
+                        'requested' => [
+                            'path' => '/api/admin/bookings',
+                            'query' => [
+                                'status' => Booking::STATUS_REQUESTED,
+                                'sort' => 'created_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
+                        'in_progress' => [
+                            'path' => '/api/admin/bookings',
+                            'query' => [
+                                'status' => Booking::STATUS_IN_PROGRESS,
+                                'sort' => 'updated_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
+                        'completed_today' => [
+                            'path' => '/api/admin/bookings',
+                            'query' => [
+                                'status' => Booking::STATUS_COMPLETED,
+                                'completed_on' => today()->toDateString(),
+                                'sort' => 'updated_at',
+                                'direction' => 'desc',
                             ],
                         ],
                     ],
