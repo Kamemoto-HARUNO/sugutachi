@@ -7,6 +7,9 @@ use App\Http\Controllers\Api\Concerns\RecordsAdminAuditLogs;
 use App\Http\Controllers\Api\Concerns\ResolvesAdminFilterIds;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AdminTherapistProfileResource;
+use App\Models\IdentityVerification;
+use App\Models\ProfilePhoto;
+use App\Models\StripeConnectedAccount;
 use App\Models\TherapistProfile;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -31,7 +34,28 @@ class AdminTherapistProfileController extends Controller
                 TherapistProfile::STATUS_REJECTED,
                 TherapistProfile::STATUS_SUSPENDED,
             ])],
+            'photo_review_status' => ['nullable', Rule::in([
+                ProfilePhoto::STATUS_PENDING,
+                ProfilePhoto::STATUS_APPROVED,
+                ProfilePhoto::STATUS_REJECTED,
+            ])],
             'training_status' => ['nullable', 'string', 'max:50'],
+            'is_online' => ['nullable', 'boolean'],
+            'has_searchable_location' => ['nullable', 'boolean'],
+            'has_active_menu' => ['nullable', 'boolean'],
+            'latest_identity_verification_status' => ['nullable', Rule::in([
+                IdentityVerification::STATUS_PENDING,
+                IdentityVerification::STATUS_APPROVED,
+                IdentityVerification::STATUS_REJECTED,
+                'none',
+            ])],
+            'stripe_connected_account_status' => ['nullable', Rule::in([
+                StripeConnectedAccount::STATUS_PENDING,
+                StripeConnectedAccount::STATUS_REQUIREMENTS_DUE,
+                StripeConnectedAccount::STATUS_ACTIVE,
+                StripeConnectedAccount::STATUS_RESTRICTED,
+                'none',
+            ])],
             'q' => ['nullable', 'string', 'max:100'],
             'sort' => ['nullable', Rule::in(['created_at', 'approved_at', 'rating_average', 'review_count'])],
             'direction' => ['nullable', Rule::in(['asc', 'desc'])],
@@ -42,12 +66,71 @@ class AdminTherapistProfileController extends Controller
 
         return AdminTherapistProfileResource::collection(
             TherapistProfile::query()
+                ->addSelect([
+                    'latest_identity_verification_status' => IdentityVerification::query()
+                        ->select('status')
+                        ->whereColumn('account_id', 'therapist_profiles.account_id')
+                        ->latest('id')
+                        ->limit(1),
+                    'stripe_connected_account_status' => StripeConnectedAccount::query()
+                        ->select('status')
+                        ->whereColumn('therapist_profile_id', 'therapist_profiles.id')
+                        ->limit(1),
+                ])
                 ->with(['account', 'approvedBy', 'menus'])
+                ->withCount([
+                    'menus as active_menu_count' => fn ($query) => $query->where('is_active', true),
+                    'location as searchable_location_count' => fn ($query) => $query->where('is_searchable', true),
+                ])
                 ->when($accountId, fn ($query, int $id) => $query->where('account_id', $id))
                 ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('profile_status', $status))
                 ->when(
+                    $validated['photo_review_status'] ?? null,
+                    fn ($query, string $photoReviewStatus) => $query->where('photo_review_status', $photoReviewStatus)
+                )
+                ->when(
                     $validated['training_status'] ?? null,
                     fn ($query, string $trainingStatus) => $query->where('training_status', $trainingStatus)
+                )
+                ->when(
+                    array_key_exists('is_online', $validated),
+                    fn ($query) => $query->where('is_online', (bool) $validated['is_online'])
+                )
+                ->when(
+                    array_key_exists('has_searchable_location', $validated),
+                    fn ($query) => $validated['has_searchable_location']
+                        ? $query->whereHas('location', fn ($location) => $location->where('is_searchable', true))
+                        : $query->whereDoesntHave('location', fn ($location) => $location->where('is_searchable', true))
+                )
+                ->when(
+                    array_key_exists('has_active_menu', $validated),
+                    fn ($query) => $validated['has_active_menu']
+                        ? $query->whereHas('menus', fn ($menu) => $menu->where('is_active', true))
+                        : $query->whereDoesntHave('menus', fn ($menu) => $menu->where('is_active', true))
+                )
+                ->when(
+                    $validated['latest_identity_verification_status'] ?? null,
+                    function ($query, string $status): void {
+                        if ($status === 'none') {
+                            $query->whereDoesntHave('account.latestIdentityVerification');
+
+                            return;
+                        }
+
+                        $query->whereHas('account.latestIdentityVerification', fn ($verification) => $verification->where('status', $status));
+                    }
+                )
+                ->when(
+                    $validated['stripe_connected_account_status'] ?? null,
+                    function ($query, string $status): void {
+                        if ($status === 'none') {
+                            $query->whereDoesntHave('stripeConnectedAccount');
+
+                            return;
+                        }
+
+                        $query->whereHas('stripeConnectedAccount', fn ($connectedAccount) => $connectedAccount->where('status', $status));
+                    }
                 )
                 ->when($validated['q'] ?? null, function ($query, string $term): void {
                     $query->where(function ($query) use ($term): void {

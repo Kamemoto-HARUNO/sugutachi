@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\IdentityVerification;
 use App\Models\ProfilePhoto;
 use App\Models\StripeConnectedAccount;
+use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
@@ -126,6 +127,101 @@ class AdminTherapistProfileTest extends TestCase
             'target_type' => TherapistProfile::class,
             'target_id' => $profile->id,
         ]);
+    }
+
+    public function test_admin_can_filter_therapist_profiles_by_operational_readiness(): void
+    {
+        [$admin, $matchingProfile, $matchingTherapist] = $this->createAdminTherapistProfileFixture();
+        $matchingProfile->forceFill([
+            'photo_review_status' => ProfilePhoto::STATUS_PENDING,
+            'is_online' => false,
+        ])->save();
+
+        TherapistMenu::create([
+            'therapist_profile_id' => $matchingProfile->id,
+            'public_id' => 'menu_admin_filter_match',
+            'name' => 'Body care 60',
+            'duration_minutes' => 60,
+            'base_price_amount' => 12000,
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $matchingProfile->location()->create([
+            'lat' => 35.681236,
+            'lng' => 139.767125,
+            'accuracy_m' => 20,
+            'source' => 'browser',
+            'is_searchable' => true,
+        ]);
+
+        IdentityVerification::create([
+            'account_id' => $matchingTherapist->id,
+            'public_id' => 'idv_admin_filter_match',
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'document_type' => 'driver_license',
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now()->subHours(10),
+            'is_age_verified' => true,
+        ]);
+
+        StripeConnectedAccount::create([
+            'account_id' => $matchingTherapist->id,
+            'therapist_profile_id' => $matchingProfile->id,
+            'stripe_account_id' => 'acct_admin_filter_match',
+            'account_type' => 'express',
+            'status' => StripeConnectedAccount::STATUS_ACTIVE,
+        ]);
+
+        $otherTherapist = Account::factory()->create(['public_id' => 'acc_therapist_filter_other']);
+        $otherProfile = TherapistProfile::create([
+            'account_id' => $otherTherapist->id,
+            'public_id' => 'thp_admin_filter_other',
+            'public_name' => 'Other Filter Therapist',
+            'bio' => 'Relaxation focused body care.',
+            'profile_status' => TherapistProfile::STATUS_PENDING,
+            'training_status' => 'completed',
+            'photo_review_status' => ProfilePhoto::STATUS_PENDING,
+        ]);
+
+        TherapistMenu::create([
+            'therapist_profile_id' => $otherProfile->id,
+            'public_id' => 'menu_admin_filter_other',
+            'name' => 'Body care 90',
+            'duration_minutes' => 90,
+            'base_price_amount' => 16000,
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        $otherProfile->location()->create([
+            'lat' => 35.6895,
+            'lng' => 139.6917,
+            'accuracy_m' => 50,
+            'source' => 'browser',
+            'is_searchable' => true,
+        ]);
+
+        IdentityVerification::create([
+            'account_id' => $otherTherapist->id,
+            'public_id' => 'idv_admin_filter_other',
+            'status' => IdentityVerification::STATUS_REJECTED,
+            'document_type' => 'driver_license',
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now()->subHours(8),
+            'is_age_verified' => false,
+        ]);
+
+        $this->withToken($admin->createToken('api')->plainTextToken)
+            ->getJson('/api/admin/therapist-profiles?status=pending&photo_review_status=pending&has_searchable_location=1&has_active_menu=1&latest_identity_verification_status=approved&stripe_connected_account_status=active&is_online=0&sort=created_at&direction=desc')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.public_id', $matchingProfile->public_id)
+            ->assertJsonPath('data.0.active_menu_count', 1)
+            ->assertJsonPath('data.0.has_searchable_location', true)
+            ->assertJsonPath('data.0.latest_identity_verification_status', IdentityVerification::STATUS_APPROVED)
+            ->assertJsonPath('data.0.stripe_connected_account_status', StripeConnectedAccount::STATUS_ACTIVE)
+            ->assertJsonPath('data.0.available_actions.approve', true);
     }
 
     public function test_admin_can_reject_pending_therapist_profile(): void
