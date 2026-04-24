@@ -7,6 +7,7 @@ use App\Contracts\Payments\CreatedRefund;
 use App\Contracts\Payments\PaymentIntentGateway;
 use App\Contracts\Payments\RefundGateway;
 use App\Models\Account;
+use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\BookingQuote;
 use App\Models\PaymentIntent;
@@ -16,6 +17,7 @@ use App\Models\StripeConnectedAccount;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
 use Tests\TestCase;
 
 class BookingCancellationTest extends TestCase
@@ -162,7 +164,7 @@ class BookingCancellationTest extends TestCase
     {
         $gatewayState = $this->bindPaymentGateways();
 
-        [, $therapist, $booking, $paymentIntent] = $this->createBookingFixture(
+        [$user, $therapist, $booking, $paymentIntent] = $this->createBookingFixture(
             status: Booking::STATUS_ACCEPTED,
             scheduledStartAt: now()->addHours(2),
             withPaymentIntent: true,
@@ -178,10 +180,12 @@ class BookingCancellationTest extends TestCase
         $this->withToken($therapist->createToken('api')->plainTextToken)
             ->postJson("/api/bookings/{$booking->public_id}/cancel", [
                 'reason_code' => 'therapist_unavailable',
+                'reason_note' => '急な体調不良のため、本日のご案内が難しくなりました。',
             ])
             ->assertOk()
             ->assertJsonPath('data.booking.status', Booking::STATUS_CANCELED)
-            ->assertJsonPath('data.booking.cancel_reason_code', 'therapist_unavailable');
+            ->assertJsonPath('data.booking.cancel_reason_code', 'therapist_unavailable')
+            ->assertJsonPath('data.booking.cancel_reason_note', '急な体調不良のため、本日のご案内が難しくなりました。');
 
         $this->assertDatabaseHas('therapist_profiles', [
             'id' => $booking->therapist_profile_id,
@@ -195,6 +199,30 @@ class BookingCancellationTest extends TestCase
         $this->assertSame([$paymentIntent->stripe_payment_intent_id], $gatewayState->canceledStripeIds);
         $this->assertSame([], $gatewayState->capturedStripeIds);
         $this->assertSame([], $gatewayState->refundCalls);
+
+        $booking->refresh();
+        $this->assertSame(
+            '急な体調不良のため、本日のご案内が難しくなりました。',
+            Crypt::decryptString($booking->cancel_reason_note_encrypted),
+        );
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $user->id,
+            'notification_type' => 'booking_canceled_by_therapist',
+            'channel' => 'in_app',
+            'status' => 'sent',
+        ]);
+
+        $notification = AppNotification::query()
+            ->where('account_id', $user->id)
+            ->where('notification_type', 'booking_canceled_by_therapist')
+            ->firstOrFail();
+
+        $this->assertSame($booking->public_id, data_get($notification->data_json, 'booking_public_id'));
+        $this->assertSame('therapist_unavailable', data_get($notification->data_json, 'reason_code'));
+        $this->assertSame(
+            '急な体調不良のため、本日のご案内が難しくなりました。',
+            data_get($notification->data_json, 'reason_note'),
+        );
     }
 
     public function test_therapist_cannot_cancel_before_acceptance(): void
@@ -215,6 +243,21 @@ class BookingCancellationTest extends TestCase
             'id' => $booking->therapist_profile_id,
             'therapist_cancellation_count' => 0,
         ]);
+    }
+
+    public function test_therapist_cancel_requires_reason_note(): void
+    {
+        [, $therapist, $booking] = $this->createBookingFixture(
+            status: Booking::STATUS_ACCEPTED,
+            scheduledStartAt: now()->addHours(2),
+        );
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/cancel", [
+                'reason_code' => 'therapist_unavailable',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['reason_note']);
     }
 
     public function test_completed_booking_cannot_be_canceled(): void

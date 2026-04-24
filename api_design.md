@@ -629,9 +629,11 @@ payment_authorizing
 }
 ```
 
+`POST /bookings/{public_id}/cancel` は `reason_code` を必須とし、セラピスト都合キャンセルでは追加で `reason_note` を必須とする。レスポンスの `booking` には `cancel_reason_note` を含める。
+
 キャンセル確定時は予約ステータスを `canceled` に変更し、`canceled_by_account_id` / `cancel_reason_code` / `booking_status_logs.metadata_json` にキャンセル料、返金予定額、ポリシー、必要な決済アクションを保存する。`payment_action=void_authorization` は現在の PaymentIntent 与信を即時取消し、`capture_full_amount` は即時capture、`capture_cancel_fee_and_refund_remaining` は即時capture後に差額返金まで実行する。自動返金が発生した場合は `refunds` にシステム起票の履歴を残す。
 
-セラピスト都合キャンセルでは `reason_code` に加えてユーザー向け表示用の `reason_note` を必須とし、通知本文にも反映する。確定時にはセラピスト都合キャンセル回数を加算し、公開プロフィール詳細でユーザーが確認できるようにする。
+セラピスト都合キャンセルでは `reason_code` に加えてユーザー向け表示用の `reason_note` を必須とし、通知本文にも反映する。確定時にはセラピスト都合キャンセル回数を加算し、公開プロフィール詳細でユーザーが確認できるようにする。通知は `booking_canceled_by_therapist` としてユーザーの通知一覧に保存し、`data.booking_public_id` / `data.reason_code` / `data.reason_note` を含める。
 
 ### 8.5 同意・体調確認
 

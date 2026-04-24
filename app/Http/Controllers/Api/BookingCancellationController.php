@@ -5,12 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\BookingResource;
 use App\Models\Account;
+use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\TherapistProfile;
 use App\Services\Bookings\BookingCancellationPolicy;
 use App\Services\Bookings\BookingCancellationSettlementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 
 class BookingCancellationController extends Controller
@@ -56,11 +58,21 @@ class BookingCancellationController extends Controller
         BookingCancellationPolicy $policy,
         BookingCancellationSettlementService $settlementService,
     ): JsonResponse {
-        $validated = $request->validate([
-            'reason_code' => ['required', 'string', 'max:100'],
-        ]);
         $actor = $request->user();
         $actorRole = $this->actorRole($booking, $actor);
+
+        abort_unless(
+            in_array($booking->status, $this->cancelableStatuses($actorRole), true),
+            409,
+            'This booking cannot be canceled.'
+        );
+
+        $validated = $request->validate([
+            'reason_code' => ['required', 'string', 'max:100'],
+            'reason_note' => $actorRole === 'therapist'
+                ? ['required', 'string', 'min:1', 'max:1000']
+                : ['nullable', 'string', 'max:1000'],
+        ]);
 
         $result = DB::transaction(function () use ($actor, $actorRole, $booking, $policy, $validated): array {
             $lockedBooking = Booking::query()
@@ -83,6 +95,9 @@ class BookingCancellationController extends Controller
                 'canceled_at' => now(),
                 'canceled_by_account_id' => $actor->id,
                 'cancel_reason_code' => $validated['reason_code'],
+                'cancel_reason_note_encrypted' => filled($validated['reason_note'] ?? null)
+                    ? Crypt::encryptString($validated['reason_note'])
+                    : null,
             ])->save();
 
             $lockedBooking->statusLogs()->create([
@@ -91,7 +106,10 @@ class BookingCancellationController extends Controller
                 'actor_account_id' => $actor->id,
                 'actor_role' => $actorRole,
                 'reason_code' => $validated['reason_code'],
-                'metadata_json' => $preview,
+                'metadata_json' => [
+                    ...$preview,
+                    'reason_note' => $validated['reason_note'] ?? null,
+                ],
             ]);
 
             if (
@@ -101,6 +119,21 @@ class BookingCancellationController extends Controller
                 TherapistProfile::query()
                     ->whereKey($lockedBooking->therapist_profile_id)
                     ->increment('therapist_cancellation_count');
+
+                AppNotification::create([
+                    'account_id' => $lockedBooking->user_account_id,
+                    'notification_type' => 'booking_canceled_by_therapist',
+                    'channel' => 'in_app',
+                    'title' => '予約がキャンセルされました',
+                    'body' => "セラピスト都合で予約がキャンセルされました。{$validated['reason_note']}",
+                    'data_json' => [
+                        'booking_public_id' => $lockedBooking->public_id,
+                        'reason_code' => $validated['reason_code'],
+                        'reason_note' => $validated['reason_note'],
+                    ],
+                    'status' => 'sent',
+                    'sent_at' => now(),
+                ]);
             }
 
             return [$lockedBooking->refresh()->load('currentQuote'), $preview];
