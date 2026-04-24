@@ -50,6 +50,8 @@ accounts
   ├─ therapist_profiles
   │    ├─ therapist_menus
   │    ├─ therapist_pricing_rules
+  │    ├─ therapist_booking_settings
+  │    ├─ therapist_availability_slots
   │    ├─ therapist_locations
   │    └─ stripe_connected_accounts
   ├─ service_addresses
@@ -224,6 +226,7 @@ accounts
 | last_location_updated_at | timestamp | Yes | 位置更新日時 |
 | rating_average | decimal(3,2) | No | 平均評価 |
 | review_count | unsigned int | No | レビュー数 |
+| therapist_cancellation_count | unsigned int | No | 公開表示するセラピスト都合キャンセル累計 |
 | approved_at | timestamp | Yes | 承認日時 |
 | approved_by_account_id | bigint unsigned | Yes | 管理者account_id |
 | rejected_reason_code | varchar(100) | Yes | 差し戻し理由 |
@@ -324,7 +327,49 @@ accounts
 * index: `therapist_profile_id, is_active, priority`
 * index: `therapist_menu_id, is_active`
 
-### 6.3 platform_fee_settings
+### 6.3 therapist_booking_settings
+セラピストごとの予定予約設定。現在地とは別に、予定予約用の基本地点と受付締切を管理する。
+
+| カラム | 型 | Null | 説明 |
+| --- | --- | --- | --- |
+| id | bigint unsigned | No | 主キー |
+| therapist_profile_id | bigint unsigned | No | therapist_profiles.id |
+| booking_request_lead_time_minutes | unsigned int | No | 受付締切。デフォルト60 |
+| scheduled_base_label | varchar(120) | Yes | セラピスト内部向けラベル |
+| scheduled_base_lat | decimal(10,7) | No | 予定予約用基本地点の緯度 |
+| scheduled_base_lng | decimal(10,7) | No | 予定予約用基本地点の経度 |
+| scheduled_base_geohash | varchar(12) | Yes | 粗い検索補助 |
+| scheduled_base_accuracy_m | unsigned int | Yes | 位置精度 |
+| created_at / updated_at | timestamp | Yes | Laravel標準 |
+
+インデックス:
+* unique: `therapist_profile_id`
+* index: `scheduled_base_geohash`
+
+### 6.4 therapist_availability_slots
+セラピストが公開する単発の空き時間。ユーザーには生の枠ではなく連続予約可能時間帯として返す。
+
+| カラム | 型 | Null | 説明 |
+| --- | --- | --- | --- |
+| id | bigint unsigned | No | 主キー |
+| public_id | varchar(36) | No | 外部公開ID |
+| therapist_profile_id | bigint unsigned | No | therapist_profiles.id |
+| start_at | timestamp | No | 空き開始 |
+| end_at | timestamp | No | 空き終了 |
+| status | varchar(50) | No | published, hidden, expired |
+| created_at / updated_at | timestamp | Yes | Laravel標準 |
+| deleted_at | timestamp | Yes | 論理削除 |
+
+インデックス:
+* unique: `public_id`
+* index: `therapist_profile_id, status, start_at`
+* index: `status, start_at`
+
+補足:
+* 単発登録のみを対象とし、繰り返しルールは持たない。
+* 実際の予約可能時間帯は、この空き時間から `requested` / `accepted` / `confirmed` 以降の予定予約、承諾済みバッファ、受付締切を差し引いて算出する。
+
+### 6.5 platform_fee_settings
 運営手数料、キャンセル料、上限/下限などの設定。
 
 | カラム | 型 | Null | 説明 |
@@ -425,12 +470,15 @@ accounts
 | therapist_menu_id | bigint unsigned | No | therapist_menus.id |
 | service_address_id | bigint unsigned | No | service_addresses.id |
 | current_quote_id | bigint unsigned | Yes | booking_quotes.id |
+| availability_slot_id | bigint unsigned | Yes | therapist_availability_slots.id |
 | status | varchar(50) | No | 予約ステータス |
-| is_on_demand | boolean | No | 今すぐ依頼か |
-| requested_start_at | timestamp | Yes | 希望開始日時 |
+| is_on_demand | boolean | No | 今すぐ依頼か。falseは公開空きスケジュール予約 |
+| requested_start_at | timestamp | Yes | 希望開始日時。予定予約の仮押さえ基準 |
 | scheduled_start_at | timestamp | Yes | 確定開始日時 |
 | scheduled_end_at | timestamp | Yes | 確定終了予定 |
 | duration_minutes | unsigned int | No | 施術時間 |
+| buffer_before_minutes | unsigned int | No | 承諾時に確定した前バッファ |
+| buffer_after_minutes | unsigned int | No | 承諾時に確定した後バッファ |
 | request_expires_at | timestamp | Yes | 承諾期限 |
 | accepted_at | timestamp | Yes | 承諾日時 |
 | confirmed_at | timestamp | Yes | 確定日時 |
@@ -441,6 +489,7 @@ accounts
 | canceled_at | timestamp | Yes | キャンセル日時 |
 | canceled_by_account_id | bigint unsigned | Yes | キャンセル実行者 |
 | cancel_reason_code | varchar(100) | Yes | キャンセル理由 |
+| cancel_reason_note_encrypted | text | Yes | ユーザー向け説明・補足 |
 | interrupted_at | timestamp | Yes | 中断日時 |
 | interruption_reason_code | varchar(100) | Yes | 中断理由 |
 | total_amount | unsigned int | No | ユーザー支払総額 |
@@ -456,8 +505,13 @@ accounts
 * index: `user_account_id, status, scheduled_start_at`
 * index: `therapist_account_id, status, scheduled_start_at`
 * index: `therapist_profile_id, status`
+* index: `availability_slot_id`
 * index: `status, request_expires_at`
 * index: `created_at`
+
+補足:
+* 予定予約では、`requested_start_at + duration_minutes` を仮押さえ対象時間とし、承諾後は `buffer_before_minutes` / `buffer_after_minutes` を加味して重複判定する。
+* `request_expires_at` は `created_at + 6時間`、`requested_start_at - booking_request_lead_time_minutes`、`requested_start_at` のうち最も早い時刻を保存する。
 
 ### 8.2 booking_quotes
 価格算定結果のスナップショット。後から料金根拠を確認するため保存する。
@@ -1000,6 +1054,8 @@ Webhookの冪等性・再処理用ログ。
 * `account_roles.account_id, role`
 * `user_profiles.account_id`
 * `therapist_profiles.account_id`
+* `therapist_booking_settings.therapist_profile_id`
+* `therapist_availability_slots.public_id`
 * `therapist_locations.therapist_profile_id`
 * `bookings.public_id`
 * `payment_intents.stripe_payment_intent_id`
@@ -1012,6 +1068,7 @@ Webhookの冪等性・再処理用ログ。
 
 ### 15.2 検索・一覧用インデックス
 * セラピスト検索: `therapist_profiles.profile_status, is_online`
+* 予定予約空き枠検索: `therapist_availability_slots.therapist_profile_id, status, start_at`
 * 位置検索: `therapist_locations.is_searchable, updated_at`, `lat, lng`, `geohash`
 * ユーザー予約一覧: `bookings.user_account_id, status, scheduled_start_at`
 * セラピスト予約一覧: `bookings.therapist_account_id, status, scheduled_start_at`
@@ -1028,7 +1085,7 @@ Webhookの冪等性・再処理用ログ。
 4. `identity_verifications`
 5. `user_profiles`, `therapist_profiles`
 6. `profile_photos`
-7. `therapist_menus`, `therapist_pricing_rules`, `platform_fee_settings`
+7. `therapist_menus`, `therapist_pricing_rules`, `therapist_booking_settings`, `therapist_availability_slots`, `platform_fee_settings`
 8. `therapist_locations`, `service_addresses`, `location_search_logs`
 9. `bookings`
 10. `booking_quotes`
