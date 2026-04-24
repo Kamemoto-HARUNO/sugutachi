@@ -39,6 +39,9 @@ class AdminDashboardController extends Controller
                     'pending_therapist_profiles' => TherapistProfile::query()
                         ->where('profile_status', TherapistProfile::STATUS_PENDING)
                         ->count(),
+                    'suspended_therapist_profiles' => TherapistProfile::query()
+                        ->where('profile_status', TherapistProfile::STATUS_SUSPENDED)
+                        ->count(),
                     'pending_profile_photos' => ProfilePhoto::query()
                         ->where('status', ProfilePhoto::STATUS_PENDING)
                         ->count(),
@@ -102,6 +105,14 @@ class AdminDashboardController extends Controller
                             'path' => '/api/admin/therapist-profiles',
                             'query' => [
                                 'status' => TherapistProfile::STATUS_PENDING,
+                                'sort' => 'created_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
+                        'suspended_therapist_profiles' => [
+                            'path' => '/api/admin/therapist-profiles',
+                            'query' => [
+                                'status' => TherapistProfile::STATUS_SUSPENDED,
                                 'sort' => 'created_at',
                                 'direction' => 'desc',
                             ],

@@ -47,6 +47,14 @@ class AdminDashboardTest extends TestCase
             'profile_status' => TherapistProfile::STATUS_PENDING,
             'photo_review_status' => ProfilePhoto::STATUS_PENDING,
         ]);
+        TherapistProfile::create([
+            'account_id' => Account::factory()->create(['public_id' => 'acc_dashboard_therapist_suspended'])->id,
+            'public_id' => 'thp_dashboard_suspended',
+            'public_name' => 'Suspended Dashboard Therapist',
+            'profile_status' => TherapistProfile::STATUS_SUSPENDED,
+            'photo_review_status' => ProfilePhoto::STATUS_APPROVED,
+            'rejected_reason_code' => 'policy_violation',
+        ]);
         $connectedAccount = StripeConnectedAccount::create([
             'account_id' => $therapist->id,
             'therapist_profile_id' => $therapistProfile->id,
@@ -186,10 +194,11 @@ class AdminDashboardTest extends TestCase
         $this->withToken($admin->createToken('api')->plainTextToken)
             ->getJson('/api/admin/dashboard')
             ->assertOk()
-            ->assertJsonPath('data.accounts.total', 3)
+            ->assertJsonPath('data.accounts.total', 4)
             ->assertJsonPath('data.accounts.suspended', 1)
             ->assertJsonPath('data.reviews.pending_identity_verifications', 1)
             ->assertJsonPath('data.reviews.pending_therapist_profiles', 1)
+            ->assertJsonPath('data.reviews.suspended_therapist_profiles', 1)
             ->assertJsonPath('data.reviews.pending_profile_photos', 1)
             ->assertJsonPath('data.operations.open_reports', 1)
             ->assertJsonPath('data.operations.open_message_origin_reports', 1)
@@ -205,6 +214,8 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.navigation.accounts.suspended.query.status', Account::STATUS_SUSPENDED)
             ->assertJsonPath('data.navigation.reviews.pending_identity_verifications.path', '/api/admin/identity-verifications')
             ->assertJsonPath('data.navigation.reviews.pending_identity_verifications.query.sort', 'submitted_at')
+            ->assertJsonPath('data.navigation.reviews.suspended_therapist_profiles.path', '/api/admin/therapist-profiles')
+            ->assertJsonPath('data.navigation.reviews.suspended_therapist_profiles.query.status', TherapistProfile::STATUS_SUSPENDED)
             ->assertJsonPath('data.navigation.operations.open_message_origin_reports.path', '/api/admin/reports')
             ->assertJsonPath('data.navigation.operations.open_message_origin_reports.query.has_source_booking_message', true)
             ->assertJsonPath('data.navigation.operations.pending_contact_inquiries.path', '/api/admin/contact-inquiries')
