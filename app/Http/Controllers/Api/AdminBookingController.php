@@ -5,11 +5,14 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminRequests;
 use App\Http\Controllers\Api\Concerns\RecordsAdminAuditLogs;
 use App\Http\Controllers\Api\Concerns\ResolvesAdminFilterIds;
+use App\Http\Controllers\Api\Concerns\SuspendsAccounts;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\AdminAccountResource;
 use App\Http\Resources\AdminBookingDetailResource;
 use App\Http\Resources\AdminBookingListResource;
 use App\Http\Resources\AdminBookingMessageResource;
 use App\Http\Resources\AdminReportResource;
+use App\Models\Account;
 use App\Models\Booking;
 use App\Models\BookingMessage;
 use App\Models\Report;
@@ -25,6 +28,7 @@ class AdminBookingController extends Controller
     use AuthorizesAdminRequests;
     use RecordsAdminAuditLogs;
     use ResolvesAdminFilterIds;
+    use SuspendsAccounts;
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -348,6 +352,60 @@ class AdminBookingController extends Controller
             ->setStatusCode(201);
     }
 
+    public function suspendSender(Request $request, Booking $booking, BookingMessage $message): AdminAccountResource
+    {
+        $admin = $request->user();
+        $this->authorizeAdmin($admin);
+        $this->ensureBookingMessageBelongsToBooking($booking, $message);
+
+        $sender = $message->sender;
+        abort_unless($sender, 409, 'Sender account is unavailable.');
+
+        $validated = $request->validate([
+            'reason_code' => ['required', 'string', 'max:100'],
+            'note' => ['nullable', 'string', 'max:2000'],
+        ]);
+        $accountBefore = $this->snapshotAccount($sender);
+        $messageBefore = $this->snapshotMessage($message);
+
+        $this->suspendAccount($sender, $admin, $validated['reason_code']);
+
+        $message->forceFill([
+            'moderation_status' => BookingMessage::MODERATION_STATUS_ESCALATED,
+            'moderated_by_admin_account_id' => $admin->id,
+            'moderated_at' => now(),
+        ])->save();
+
+        if (filled($validated['note'] ?? null)) {
+            $message->adminNotes()->create([
+                'author_account_id' => $admin->id,
+                'note_encrypted' => Crypt::encryptString($validated['note']),
+            ]);
+        }
+
+        $this->recordAdminAudit(
+            $request,
+            'account.suspend',
+            $sender,
+            $accountBefore,
+            $this->snapshotAccount($sender->refresh())
+        );
+        $this->recordAdminAudit(
+            $request,
+            'booking.message.suspend_sender',
+            $message,
+            $messageBefore,
+            $this->snapshotMessage($message->fresh())
+        );
+
+        return new AdminAccountResource($sender->load([
+            'roleAssignments',
+            'latestIdentityVerification',
+            'userProfile',
+            'therapistProfile',
+        ]));
+    }
+
     public function moderate(Request $request, Booking $booking, BookingMessage $message): AdminBookingMessageResource
     {
         $admin = $request->user();
@@ -467,6 +525,21 @@ class AdminBookingController extends Controller
             'status',
             'assigned_admin_account_id',
             'resolved_at',
+        ]);
+    }
+
+    private function snapshotAccount(Account $account): array
+    {
+        return $account->only([
+            'id',
+            'public_id',
+            'email',
+            'phone_e164',
+            'display_name',
+            'status',
+            'last_active_role',
+            'suspended_at',
+            'suspension_reason',
         ]);
     }
 }

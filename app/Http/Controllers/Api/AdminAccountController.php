@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminRequests;
 use App\Http\Controllers\Api\Concerns\RecordsAdminAuditLogs;
+use App\Http\Controllers\Api\Concerns\SuspendsAccounts;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AdminAccountResource;
 use App\Models\Account;
@@ -15,6 +16,7 @@ class AdminAccountController extends Controller
 {
     use AuthorizesAdminRequests;
     use RecordsAdminAuditLogs;
+    use SuspendsAccounts;
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -69,20 +71,13 @@ class AdminAccountController extends Controller
     {
         $admin = $request->user();
         $this->authorizeAdmin($admin);
-        abort_unless($account->id !== $admin->id, 409, 'Admins cannot suspend their own account.');
-        abort_unless($account->status !== Account::STATUS_SUSPENDED, 409, 'Account is already suspended.');
 
         $validated = $request->validate([
             'reason_code' => ['required', 'string', 'max:100'],
         ]);
         $before = $this->snapshot($account);
 
-        $account->forceFill([
-            'status' => Account::STATUS_SUSPENDED,
-            'suspended_at' => now(),
-            'suspension_reason' => $validated['reason_code'],
-        ])->save();
-        $account->tokens()->delete();
+        $this->suspendAccount($account, $admin, $validated['reason_code']);
 
         $this->recordAdminAudit($request, 'account.suspend', $account, $before, $this->snapshot($account->refresh()));
 
@@ -98,15 +93,10 @@ class AdminAccountController extends Controller
     {
         $admin = $request->user();
         $this->authorizeAdmin($admin);
-        abort_unless($account->status === Account::STATUS_SUSPENDED, 409, 'Only suspended accounts can be restored.');
 
         $before = $this->snapshot($account);
 
-        $account->forceFill([
-            'status' => Account::STATUS_ACTIVE,
-            'suspended_at' => null,
-            'suspension_reason' => null,
-        ])->save();
+        $this->restoreAccount($account);
 
         $this->recordAdminAudit($request, 'account.restore', $account, $before, $this->snapshot($account->refresh()));
 

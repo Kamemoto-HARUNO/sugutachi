@@ -302,6 +302,57 @@ class AdminBookingTest extends TestCase
             ->assertJsonPath('data.0.open_report_count', 1);
     }
 
+    public function test_admin_can_suspend_sender_from_booking_message(): void
+    {
+        [$admin, , $therapist, , $booking] = $this->createBookingFixture();
+        $therapist->createToken('therapist-session');
+        $message = BookingMessage::query()
+            ->where('booking_id', $booking->id)
+            ->where('sender_account_id', $therapist->id)
+            ->firstOrFail();
+
+        $this->withToken($admin->createToken('api')->plainTextToken)
+            ->postJson("/api/admin/bookings/{$booking->public_id}/messages/{$message->id}/suspend-sender", [
+                'reason_code' => 'policy_violation',
+                'note' => 'Suspended after repeated direct contact attempts.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.public_id', $therapist->public_id)
+            ->assertJsonPath('data.status', Account::STATUS_SUSPENDED)
+            ->assertJsonPath('data.suspension_reason', 'policy_violation');
+
+        $this->assertDatabaseHas('accounts', [
+            'id' => $therapist->id,
+            'status' => Account::STATUS_SUSPENDED,
+            'suspension_reason' => 'policy_violation',
+        ]);
+        $this->assertDatabaseMissing('personal_access_tokens', [
+            'tokenable_id' => $therapist->id,
+            'tokenable_type' => Account::class,
+        ]);
+        $this->assertDatabaseHas('booking_messages', [
+            'id' => $message->id,
+            'moderation_status' => BookingMessage::MODERATION_STATUS_ESCALATED,
+            'moderated_by_admin_account_id' => $admin->id,
+        ]);
+        $this->assertDatabaseHas('admin_notes', [
+            'target_type' => BookingMessage::class,
+            'target_id' => $message->id,
+        ]);
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'actor_account_id' => $admin->id,
+            'action' => 'account.suspend',
+            'target_type' => Account::class,
+            'target_id' => $therapist->id,
+        ]);
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'actor_account_id' => $admin->id,
+            'action' => 'booking.message.suspend_sender',
+            'target_type' => BookingMessage::class,
+            'target_id' => $message->id,
+        ]);
+    }
+
     private function createBookingFixture(): array
     {
         $admin = Account::factory()->create(['public_id' => 'acc_admin_booking']);
