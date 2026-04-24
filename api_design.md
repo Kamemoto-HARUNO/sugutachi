@@ -205,6 +205,8 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
 | POST | `/me/profile/photos` | Auth | 写真アップロード |
 | DELETE | `/me/profile/photos/{photo_id}` | Auth | 写真削除 |
 
+`GET /me/profile` はアカウントの表示名、電話番号、ロール、本人確認状態、登録済みプロフィール写真一覧を返す。`PATCH /me/profile` では `display_name` と `phone_e164` を更新でき、電話番号が変更された場合は `phone_verified_at` を `null` に戻す。
+
 `POST /me/profile/photos` は、事前に `POST /temp-files` でアップロードした `purpose=profile_photo` の一時ファイルを `temp_file_id` で受け取り、正式なプロフィール写真として保存する。セラピストプロフィールが存在する場合は `usage_type=therapist_profile` を優先し、アップロード時点では写真ステータスを `pending` にする。
 
 ### 5.3 ユーザープロフィール
@@ -214,6 +216,8 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
 | GET | `/me/user-profile` | User | ユーザープロフィール取得 |
 | PUT | `/me/user-profile` | User | ユーザープロフィール作成/更新 |
 | PATCH | `/me/user-profile/sensitive-disclosure` | User | センシティブ項目の表示同意更新 |
+
+`GET /me/user-profile` は未作成時に `data=null` を返す。`PUT /me/user-profile` は既存値を保持しながら利用者プロフィールを作成・更新し、`age_range` / `body_type` / `height_cm` / `weight_range` がそろった場合に `profile_status=active`、不足がある場合に `profile_status=incomplete` とする。`PATCH /me/user-profile/sensitive-disclosure` はセンシティブ項目の開示同意だけを更新し、プロフィール未作成時は `incomplete` なレコードを自動作成する。
 
 リクエスト例:
 
