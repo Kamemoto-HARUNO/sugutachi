@@ -12,6 +12,7 @@ use App\Models\Refund;
 use App\Models\Report;
 use App\Models\ServiceAddress;
 use App\Models\StripeConnectedAccount;
+use App\Models\StripeDispute;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -160,6 +161,17 @@ class AdminDashboardTest extends TestCase
             'status' => ContactInquiry::STATUS_PENDING,
             'source' => ContactInquiry::SOURCE_AUTHENTICATED,
         ]);
+        StripeDispute::create([
+            'booking_id' => $completedBooking->id,
+            'payment_intent_id' => null,
+            'stripe_dispute_id' => 'dp_dashboard',
+            'status' => StripeDispute::STATUS_NEEDS_RESPONSE,
+            'reason' => 'fraudulent',
+            'amount' => 12300,
+            'currency' => 'jpy',
+            'evidence_due_by' => now()->addDays(7),
+            'last_stripe_event_id' => 'evt_dashboard_dispute',
+        ]);
 
         $this->withToken($admin->createToken('api')->plainTextToken)
             ->getJson('/api/admin/dashboard')
@@ -171,6 +183,7 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.reviews.pending_profile_photos', 1)
             ->assertJsonPath('data.operations.open_reports', 1)
             ->assertJsonPath('data.operations.pending_contact_inquiries', 1)
+            ->assertJsonPath('data.operations.open_stripe_disputes', 1)
             ->assertJsonPath('data.operations.requested_refunds', 1)
             ->assertJsonPath('data.operations.requested_payouts', 1)
             ->assertJsonPath('data.bookings.requested', 1)
@@ -182,6 +195,8 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.navigation.reviews.pending_identity_verifications.query.sort', 'submitted_at')
             ->assertJsonPath('data.navigation.operations.pending_contact_inquiries.path', '/api/admin/contact-inquiries')
             ->assertJsonPath('data.navigation.operations.pending_contact_inquiries.query.status', ContactInquiry::STATUS_PENDING)
+            ->assertJsonPath('data.navigation.operations.open_stripe_disputes.path', '/api/admin/stripe-disputes')
+            ->assertJsonPath('data.navigation.operations.open_stripe_disputes.query.status', StripeDispute::STATUS_NEEDS_RESPONSE)
             ->assertJsonPath('data.navigation.operations.requested_payouts.path', '/api/admin/payout-requests')
             ->assertJsonPath('data.navigation.operations.requested_payouts.query.direction', 'asc')
             ->assertJsonPath('data.navigation.bookings.requested.path', '/api/admin/bookings')

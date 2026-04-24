@@ -12,6 +12,7 @@ use App\Models\PayoutRequest;
 use App\Models\ProfilePhoto;
 use App\Models\Refund;
 use App\Models\Report;
+use App\Models\StripeDispute;
 use App\Models\TherapistProfile;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -48,6 +49,12 @@ class AdminDashboardController extends Controller
                         ->count(),
                     'pending_contact_inquiries' => ContactInquiry::query()
                         ->where('status', ContactInquiry::STATUS_PENDING)
+                        ->count(),
+                    'open_stripe_disputes' => StripeDispute::query()
+                        ->whereIn('status', [
+                            StripeDispute::STATUS_NEEDS_RESPONSE,
+                            StripeDispute::STATUS_UNDER_REVIEW,
+                        ])
                         ->count(),
                     'requested_refunds' => Refund::query()
                         ->where('status', Refund::STATUS_REQUESTED)
@@ -116,6 +123,14 @@ class AdminDashboardController extends Controller
                                 'status' => ContactInquiry::STATUS_PENDING,
                                 'sort' => 'created_at',
                                 'direction' => 'desc',
+                            ],
+                        ],
+                        'open_stripe_disputes' => [
+                            'path' => '/api/admin/stripe-disputes',
+                            'query' => [
+                                'status' => StripeDispute::STATUS_NEEDS_RESPONSE,
+                                'sort' => 'evidence_due_by',
+                                'direction' => 'asc',
                             ],
                         ],
                         'requested_refunds' => [
