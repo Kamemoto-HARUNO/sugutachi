@@ -11,6 +11,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
@@ -75,6 +76,7 @@ class AdminLegalDocumentController extends Controller
         );
 
         $document = LegalDocument::create([
+            'public_id' => 'ldoc_'.Str::ulid(),
             'document_type' => $validated['document_type'],
             'version' => $validated['version'],
             'title' => $validated['title'],
@@ -164,6 +166,7 @@ class AdminLegalDocumentController extends Controller
     {
         return $document->only([
             'id',
+            'public_id',
             'document_type',
             'version',
             'title',

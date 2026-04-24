@@ -19,6 +19,7 @@ class AdminLegalDocumentTest extends TestCase
         $token = $admin->createToken('api')->plainTextToken;
 
         $publishedDocument = LegalDocument::create([
+            'public_id' => 'ldoc_terms_admin',
             'document_type' => 'terms',
             'version' => '2026-04-01',
             'title' => '利用規約',
@@ -37,6 +38,7 @@ class AdminLegalDocumentTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $publishedDocument->id)
+            ->assertJsonPath('data.0.public_id', $publishedDocument->public_id)
             ->assertJsonPath('data.0.acceptances_count', 1)
             ->assertJsonPath('data.0.is_published', true);
 
@@ -51,6 +53,7 @@ class AdminLegalDocumentTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.document_type', 'privacy')
             ->assertJsonPath('data.version', '2026-05-01')
+            ->assertJsonPath('data.public_id', fn (string $value) => str_starts_with($value, 'ldoc_'))
             ->assertJsonPath('data.is_published', false);
 
         $draftId = $createResponse->json('data.id');
@@ -87,6 +90,7 @@ class AdminLegalDocumentTest extends TestCase
     {
         [$admin] = $this->createAdminFixture();
         $document = LegalDocument::create([
+            'public_id' => 'ldoc_terms_published_admin',
             'document_type' => 'terms',
             'version' => '2026-04-01',
             'title' => '利用規約',

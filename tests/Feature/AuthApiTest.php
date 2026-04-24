@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\LegalDocument;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -12,6 +13,8 @@ class AuthApiTest extends TestCase
 
     public function test_account_can_register_read_self_and_logout(): void
     {
+        $this->seedPublishedRegistrationDocuments();
+
         $registerResponse = $this->postJson('/api/auth/register', [
             'email' => 'user@example.test',
             'password' => 'very-secure-password',
@@ -35,6 +38,9 @@ class AuthApiTest extends TestCase
             'email' => 'user@example.test',
             'status' => 'active',
             'last_active_role' => 'user',
+        ]);
+        $this->assertDatabaseHas('legal_acceptances', [
+            'account_id' => Account::query()->where('email', 'user@example.test')->value('id'),
         ]);
 
         $this->assertDatabaseHas('personal_access_tokens', [
@@ -67,5 +73,43 @@ class AuthApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('token_type', 'Bearer')
             ->assertJsonPath('account.email', 'existing@example.test');
+    }
+
+    public function test_register_requires_published_terms_and_privacy_versions(): void
+    {
+        $this->postJson('/api/auth/register', [
+            'email' => 'invalid@example.test',
+            'password' => 'very-secure-password',
+            'password_confirmation' => 'very-secure-password',
+            'display_name' => 'Invalid User',
+            'accepted_terms_version' => '2026-04-01',
+            'accepted_privacy_version' => '2026-04-01',
+            'is_over_18' => true,
+            'relaxation_purpose_agreed' => true,
+        ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['accepted_terms_version', 'accepted_privacy_version']);
+    }
+
+    private function seedPublishedRegistrationDocuments(): void
+    {
+        LegalDocument::create([
+            'public_id' => 'ldoc_terms_register',
+            'document_type' => 'terms',
+            'version' => '2026-04-01',
+            'title' => '利用規約',
+            'body' => '利用規約本文',
+            'published_at' => now()->subDay(),
+            'effective_at' => now(),
+        ]);
+        LegalDocument::create([
+            'public_id' => 'ldoc_privacy_register',
+            'document_type' => 'privacy',
+            'version' => '2026-04-01',
+            'title' => 'プライバシーポリシー',
+            'body' => 'プライバシーポリシー本文',
+            'published_at' => now()->subDay(),
+            'effective_at' => now(),
+        ]);
     }
 }

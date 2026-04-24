@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\AccountResource;
 use App\Models\Account;
 use App\Models\LegalDocument;
+use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -31,8 +32,9 @@ class AuthController extends Controller
         ]);
 
         $role = $validated['initial_role'] ?? 'user';
+        $acceptedDocuments = $this->resolveAcceptedRegistrationDocuments($validated);
 
-        $account = DB::transaction(function () use ($request, $validated, $role): Account {
+        $account = DB::transaction(function () use ($request, $validated, $role, $acceptedDocuments): Account {
             $account = Account::create([
                 'public_id' => 'acc_'.Str::ulid(),
                 'email' => Str::lower($validated['email']),
@@ -50,23 +52,12 @@ class AuthController extends Controller
                 'granted_at' => now(),
             ]);
 
-            LegalDocument::query()
-                ->where(function ($query) use ($validated): void {
-                    $query
-                        ->where(fn ($query) => $query
-                            ->where('document_type', 'terms')
-                            ->where('version', $validated['accepted_terms_version']))
-                        ->orWhere(fn ($query) => $query
-                            ->where('document_type', 'privacy')
-                            ->where('version', $validated['accepted_privacy_version']));
-                })
-                ->get()
-                ->each(fn (LegalDocument $document) => $account->legalAcceptances()->create([
-                    'legal_document_id' => $document->id,
-                    'accepted_at' => now(),
-                    'ip_hash' => $request->ip() ? hash('sha256', $request->ip()) : null,
-                    'user_agent_hash' => $request->userAgent() ? hash('sha256', $request->userAgent()) : null,
-                ]));
+            $acceptedDocuments->each(fn (LegalDocument $document) => $account->legalAcceptances()->create([
+                'legal_document_id' => $document->id,
+                'accepted_at' => now(),
+                'ip_hash' => $request->ip() ? hash('sha256', $request->ip()) : null,
+                'user_agent_hash' => $request->userAgent() ? hash('sha256', $request->userAgent()) : null,
+            ]));
 
             return $account;
         });
@@ -123,5 +114,38 @@ class AuthController extends Controller
             'access_token' => $token,
             'account' => new AccountResource($account->load(['roleAssignments', 'latestIdentityVerification'])),
         ], $status);
+    }
+
+    private function resolveAcceptedRegistrationDocuments(array $validated): Collection
+    {
+        $documents = LegalDocument::query()
+            ->published()
+            ->where(function ($query) use ($validated): void {
+                $query
+                    ->where(fn ($query) => $query
+                        ->where('document_type', 'terms')
+                        ->where('version', $validated['accepted_terms_version']))
+                    ->orWhere(fn ($query) => $query
+                        ->where('document_type', 'privacy')
+                        ->where('version', $validated['accepted_privacy_version']));
+            })
+            ->get()
+            ->keyBy('document_type');
+
+        $errors = [];
+
+        if (! $documents->has('terms')) {
+            $errors['accepted_terms_version'] = ['The selected terms version is invalid.'];
+        }
+
+        if (! $documents->has('privacy')) {
+            $errors['accepted_privacy_version'] = ['The selected privacy version is invalid.'];
+        }
+
+        if ($errors !== []) {
+            throw ValidationException::withMessages($errors);
+        }
+
+        return $documents->values();
     }
 }

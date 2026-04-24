@@ -19,6 +19,7 @@ use App\Http\Controllers\Api\BookingMessageController;
 use App\Http\Controllers\Api\BookingQuoteController;
 use App\Http\Controllers\Api\BookingStatusController;
 use App\Http\Controllers\Api\IdentityVerificationController;
+use App\Http\Controllers\Api\LegalDocumentController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PaymentIntentController;
 use App\Http\Controllers\Api\PaymentSyncController;
@@ -42,9 +43,13 @@ Route::prefix('auth')->group(function (): void {
     Route::post('/login', [AuthController::class, 'login']);
 });
 
+Route::get('/legal-documents', [LegalDocumentController::class, 'index']);
+Route::get('/legal-documents/{type}', [LegalDocumentController::class, 'showLatest']);
+
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
+    Route::post('/legal-documents/{legalDocument:public_id}/accept', [LegalDocumentController::class, 'accept']);
 
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'read']);
