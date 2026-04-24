@@ -142,6 +142,41 @@ class TherapistProfileController extends Controller
         ]);
     }
 
+    public function goOnline(Request $request): TherapistProfileResource
+    {
+        $profile = $request->user()->therapistProfile()->firstOrFail();
+
+        abort_unless(
+            $profile->profile_status === TherapistProfile::STATUS_APPROVED,
+            409,
+            'Only approved therapist profiles can go online.'
+        );
+        abort_unless(
+            $profile->location()->where('is_searchable', true)->exists(),
+            409,
+            'A searchable location is required before going online.'
+        );
+
+        $profile->forceFill([
+            'is_online' => true,
+            'online_since' => $profile->online_since ?? now(),
+        ])->save();
+
+        return new TherapistProfileResource($profile->refresh()->load('menus'));
+    }
+
+    public function goOffline(Request $request): TherapistProfileResource
+    {
+        $profile = $request->user()->therapistProfile()->firstOrFail();
+
+        $profile->forceFill([
+            'is_online' => false,
+            'online_since' => null,
+        ])->save();
+
+        return new TherapistProfileResource($profile->refresh()->load('menus'));
+    }
+
     public function updateLocation(Request $request): TherapistProfileResource
     {
         $validated = $request->validate([
@@ -165,8 +200,10 @@ class TherapistProfileController extends Controller
         );
 
         $profile->forceFill([
-            'is_online' => $profile->profile_status === TherapistProfile::STATUS_APPROVED,
-            'online_since' => $profile->profile_status === TherapistProfile::STATUS_APPROVED
+            'is_online' => $profile->profile_status === TherapistProfile::STATUS_APPROVED
+                ? $profile->is_online
+                : false,
+            'online_since' => $profile->profile_status === TherapistProfile::STATUS_APPROVED && $profile->is_online
                 ? ($profile->online_since ?? now())
                 : null,
             'last_location_updated_at' => now(),

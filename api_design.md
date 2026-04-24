@@ -364,6 +364,8 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
 
 `PUT /me/therapist-profile` は公開用プロフィールの下書き保存として扱い、初回作成時および承認後の編集時は `profile_status=draft` に戻す。`POST /me/therapist-profile/submit-review` は、少なくとも有効な提供メニューが1件以上あり、本人確認が `approved` の場合のみ受け付ける。`GET /me/therapist-profile/review-status` は現在の審査状態、再提出可否、未充足要件を返す。
 
+`POST /me/therapist/online` は `profile_status=approved` かつ検索可能な待機位置が保存済みの場合のみ受け付ける。`POST /me/therapist/offline` は表示状態のみをオフへ戻す。`PUT /me/therapist/location` は待機位置更新だけを担当し、オンライン状態の切替は行わない。
+
 `GET /me/therapist/scheduled-booking-settings` / `PUT /me/therapist/scheduled-booking-settings` では、予定予約の受付締切分数と予定予約用基本地点を扱う。受付締切のデフォルトは60分とし、基本地点は公開せず距離・徒歩目安・交通費算定にのみ利用する。
 
 `PUT /me/therapist/scheduled-booking-settings` リクエスト例:

@@ -197,6 +197,85 @@ class TherapistProfileReviewTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_approved_therapist_can_go_online_and_offline_after_setting_location(): void
+    {
+        $therapist = Account::factory()->create(['public_id' => 'acc_therapist_online_toggle']);
+        $token = $therapist->createToken('api')->plainTextToken;
+
+        $profile = TherapistProfile::create([
+            'account_id' => $therapist->id,
+            'public_id' => 'thp_online_toggle',
+            'public_name' => 'Online Toggle Therapist',
+            'profile_status' => TherapistProfile::STATUS_APPROVED,
+            'training_status' => 'completed',
+            'photo_review_status' => 'approved',
+            'is_online' => false,
+            'approved_at' => now(),
+        ]);
+
+        TherapistMenu::create([
+            'public_id' => 'menu_online_toggle_60',
+            'therapist_profile_id' => $profile->id,
+            'name' => 'Body care 60',
+            'duration_minutes' => 60,
+            'base_price_amount' => 12000,
+            'is_active' => true,
+        ]);
+
+        $this->withToken($token)
+            ->postJson('/api/me/therapist/online')
+            ->assertConflict();
+
+        $this->withToken($token)
+            ->putJson('/api/me/therapist/location', [
+                'lat' => 35.681236,
+                'lng' => 139.767125,
+                'accuracy_m' => 20,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.is_online', false);
+
+        $this->withToken($token)
+            ->postJson('/api/me/therapist/online')
+            ->assertOk()
+            ->assertJsonPath('data.is_online', true)
+            ->assertJsonPath('data.online_since', fn ($value) => filled($value));
+
+        $this->withToken($token)
+            ->postJson('/api/me/therapist/offline')
+            ->assertOk()
+            ->assertJsonPath('data.is_online', false)
+            ->assertJsonPath('data.online_since', null);
+    }
+
+    public function test_non_approved_therapist_cannot_go_online(): void
+    {
+        $therapist = Account::factory()->create(['public_id' => 'acc_therapist_online_reject']);
+        $token = $therapist->createToken('api')->plainTextToken;
+
+        $profile = TherapistProfile::create([
+            'account_id' => $therapist->id,
+            'public_id' => 'thp_online_reject',
+            'public_name' => 'Pending Therapist',
+            'profile_status' => TherapistProfile::STATUS_PENDING,
+            'training_status' => 'completed',
+            'photo_review_status' => 'approved',
+            'is_online' => false,
+        ]);
+
+        $profile->location()->create([
+            'lat' => 35.681236,
+            'lng' => 139.767125,
+            'accuracy_m' => 20,
+            'source' => 'browser',
+            'is_searchable' => true,
+        ]);
+
+        $this->withToken($token)
+            ->postJson('/api/me/therapist/online')
+            ->assertConflict();
+    }
+
     public function test_restored_suspended_profile_can_be_resubmitted_for_review(): void
     {
         $admin = Account::factory()->create(['public_id' => 'acc_admin_profile_restore']);

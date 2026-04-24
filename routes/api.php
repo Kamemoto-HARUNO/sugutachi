@@ -157,6 +157,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::put('/me/therapist-profile', [TherapistProfileController::class, 'upsert']);
     Route::post('/me/therapist-profile/submit-review', [TherapistProfileController::class, 'submitReview']);
     Route::get('/me/therapist-profile/review-status', [TherapistProfileController::class, 'reviewStatus']);
+    Route::post('/me/therapist/online', [TherapistProfileController::class, 'goOnline']);
+    Route::post('/me/therapist/offline', [TherapistProfileController::class, 'goOffline']);
     Route::put('/me/therapist/location', [TherapistProfileController::class, 'updateLocation']);
     Route::get('/me/therapist/scheduled-booking-settings', [TherapistScheduledBookingSettingController::class, 'show']);
     Route::put('/me/therapist/scheduled-booking-settings', [TherapistScheduledBookingSettingController::class, 'upsert']);
