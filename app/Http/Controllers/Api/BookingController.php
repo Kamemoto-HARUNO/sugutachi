@@ -8,6 +8,7 @@ use App\Http\Resources\TherapistBookingRequestResource;
 use App\Models\Account;
 use App\Models\Booking;
 use App\Models\BookingQuote;
+use App\Models\Report;
 use App\Models\ServiceAddress;
 use App\Models\TherapistAvailabilitySlot;
 use App\Models\TherapistMenu;
@@ -26,14 +27,73 @@ class BookingController extends Controller
     public function index(Request $request): AnonymousResourceCollection
     {
         $account = $request->user();
+        $validated = $request->validate([
+            'role' => ['nullable', 'in:user,therapist,all'],
+            'status' => ['nullable', 'string', 'max:50'],
+            'request_type' => ['nullable', 'in:on_demand,scheduled'],
+            'scheduled_from' => ['nullable', 'date'],
+            'scheduled_to' => ['nullable', 'date'],
+            'sort' => ['nullable', 'in:scheduled_start_at,created_at,updated_at'],
+            'direction' => ['nullable', 'in:asc,desc'],
+        ]);
+        $role = $validated['role'] ?? 'all';
+        $sort = $validated['sort'] ?? 'scheduled_start_at';
+        $direction = $validated['direction'] ?? 'desc';
 
         return BookingResource::collection(
             Booking::query()
-                ->with('currentQuote')
-                ->where(fn ($query) => $query
-                    ->where('user_account_id', $account->id)
-                    ->orWhere('therapist_account_id', $account->id))
-                ->latest()
+                ->with([
+                    'availabilitySlot',
+                    'currentQuote',
+                    'currentPaymentIntent',
+                    'canceledBy',
+                    'userAccount',
+                    'therapistAccount',
+                    'therapistProfile',
+                    'therapistMenu',
+                    'serviceAddress',
+                ])
+                ->withCount([
+                    'messages as unread_message_count' => fn ($query) => $query
+                        ->whereNull('read_at')
+                        ->where('sender_account_id', '!=', $account->id),
+                    'refunds',
+                    'reports as open_report_count' => fn ($query) => $query
+                        ->where('status', Report::STATUS_OPEN),
+                ])
+                ->withMax('messages as latest_message_sent_at', 'sent_at')
+                ->when(
+                    $role === 'user',
+                    fn ($query) => $query->where('user_account_id', $account->id)
+                )
+                ->when(
+                    $role === 'therapist',
+                    fn ($query) => $query->where('therapist_account_id', $account->id)
+                )
+                ->when(
+                    $role === 'all',
+                    fn ($query) => $query->where(fn ($query) => $query
+                        ->where('user_account_id', $account->id)
+                        ->orWhere('therapist_account_id', $account->id))
+                )
+                ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
+                ->when(
+                    $validated['request_type'] ?? null,
+                    fn ($query, string $requestType) => $query->where('is_on_demand', $requestType === 'on_demand')
+                )
+                ->when(
+                    $validated['scheduled_from'] ?? null,
+                    fn ($query, string $date) => $query->whereDate('scheduled_start_at', '>=', $date)
+                )
+                ->when(
+                    $validated['scheduled_to'] ?? null,
+                    fn ($query, string $date) => $query->whereDate('scheduled_start_at', '<=', $date)
+                )
+                ->orderByRaw($sort === 'scheduled_start_at'
+                    ? "case when scheduled_start_at is null then 1 else 0 end {$direction}"
+                    : "case when {$sort} is null then 1 else 0 end {$direction}")
+                ->orderBy($sort, $direction)
+                ->orderBy('id', $direction)
                 ->get()
         );
     }
@@ -184,9 +244,15 @@ class BookingController extends Controller
         );
 
         return new BookingResource($booking->load([
+            'availabilitySlot',
             'currentQuote',
             'currentPaymentIntent',
             'canceledBy',
+            'userAccount',
+            'therapistAccount',
+            'therapistProfile',
+            'therapistMenu',
+            'serviceAddress',
             'refunds' => fn ($query) => $query->latest('id'),
             'consents' => fn ($query) => $query->with(['account', 'legalDocument'])->orderBy('id'),
             'healthChecks' => fn ($query) => $query->with('account')->latest('id'),

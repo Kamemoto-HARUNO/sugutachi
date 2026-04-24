@@ -14,6 +14,7 @@ class BookingResource extends JsonResource
         return [
             'public_id' => $this->public_id,
             'status' => $this->status,
+            'request_type' => $this->is_on_demand ? 'on_demand' : 'scheduled',
             'is_on_demand' => $this->is_on_demand,
             'availability_slot_id' => $this->currentQuote?->input_snapshot_json['availability_slot_id']
                 ?? $this->whenLoaded('availabilitySlot', fn () => $this->availabilitySlot?->public_id),
@@ -48,6 +49,20 @@ class BookingResource extends JsonResource
             'therapist_net_amount' => $this->therapist_net_amount,
             'platform_fee_amount' => $this->platform_fee_amount,
             'matching_fee_amount' => $this->matching_fee_amount,
+            'counterparty' => $this->counterparty($request),
+            'therapist_profile' => $this->whenLoaded('therapistProfile', fn () => $this->therapistProfile ? [
+                'public_id' => $this->therapistProfile->public_id,
+                'public_name' => $this->therapistProfile->public_name,
+            ] : null),
+            'therapist_menu' => $this->whenLoaded('therapistMenu', fn () => $this->therapistMenu ? [
+                'public_id' => $this->therapistMenu->public_id,
+                'name' => $this->therapistMenu->name,
+                'duration_minutes' => $this->therapistMenu->duration_minutes,
+                'base_price_amount' => $this->therapistMenu->base_price_amount,
+            ] : null),
+            'service_address' => $this->whenLoaded('serviceAddress', fn () => $this->serviceAddress
+                ? new ServiceAddressResource($this->serviceAddress)
+                : null),
             'current_quote' => $this->whenLoaded('currentQuote', fn () => new BookingQuoteResource($this->currentQuote)),
             'current_payment_intent' => $this->whenLoaded('currentPaymentIntent', fn () => $this->currentPaymentIntent
                 ? new PaymentIntentResource($this->currentPaymentIntent)
@@ -56,8 +71,51 @@ class BookingResource extends JsonResource
             'refunds' => $this->whenLoaded('refunds', fn () => BookingRefundResource::collection($this->refunds)),
             'consents' => $this->whenLoaded('consents', fn () => BookingConsentResource::collection($this->consents)),
             'health_checks' => $this->whenLoaded('healthChecks', fn () => BookingHealthCheckResource::collection($this->healthChecks)),
+            'unread_message_count' => $this->when(isset($this->unread_message_count), fn () => $this->unread_message_count),
+            'refund_count' => $this->when(isset($this->refunds_count), fn () => $this->refunds_count),
+            'open_report_count' => $this->when(isset($this->open_report_count), fn () => $this->open_report_count),
+            'latest_message_sent_at' => $this->when(isset($this->latest_message_sent_at), fn () => $this->latest_message_sent_at),
             'created_at' => $this->created_at,
         ];
+    }
+
+    private function counterparty(Request $request): ?array
+    {
+        $viewer = $request->user();
+
+        if (! $viewer) {
+            return null;
+        }
+
+        if ($viewer->id === $this->user_account_id) {
+            if (! $this->relationLoaded('therapistAccount') || ! $this->therapistAccount) {
+                return null;
+            }
+
+            return [
+                'role' => 'therapist',
+                'public_id' => $this->therapistAccount->public_id,
+                'display_name' => $this->therapistProfile?->public_name ?? $this->therapistAccount->display_name,
+                'account_status' => $this->therapistAccount->status,
+                'therapist_profile_public_id' => $this->therapistProfile?->public_id,
+            ];
+        }
+
+        if ($viewer->id === $this->therapist_account_id) {
+            if (! $this->relationLoaded('userAccount') || ! $this->userAccount) {
+                return null;
+            }
+
+            return [
+                'role' => 'user',
+                'public_id' => $this->userAccount->public_id,
+                'display_name' => $this->userAccount->display_name,
+                'account_status' => $this->userAccount->status,
+                'therapist_profile_public_id' => null,
+            ];
+        }
+
+        return null;
     }
 
     private function canceledByRole(): ?string

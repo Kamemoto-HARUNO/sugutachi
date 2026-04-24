@@ -491,6 +491,8 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
 | GET | `/bookings` | User/Therapist | 自分の予約一覧 |
 | GET | `/bookings/{public_id}` | User/Therapist/Admin | 予約詳細 |
 
+`GET /bookings` は `role=user|therapist|all` / `status` / `request_type=on_demand|scheduled` / `scheduled_from` / `scheduled_to` / `sort` / `direction` で絞り込める。レスポンスには `request_type`、`counterparty`、`therapist_profile`、`therapist_menu`、`service_address`、`unread_message_count`、`refund_count`、`open_report_count`、`latest_message_sent_at` を含め、予約一覧タブの描画に必要な文脈をまとめて返す。
+
 `GET /bookings/{public_id}` は参加者本人のみ参照でき、`cancel_reason_note` / `canceled_by_role` / `canceled_by_account` に加えて、現在の `current_payment_intent`、返金集計の `refund_breakdown`、返金明細の `refunds`、予約ごとの `consents`、施術前の `health_checks` を返す。`refund_breakdown` には `refund_count` / `auto_refund_count` / `requested_amount_total` / `approved_amount_total` / `processed_amount_total` を含める。
 
 `POST /booking-quotes` リクエスト:
