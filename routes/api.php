@@ -46,6 +46,7 @@ use App\Http\Controllers\Api\TherapistMenuController;
 use App\Http\Controllers\Api\TherapistPayoutRequestController;
 use App\Http\Controllers\Api\TherapistProfileController;
 use App\Http\Controllers\Api\TherapistScheduledBookingSettingController;
+use App\Http\Controllers\Api\TherapistTravelRequestController;
 use App\Http\Controllers\Api\UserProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -131,6 +132,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/therapists', [TherapistDiscoveryController::class, 'index'])->middleware('throttle:therapist-search');
     Route::get('/therapists/{therapistProfile:public_id}', [TherapistDiscoveryController::class, 'show']);
     Route::get('/therapists/{therapistProfile:public_id}/reviews', [ReviewController::class, 'therapistReviews']);
+    Route::post('/therapists/{therapistProfile:public_id}/travel-requests', [TherapistTravelRequestController::class, 'store']);
     Route::get('/me/reviews', [ReviewController::class, 'me']);
 
     Route::post('/temp-files', [TempFileController::class, 'store']);
@@ -155,6 +157,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/me/therapist/availability-slots', [TherapistAvailabilitySlotController::class, 'store']);
     Route::patch('/me/therapist/availability-slots/{therapistAvailabilitySlot:public_id}', [TherapistAvailabilitySlotController::class, 'update']);
     Route::delete('/me/therapist/availability-slots/{therapistAvailabilitySlot:public_id}', [TherapistAvailabilitySlotController::class, 'destroy']);
+    Route::get('/me/therapist/travel-requests', [TherapistTravelRequestController::class, 'index']);
+    Route::get('/me/therapist/travel-requests/{travelRequest:public_id}', [TherapistTravelRequestController::class, 'show']);
+    Route::post('/me/therapist/travel-requests/{travelRequest:public_id}/read', [TherapistTravelRequestController::class, 'read']);
+    Route::post('/me/therapist/travel-requests/{travelRequest:public_id}/archive', [TherapistTravelRequestController::class, 'archive']);
     Route::get('/me/therapist/menus', [TherapistMenuController::class, 'index']);
     Route::post('/me/therapist/menus', [TherapistMenuController::class, 'store']);
     Route::patch('/me/therapist/menus/{therapistMenu:public_id}', [TherapistMenuController::class, 'update']);

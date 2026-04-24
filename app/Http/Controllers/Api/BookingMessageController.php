@@ -7,6 +7,7 @@ use App\Http\Resources\BookingMessageResource;
 use App\Models\Account;
 use App\Models\Booking;
 use App\Models\BookingMessage;
+use App\Support\ContactExchangeDetector;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -26,7 +27,7 @@ class BookingMessageController extends Controller
         );
     }
 
-    public function store(Request $request, Booking $booking): JsonResponse
+    public function store(Request $request, Booking $booking, ContactExchangeDetector $detector): JsonResponse
     {
         $this->authorizeParticipant($booking, $request->user());
 
@@ -34,7 +35,7 @@ class BookingMessageController extends Controller
             'body' => ['required', 'string', 'min:1', 'max:1000'],
         ]);
 
-        if ($this->detectContactExchange($validated['body'])) {
+        if ($detector->detects($validated['body'])) {
             return response()->json([
                 'message' => 'Contact exchange is not allowed in booking messages.',
             ], 422);
@@ -72,13 +73,5 @@ class BookingMessageController extends Controller
             $booking->user_account_id === $actor->id || $booking->therapist_account_id === $actor->id,
             404
         );
-    }
-
-    private function detectContactExchange(string $body): bool
-    {
-        return preg_match('/[A-Z0-9._%+\-]+@[A-Z0-9.\-]+\.[A-Z]{2,}/i', $body) === 1
-            || preg_match('/(?:\+?\d[\d\s\-().]{8,}\d)/', $body) === 1
-            || preg_match('/\b(?:line|kakao|wechat|telegram|instagram|twitter|x)\s*[:：@]/i', $body) === 1
-            || preg_match('/(?:paypay|paypal|venmo|cash\s*app|銀行振込|口座)/iu', $body) === 1;
     }
 }
