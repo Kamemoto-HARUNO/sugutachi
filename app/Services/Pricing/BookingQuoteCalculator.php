@@ -20,8 +20,10 @@ class BookingQuoteCalculator
         int $durationMinutes,
         bool $isOnDemand,
         ?string $requestedStartAt,
+        ?float $originLat = null,
+        ?float $originLng = null,
     ): array {
-        $walking = $this->walkingEstimate($therapistProfile, $serviceAddress);
+        $walking = $this->walkingEstimate($therapistProfile, $serviceAddress, $originLat, $originLng);
         $baseAmount = (int) round($menu->base_price_amount * $durationMinutes / $menu->duration_minutes);
         $nightFeeAmount = $this->nightFeeAmount($requestedStartAt);
         $travelFeeAmount = $this->travelFeeAmount($walking['walking_time_minutes']);
@@ -66,22 +68,17 @@ class BookingQuoteCalculator
         ];
     }
 
-    private function walkingEstimate(TherapistProfile $therapistProfile, ServiceAddress $serviceAddress): array
-    {
-        $location = $therapistProfile->location;
-
-        if (! $location) {
-            return [
-                'walking_time_minutes' => null,
-                'walking_time_range' => 'unknown',
-            ];
-        }
-
+    public function walkingEstimateFromCoordinates(
+        float $fromLat,
+        float $fromLng,
+        float $toLat,
+        float $toLng,
+    ): array {
         $straightDistanceKm = $this->haversineKm(
-            (float) $location->lat,
-            (float) $location->lng,
-            (float) $serviceAddress->lat,
-            (float) $serviceAddress->lng,
+            $fromLat,
+            $fromLng,
+            $toLat,
+            $toLng,
         );
 
         $walkingDistanceKm = $straightDistanceKm * 1.3;
@@ -96,6 +93,38 @@ class BookingQuoteCalculator
                 default => 'outside_area',
             },
         ];
+    }
+
+    private function walkingEstimate(
+        TherapistProfile $therapistProfile,
+        ServiceAddress $serviceAddress,
+        ?float $originLat = null,
+        ?float $originLng = null,
+    ): array {
+        if ($originLat !== null && $originLng !== null) {
+            return $this->walkingEstimateFromCoordinates(
+                $originLat,
+                $originLng,
+                (float) $serviceAddress->lat,
+                (float) $serviceAddress->lng,
+            );
+        }
+
+        $location = $therapistProfile->location;
+
+        if (! $location) {
+            return [
+                'walking_time_minutes' => null,
+                'walking_time_range' => 'unknown',
+            ];
+        }
+
+        return $this->walkingEstimateFromCoordinates(
+            (float) $location->lat,
+            (float) $location->lng,
+            (float) $serviceAddress->lat,
+            (float) $serviceAddress->lng,
+        );
     }
 
     private function haversineKm(float $fromLat, float $fromLng, float $toLat, float $toLng): float

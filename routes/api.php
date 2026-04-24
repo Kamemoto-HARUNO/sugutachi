@@ -131,6 +131,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/admin/contact-inquiries/{contactInquiry:public_id}/resolve', [AdminContactInquiryController::class, 'resolve']);
     Route::get('/therapists', [TherapistDiscoveryController::class, 'index'])->middleware('throttle:therapist-search');
     Route::get('/therapists/{therapistProfile:public_id}', [TherapistDiscoveryController::class, 'show']);
+    Route::get('/therapists/{therapistProfile:public_id}/availability', [TherapistDiscoveryController::class, 'availability']);
     Route::get('/therapists/{therapistProfile:public_id}/reviews', [ReviewController::class, 'therapistReviews']);
     Route::post('/therapists/{therapistProfile:public_id}/travel-requests', [TherapistTravelRequestController::class, 'store']);
     Route::get('/me/reviews', [ReviewController::class, 'me']);

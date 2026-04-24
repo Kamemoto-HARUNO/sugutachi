@@ -45,6 +45,28 @@ class TherapistProfile extends Model
                 ->where('status', IdentityVerification::STATUS_APPROVED));
     }
 
+    public function scopeScheduledDiscoverableTo(Builder $query, Account $viewer): Builder
+    {
+        return $query
+            ->where('account_id', '!=', $viewer->id)
+            ->where('profile_status', self::STATUS_APPROVED)
+            ->whereHas('menus', fn (Builder $query) => $query->where('is_active', true))
+            ->whereHas('bookingSetting')
+            ->whereHas('availabilitySlots', fn (Builder $query) => $query
+                ->where('status', TherapistAvailabilitySlot::STATUS_PUBLISHED)
+                ->where('end_at', '>', now()))
+            ->whereHas('account', function (Builder $query) use ($viewer): void {
+                $query
+                    ->where('status', Account::STATUS_ACTIVE)
+                    ->whereDoesntHave('blockedByAccounts', fn (Builder $blockedBy) => $blockedBy
+                        ->where('blocker_account_id', $viewer->id))
+                    ->whereDoesntHave('blockedAccounts', fn (Builder $blocked) => $blocked
+                        ->where('blocked_account_id', $viewer->id));
+            })
+            ->whereHas('account.latestIdentityVerification', fn (Builder $query) => $query
+                ->where('status', IdentityVerification::STATUS_APPROVED));
+    }
+
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);

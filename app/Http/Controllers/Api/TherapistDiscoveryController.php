@@ -3,6 +3,7 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\PublicTherapistAvailabilityResource;
 use App\Http\Resources\PublicTherapistDetailResource;
 use App\Http\Resources\PublicTherapistSearchResultResource;
 use App\Models\Account;
@@ -12,6 +13,8 @@ use App\Models\ServiceAddress;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
 use App\Services\Pricing\BookingQuoteCalculator;
+use App\Services\Scheduling\PublicAvailabilityWindowCalculator;
+use Carbon\CarbonImmutable;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -24,6 +27,44 @@ use Illuminate\Validation\ValidationException;
 
 class TherapistDiscoveryController extends Controller
 {
+    public function availability(
+        Request $request,
+        TherapistProfile $therapistProfile,
+        PublicAvailabilityWindowCalculator $calculator,
+    ): PublicTherapistAvailabilityResource {
+        $validated = $request->validate([
+            'service_address_id' => ['required', 'string', 'max:36'],
+            'therapist_menu_id' => ['required', 'string', 'max:36'],
+            'date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
+        ]);
+
+        $profile = TherapistProfile::query()
+            ->scheduledDiscoverableTo($request->user())
+            ->with('bookingSetting')
+            ->whereKey($therapistProfile->id)
+            ->firstOrFail();
+
+        $menu = TherapistMenu::query()
+            ->where('public_id', $validated['therapist_menu_id'])
+            ->where('therapist_profile_id', $profile->id)
+            ->where('is_active', true)
+            ->firstOrFail();
+
+        $serviceAddress = ServiceAddress::query()
+            ->where('public_id', $validated['service_address_id'])
+            ->where('account_id', $request->user()->id)
+            ->firstOrFail();
+
+        return new PublicTherapistAvailabilityResource(
+            $calculator->calculate(
+                profile: $profile,
+                menu: $menu,
+                serviceAddress: $serviceAddress,
+                date: CarbonImmutable::createFromFormat('Y-m-d', $validated['date']),
+            )
+        );
+    }
+
     public function index(Request $request, BookingQuoteCalculator $calculator): AnonymousResourceCollection
     {
         [$validated, $serviceAddress] = $this->validatedDiscoveryContext($request, requireServiceAddress: true);
