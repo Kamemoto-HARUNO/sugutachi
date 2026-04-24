@@ -8,7 +8,7 @@ use App\Models\Account;
 use App\Models\Booking;
 use App\Models\TherapistProfile;
 use App\Services\Bookings\BookingCancellationPolicy;
-use App\Services\Payments\BookingPaymentIntentCancellationService;
+use App\Services\Bookings\BookingCancellationSettlementService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -54,7 +54,7 @@ class BookingCancellationController extends Controller
         Request $request,
         Booking $booking,
         BookingCancellationPolicy $policy,
-        BookingPaymentIntentCancellationService $paymentIntentCancellationService,
+        BookingCancellationSettlementService $settlementService,
     ): JsonResponse {
         $validated = $request->validate([
             'reason_code' => ['required', 'string', 'max:100'],
@@ -108,14 +108,7 @@ class BookingCancellationController extends Controller
 
         [$canceledBooking, $preview] = $result;
 
-        if (($preview['payment_action'] ?? null) === 'void_authorization') {
-            $paymentIntentCancellationService->cancelCurrentForBooking(
-                booking: $canceledBooking,
-                lastStripeEventId: $actorRole === 'therapist'
-                    ? 'system.therapist_booking_canceled'
-                    : 'system.user_booking_canceled',
-            );
-        }
+        $settlementService->settle($canceledBooking, $preview);
 
         return response()->json([
             'data' => [

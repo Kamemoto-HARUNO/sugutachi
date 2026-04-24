@@ -15,5 +15,7 @@ interface PaymentIntentGateway
         ?StripeConnectedAccount $connectedAccount = null
     ): CreatedPaymentIntent;
 
+    public function capture(PaymentIntent $paymentIntent): string;
+
     public function cancel(PaymentIntent $paymentIntent): string;
 }

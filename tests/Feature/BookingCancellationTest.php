@@ -3,11 +3,14 @@
 namespace Tests\Feature;
 
 use App\Contracts\Payments\CreatedPaymentIntent;
+use App\Contracts\Payments\CreatedRefund;
 use App\Contracts\Payments\PaymentIntentGateway;
+use App\Contracts\Payments\RefundGateway;
 use App\Models\Account;
 use App\Models\Booking;
 use App\Models\BookingQuote;
 use App\Models\PaymentIntent;
+use App\Models\Refund;
 use App\Models\ServiceAddress;
 use App\Models\StripeConnectedAccount;
 use App\Models\TherapistMenu;
@@ -21,8 +24,7 @@ class BookingCancellationTest extends TestCase
 
     public function test_user_can_preview_and_cancel_before_acceptance_for_free(): void
     {
-        $gatewayState = (object) ['canceledStripeIds' => []];
-        $this->bindPaymentIntentGateway($gatewayState);
+        $gatewayState = $this->bindPaymentGateways();
 
         [$user, , $booking, $paymentIntent] = $this->createBookingFixture(
             Booking::STATUS_REQUESTED,
@@ -68,13 +70,18 @@ class BookingCancellationTest extends TestCase
             'reason_code' => 'user_schedule_changed',
         ]);
         $this->assertSame([$paymentIntent->stripe_payment_intent_id], $gatewayState->canceledStripeIds);
+        $this->assertSame([], $gatewayState->capturedStripeIds);
+        $this->assertSame([], $gatewayState->refundCalls);
     }
 
     public function test_user_cancel_within_24_hours_calculates_half_service_fee_plus_matching_fee(): void
     {
-        [$user, , $booking] = $this->createBookingFixture(
+        $gatewayState = $this->bindPaymentGateways();
+
+        [$user, , $booking, $paymentIntent] = $this->createBookingFixture(
             status: Booking::STATUS_ACCEPTED,
             scheduledStartAt: now()->addHours(4),
+            withPaymentIntent: true,
         );
 
         $this->withToken($user->createToken('api')->plainTextToken)
@@ -84,12 +91,76 @@ class BookingCancellationTest extends TestCase
             ->assertJsonPath('data.refund_amount', 6000)
             ->assertJsonPath('data.policy_code', 'within_24_hours_half')
             ->assertJsonPath('data.payment_action', 'capture_cancel_fee_and_refund_remaining');
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/cancel", [
+                'reason_code' => 'user_schedule_changed',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.booking.status', Booking::STATUS_CANCELED)
+            ->assertJsonPath('data.cancellation.cancel_fee_amount', 6300)
+            ->assertJsonPath('data.cancellation.refund_amount', 6000);
+
+        $this->assertDatabaseHas('payment_intents', [
+            'id' => $paymentIntent->id,
+            'status' => PaymentIntent::STRIPE_STATUS_SUCCEEDED,
+            'last_stripe_event_id' => 'system.booking_cancellation_captured',
+        ]);
+        $this->assertDatabaseHas('refunds', [
+            'booking_id' => $booking->id,
+            'payment_intent_id' => $paymentIntent->id,
+            'status' => Refund::STATUS_PROCESSED,
+            'reason_code' => 'booking_cancellation_auto',
+            'requested_amount' => 6000,
+            'approved_amount' => 6000,
+            'stripe_refund_id' => 're_'.$booking->public_id,
+        ]);
+        $this->assertSame([$paymentIntent->stripe_payment_intent_id], $gatewayState->capturedStripeIds);
+        $this->assertSame([], $gatewayState->canceledStripeIds);
+        $this->assertSame([
+            [
+                'payment_intent_id' => $paymentIntent->stripe_payment_intent_id,
+                'amount' => 6000,
+            ],
+        ], $gatewayState->refundCalls);
+    }
+
+    public function test_user_cancel_within_3_hours_captures_full_amount_without_refund(): void
+    {
+        $gatewayState = $this->bindPaymentGateways();
+
+        [$user, , $booking, $paymentIntent] = $this->createBookingFixture(
+            status: Booking::STATUS_ACCEPTED,
+            scheduledStartAt: now()->addHours(2),
+            withPaymentIntent: true,
+        );
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/cancel", [
+                'reason_code' => 'user_schedule_changed',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.booking.status', Booking::STATUS_CANCELED)
+            ->assertJsonPath('data.cancellation.cancel_fee_amount', 12300)
+            ->assertJsonPath('data.cancellation.refund_amount', 0)
+            ->assertJsonPath('data.cancellation.payment_action', 'capture_full_amount');
+
+        $this->assertDatabaseHas('payment_intents', [
+            'id' => $paymentIntent->id,
+            'status' => PaymentIntent::STRIPE_STATUS_SUCCEEDED,
+            'last_stripe_event_id' => 'system.booking_cancellation_captured',
+        ]);
+        $this->assertDatabaseMissing('refunds', [
+            'booking_id' => $booking->id,
+        ]);
+        $this->assertSame([$paymentIntent->stripe_payment_intent_id], $gatewayState->capturedStripeIds);
+        $this->assertSame([], $gatewayState->canceledStripeIds);
+        $this->assertSame([], $gatewayState->refundCalls);
     }
 
     public function test_therapist_cancel_after_acceptance_is_full_refund(): void
     {
-        $gatewayState = (object) ['canceledStripeIds' => []];
-        $this->bindPaymentIntentGateway($gatewayState);
+        $gatewayState = $this->bindPaymentGateways();
 
         [, $therapist, $booking, $paymentIntent] = $this->createBookingFixture(
             status: Booking::STATUS_ACCEPTED,
@@ -122,6 +193,8 @@ class BookingCancellationTest extends TestCase
             'last_stripe_event_id' => 'system.therapist_booking_canceled',
         ]);
         $this->assertSame([$paymentIntent->stripe_payment_intent_id], $gatewayState->canceledStripeIds);
+        $this->assertSame([], $gatewayState->capturedStripeIds);
+        $this->assertSame([], $gatewayState->refundCalls);
     }
 
     public function test_therapist_cannot_cancel_before_acceptance(): void
@@ -221,8 +294,14 @@ class BookingCancellationTest extends TestCase
         return [$user, $therapist, $booking, $paymentIntent];
     }
 
-    private function bindPaymentIntentGateway(object $gatewayState): void
+    private function bindPaymentGateways(): object
     {
+        $gatewayState = (object) [
+            'canceledStripeIds' => [],
+            'capturedStripeIds' => [],
+            'refundCalls' => [],
+        ];
+
         $this->app->bind(PaymentIntentGateway::class, fn () => new class($gatewayState) implements PaymentIntentGateway
         {
             public function __construct(
@@ -241,6 +320,13 @@ class BookingCancellationTest extends TestCase
                 );
             }
 
+            public function capture(PaymentIntent $paymentIntent): string
+            {
+                $this->gatewayState->capturedStripeIds[] = $paymentIntent->stripe_payment_intent_id;
+
+                return PaymentIntent::STRIPE_STATUS_SUCCEEDED;
+            }
+
             public function cancel(PaymentIntent $paymentIntent): string
             {
                 $this->gatewayState->canceledStripeIds[] = $paymentIntent->stripe_payment_intent_id;
@@ -248,5 +334,27 @@ class BookingCancellationTest extends TestCase
                 return PaymentIntent::STRIPE_STATUS_CANCELED;
             }
         });
+
+        $this->app->bind(RefundGateway::class, fn () => new class($gatewayState) implements RefundGateway
+        {
+            public function __construct(
+                private readonly object $gatewayState,
+            ) {}
+
+            public function create(Refund $refund, PaymentIntent $paymentIntent, int $amount): CreatedRefund
+            {
+                $this->gatewayState->refundCalls[] = [
+                    'payment_intent_id' => $paymentIntent->stripe_payment_intent_id,
+                    'amount' => $amount,
+                ];
+
+                return new CreatedRefund(
+                    id: 're_'.$refund->booking->public_id,
+                    status: 'succeeded',
+                );
+            }
+        });
+
+        return $gatewayState;
     }
 }

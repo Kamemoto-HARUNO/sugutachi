@@ -55,6 +55,21 @@ class StripePaymentIntentGateway implements PaymentIntentGateway
         );
     }
 
+    public function capture(PaymentIntent $paymentIntent): string
+    {
+        $secret = config('services.stripe.secret');
+
+        if (! $secret) {
+            throw new RuntimeException('Stripe secret key is not configured.');
+        }
+
+        $intent = (new StripeClient($secret))
+            ->paymentIntents
+            ->capture($paymentIntent->stripe_payment_intent_id);
+
+        return (string) $intent->status;
+    }
+
     public function cancel(PaymentIntent $paymentIntent): string
     {
         $secret = config('services.stripe.secret');

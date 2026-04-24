@@ -37,6 +37,11 @@ class BookingPaymentFlowTest extends TestCase
                 );
             }
 
+            public function capture(PaymentIntent $paymentIntent): string
+            {
+                return PaymentIntent::STRIPE_STATUS_SUCCEEDED;
+            }
+
             public function cancel(PaymentIntent $paymentIntent): string
             {
                 return PaymentIntent::STRIPE_STATUS_CANCELED;

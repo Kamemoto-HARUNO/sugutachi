@@ -42,6 +42,11 @@ class BookingRequestExpirationCommandTest extends TestCase
                 );
             }
 
+            public function capture(PaymentIntent $paymentIntent): string
+            {
+                return PaymentIntent::STRIPE_STATUS_SUCCEEDED;
+            }
+
             public function cancel(PaymentIntent $paymentIntent): string
             {
                 $this->canceled[] = $paymentIntent->stripe_payment_intent_id;
