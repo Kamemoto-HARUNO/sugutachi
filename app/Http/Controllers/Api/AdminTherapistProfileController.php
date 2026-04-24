@@ -131,6 +131,27 @@ class AdminTherapistProfileController extends Controller
         return new TherapistProfileResource($therapistProfile->load(['account', 'approvedBy', 'menus']));
     }
 
+    public function restore(Request $request, TherapistProfile $therapistProfile): TherapistProfileResource
+    {
+        $admin = $request->user();
+        $this->authorizeAdmin($admin);
+        abort_unless($therapistProfile->profile_status === TherapistProfile::STATUS_SUSPENDED, 409, 'Only suspended therapist profiles can be restored.');
+
+        $before = $this->snapshot($therapistProfile);
+
+        $therapistProfile->forceFill([
+            'profile_status' => TherapistProfile::STATUS_DRAFT,
+            'is_online' => false,
+            'online_since' => null,
+            'approved_at' => null,
+            'approved_by_account_id' => null,
+        ])->save();
+
+        $this->recordAdminAudit($request, 'therapist_profile.restore', $therapistProfile, $before, $this->snapshot($therapistProfile->refresh()));
+
+        return new TherapistProfileResource($therapistProfile->load(['account', 'approvedBy', 'menus']));
+    }
+
     private function snapshot(TherapistProfile $therapistProfile): array
     {
         return $therapistProfile->only([

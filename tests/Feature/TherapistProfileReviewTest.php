@@ -111,8 +111,6 @@ class TherapistProfileReviewTest extends TestCase
     {
         $user = Account::factory()->create(['public_id' => 'acc_user_profile_review']);
         $therapist = Account::factory()->create(['public_id' => 'acc_therapist_profile_review']);
-        $userToken = $user->createToken('api')->plainTextToken;
-        $therapistToken = $therapist->createToken('api')->plainTextToken;
         $therapist->roleAssignments()->create([
             'role' => 'therapist',
             'status' => 'active',
@@ -197,5 +195,76 @@ class TherapistProfileReviewTest extends TestCase
             'is_on_demand' => true,
         ])
             ->assertNotFound();
+    }
+
+    public function test_restored_suspended_profile_can_be_resubmitted_for_review(): void
+    {
+        $admin = Account::factory()->create(['public_id' => 'acc_admin_profile_restore']);
+        $admin->roleAssignments()->create([
+            'role' => 'admin',
+            'status' => 'active',
+            'granted_at' => now(),
+        ]);
+
+        $therapist = Account::factory()->create(['public_id' => 'acc_therapist_profile_restore']);
+        $therapist->roleAssignments()->create([
+            'role' => 'therapist',
+            'status' => 'active',
+            'granted_at' => now(),
+        ]);
+
+        IdentityVerification::create([
+            'account_id' => $therapist->id,
+            'public_id' => 'idv_profile_restore',
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'document_type' => 'driver_license',
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now(),
+            'is_age_verified' => true,
+        ]);
+
+        $profile = TherapistProfile::create([
+            'account_id' => $therapist->id,
+            'public_id' => 'thp_profile_restore',
+            'public_name' => 'Restore Review Therapist',
+            'bio' => 'Relaxation focused body care.',
+            'profile_status' => TherapistProfile::STATUS_SUSPENDED,
+            'training_status' => 'completed',
+            'photo_review_status' => 'approved',
+            'rejected_reason_code' => 'policy_violation',
+        ]);
+
+        TherapistMenu::create([
+            'therapist_profile_id' => $profile->id,
+            'public_id' => 'menu_profile_restore_60',
+            'name' => 'Body care 60',
+            'duration_minutes' => 60,
+            'base_price_amount' => 12000,
+            'is_active' => true,
+            'sort_order' => 1,
+        ]);
+
+        Sanctum::actingAs($admin);
+        $this->postJson("/api/admin/therapist-profiles/{$profile->public_id}/restore")
+            ->assertOk()
+            ->assertJsonPath('data.profile_status', TherapistProfile::STATUS_DRAFT);
+
+        Sanctum::actingAs($therapist);
+        $this->getJson('/api/me/therapist-profile/review-status')
+            ->assertOk()
+            ->assertJsonPath('data.can_submit', true)
+            ->assertJsonPath('data.profile.profile_status', TherapistProfile::STATUS_DRAFT);
+
+        $this->postJson('/api/me/therapist-profile/submit-review')
+            ->assertOk()
+            ->assertJsonPath('data.profile_status', TherapistProfile::STATUS_PENDING);
+
+        $this->assertDatabaseHas('therapist_profiles', [
+            'id' => $profile->id,
+            'profile_status' => TherapistProfile::STATUS_PENDING,
+            'approved_by_account_id' => null,
+            'approved_at' => null,
+            'rejected_reason_code' => null,
+        ]);
     }
 }

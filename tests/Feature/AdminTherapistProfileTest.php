@@ -93,6 +93,41 @@ class AdminTherapistProfileTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_restore_suspended_therapist_profile_to_draft(): void
+    {
+        [$admin, $profile] = $this->createAdminTherapistProfileFixture(TherapistProfile::STATUS_SUSPENDED);
+        $profile->forceFill([
+            'is_online' => true,
+            'online_since' => now()->subMinutes(15),
+            'approved_at' => now()->subDay(),
+            'approved_by_account_id' => $admin->id,
+            'rejected_reason_code' => 'policy_violation',
+        ])->save();
+
+        $this->withToken($admin->createToken('api')->plainTextToken)
+            ->postJson("/api/admin/therapist-profiles/{$profile->public_id}/restore")
+            ->assertOk()
+            ->assertJsonPath('data.profile_status', TherapistProfile::STATUS_DRAFT)
+            ->assertJsonPath('data.is_online', false)
+            ->assertJsonPath('data.approved_at', null)
+            ->assertJsonPath('data.rejected_reason_code', 'policy_violation');
+
+        $this->assertDatabaseHas('therapist_profiles', [
+            'id' => $profile->id,
+            'profile_status' => TherapistProfile::STATUS_DRAFT,
+            'is_online' => false,
+            'approved_at' => null,
+            'approved_by_account_id' => null,
+            'rejected_reason_code' => 'policy_violation',
+        ]);
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'actor_account_id' => $admin->id,
+            'action' => 'therapist_profile.restore',
+            'target_type' => TherapistProfile::class,
+            'target_id' => $profile->id,
+        ]);
+    }
+
     public function test_non_admin_cannot_review_therapist_profile(): void
     {
         [, $profile, $therapist] = $this->createAdminTherapistProfileFixture();
