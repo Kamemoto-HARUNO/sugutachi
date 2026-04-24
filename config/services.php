@@ -39,6 +39,9 @@ return [
         'secret' => env('STRIPE_SECRET'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),
         'currency' => env('STRIPE_CURRENCY', 'jpy'),
+        'connect_country' => env('STRIPE_CONNECT_COUNTRY', 'JP'),
+        'connect_return_url' => env('STRIPE_CONNECT_RETURN_URL', rtrim((string) env('APP_URL', 'http://localhost'), '/').'/therapist/stripe-connect'),
+        'connect_refresh_url' => env('STRIPE_CONNECT_REFRESH_URL', rtrim((string) env('APP_URL', 'http://localhost'), '/').'/therapist/stripe-connect'),
     ],
 
 ];

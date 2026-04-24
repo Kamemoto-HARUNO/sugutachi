@@ -2,9 +2,11 @@
 
 namespace App\Providers;
 
+use App\Contracts\Payments\ConnectGateway;
 use App\Contracts\Payments\PaymentIntentGateway;
 use App\Contracts\Payments\PayoutGateway;
 use App\Contracts\Payments\RefundGateway;
+use App\Services\Payments\StripeConnectGateway;
 use App\Services\Payments\StripePaymentIntentGateway;
 use App\Services\Payments\StripePayoutGateway;
 use App\Services\Payments\StripeRefundGateway;
@@ -17,6 +19,7 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
+        $this->app->bind(ConnectGateway::class, StripeConnectGateway::class);
         $this->app->bind(PaymentIntentGateway::class, StripePaymentIntentGateway::class);
         $this->app->bind(RefundGateway::class, StripeRefundGateway::class);
         $this->app->bind(PayoutGateway::class, StripePayoutGateway::class);

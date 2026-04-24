@@ -339,11 +339,14 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
 ```json
 {
   "data": {
-    "status": "enabled",
+    "has_account": true,
+    "stripe_account_id": "acct_xxx",
+    "status": "active",
     "charges_enabled": true,
     "payouts_enabled": true,
     "details_submitted": true,
-    "requirements_currently_due": []
+    "requirements_currently_due": [],
+    "requirements_past_due": []
   }
 }
 ```
