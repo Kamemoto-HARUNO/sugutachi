@@ -132,6 +132,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::put('/me/therapist/location', [TherapistProfileController::class, 'updateLocation']);
     Route::get('/me/therapist/menus', [TherapistMenuController::class, 'index']);
     Route::post('/me/therapist/menus', [TherapistMenuController::class, 'store']);
+    Route::patch('/me/therapist/menus/{therapistMenu:public_id}', [TherapistMenuController::class, 'update']);
+    Route::delete('/me/therapist/menus/{therapistMenu:public_id}', [TherapistMenuController::class, 'destroy']);
     Route::get('/me/therapist/ledger', [TherapistLedgerController::class, 'index']);
     Route::get('/me/therapist/payout-requests', [TherapistPayoutRequestController::class, 'index']);
     Route::post('/me/therapist/payout-requests', [TherapistPayoutRequestController::class, 'store']);

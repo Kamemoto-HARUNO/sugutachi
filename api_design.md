@@ -328,6 +328,10 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
 | POST | `/me/therapist/menus` | Therapist | メニュー作成 |
 | PATCH | `/me/therapist/menus/{menu_id}` | Therapist | メニュー更新 |
 | DELETE | `/me/therapist/menus/{menu_id}` | Therapist | メニュー削除 |
+
+`POST /me/therapist/menus` は新規メニューを作成する。`PATCH /me/therapist/menus/{menu_id}` では名称、説明、施術時間、基本料金、有効状態、表示順を更新できる。`DELETE /me/therapist/menus/{menu_id}` は未使用メニューのみ削除でき、予約または見積もりで参照済みのメニューは `409 Conflict` を返す。
+
+メニューの新規作成・削除、および `name` / `description` / `duration_minutes` / `base_price_amount` / `is_active` の変更は、停止中を除くセラピストプロフィールを `draft` に戻し、オンライン表示を停止する。`sort_order` のみの変更では審査状態を変えない。
 | GET | `/me/therapist/pricing-rules` | Therapist | 料金ルール一覧 |
 | POST | `/me/therapist/pricing-rules` | Therapist | 料金ルール作成 |
 | PATCH | `/me/therapist/pricing-rules/{rule_id}` | Therapist | 料金ルール更新 |
