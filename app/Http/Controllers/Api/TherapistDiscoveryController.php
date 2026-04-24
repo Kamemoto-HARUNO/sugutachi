@@ -124,6 +124,7 @@ class TherapistDiscoveryController extends Controller
                     ->where('is_active', true)
                     ->orderBy('sort_order')
                     ->orderBy('id'),
+                'pricingRules',
                 'photos' => fn ($query) => $query
                     ->where('status', ProfilePhoto::STATUS_APPROVED)
                     ->orderBy('sort_order')

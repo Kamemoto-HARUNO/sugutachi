@@ -2,8 +2,10 @@
 
 namespace App\Services\Pricing;
 
+use App\Models\Booking;
 use App\Models\ServiceAddress;
 use App\Models\TherapistMenu;
+use App\Models\TherapistPricingRule;
 use App\Models\TherapistProfile;
 use Carbon\CarbonImmutable;
 
@@ -31,8 +33,16 @@ class BookingQuoteCalculator
         $baseAmount = (int) round($menu->base_price_amount * $durationMinutes / $menu->duration_minutes);
         $nightFeeAmount = $this->nightFeeAmount($requestedStartAt);
         $travelFeeAmount = $this->travelFeeAmount($walking['walking_time_minutes']);
-        $demandFeeAmount = 0;
-        $pricingRuleResult = $this->pricingRuleResult($therapistProfile, $menu, $serviceAddress, $baseAmount);
+        $pricingRuleResult = $this->pricingRuleResult(
+            therapistProfile: $therapistProfile,
+            menu: $menu,
+            serviceAddress: $serviceAddress,
+            baseAmount: $baseAmount,
+            walking: $walking,
+            isOnDemand: $isOnDemand,
+            requestedStartAt: $requestedStartAt,
+        );
+        $demandFeeAmount = $pricingRuleResult['demand_fee_amount'];
         $profileAdjustmentAmount = $pricingRuleResult['profile_adjustment_amount'];
 
         $therapistGrossAmount = max(0, $baseAmount + $travelFeeAmount + $nightFeeAmount + $demandFeeAmount + $profileAdjustmentAmount);
@@ -63,13 +73,15 @@ class BookingQuoteCalculator
                 'requested_start_at' => $requestedStartAt,
                 'walking_time_minutes' => $walking['walking_time_minutes'],
                 'walking_time_range' => $walking['walking_time_range'],
-                'user_profile_attributes' => $pricingRuleResult['input_snapshot'],
+                'user_profile_attributes' => $pricingRuleResult['input_snapshot']['user_profile_attributes'] ?? [],
+                'pricing_rule_context' => $pricingRuleResult['input_snapshot']['pricing_context'] ?? [],
             ],
             'applied_rules_json' => [
                 'matching_fee_amount' => self::MATCHING_FEE_AMOUNT,
                 'platform_fee_rate' => self::PLATFORM_FEE_RATE,
                 'travel_fee_amount' => $travelFeeAmount,
                 'night_fee_amount' => $nightFeeAmount,
+                'demand_fee_amount' => $demandFeeAmount,
                 'pricing_rules' => $pricingRuleResult['applied_rules'],
             ],
         ];
@@ -172,15 +184,70 @@ class BookingQuoteCalculator
         TherapistMenu $menu,
         ServiceAddress $serviceAddress,
         int $baseAmount,
+        array $walking,
+        bool $isOnDemand,
+        ?string $requestedStartAt,
     ): array {
         $therapistProfile->loadMissing('pricingRules');
         $serviceAddress->loadMissing('account.userProfile');
+
+        $context = [
+            'requested_hour' => $this->effectiveRequestedAt($requestedStartAt, $isOnDemand)?->hour,
+            'walking_time_range' => $walking['walking_time_range'],
+            'demand_level' => $this->demandLevel($therapistProfile, $menu, $isOnDemand),
+        ];
 
         return $this->pricingRuleEvaluator->evaluate(
             therapistProfile: $therapistProfile,
             menu: $menu,
             userProfile: $serviceAddress->account?->userProfile,
             baseAmount: $baseAmount,
+            context: $context,
         );
+    }
+
+    private function effectiveRequestedAt(?string $requestedStartAt, bool $isOnDemand): ?CarbonImmutable
+    {
+        if ($requestedStartAt) {
+            return CarbonImmutable::parse($requestedStartAt);
+        }
+
+        return $isOnDemand ? CarbonImmutable::now() : null;
+    }
+
+    private function demandLevel(TherapistProfile $therapistProfile, TherapistMenu $menu, bool $isOnDemand): string
+    {
+        if (! $isOnDemand) {
+            return TherapistPricingRule::DEMAND_LEVEL_NORMAL;
+        }
+
+        $hasDemandRules = $therapistProfile->pricingRules
+            ->contains(fn (TherapistPricingRule $rule): bool => $rule->is_active
+                && $rule->rule_type === TherapistPricingRule::RULE_TYPE_DEMAND_LEVEL
+                && ($rule->therapist_menu_id === null || (int) $rule->therapist_menu_id === $menu->id));
+
+        if (! $hasDemandRules) {
+            return TherapistPricingRule::DEMAND_LEVEL_NORMAL;
+        }
+
+        $activeOnDemandBookingCount = Booking::query()
+            ->where('therapist_profile_id', $therapistProfile->id)
+            ->where('is_on_demand', true)
+            ->whereIn('status', [
+                Booking::STATUS_PAYMENT_AUTHORIZING,
+                Booking::STATUS_REQUESTED,
+                Booking::STATUS_ACCEPTED,
+                Booking::STATUS_MOVING,
+                Booking::STATUS_ARRIVED,
+                Booking::STATUS_IN_PROGRESS,
+                Booking::STATUS_THERAPIST_COMPLETED,
+            ])
+            ->count();
+
+        return match (true) {
+            $activeOnDemandBookingCount >= 2 => TherapistPricingRule::DEMAND_LEVEL_PEAK,
+            $activeOnDemandBookingCount >= 1 => TherapistPricingRule::DEMAND_LEVEL_BUSY,
+            default => TherapistPricingRule::DEMAND_LEVEL_NORMAL,
+        };
     }
 }

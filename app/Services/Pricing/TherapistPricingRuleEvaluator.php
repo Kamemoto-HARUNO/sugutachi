@@ -15,41 +15,34 @@ class TherapistPricingRuleEvaluator
         TherapistMenu $menu,
         ?UserProfile $userProfile,
         int $baseAmount,
+        array $context = [],
     ): array {
-        if (! $userProfile) {
-            return [
-                'profile_adjustment_amount' => 0,
-                'applied_rules' => [],
-                'input_snapshot' => [],
-            ];
-        }
-
         $activeRules = $this->activeRules($therapistProfile, $menu);
 
         if ($activeRules->isEmpty()) {
             return [
                 'profile_adjustment_amount' => 0,
+                'demand_fee_amount' => 0,
                 'applied_rules' => [],
-                'input_snapshot' => [],
+                'input_snapshot' => [
+                    'user_profile_attributes' => [],
+                    'pricing_context' => [],
+                ],
             ];
         }
 
         $subtotal = $baseAmount;
+        $profileAdjustmentAmount = 0;
+        $demandFeeAmount = 0;
         $appliedRules = [];
-        $inputSnapshot = [];
+        $profileInputSnapshot = [];
+        $contextInputSnapshot = [];
 
         foreach ($activeRules as $rule) {
             $condition = $rule->condition_json ?? [];
-            $field = $condition['field'] ?? null;
-            $actualValue = $this->normalizedActualValue($field, $userProfile);
+            $matchResult = $this->matchResult($rule, $userProfile, $context);
 
-            if (! is_string($field) || $actualValue === null) {
-                continue;
-            }
-
-            $inputSnapshot[$field] = $actualValue;
-
-            if (! $this->matches($rule, $actualValue)) {
+            if (! $matchResult['matched']) {
                 continue;
             }
 
@@ -67,11 +60,27 @@ class TherapistPricingRuleEvaluator
             $nextSubtotal = max(0, $nextSubtotal);
             $appliedAdjustmentAmount = $nextSubtotal - $subtotal;
             $subtotal = $nextSubtotal;
+            $bucket = $this->bucketForRuleType($rule->rule_type);
+
+            if ($bucket === 'profile_adjustment') {
+                $profileAdjustmentAmount += $appliedAdjustmentAmount;
+            } else {
+                $demandFeeAmount += $appliedAdjustmentAmount;
+            }
+
+            if ($matchResult['snapshot_key'] !== null) {
+                if ($bucket === 'profile_adjustment') {
+                    $profileInputSnapshot[$matchResult['snapshot_key']] = $matchResult['actual_value'];
+                } else {
+                    $contextInputSnapshot[$matchResult['snapshot_key']] = $matchResult['actual_value'];
+                }
+            }
 
             $appliedRules[] = [
                 'rule_id' => $rule->id,
                 'therapist_menu_id' => $rule->therapist_menu_id === null ? null : $menu->public_id,
                 'rule_type' => $rule->rule_type,
+                'bucket' => $bucket,
                 'condition' => $condition,
                 'adjustment_type' => $rule->adjustment_type,
                 'adjustment_amount' => $rule->adjustment_amount,
@@ -84,9 +93,13 @@ class TherapistPricingRuleEvaluator
         }
 
         return [
-            'profile_adjustment_amount' => $subtotal - $baseAmount,
+            'profile_adjustment_amount' => $profileAdjustmentAmount,
+            'demand_fee_amount' => $demandFeeAmount,
             'applied_rules' => $appliedRules,
-            'input_snapshot' => $inputSnapshot,
+            'input_snapshot' => [
+                'user_profile_attributes' => $profileInputSnapshot,
+                'pricing_context' => $contextInputSnapshot,
+            ],
         ];
     }
 
@@ -137,12 +150,114 @@ class TherapistPricingRuleEvaluator
         };
     }
 
+    private function matchResult(
+        TherapistPricingRule $rule,
+        ?UserProfile $userProfile,
+        array $context,
+    ): array {
+        return match ($rule->rule_type) {
+            TherapistPricingRule::RULE_TYPE_USER_PROFILE_ATTRIBUTE => $this->matchUserProfileRule($rule, $userProfile),
+            TherapistPricingRule::RULE_TYPE_TIME_BAND => $this->matchTimeBandRule($rule, $context),
+            TherapistPricingRule::RULE_TYPE_WALKING_TIME_RANGE => $this->matchDiscreteContextRule(
+                rule: $rule,
+                contextKey: 'walking_time_range',
+                context: $context
+            ),
+            TherapistPricingRule::RULE_TYPE_DEMAND_LEVEL => $this->matchDiscreteContextRule(
+                rule: $rule,
+                contextKey: 'demand_level',
+                context: $context
+            ),
+            default => [
+                'matched' => false,
+                'actual_value' => null,
+                'snapshot_key' => null,
+            ],
+        };
+    }
+
+    private function matchUserProfileRule(TherapistPricingRule $rule, ?UserProfile $userProfile): array
+    {
+        $condition = $rule->condition_json ?? [];
+        $field = $condition['field'] ?? null;
+        $actualValue = $userProfile ? $this->normalizedActualValue($field, $userProfile) : null;
+
+        if (! is_string($field) || $actualValue === null) {
+            return [
+                'matched' => false,
+                'actual_value' => null,
+                'snapshot_key' => null,
+            ];
+        }
+
+        return [
+            'matched' => $this->matches($rule, $actualValue),
+            'actual_value' => $actualValue,
+            'snapshot_key' => $field,
+        ];
+    }
+
+    private function matchTimeBandRule(TherapistPricingRule $rule, array $context): array
+    {
+        $condition = $rule->condition_json ?? [];
+        $requestedHour = $context['requested_hour'] ?? null;
+
+        if (! is_int($requestedHour)) {
+            return [
+                'matched' => false,
+                'actual_value' => null,
+                'snapshot_key' => null,
+            ];
+        }
+
+        $startHour = (int) ($condition['start_hour'] ?? -1);
+        $endHour = (int) ($condition['end_hour'] ?? -1);
+        $matched = $startHour < $endHour
+            ? ($requestedHour >= $startHour && $requestedHour < $endHour)
+            : ($requestedHour >= $startHour || $requestedHour < $endHour);
+
+        return [
+            'matched' => $matched,
+            'actual_value' => $requestedHour,
+            'snapshot_key' => 'requested_hour',
+        ];
+    }
+
+    private function matchDiscreteContextRule(
+        TherapistPricingRule $rule,
+        string $contextKey,
+        array $context,
+    ): array {
+        $actualValue = $context[$contextKey] ?? null;
+
+        if (! is_string($actualValue)) {
+            return [
+                'matched' => false,
+                'actual_value' => null,
+                'snapshot_key' => null,
+            ];
+        }
+
+        return [
+            'matched' => $this->matches($rule, $actualValue),
+            'actual_value' => $actualValue,
+            'snapshot_key' => $contextKey,
+        ];
+    }
+
     private function rawAdjustmentAmount(TherapistPricingRule $rule, int $baseAmount): int
     {
         return match ($rule->adjustment_type) {
             TherapistPricingRule::ADJUSTMENT_TYPE_PERCENTAGE => (int) round($baseAmount * ($rule->adjustment_amount / 100)),
             default => $rule->adjustment_amount,
         };
+    }
+
+    private function bucketForRuleType(string $ruleType): string
+    {
+        return $ruleType === TherapistPricingRule::RULE_TYPE_USER_PROFILE_ATTRIBUTE
+            ? 'profile_adjustment'
+            : 'demand_fee';
     }
 
     private function normalizedActualValue(?string $field, UserProfile $userProfile): int|string|null

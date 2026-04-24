@@ -460,24 +460,29 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
 | PATCH | `/me/therapist/pricing-rules/{rule_id}` | Therapist | 料金ルール更新 |
 | DELETE | `/me/therapist/pricing-rules/{rule_id}` | Therapist | 料金ルール削除 |
 
-MVP 時点では `rule_type=user_profile_attribute` のみを受け付ける。条件オブジェクトは `field` / `operator` / `value` または `values` を持ち、対応フィールドは `age_range` / `body_type` / `height_cm` / `weight_range` / `sexual_orientation` / `gender_identity`。`height_cm` は `equals` / `not_equals` / `gte` / `lte` / `between`、その他の項目は `equals` / `not_equals` / `in` / `not_in` を使う。`adjustment_type` は `fixed_amount` または `percentage` とし、パーセンテージは基本料金に対して適用する。
+MVP 時点の `rule_type` は `user_profile_attribute` / `time_band` / `walking_time_range` / `demand_level` を受け付ける。
 
-同じメニューに対して適用される複数ルールは `priority` の昇順で評価し、同一 priority ではメニュー個別ルールをプロフィール共通ルールより先に適用する。`min_price_amount` / `max_price_amount` を指定した場合は、プロフィール由来調整を加えた後の基本料金小計をその範囲に丸める。
+`user_profile_attribute` の条件オブジェクトは `field` / `operator` / `value` または `values` を持ち、対応フィールドは `age_range` / `body_type` / `height_cm` / `weight_range` / `sexual_orientation` / `gender_identity`。`height_cm` は `equals` / `not_equals` / `gte` / `lte` / `between`、その他の項目は `equals` / `not_equals` / `in` / `not_in` を使う。
+
+`time_band` は `condition.start_hour` と `condition.end_hour` を受け取り、`22 -> 6` のような日跨ぎ時間帯も指定できる。オンデマンド見積もりでは現在時刻、予定予約では `requested_start_at` の時刻を使う。
+
+`walking_time_range` は `within_15_min` / `within_30_min` / `within_60_min` / `outside_area` のいずれかを `condition.value` または `condition.values` に指定する。`demand_level` は `normal` / `busy` / `peak` を同様に指定する。需要レベルは MVP ではオンデマンド見積もり時のみ計算し、同セラピストのアクティブなオンデマンド予約数が `0=normal` / `1=busy` / `2件以上=peak` となる。
+
+`adjustment_type` は `fixed_amount` または `percentage` とし、パーセンテージは基本料金に対して適用する。同じメニューに対して適用される複数ルールは `priority` の昇順で評価し、同一 priority ではメニュー個別ルールをプロフィール共通ルールより先に適用する。`min_price_amount` / `max_price_amount` を指定した場合は、各ルール適用後の小計をその範囲に丸める。
 
 `POST /me/therapist/pricing-rules` リクエスト例:
 
 ```json
 {
   "therapist_menu_id": "menu_xxx",
-  "rule_type": "user_profile_attribute",
+  "rule_type": "walking_time_range",
   "condition": {
-    "field": "height_cm",
-    "operator": "between",
-    "values": [180, 190]
+    "operator": "in",
+    "values": ["within_30_min", "within_60_min"]
   },
-  "adjustment_type": "percentage",
-  "adjustment_amount": 10,
-  "min_price_amount": 13000,
+  "adjustment_type": "fixed_amount",
+  "adjustment_amount": 1500,
+  "min_price_amount": null,
   "max_price_amount": null,
   "priority": 20,
   "is_active": true

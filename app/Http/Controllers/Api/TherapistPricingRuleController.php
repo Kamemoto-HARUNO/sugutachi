@@ -21,6 +21,7 @@ class TherapistPricingRuleController extends Controller
         $validated = $request->validate([
             'therapist_menu_id' => ['nullable', 'string', 'max:36'],
             'is_active' => ['nullable', 'boolean'],
+            'rule_type' => ['nullable', Rule::in(TherapistPricingRule::supportedRuleTypes())],
         ]);
 
         $profile = $this->therapistProfile($request);
@@ -31,6 +32,7 @@ class TherapistPricingRuleController extends Controller
         $rules = $profile->pricingRules()
             ->with('therapistMenu')
             ->when($request->has('is_active'), fn ($query) => $query->where('is_active', $request->boolean('is_active')))
+            ->when(isset($validated['rule_type']), fn ($query) => $query->where('rule_type', $validated['rule_type']))
             ->when(
                 array_key_exists('therapist_menu_id', $validated),
                 fn ($query) => $menuId === null
@@ -97,9 +99,7 @@ class TherapistPricingRuleController extends Controller
     ): array {
         $validated = $request->validate([
             'therapist_menu_id' => ['sometimes', 'nullable', 'string', 'max:36'],
-            'rule_type' => [$partial ? 'sometimes' : 'required', Rule::in([
-                TherapistPricingRule::RULE_TYPE_USER_PROFILE_ATTRIBUTE,
-            ])],
+            'rule_type' => [$partial ? 'sometimes' : 'required', Rule::in(TherapistPricingRule::supportedRuleTypes())],
             'condition' => [$partial ? 'sometimes' : 'required', 'array'],
             'adjustment_type' => [$partial ? 'sometimes' : 'required', Rule::in([
                 TherapistPricingRule::ADJUSTMENT_TYPE_FIXED_AMOUNT,
@@ -124,9 +124,7 @@ class TherapistPricingRuleController extends Controller
                     : $currentMenuPublicId
             ),
             'rule_type' => $validated['rule_type'] ?? $currentRule?->rule_type,
-            'condition_json' => array_key_exists('condition', $validated)
-                ? $this->resolveCondition($validated['condition'])
-                : ($currentRule?->condition_json ?? []),
+            'condition_json' => [],
             'adjustment_type' => $validated['adjustment_type'] ?? $currentRule?->adjustment_type,
             'adjustment_amount' => $validated['adjustment_amount'] ?? $currentRule?->adjustment_amount,
             'min_price_amount' => array_key_exists('min_price_amount', $validated)
@@ -142,6 +140,24 @@ class TherapistPricingRuleController extends Controller
                 ? (bool) $validated['is_active']
                 : ($currentRule?->is_active ?? true),
         ];
+
+        $resolved['condition_json'] = array_key_exists('condition', $validated)
+            ? $this->resolveCondition(
+                $resolved['rule_type'],
+                $validated['condition']
+            )
+            : ($currentRule?->condition_json ?? []);
+
+        if (
+            $currentRule
+            && array_key_exists('rule_type', $validated)
+            && $validated['rule_type'] !== $currentRule->rule_type
+            && ! array_key_exists('condition', $validated)
+        ) {
+            throw ValidationException::withMessages([
+                'condition' => ['The condition is required when changing the rule type.'],
+            ]);
+        }
 
         if (! $resolved['rule_type']) {
             throw ValidationException::withMessages([
@@ -185,7 +201,7 @@ class TherapistPricingRuleController extends Controller
         return $resolved;
     }
 
-    private function resolveCondition(mixed $condition): array
+    private function resolveCondition(string $ruleType, mixed $condition): array
     {
         if (! is_array($condition)) {
             throw ValidationException::withMessages([
@@ -193,6 +209,27 @@ class TherapistPricingRuleController extends Controller
             ]);
         }
 
+        return match ($ruleType) {
+            TherapistPricingRule::RULE_TYPE_USER_PROFILE_ATTRIBUTE => $this->resolveUserProfileCondition($condition),
+            TherapistPricingRule::RULE_TYPE_TIME_BAND => $this->resolveTimeBandCondition($condition),
+            TherapistPricingRule::RULE_TYPE_WALKING_TIME_RANGE => $this->resolveDiscreteCondition(
+                condition: $condition,
+                allowedValues: TherapistPricingRule::walkingTimeRanges(),
+                attributePrefix: 'condition'
+            ),
+            TherapistPricingRule::RULE_TYPE_DEMAND_LEVEL => $this->resolveDiscreteCondition(
+                condition: $condition,
+                allowedValues: TherapistPricingRule::demandLevels(),
+                attributePrefix: 'condition'
+            ),
+            default => throw ValidationException::withMessages([
+                'rule_type' => ['The selected rule type is invalid.'],
+            ]),
+        };
+    }
+
+    private function resolveUserProfileCondition(array $condition): array
+    {
         $field = $condition['field'] ?? null;
         $operator = $condition['operator'] ?? null;
 
@@ -252,6 +289,111 @@ class TherapistPricingRuleController extends Controller
             'field' => $field,
             'operator' => $operator,
             'values' => array_values(array_unique($normalizedValues, SORT_REGULAR)),
+        ];
+    }
+
+    private function resolveTimeBandCondition(array $condition): array
+    {
+        $startHour = $condition['start_hour'] ?? null;
+        $endHour = $condition['end_hour'] ?? null;
+
+        if (! is_int($startHour) && ! (is_string($startHour) && preg_match('/^\d+$/', $startHour) === 1)) {
+            throw ValidationException::withMessages([
+                'condition.start_hour' => ['The start hour must be an integer.'],
+            ]);
+        }
+
+        if (! is_int($endHour) && ! (is_string($endHour) && preg_match('/^\d+$/', $endHour) === 1)) {
+            throw ValidationException::withMessages([
+                'condition.end_hour' => ['The end hour must be an integer.'],
+            ]);
+        }
+
+        $startHour = (int) $startHour;
+        $endHour = (int) $endHour;
+
+        if ($startHour < 0 || $startHour > 23) {
+            throw ValidationException::withMessages([
+                'condition.start_hour' => ['The start hour must be between 0 and 23.'],
+            ]);
+        }
+
+        if ($endHour < 0 || $endHour > 23) {
+            throw ValidationException::withMessages([
+                'condition.end_hour' => ['The end hour must be between 0 and 23.'],
+            ]);
+        }
+
+        if ($startHour === $endHour) {
+            throw ValidationException::withMessages([
+                'condition.end_hour' => ['The end hour must differ from the start hour.'],
+            ]);
+        }
+
+        return [
+            'start_hour' => $startHour,
+            'end_hour' => $endHour,
+        ];
+    }
+
+    /**
+     * @param  array<int, string>  $allowedValues
+     */
+    private function resolveDiscreteCondition(
+        array $condition,
+        array $allowedValues,
+        string $attributePrefix,
+    ): array {
+        $operator = $condition['operator'] ?? null;
+
+        if (! is_string($operator) || ! in_array($operator, [
+            TherapistPricingRule::OPERATOR_EQUALS,
+            TherapistPricingRule::OPERATOR_NOT_EQUALS,
+            TherapistPricingRule::OPERATOR_IN,
+            TherapistPricingRule::OPERATOR_NOT_IN,
+        ], true)) {
+            throw ValidationException::withMessages([
+                "{$attributePrefix}.operator" => ['The selected operator is invalid.'],
+            ]);
+        }
+
+        if (in_array($operator, [
+            TherapistPricingRule::OPERATOR_EQUALS,
+            TherapistPricingRule::OPERATOR_NOT_EQUALS,
+        ], true)) {
+            $value = $condition['value'] ?? null;
+
+            if (! is_string($value) || ! in_array($value, $allowedValues, true)) {
+                throw ValidationException::withMessages([
+                    "{$attributePrefix}.value" => ['The selected value is invalid.'],
+                ]);
+            }
+
+            return [
+                'operator' => $operator,
+                'value' => $value,
+            ];
+        }
+
+        $values = $condition['values'] ?? null;
+
+        if (! is_array($values) || $values === []) {
+            throw ValidationException::withMessages([
+                "{$attributePrefix}.values" => ['The condition values are required.'],
+            ]);
+        }
+
+        foreach ($values as $value) {
+            if (! is_string($value) || ! in_array($value, $allowedValues, true)) {
+                throw ValidationException::withMessages([
+                    "{$attributePrefix}.values" => ['The selected values are invalid.'],
+                ]);
+            }
+        }
+
+        return [
+            'operator' => $operator,
+            'values' => array_values(array_unique($values)),
         ];
     }
 

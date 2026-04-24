@@ -11,6 +11,12 @@ class TherapistPricingRule extends Model
 {
     public const RULE_TYPE_USER_PROFILE_ATTRIBUTE = 'user_profile_attribute';
 
+    public const RULE_TYPE_TIME_BAND = 'time_band';
+
+    public const RULE_TYPE_WALKING_TIME_RANGE = 'walking_time_range';
+
+    public const RULE_TYPE_DEMAND_LEVEL = 'demand_level';
+
     public const ADJUSTMENT_TYPE_FIXED_AMOUNT = 'fixed_amount';
 
     public const ADJUSTMENT_TYPE_PERCENTAGE = 'percentage';
@@ -40,6 +46,20 @@ class TherapistPricingRule extends Model
     public const FIELD_SEXUAL_ORIENTATION = 'sexual_orientation';
 
     public const FIELD_GENDER_IDENTITY = 'gender_identity';
+
+    public const WALKING_TIME_RANGE_WITHIN_15 = 'within_15_min';
+
+    public const WALKING_TIME_RANGE_WITHIN_30 = 'within_30_min';
+
+    public const WALKING_TIME_RANGE_WITHIN_60 = 'within_60_min';
+
+    public const WALKING_TIME_RANGE_OUTSIDE = 'outside_area';
+
+    public const DEMAND_LEVEL_NORMAL = 'normal';
+
+    public const DEMAND_LEVEL_BUSY = 'busy';
+
+    public const DEMAND_LEVEL_PEAK = 'peak';
 
     private const FIELD_VALUE_OPTIONS = [
         self::FIELD_AGE_RANGE => ['18_24', '20s', '30s', '40s', '50s', '60_plus'],
@@ -116,6 +136,16 @@ class TherapistPricingRule extends Model
         return array_keys(self::FIELD_OPERATORS);
     }
 
+    public static function supportedRuleTypes(): array
+    {
+        return [
+            self::RULE_TYPE_USER_PROFILE_ATTRIBUTE,
+            self::RULE_TYPE_TIME_BAND,
+            self::RULE_TYPE_WALKING_TIME_RANGE,
+            self::RULE_TYPE_DEMAND_LEVEL,
+        ];
+    }
+
     public static function supportedOperatorsFor(string $field): array
     {
         return self::FIELD_OPERATORS[$field] ?? [];
@@ -129,5 +159,24 @@ class TherapistPricingRule extends Model
     public static function isNumericField(string $field): bool
     {
         return $field === self::FIELD_HEIGHT_CM;
+    }
+
+    public static function walkingTimeRanges(): array
+    {
+        return [
+            self::WALKING_TIME_RANGE_WITHIN_15,
+            self::WALKING_TIME_RANGE_WITHIN_30,
+            self::WALKING_TIME_RANGE_WITHIN_60,
+            self::WALKING_TIME_RANGE_OUTSIDE,
+        ];
+    }
+
+    public static function demandLevels(): array
+    {
+        return [
+            self::DEMAND_LEVEL_NORMAL,
+            self::DEMAND_LEVEL_BUSY,
+            self::DEMAND_LEVEL_PEAK,
+        ];
     }
 }

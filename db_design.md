@@ -314,9 +314,9 @@ accounts
 | id | bigint unsigned | No | 主キー |
 | therapist_profile_id | bigint unsigned | No | therapist_profiles.id |
 | therapist_menu_id | bigint unsigned | Yes | メニュー限定の場合 |
-| rule_type | varchar(50) | No | base, time, night, travel, demand, user_profile, custom |
+| rule_type | varchar(50) | No | `user_profile_attribute`, `time_band`, `walking_time_range`, `demand_level` |
 | condition_json | json | Yes | 適用条件 |
-| adjustment_type | varchar(50) | No | fixed, percent, multiplier |
+| adjustment_type | varchar(50) | No | `fixed_amount`, `percentage` |
 | adjustment_amount | int | No | 円、%等。意味はtypeに依存 |
 | min_price_amount | unsigned int | Yes | 適用後下限 |
 | max_price_amount | unsigned int | Yes | 適用後上限 |
