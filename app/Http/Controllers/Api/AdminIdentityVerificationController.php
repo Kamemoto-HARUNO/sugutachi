@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminRequests;
 use App\Http\Controllers\Api\Concerns\RecordsAdminAuditLogs;
+use App\Http\Controllers\Api\Concerns\ResolvesAdminFilterIds;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\IdentityVerificationResource;
 use App\Models\IdentityVerification;
@@ -15,24 +16,38 @@ class AdminIdentityVerificationController extends Controller
 {
     use AuthorizesAdminRequests;
     use RecordsAdminAuditLogs;
+    use ResolvesAdminFilterIds;
 
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorizeAdmin($request->user());
 
         $validated = $request->validate([
+            'account_id' => ['nullable', 'string', 'max:36'],
             'status' => ['nullable', Rule::in([
                 IdentityVerification::STATUS_PENDING,
                 IdentityVerification::STATUS_APPROVED,
                 IdentityVerification::STATUS_REJECTED,
             ])],
+            'document_type' => ['nullable', 'string', 'max:50'],
+            'sort' => ['nullable', Rule::in(['submitted_at', 'reviewed_at', 'created_at'])],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
         ]);
+        $accountId = $this->resolveAccountId($validated['account_id'] ?? null);
+        $sort = $validated['sort'] ?? 'submitted_at';
+        $direction = $validated['direction'] ?? 'desc';
 
         return IdentityVerificationResource::collection(
             IdentityVerification::query()
                 ->with(['account', 'reviewedBy'])
+                ->when($accountId, fn ($query, int $id) => $query->where('account_id', $id))
                 ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
-                ->latest('submitted_at')
+                ->when(
+                    $validated['document_type'] ?? null,
+                    fn ($query, string $documentType) => $query->where('document_type', $documentType)
+                )
+                ->orderBy($sort, $direction)
+                ->orderBy('id', $direction)
                 ->get()
         );
     }

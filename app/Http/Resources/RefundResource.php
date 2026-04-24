@@ -12,6 +12,8 @@ class RefundResource extends JsonResource
         return [
             'public_id' => $this->public_id,
             'booking_public_id' => $this->whenLoaded('booking', fn () => $this->booking->public_id),
+            'requested_by_account_id' => $this->whenLoaded('requestedBy', fn () => $this->requestedBy?->public_id),
+            'reviewed_by_account_id' => $this->whenLoaded('reviewedBy', fn () => $this->reviewedBy?->public_id),
             'status' => $this->status,
             'reason_code' => $this->reason_code,
             'requested_amount' => $this->requested_amount,

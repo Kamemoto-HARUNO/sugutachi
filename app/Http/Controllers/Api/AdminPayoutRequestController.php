@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Contracts\Payments\PayoutGateway;
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminRequests;
 use App\Http\Controllers\Api\Concerns\RecordsAdminAuditLogs;
+use App\Http\Controllers\Api\Concerns\ResolvesAdminFilterIds;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PayoutRequestResource;
 use App\Models\PayoutRequest;
@@ -13,20 +14,44 @@ use App\Models\TherapistLedgerEntry;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class AdminPayoutRequestController extends Controller
 {
     use AuthorizesAdminRequests;
     use RecordsAdminAuditLogs;
+    use ResolvesAdminFilterIds;
 
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorizeAdmin($request->user());
+        $validated = $request->validate([
+            'therapist_account_id' => ['nullable', 'string', 'max:36'],
+            'status' => ['nullable', Rule::in([
+                PayoutRequest::STATUS_REQUESTED,
+                PayoutRequest::STATUS_HELD,
+                PayoutRequest::STATUS_PROCESSING,
+                PayoutRequest::STATUS_PAID,
+                PayoutRequest::STATUS_FAILED,
+            ])],
+            'scheduled_from' => ['nullable', 'date'],
+            'scheduled_to' => ['nullable', 'date'],
+            'sort' => ['nullable', Rule::in(['created_at', 'requested_at', 'scheduled_process_date', 'requested_amount', 'net_amount', 'processed_at'])],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
+        ]);
+        $therapistAccountId = $this->resolveAccountId($validated['therapist_account_id'] ?? null);
+        $sort = $validated['sort'] ?? 'created_at';
+        $direction = $validated['direction'] ?? 'desc';
 
         return PayoutRequestResource::collection(
             PayoutRequest::query()
                 ->with(['therapistAccount', 'stripeConnectedAccount'])
-                ->latest()
+                ->when($therapistAccountId, fn ($query, int $id) => $query->where('therapist_account_id', $id))
+                ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
+                ->when($validated['scheduled_from'] ?? null, fn ($query, string $date) => $query->whereDate('scheduled_process_date', '>=', $date))
+                ->when($validated['scheduled_to'] ?? null, fn ($query, string $date) => $query->whereDate('scheduled_process_date', '<=', $date))
+                ->orderBy($sort, $direction)
+                ->orderBy('id', $direction)
                 ->get()
         );
     }

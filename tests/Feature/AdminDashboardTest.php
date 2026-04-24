@@ -163,7 +163,13 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.operations.requested_payouts', 1)
             ->assertJsonPath('data.bookings.requested', 1)
             ->assertJsonPath('data.bookings.in_progress', 1)
-            ->assertJsonPath('data.bookings.completed_today', 1);
+            ->assertJsonPath('data.bookings.completed_today', 1)
+            ->assertJsonPath('data.navigation.accounts.suspended.path', '/api/admin/accounts')
+            ->assertJsonPath('data.navigation.accounts.suspended.query.status', Account::STATUS_SUSPENDED)
+            ->assertJsonPath('data.navigation.reviews.pending_identity_verifications.path', '/api/admin/identity-verifications')
+            ->assertJsonPath('data.navigation.reviews.pending_identity_verifications.query.sort', 'submitted_at')
+            ->assertJsonPath('data.navigation.operations.requested_payouts.path', '/api/admin/payout-requests')
+            ->assertJsonPath('data.navigation.operations.requested_payouts.query.direction', 'asc');
     }
 
     public function test_non_admin_cannot_view_dashboard_summary(): void

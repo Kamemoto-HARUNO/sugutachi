@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminRequests;
 use App\Http\Controllers\Api\Concerns\RecordsAdminAuditLogs;
+use App\Http\Controllers\Api\Concerns\ResolvesAdminFilterIds;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TherapistProfileResource;
 use App\Models\TherapistProfile;
@@ -15,12 +16,14 @@ class AdminTherapistProfileController extends Controller
 {
     use AuthorizesAdminRequests;
     use RecordsAdminAuditLogs;
+    use ResolvesAdminFilterIds;
 
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorizeAdmin($request->user());
 
         $validated = $request->validate([
+            'account_id' => ['nullable', 'string', 'max:36'],
             'status' => ['nullable', Rule::in([
                 TherapistProfile::STATUS_DRAFT,
                 TherapistProfile::STATUS_PENDING,
@@ -28,13 +31,36 @@ class AdminTherapistProfileController extends Controller
                 TherapistProfile::STATUS_REJECTED,
                 TherapistProfile::STATUS_SUSPENDED,
             ])],
+            'training_status' => ['nullable', 'string', 'max:50'],
+            'q' => ['nullable', 'string', 'max:100'],
+            'sort' => ['nullable', Rule::in(['created_at', 'approved_at', 'rating_average', 'review_count'])],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
         ]);
+        $accountId = $this->resolveAccountId($validated['account_id'] ?? null);
+        $sort = $validated['sort'] ?? 'created_at';
+        $direction = $validated['direction'] ?? 'desc';
 
         return TherapistProfileResource::collection(
             TherapistProfile::query()
                 ->with(['account', 'approvedBy', 'menus'])
+                ->when($accountId, fn ($query, int $id) => $query->where('account_id', $id))
                 ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('profile_status', $status))
-                ->latest()
+                ->when(
+                    $validated['training_status'] ?? null,
+                    fn ($query, string $trainingStatus) => $query->where('training_status', $trainingStatus)
+                )
+                ->when($validated['q'] ?? null, function ($query, string $term): void {
+                    $query->where(function ($query) use ($term): void {
+                        $query
+                            ->where('public_id', $term)
+                            ->orWhere('public_name', 'like', "%{$term}%")
+                            ->orWhereHas('account', fn ($query) => $query
+                                ->where('email', 'like', "%{$term}%")
+                                ->orWhere('display_name', 'like', "%{$term}%"));
+                    });
+                })
+                ->orderBy($sort, $direction)
+                ->orderBy('id', $direction)
                 ->get()
         );
     }

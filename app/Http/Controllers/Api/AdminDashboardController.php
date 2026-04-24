@@ -60,6 +60,70 @@ class AdminDashboardController extends Controller
                         ->whereDate('updated_at', today())
                         ->count(),
                 ],
+                'navigation' => [
+                    'accounts' => [
+                        'suspended' => [
+                            'path' => '/api/admin/accounts',
+                            'query' => [
+                                'status' => Account::STATUS_SUSPENDED,
+                                'sort' => 'created_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
+                    ],
+                    'reviews' => [
+                        'pending_identity_verifications' => [
+                            'path' => '/api/admin/identity-verifications',
+                            'query' => [
+                                'status' => IdentityVerification::STATUS_PENDING,
+                                'sort' => 'submitted_at',
+                                'direction' => 'asc',
+                            ],
+                        ],
+                        'pending_therapist_profiles' => [
+                            'path' => '/api/admin/therapist-profiles',
+                            'query' => [
+                                'status' => TherapistProfile::STATUS_PENDING,
+                                'sort' => 'created_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
+                        'pending_profile_photos' => [
+                            'path' => '/api/admin/profile-photos',
+                            'query' => [
+                                'status' => ProfilePhoto::STATUS_PENDING,
+                                'sort' => 'created_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
+                    ],
+                    'operations' => [
+                        'open_reports' => [
+                            'path' => '/api/admin/reports',
+                            'query' => [
+                                'status' => Report::STATUS_OPEN,
+                                'sort' => 'created_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
+                        'requested_refunds' => [
+                            'path' => '/api/admin/refund-requests',
+                            'query' => [
+                                'status' => Refund::STATUS_REQUESTED,
+                                'sort' => 'created_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
+                        'requested_payouts' => [
+                            'path' => '/api/admin/payout-requests',
+                            'query' => [
+                                'status' => PayoutRequest::STATUS_REQUESTED,
+                                'sort' => 'scheduled_process_date',
+                                'direction' => 'asc',
+                            ],
+                        ],
+                    ],
+                ],
             ],
         ]);
     }

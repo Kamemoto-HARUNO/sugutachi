@@ -19,13 +19,23 @@ class AdminPayoutRequestTest extends TestCase
 
     public function test_admin_can_list_hold_and_release_payout_request(): void
     {
-        [$admin, $payoutRequest, $ledgerEntry] = $this->createAdminPayoutFixture();
+        [$admin, $payoutRequest, $ledgerEntry, $therapist, $connectedAccount] = $this->createAdminPayoutFixture();
+        PayoutRequest::create([
+            'public_id' => 'pay_admin_later',
+            'therapist_account_id' => $therapist->id,
+            'stripe_connected_account_id' => $connectedAccount->id,
+            'status' => PayoutRequest::STATUS_REQUESTED,
+            'requested_amount' => 20800,
+            'net_amount' => 20800,
+            'requested_at' => now()->subDays(2),
+            'scheduled_process_date' => now()->addDay(),
+        ]);
         $token = $admin->createToken('api')->plainTextToken;
 
         $this->withToken($token)
-            ->getJson('/api/admin/payout-requests')
+            ->getJson("/api/admin/payout-requests?status=payout_requested&therapist_account_id={$therapist->public_id}&scheduled_from=".now()->subDay()->toDateString().'&sort=scheduled_process_date&direction=asc')
             ->assertOk()
-            ->assertJsonCount(1, 'data')
+            ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.public_id', $payoutRequest->public_id);
 
         $this->withToken($token)
@@ -147,6 +157,6 @@ class AdminPayoutRequestTest extends TestCase
             'status' => TherapistLedgerEntry::STATUS_PAYOUT_REQUESTED,
         ]);
 
-        return [$admin, $payoutRequest, $ledgerEntry, $therapist];
+        return [$admin, $payoutRequest, $ledgerEntry, $therapist, $connectedAccount];
     }
 }

@@ -16,12 +16,21 @@ class AdminProfilePhotoTest extends TestCase
     public function test_admin_can_list_and_approve_profile_photo(): void
     {
         [$admin, $photo, $profile, $therapist] = $this->createAdminProfilePhotoFixture();
+        ProfilePhoto::create([
+            'account_id' => $therapist->id,
+            'therapist_profile_id' => $profile->id,
+            'usage_type' => 'therapist_profile',
+            'storage_key_encrypted' => Crypt::encryptString('profiles/photo_secondary.jpg'),
+            'content_hash' => hash('sha256', 'profiles/photo_secondary.jpg'),
+            'status' => ProfilePhoto::STATUS_PENDING,
+            'sort_order' => 5,
+        ]);
         $token = $admin->createToken('api')->plainTextToken;
 
         $this->withToken($token)
-            ->getJson('/api/admin/profile-photos?status=pending')
+            ->getJson("/api/admin/profile-photos?status=pending&account_id={$therapist->public_id}&therapist_profile_id={$profile->public_id}&usage_type=therapist_profile&sort=sort_order&direction=asc")
             ->assertOk()
-            ->assertJsonCount(1, 'data')
+            ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.id', $photo->id)
             ->assertJsonPath('data.0.account.public_id', $therapist->public_id)
             ->assertJsonPath('data.0.therapist_profile.public_id', $profile->public_id);

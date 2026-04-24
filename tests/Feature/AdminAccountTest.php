@@ -16,7 +16,7 @@ class AdminAccountTest extends TestCase
         $token = $admin->createToken('api')->plainTextToken;
 
         $this->withToken($token)
-            ->getJson('/api/admin/accounts?status=active&role=user&q=Managed')
+            ->getJson('/api/admin/accounts?status=active&role=user&q=Managed&sort=display_name&direction=asc')
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.public_id', $user->public_id)

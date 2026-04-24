@@ -14,10 +14,21 @@ class AdminIdentityVerificationTest extends TestCase
     public function test_admin_can_list_and_approve_identity_verification(): void
     {
         [$admin, $verification, $user] = $this->createAdminIdentityFixture();
+        IdentityVerification::create([
+            'account_id' => Account::factory()->create(['public_id' => 'acc_other_identity'])->id,
+            'provider' => 'manual',
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'birth_year' => now()->subYears(22)->year,
+            'is_age_verified' => true,
+            'self_declared_male' => true,
+            'document_type' => 'passport',
+            'submitted_at' => now()->subMinutes(30),
+            'reviewed_at' => now()->subMinutes(10),
+        ]);
         $token = $admin->createToken('api')->plainTextToken;
 
         $this->withToken($token)
-            ->getJson('/api/admin/identity-verifications?status=pending')
+            ->getJson("/api/admin/identity-verifications?status=pending&account_id={$user->public_id}&document_type=driver_license&sort=submitted_at&direction=asc")
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $verification->id)

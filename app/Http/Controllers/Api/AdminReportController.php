@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminRequests;
 use App\Http\Controllers\Api\Concerns\RecordsAdminAuditLogs;
+use App\Http\Controllers\Api\Concerns\ResolvesAdminFilterIds;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AdminReportResource;
 use App\Http\Resources\ReportResource;
@@ -17,12 +18,17 @@ class AdminReportController extends Controller
 {
     use AuthorizesAdminRequests;
     use RecordsAdminAuditLogs;
+    use ResolvesAdminFilterIds;
 
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorizeAdmin($request->user());
 
         $validated = $request->validate([
+            'booking_id' => ['nullable', 'string', 'max:36'],
+            'reporter_account_id' => ['nullable', 'string', 'max:36'],
+            'target_account_id' => ['nullable', 'string', 'max:36'],
+            'assigned_admin_account_id' => ['nullable', 'string', 'max:36'],
             'status' => ['nullable', Rule::in([Report::STATUS_OPEN, Report::STATUS_RESOLVED])],
             'severity' => ['nullable', Rule::in([
                 Report::SEVERITY_LOW,
@@ -30,14 +36,27 @@ class AdminReportController extends Controller
                 Report::SEVERITY_HIGH,
                 Report::SEVERITY_CRITICAL,
             ])],
+            'sort' => ['nullable', Rule::in(['created_at', 'resolved_at'])],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
         ]);
+        $bookingId = $this->resolveBookingId($validated['booking_id'] ?? null);
+        $reporterId = $this->resolveAccountId($validated['reporter_account_id'] ?? null);
+        $targetId = $this->resolveAccountId($validated['target_account_id'] ?? null);
+        $assignedAdminId = $this->resolveAccountId($validated['assigned_admin_account_id'] ?? null);
+        $sort = $validated['sort'] ?? 'created_at';
+        $direction = $validated['direction'] ?? 'desc';
 
         return ReportResource::collection(
             Report::query()
                 ->with(['booking', 'reporter', 'target', 'assignedAdmin'])
+                ->when($bookingId, fn ($query, int $id) => $query->where('booking_id', $id))
+                ->when($reporterId, fn ($query, int $id) => $query->where('reporter_account_id', $id))
+                ->when($targetId, fn ($query, int $id) => $query->where('target_account_id', $id))
+                ->when($assignedAdminId, fn ($query, int $id) => $query->where('assigned_admin_account_id', $id))
                 ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
                 ->when($validated['severity'] ?? null, fn ($query, string $severity) => $query->where('severity', $severity))
-                ->latest()
+                ->orderBy($sort, $direction)
+                ->orderBy('id', $direction)
                 ->get()
         );
     }

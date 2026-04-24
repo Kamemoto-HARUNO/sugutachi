@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminRequests;
 use App\Http\Controllers\Api\Concerns\RecordsAdminAuditLogs;
+use App\Http\Controllers\Api\Concerns\ResolvesAdminFilterIds;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ProfilePhotoResource;
 use App\Models\ProfilePhoto;
@@ -15,24 +16,41 @@ class AdminProfilePhotoController extends Controller
 {
     use AuthorizesAdminRequests;
     use RecordsAdminAuditLogs;
+    use ResolvesAdminFilterIds;
 
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorizeAdmin($request->user());
 
         $validated = $request->validate([
+            'account_id' => ['nullable', 'string', 'max:36'],
+            'therapist_profile_id' => ['nullable', 'string', 'max:36'],
             'status' => ['nullable', Rule::in([
                 ProfilePhoto::STATUS_PENDING,
                 ProfilePhoto::STATUS_APPROVED,
                 ProfilePhoto::STATUS_REJECTED,
             ])],
+            'usage_type' => ['nullable', 'string', 'max:50'],
+            'sort' => ['nullable', Rule::in(['created_at', 'reviewed_at', 'sort_order'])],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
         ]);
+        $accountId = $this->resolveAccountId($validated['account_id'] ?? null);
+        $therapistProfileId = $this->resolveTherapistProfileId($validated['therapist_profile_id'] ?? null);
+        $sort = $validated['sort'] ?? 'created_at';
+        $direction = $validated['direction'] ?? 'desc';
 
         return ProfilePhotoResource::collection(
             ProfilePhoto::query()
                 ->with(['account', 'therapistProfile', 'reviewedBy'])
+                ->when($accountId, fn ($query, int $id) => $query->where('account_id', $id))
+                ->when($therapistProfileId, fn ($query, int $id) => $query->where('therapist_profile_id', $id))
                 ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
-                ->latest()
+                ->when(
+                    $validated['usage_type'] ?? null,
+                    fn ($query, string $usageType) => $query->where('usage_type', $usageType)
+                )
+                ->orderBy($sort, $direction)
+                ->orderBy('id', $direction)
                 ->get()
         );
     }

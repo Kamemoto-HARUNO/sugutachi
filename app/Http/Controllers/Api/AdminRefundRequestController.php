@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Contracts\Payments\RefundGateway;
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminRequests;
 use App\Http\Controllers\Api\Concerns\RecordsAdminAuditLogs;
+use App\Http\Controllers\Api\Concerns\ResolvesAdminFilterIds;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\RefundResource;
 use App\Models\PaymentIntent;
@@ -12,20 +13,42 @@ use App\Models\Refund;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 
 class AdminRefundRequestController extends Controller
 {
     use AuthorizesAdminRequests;
     use RecordsAdminAuditLogs;
+    use ResolvesAdminFilterIds;
 
     public function index(Request $request): AnonymousResourceCollection
     {
         $this->authorizeAdmin($request->user());
+        $validated = $request->validate([
+            'booking_id' => ['nullable', 'string', 'max:36'],
+            'requested_by_account_id' => ['nullable', 'string', 'max:36'],
+            'status' => ['nullable', Rule::in([
+                Refund::STATUS_REQUESTED,
+                Refund::STATUS_APPROVED,
+                Refund::STATUS_REJECTED,
+                Refund::STATUS_PROCESSED,
+            ])],
+            'sort' => ['nullable', Rule::in(['created_at', 'requested_amount', 'reviewed_at', 'processed_at'])],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
+        ]);
+        $bookingId = $this->resolveBookingId($validated['booking_id'] ?? null);
+        $requestedById = $this->resolveAccountId($validated['requested_by_account_id'] ?? null);
+        $sort = $validated['sort'] ?? 'created_at';
+        $direction = $validated['direction'] ?? 'desc';
 
         return RefundResource::collection(
             Refund::query()
-                ->with('booking')
-                ->latest()
+                ->with(['booking', 'requestedBy', 'reviewedBy'])
+                ->when($bookingId, fn ($query, int $id) => $query->where('booking_id', $id))
+                ->when($requestedById, fn ($query, int $id) => $query->where('requested_by_account_id', $id))
+                ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
+                ->orderBy($sort, $direction)
+                ->orderBy('id', $direction)
                 ->get()
         );
     }

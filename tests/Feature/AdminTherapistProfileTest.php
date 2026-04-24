@@ -14,10 +14,19 @@ class AdminTherapistProfileTest extends TestCase
     public function test_admin_can_list_and_approve_pending_therapist_profile(): void
     {
         [$admin, $profile, $therapist] = $this->createAdminTherapistProfileFixture();
+        TherapistProfile::create([
+            'account_id' => Account::factory()->create(['public_id' => 'acc_other_therapist_review'])->id,
+            'public_id' => 'thp_admin_review_other',
+            'public_name' => 'Another Therapist',
+            'bio' => 'Another profile',
+            'profile_status' => TherapistProfile::STATUS_APPROVED,
+            'training_status' => 'none',
+            'photo_review_status' => 'pending',
+        ]);
         $token = $admin->createToken('api')->plainTextToken;
 
         $this->withToken($token)
-            ->getJson('/api/admin/therapist-profiles?status=pending')
+            ->getJson("/api/admin/therapist-profiles?status=pending&account_id={$therapist->public_id}&training_status=completed&q=Admin%20Review&sort=created_at&direction=desc")
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.public_id', $profile->public_id)

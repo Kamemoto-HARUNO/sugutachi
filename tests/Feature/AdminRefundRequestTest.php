@@ -37,10 +37,11 @@ class AdminRefundRequestTest extends TestCase
         $token = $admin->createToken('api')->plainTextToken;
 
         $this->withToken($token)
-            ->getJson('/api/admin/refund-requests')
+            ->getJson('/api/admin/refund-requests?status=requested&booking_id=book_admin_refund&requested_by_account_id=acc_user_admin_refund&sort=requested_amount&direction=desc')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.public_id', $refund->public_id);
+            ->assertJsonPath('data.0.public_id', $refund->public_id)
+            ->assertJsonPath('data.0.requested_by_account_id', 'acc_user_admin_refund');
 
         $this->withToken($token)
             ->postJson("/api/admin/refund-requests/{$refund->public_id}/approve", [

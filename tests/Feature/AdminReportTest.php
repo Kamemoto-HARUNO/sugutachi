@@ -15,10 +15,19 @@ class AdminReportTest extends TestCase
     public function test_admin_can_list_and_view_report_detail(): void
     {
         [$admin, $report, $reporter] = $this->createAdminReportFixture();
+        Report::create([
+            'public_id' => 'rep_admin_resolved',
+            'reporter_account_id' => Account::factory()->create(['public_id' => 'acc_reporter_other'])->id,
+            'target_account_id' => Account::factory()->create(['public_id' => 'acc_report_target_other'])->id,
+            'category' => 'other',
+            'severity' => Report::SEVERITY_LOW,
+            'status' => Report::STATUS_RESOLVED,
+            'resolved_at' => now(),
+        ]);
         $token = $admin->createToken('api')->plainTextToken;
 
         $this->withToken($token)
-            ->getJson('/api/admin/reports?status=open&severity=high')
+            ->getJson("/api/admin/reports?status=open&severity=high&reporter_account_id={$reporter->public_id}&sort=created_at&direction=asc")
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.public_id', $report->public_id)

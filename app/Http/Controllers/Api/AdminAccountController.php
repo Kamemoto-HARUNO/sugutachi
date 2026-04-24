@@ -24,7 +24,11 @@ class AdminAccountController extends Controller
             'status' => ['nullable', Rule::in([Account::STATUS_ACTIVE, Account::STATUS_SUSPENDED])],
             'role' => ['nullable', Rule::in(['user', 'therapist', 'admin'])],
             'q' => ['nullable', 'string', 'max:100'],
+            'sort' => ['nullable', Rule::in(['created_at', 'last_login_at', 'display_name', 'email'])],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
         ]);
+        $sort = $validated['sort'] ?? 'created_at';
+        $direction = $validated['direction'] ?? 'desc';
 
         return AdminAccountResource::collection(
             Account::query()
@@ -43,7 +47,8 @@ class AdminAccountController extends Controller
                         ->orWhere('email', 'like', "%{$term}%")
                         ->orWhere('display_name', 'like', "%{$term}%");
                 }))
-                ->latest()
+                ->orderBy($sort, $direction)
+                ->orderBy('id', $direction)
                 ->get()
         );
     }
