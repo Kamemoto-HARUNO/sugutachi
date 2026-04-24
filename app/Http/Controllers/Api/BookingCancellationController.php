@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\BookingResource;
 use App\Models\Account;
 use App\Models\Booking;
+use App\Models\TherapistProfile;
 use App\Services\Bookings\BookingCancellationPolicy;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -13,9 +14,21 @@ use Illuminate\Support\Facades\DB;
 
 class BookingCancellationController extends Controller
 {
-    private const CANCELABLE_STATUSES = [
+    private const USER_CANCELABLE_STATUSES = [
         Booking::STATUS_PAYMENT_AUTHORIZING,
         Booking::STATUS_REQUESTED,
+        Booking::STATUS_ACCEPTED,
+        Booking::STATUS_MOVING,
+        Booking::STATUS_ARRIVED,
+    ];
+
+    private const THERAPIST_CANCELABLE_STATUSES = [
+        Booking::STATUS_ACCEPTED,
+        Booking::STATUS_MOVING,
+        Booking::STATUS_ARRIVED,
+    ];
+
+    private const THERAPIST_COUNTABLE_CANCEL_STATUSES = [
         Booking::STATUS_ACCEPTED,
         Booking::STATUS_MOVING,
         Booking::STATUS_ARRIVED,
@@ -25,7 +38,11 @@ class BookingCancellationController extends Controller
     {
         $actorRole = $this->actorRole($booking, $request->user());
 
-        abort_unless(in_array($booking->status, self::CANCELABLE_STATUSES, true), 409, 'This booking cannot be canceled.');
+        abort_unless(
+            in_array($booking->status, $this->cancelableStatuses($actorRole), true),
+            409,
+            'This booking cannot be canceled.'
+        );
 
         return response()->json([
             'data' => $policy->preview($booking, $actorRole),
@@ -46,7 +63,11 @@ class BookingCancellationController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            abort_unless(in_array($lockedBooking->status, self::CANCELABLE_STATUSES, true), 409, 'This booking cannot be canceled.');
+            abort_unless(
+                in_array($lockedBooking->status, $this->cancelableStatuses($actorRole), true),
+                409,
+                'This booking cannot be canceled.'
+            );
 
             $preview = $policy->preview($lockedBooking, $actorRole);
             $fromStatus = $lockedBooking->status;
@@ -67,6 +88,15 @@ class BookingCancellationController extends Controller
                 'reason_code' => $validated['reason_code'],
                 'metadata_json' => $preview,
             ]);
+
+            if (
+                $actorRole === 'therapist'
+                && in_array($fromStatus, self::THERAPIST_COUNTABLE_CANCEL_STATUSES, true)
+            ) {
+                TherapistProfile::query()
+                    ->whereKey($lockedBooking->therapist_profile_id)
+                    ->increment('therapist_cancellation_count');
+            }
 
             return [$lockedBooking->refresh()->load('currentQuote'), $preview];
         });
@@ -92,5 +122,12 @@ class BookingCancellationController extends Controller
         }
 
         abort(404);
+    }
+
+    private function cancelableStatuses(string $actorRole): array
+    {
+        return $actorRole === 'therapist'
+            ? self::THERAPIST_CANCELABLE_STATUSES
+            : self::USER_CANCELABLE_STATUSES;
     }
 }

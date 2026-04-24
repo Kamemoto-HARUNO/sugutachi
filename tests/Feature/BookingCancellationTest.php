@@ -40,6 +40,10 @@ class BookingCancellationTest extends TestCase
             'status' => Booking::STATUS_CANCELED,
             'cancel_reason_code' => 'user_schedule_changed',
         ]);
+        $this->assertDatabaseHas('therapist_profiles', [
+            'id' => $booking->therapist_profile_id,
+            'therapist_cancellation_count' => 0,
+        ]);
         $this->assertDatabaseHas('booking_status_logs', [
             'booking_id' => $booking->id,
             'from_status' => Booking::STATUS_REQUESTED,
@@ -78,6 +82,39 @@ class BookingCancellationTest extends TestCase
             ->assertJsonPath('data.cancel_fee_amount', 0)
             ->assertJsonPath('data.refund_amount', 12300)
             ->assertJsonPath('data.policy_code', 'therapist_cancel_full_refund');
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/cancel", [
+                'reason_code' => 'therapist_unavailable',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.booking.status', Booking::STATUS_CANCELED)
+            ->assertJsonPath('data.booking.cancel_reason_code', 'therapist_unavailable');
+
+        $this->assertDatabaseHas('therapist_profiles', [
+            'id' => $booking->therapist_profile_id,
+            'therapist_cancellation_count' => 1,
+        ]);
+    }
+
+    public function test_therapist_cannot_cancel_before_acceptance(): void
+    {
+        [, $therapist, $booking] = $this->createBookingFixture(Booking::STATUS_REQUESTED);
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/cancel-preview")
+            ->assertConflict();
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/cancel", [
+                'reason_code' => 'therapist_unavailable',
+            ])
+            ->assertConflict();
+
+        $this->assertDatabaseHas('therapist_profiles', [
+            'id' => $booking->therapist_profile_id,
+            'therapist_cancellation_count' => 0,
+        ]);
     }
 
     public function test_completed_booking_cannot_be_canceled(): void

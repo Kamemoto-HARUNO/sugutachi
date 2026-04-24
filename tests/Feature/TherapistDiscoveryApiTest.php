@@ -27,9 +27,11 @@ class TherapistDiscoveryApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.public_id', $nearbyProfile->public_id)
+            ->assertJsonPath('data.0.therapist_cancellation_count', 1)
             ->assertJsonPath('data.0.walking_time_range', 'within_15_min')
             ->assertJsonPath('data.0.estimated_total_amount', 10300)
             ->assertJsonPath('data.1.public_id', $farProfile->public_id)
+            ->assertJsonPath('data.1.therapist_cancellation_count', 3)
             ->assertJsonPath('data.1.walking_time_range', 'within_60_min')
             ->assertJsonPath('data.1.estimated_total_amount', 13300)
             ->assertJsonStructure([
@@ -41,6 +43,7 @@ class TherapistDiscoveryApiTest extends TestCase
                         'training_status',
                         'rating_average',
                         'review_count',
+                        'therapist_cancellation_count',
                         'walking_time_range',
                         'estimated_total_amount',
                         'photos' => [
@@ -76,6 +79,7 @@ class TherapistDiscoveryApiTest extends TestCase
             ->getJson("/api/therapists/{$nearbyProfile->public_id}?service_address_id={$address->public_id}&menu_duration_minutes=90&start_type=scheduled&scheduled_start_at={$scheduledStartAt}")
             ->assertOk()
             ->assertJsonPath('data.public_id', $nearbyProfile->public_id)
+            ->assertJsonPath('data.therapist_cancellation_count', 1)
             ->assertJsonPath('data.walking_time_range', 'within_15_min')
             ->assertJsonPath('data.lowest_estimated_total_amount', 16300)
             ->assertJsonPath('data.menus.0.public_id', 'menu_near_90')
@@ -193,6 +197,7 @@ class TherapistDiscoveryApiTest extends TestCase
             'is_online' => true,
             'rating_average' => 4.50,
             'review_count' => 8,
+            'therapist_cancellation_count' => 1,
         ]);
         TherapistMenu::create([
             'public_id' => 'menu_near_90',
@@ -245,6 +250,7 @@ class TherapistDiscoveryApiTest extends TestCase
             'is_online' => true,
             'rating_average' => 4.90,
             'review_count' => 22,
+            'therapist_cancellation_count' => 3,
         ]);
         TherapistMenu::create([
             'public_id' => 'menu_far_60',

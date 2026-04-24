@@ -285,6 +285,7 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
       "training_status": "completed",
       "rating_average": 4.8,
       "review_count": 12,
+      "therapist_cancellation_count": 1,
       "walking_time_range": "within_30_min",
       "estimated_total_amount": 9800,
       "photos": []
@@ -299,7 +300,7 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
 
 `GET /therapists` で `start_type=scheduled` を指定した場合は、`profile_status=approved`、最新の本人確認が `approved`、有効メニューあり、予定予約用基本地点と受付締切設定が登録済み、公開中の空きスケジュールがある、かつブロック関係がないセラピストを返す。このモードでは `is_online` や現在地の `is_searchable` は必須にしない。`scheduled_start_at` を付けた場合は、その日時に予約可能なセラピストに絞り込む。
 
-`GET /therapists/{public_id}` は、指定した `start_type` に対応する公開条件を満たすセラピスト詳細を返す。`service_address_id` と `menu_duration_minutes` を付けた場合はメニューごとの概算総額も返し、ユーザー向け透明性として `therapist_cancellation_count` も含める。`GET /therapists` には `30回/10分/アカウント` のレート制限を適用する。
+`GET /therapists` と `GET /therapists/{public_id}` は、ユーザー向け透明性として `therapist_cancellation_count` を含める。`GET /therapists/{public_id}` は、指定した `start_type` に対応する公開条件を満たすセラピスト詳細を返し、`service_address_id` と `menu_duration_minutes` を付けた場合はメニューごとの概算総額も返す。`GET /therapists` には `30回/10分/アカウント` のレート制限を適用する。
 
 ### 6.3 公開空きスケジュール
 
