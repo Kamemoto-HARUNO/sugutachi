@@ -21,6 +21,15 @@ class AdminReportTest extends TestCase
     {
         [$admin, $report, $reporter] = $this->createAdminReportFixture();
         Report::create([
+            'public_id' => 'rep_admin_open_without_message',
+            'booking_id' => $report->booking_id,
+            'reporter_account_id' => Account::factory()->create(['public_id' => 'acc_reporter_no_source'])->id,
+            'target_account_id' => Account::factory()->create(['public_id' => 'acc_report_target_no_source'])->id,
+            'category' => 'other',
+            'severity' => Report::SEVERITY_MEDIUM,
+            'status' => Report::STATUS_OPEN,
+        ]);
+        Report::create([
             'public_id' => 'rep_admin_resolved',
             'reporter_account_id' => Account::factory()->create(['public_id' => 'acc_reporter_other'])->id,
             'target_account_id' => Account::factory()->create(['public_id' => 'acc_report_target_other'])->id,
@@ -32,7 +41,7 @@ class AdminReportTest extends TestCase
         $token = $admin->createToken('api')->plainTextToken;
 
         $this->withToken($token)
-            ->getJson("/api/admin/reports?status=open&severity=high&reporter_account_id={$reporter->public_id}&sort=created_at&direction=asc")
+            ->getJson("/api/admin/reports?status=open&severity=high&reporter_account_id={$reporter->public_id}&has_source_booking_message=1&sort=created_at&direction=asc")
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.public_id', $report->public_id)
@@ -51,6 +60,12 @@ class AdminReportTest extends TestCase
             'target_type' => Report::class,
             'target_id' => $report->id,
         ]);
+
+        $this->withToken($token)
+            ->getJson('/api/admin/reports?status=open&has_source_booking_message=0')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.public_id', 'rep_admin_open_without_message');
     }
 
     public function test_admin_can_add_action_and_resolve_report(): void

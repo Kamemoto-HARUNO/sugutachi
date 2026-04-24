@@ -125,9 +125,19 @@ class AdminDashboardTest extends TestCase
             'matching_fee_amount' => 300,
             'updated_at' => now(),
         ]);
+        $flaggedMessage = BookingMessage::create([
+            'booking_id' => $requestedBooking->id,
+            'sender_account_id' => $therapist->id,
+            'message_type' => 'text',
+            'body_encrypted' => Crypt::encryptString('Call me directly at 090-1111-1111'),
+            'detected_contact_exchange' => true,
+            'moderation_status' => 'blocked',
+            'sent_at' => now()->subMinutes(5),
+        ]);
         Report::create([
             'public_id' => 'rep_dashboard',
             'booking_id' => $requestedBooking->id,
+            'source_booking_message_id' => $flaggedMessage->id,
             'reporter_account_id' => $suspendedUser->id,
             'target_account_id' => $therapist->id,
             'category' => 'boundary_violation',
@@ -173,16 +183,6 @@ class AdminDashboardTest extends TestCase
             'evidence_due_by' => now()->addDays(7),
             'last_stripe_event_id' => 'evt_dashboard_dispute',
         ]);
-        BookingMessage::create([
-            'booking_id' => $requestedBooking->id,
-            'sender_account_id' => $therapist->id,
-            'message_type' => 'text',
-            'body_encrypted' => Crypt::encryptString('Call me directly at 090-1111-1111'),
-            'detected_contact_exchange' => true,
-            'moderation_status' => 'blocked',
-            'sent_at' => now()->subMinutes(5),
-        ]);
-
         $this->withToken($admin->createToken('api')->plainTextToken)
             ->getJson('/api/admin/dashboard')
             ->assertOk()
@@ -192,6 +192,7 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.reviews.pending_therapist_profiles', 1)
             ->assertJsonPath('data.reviews.pending_profile_photos', 1)
             ->assertJsonPath('data.operations.open_reports', 1)
+            ->assertJsonPath('data.operations.open_message_origin_reports', 1)
             ->assertJsonPath('data.operations.pending_contact_inquiries', 1)
             ->assertJsonPath('data.operations.open_stripe_disputes', 1)
             ->assertJsonPath('data.operations.requested_refunds', 1)
@@ -204,6 +205,8 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.navigation.accounts.suspended.query.status', Account::STATUS_SUSPENDED)
             ->assertJsonPath('data.navigation.reviews.pending_identity_verifications.path', '/api/admin/identity-verifications')
             ->assertJsonPath('data.navigation.reviews.pending_identity_verifications.query.sort', 'submitted_at')
+            ->assertJsonPath('data.navigation.operations.open_message_origin_reports.path', '/api/admin/reports')
+            ->assertJsonPath('data.navigation.operations.open_message_origin_reports.query.has_source_booking_message', true)
             ->assertJsonPath('data.navigation.operations.pending_contact_inquiries.path', '/api/admin/contact-inquiries')
             ->assertJsonPath('data.navigation.operations.pending_contact_inquiries.query.status', ContactInquiry::STATUS_PENDING)
             ->assertJsonPath('data.navigation.operations.open_stripe_disputes.path', '/api/admin/stripe-disputes')

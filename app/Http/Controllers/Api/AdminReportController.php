@@ -27,6 +27,7 @@ class AdminReportController extends Controller
         $validated = $request->validate([
             'booking_id' => ['nullable', 'string', 'max:36'],
             'source_booking_message_id' => ['nullable', 'integer', 'min:1'],
+            'has_source_booking_message' => ['nullable', 'boolean'],
             'reporter_account_id' => ['nullable', 'string', 'max:36'],
             'target_account_id' => ['nullable', 'string', 'max:36'],
             'assigned_admin_account_id' => ['nullable', 'string', 'max:36'],
@@ -53,6 +54,12 @@ class AdminReportController extends Controller
                 ->with(['booking', 'sourceBookingMessage', 'reporter', 'target', 'assignedAdmin'])
                 ->when($bookingId, fn ($query, int $id) => $query->where('booking_id', $id))
                 ->when($sourceBookingMessageId, fn ($query, int $id) => $query->where('source_booking_message_id', $id))
+                ->when(
+                    array_key_exists('has_source_booking_message', $validated),
+                    fn ($query) => $validated['has_source_booking_message']
+                        ? $query->whereNotNull('source_booking_message_id')
+                        : $query->whereNull('source_booking_message_id')
+                )
                 ->when($reporterId, fn ($query, int $id) => $query->where('reporter_account_id', $id))
                 ->when($targetId, fn ($query, int $id) => $query->where('target_account_id', $id))
                 ->when($assignedAdminId, fn ($query, int $id) => $query->where('assigned_admin_account_id', $id))

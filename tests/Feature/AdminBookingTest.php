@@ -151,6 +151,7 @@ class AdminBookingTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.sender.public_id', $user->public_id)
+            ->assertJsonPath('data.0.sender.status', Account::STATUS_ACTIVE)
             ->assertJsonPath('data.0.body', 'I am in the hotel lobby.')
             ->assertJsonPath('data.0.detected_contact_exchange', false);
 
@@ -159,6 +160,7 @@ class AdminBookingTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.sender.public_id', $therapist->public_id)
+            ->assertJsonPath('data.0.sender.status', Account::STATUS_ACTIVE)
             ->assertJsonPath('data.0.detected_contact_exchange', true)
             ->assertJsonPath('data.0.open_report_count', 0);
 
@@ -351,6 +353,14 @@ class AdminBookingTest extends TestCase
             'target_type' => BookingMessage::class,
             'target_id' => $message->id,
         ]);
+
+        $this->withToken($admin->createToken('api')->plainTextToken)
+            ->getJson("/api/admin/bookings/{$booking->public_id}/messages?sender_account_id={$therapist->public_id}")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.sender.public_id', $therapist->public_id)
+            ->assertJsonPath('data.0.sender.status', Account::STATUS_SUSPENDED)
+            ->assertJsonPath('data.0.sender.suspension_reason', 'policy_violation');
     }
 
     private function createBookingFixture(): array

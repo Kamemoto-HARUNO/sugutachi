@@ -47,6 +47,10 @@ class AdminDashboardController extends Controller
                     'open_reports' => Report::query()
                         ->where('status', Report::STATUS_OPEN)
                         ->count(),
+                    'open_message_origin_reports' => Report::query()
+                        ->where('status', Report::STATUS_OPEN)
+                        ->whereNotNull('source_booking_message_id')
+                        ->count(),
                     'pending_contact_inquiries' => ContactInquiry::query()
                         ->where('status', ContactInquiry::STATUS_PENDING)
                         ->count(),
@@ -116,6 +120,15 @@ class AdminDashboardController extends Controller
                             'path' => '/api/admin/reports',
                             'query' => [
                                 'status' => Report::STATUS_OPEN,
+                                'sort' => 'created_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
+                        'open_message_origin_reports' => [
+                            'path' => '/api/admin/reports',
+                            'query' => [
+                                'status' => Report::STATUS_OPEN,
+                                'has_source_booking_message' => true,
                                 'sort' => 'created_at',
                                 'direction' => 'desc',
                             ],
