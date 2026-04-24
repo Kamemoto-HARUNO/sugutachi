@@ -39,11 +39,13 @@ use App\Http\Controllers\Api\ServiceMetaController;
 use App\Http\Controllers\Api\StripeConnectController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\Api\TempFileController;
+use App\Http\Controllers\Api\TherapistAvailabilitySlotController;
 use App\Http\Controllers\Api\TherapistDiscoveryController;
 use App\Http\Controllers\Api\TherapistLedgerController;
 use App\Http\Controllers\Api\TherapistMenuController;
 use App\Http\Controllers\Api\TherapistPayoutRequestController;
 use App\Http\Controllers\Api\TherapistProfileController;
+use App\Http\Controllers\Api\TherapistScheduledBookingSettingController;
 use App\Http\Controllers\Api\UserProfileController;
 use Illuminate\Support\Facades\Route;
 
@@ -147,6 +149,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/me/therapist-profile/submit-review', [TherapistProfileController::class, 'submitReview']);
     Route::get('/me/therapist-profile/review-status', [TherapistProfileController::class, 'reviewStatus']);
     Route::put('/me/therapist/location', [TherapistProfileController::class, 'updateLocation']);
+    Route::get('/me/therapist/scheduled-booking-settings', [TherapistScheduledBookingSettingController::class, 'show']);
+    Route::put('/me/therapist/scheduled-booking-settings', [TherapistScheduledBookingSettingController::class, 'upsert']);
+    Route::get('/me/therapist/availability-slots', [TherapistAvailabilitySlotController::class, 'index']);
+    Route::post('/me/therapist/availability-slots', [TherapistAvailabilitySlotController::class, 'store']);
+    Route::patch('/me/therapist/availability-slots/{therapistAvailabilitySlot:public_id}', [TherapistAvailabilitySlotController::class, 'update']);
+    Route::delete('/me/therapist/availability-slots/{therapistAvailabilitySlot:public_id}', [TherapistAvailabilitySlotController::class, 'destroy']);
     Route::get('/me/therapist/menus', [TherapistMenuController::class, 'index']);
     Route::post('/me/therapist/menus', [TherapistMenuController::class, 'store']);
     Route::patch('/me/therapist/menus/{therapistMenu:public_id}', [TherapistMenuController::class, 'update']);
