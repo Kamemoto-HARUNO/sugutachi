@@ -52,6 +52,7 @@ accounts
   │    ├─ therapist_pricing_rules
   │    ├─ therapist_booking_settings
   │    ├─ therapist_availability_slots
+  │    ├─ therapist_travel_requests
   │    ├─ therapist_locations
   │    └─ stripe_connected_accounts
   ├─ service_addresses
@@ -636,7 +637,36 @@ accounts
 * index: `sender_account_id, sent_at`
 * index: `moderation_status`
 
-### 9.2 push_subscriptions
+### 9.2 therapist_travel_requests
+予約外の需要通知。ユーザーが希望都道府県とメッセージをセラピストへ送る。
+
+| カラム | 型 | Null | 説明 |
+| --- | --- | --- | --- |
+| id | bigint unsigned | No | 主キー |
+| public_id | varchar(36) | No | 外部公開ID |
+| user_account_id | bigint unsigned | No | 送信者accounts.id |
+| therapist_account_id | bigint unsigned | No | 受信セラピストaccounts.id |
+| therapist_profile_id | bigint unsigned | No | therapist_profiles.id |
+| prefecture | varchar(50) | No | 希望都道府県 |
+| message_encrypted | text | No | 本文 |
+| detected_contact_exchange | boolean | No | 連絡先交換検知 |
+| status | varchar(50) | No | unread, read, archived |
+| read_at | timestamp | Yes | 既読日時 |
+| archived_at | timestamp | Yes | アーカイブ日時 |
+| created_at / updated_at | timestamp | Yes | Laravel標準 |
+
+インデックス:
+* unique: `public_id`
+* index: `therapist_account_id, status, created_at`
+* index: `therapist_profile_id, status, created_at`
+* index: `user_account_id, created_at`
+* index: `prefecture, created_at`
+
+補足:
+* 同一ユーザーから同一セラピストへの同一都道府県リクエストは、短期間の重複送信をアプリ側で禁止する。
+* MVPではセラピスト返信機能を持たず、一方向の需要通知として扱う。
+
+### 9.3 push_subscriptions
 Web Push購読情報。
 
 | カラム | 型 | Null | 説明 |
@@ -657,7 +687,7 @@ Web Push購読情報。
 * unique: `endpoint_hash`
 * index: `account_id, permission_status`
 
-### 9.3 notifications
+### 9.4 notifications
 アプリ内通知・送信履歴。
 
 | カラム | 型 | Null | 説明 |
@@ -1066,6 +1096,7 @@ Webhookの冪等性・再処理用ログ。
 * `therapist_booking_settings.therapist_profile_id`
 * `therapist_availability_slots.public_id`
 * `therapist_locations.therapist_profile_id`
+* `therapist_travel_requests.public_id`
 * `bookings.public_id`
 * `payment_intents.stripe_payment_intent_id`
 * `stripe_connected_accounts.account_id`
@@ -1079,6 +1110,7 @@ Webhookの冪等性・再処理用ログ。
 * セラピスト検索: `therapist_profiles.profile_status, is_online`
 * 予定予約空き枠検索: `therapist_availability_slots.therapist_profile_id, status, start_at`
 * 位置検索: `therapist_locations.is_searchable, updated_at`, `lat, lng`, `geohash`
+* 出張リクエスト一覧: `therapist_travel_requests.therapist_account_id, status, created_at`
 * ユーザー予約一覧: `bookings.user_account_id, status, scheduled_start_at`
 * セラピスト予約一覧: `bookings.therapist_account_id, status, scheduled_start_at`
 * 承諾タイムアウト処理: `bookings.status, request_expires_at`
@@ -1099,7 +1131,7 @@ Webhookの冪等性・再処理用ログ。
 9. `bookings`
 10. `booking_quotes`
 11. `booking_status_logs`, `booking_consents`, `booking_health_checks`
-12. `booking_messages`
+12. `booking_messages`, `therapist_travel_requests`
 13. `push_subscriptions`, `notifications`
 14. `stripe_connected_accounts`, `stripe_customers`
 15. `payment_intents`, `refunds`, `stripe_disputes`, `stripe_webhook_events`
