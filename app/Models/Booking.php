@@ -28,6 +28,8 @@ class Booking extends Model
 
     public const STATUS_CANCELED = 'canceled';
 
+    public const STATUS_INTERRUPTED = 'interrupted';
+
     public const STATUS_MOVING = 'moving';
 
     public const STATUS_ARRIVED = 'arrived';

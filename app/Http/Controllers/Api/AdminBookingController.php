@@ -467,6 +467,7 @@ class AdminBookingController extends Controller
             Booking::STATUS_REJECTED,
             Booking::STATUS_PAYMENT_CANCELED,
             Booking::STATUS_CANCELED,
+            Booking::STATUS_INTERRUPTED,
             Booking::STATUS_MOVING,
             Booking::STATUS_ARRIVED,
             Booking::STATUS_IN_PROGRESS,

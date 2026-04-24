@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\BookingCancellationController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\BookingMessageController;
 use App\Http\Controllers\Api\BookingQuoteController;
+use App\Http\Controllers\Api\BookingSafetyController;
 use App\Http\Controllers\Api\BookingStatusController;
 use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\HelpFaqController;
@@ -184,6 +185,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/bookings/{booking:public_id}/payment-sync', [PaymentSyncController::class, 'store']);
     Route::post('/bookings/{booking:public_id}/cancel-preview', [BookingCancellationController::class, 'preview']);
     Route::post('/bookings/{booking:public_id}/cancel', [BookingCancellationController::class, 'store']);
+    Route::post('/bookings/{booking:public_id}/interrupt', [BookingSafetyController::class, 'interrupt']);
+    Route::post('/bookings/{booking:public_id}/consents', [BookingSafetyController::class, 'consent']);
+    Route::post('/bookings/{booking:public_id}/health-checks', [BookingSafetyController::class, 'healthCheck']);
     Route::get('/bookings/{booking:public_id}/refund-requests', [RefundRequestController::class, 'index']);
     Route::post('/bookings/{booking:public_id}/refund-requests', [RefundRequestController::class, 'store']);
     Route::get('/bookings/{booking:public_id}/messages', [BookingMessageController::class, 'index']);

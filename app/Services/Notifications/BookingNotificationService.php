@@ -101,6 +101,36 @@ class BookingNotificationService
         );
     }
 
+    public function notifyInterrupted(
+        Booking $booking,
+        string $responsibility,
+        string $interruptedByRole,
+        ?string $reasonCode = null,
+        ?string $reasonNote = null,
+        ?int $recipientAccountId = null,
+    ): void {
+        $reasonCode ??= (string) ($booking->cancel_reason_code ?? '');
+        $reasonNote ??= $booking->cancel_reason_note_encrypted
+            ? rescue(fn () => Crypt::decryptString($booking->cancel_reason_note_encrypted), null, false)
+            : null;
+
+        $this->create(
+            accountId: $recipientAccountId ?? ($interruptedByRole === 'user'
+                ? $booking->therapist_account_id
+                : $booking->user_account_id),
+            type: 'booking_interrupted',
+            title: '施術が中断されました',
+            body: $this->interruptionBody($responsibility, $reasonNote),
+            data: [
+                'booking_public_id' => $booking->public_id,
+                'reason_code' => $reasonCode,
+                'reason_note' => $reasonNote,
+                'responsibility' => $responsibility,
+                'interrupted_by_role' => $interruptedByRole,
+            ],
+        );
+    }
+
     private function create(int $accountId, string $type, string $title, string $body, array $data): void
     {
         AppNotification::create([
@@ -144,5 +174,18 @@ class BookingNotificationService
                     ? trim("セラピスト都合で予約がキャンセルされました。 {$reasonNote}")
                     : '予約がキャンセルされました。'),
         };
+    }
+
+    private function interruptionBody(string $responsibility, ?string $reasonNote): string
+    {
+        $base = match ($responsibility) {
+            'user' => 'ユーザー都合で施術が中断されました。',
+            'therapist' => 'セラピスト都合で施術が中断されました。',
+            'force_majeure' => '不可抗力のため施術が中断されました。',
+            'shared' => '双方確認のうえ施術が中断されました。',
+            default => '施術が中断されました。',
+        };
+
+        return $reasonNote ? "{$base} {$reasonNote}" : $base;
     }
 }

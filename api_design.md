@@ -491,7 +491,7 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
 | GET | `/bookings` | User/Therapist | 自分の予約一覧 |
 | GET | `/bookings/{public_id}` | User/Therapist/Admin | 予約詳細 |
 
-`GET /bookings/{public_id}` は参加者本人のみ参照でき、`cancel_reason_note` / `canceled_by_role` / `canceled_by_account` に加えて、現在の `current_payment_intent`、返金集計の `refund_breakdown`、返金明細の `refunds` を返す。`refund_breakdown` には `refund_count` / `auto_refund_count` / `requested_amount_total` / `approved_amount_total` / `processed_amount_total` を含める。
+`GET /bookings/{public_id}` は参加者本人のみ参照でき、`cancel_reason_note` / `canceled_by_role` / `canceled_by_account` に加えて、現在の `current_payment_intent`、返金集計の `refund_breakdown`、返金明細の `refunds`、予約ごとの `consents`、施術前の `health_checks` を返す。`refund_breakdown` には `refund_count` / `auto_refund_count` / `requested_amount_total` / `approved_amount_total` / `processed_amount_total` を含める。
 
 `POST /booking-quotes` リクエスト:
 
@@ -637,12 +637,18 @@ payment_authorizing
 
 セラピスト都合キャンセルでは `reason_code` に加えてユーザー向け表示用の `reason_note` を必須とし、通知本文にも反映する。確定時にはセラピスト都合キャンセル回数を加算し、公開プロフィール詳細でユーザーが確認できるようにする。キャンセル通知は `booking_canceled` として保存し、`data.booking_public_id` / `data.reason_code` / `data.reason_note` / `data.canceled_by_role` を含める。
 
+`POST /bookings/{public_id}/interrupt` は `moving` / `arrived` / `in_progress` の参加者のみ実行できる。`reason_code`、`responsibility=user|therapist|shared|force_majeure|unknown` を受け取り、予約を `interrupted` に遷移させる。レスポンスには更新後の `booking`、運営確認用の自動起票 `report`、適用した `payment_action` を含める。`responsibility=user` は全額請求、その他は原則全額返金として扱う。中断時は `booking_interrupted` 通知を相手方へ保存し、同時に `reports` に `category=booking_interrupted` の open レコードを作成する。
+
 ### 8.5 同意・体調確認
 
 | Method | Path | 権限 | 用途 |
 | --- | --- | --- | --- |
 | POST | `/bookings/{public_id}/consents` | User/Therapist | 予約ごとの同意記録 |
 | POST | `/bookings/{public_id}/health-checks` | User/Therapist | 施術前体調確認 |
+
+`POST /bookings/{public_id}/consents` は参加者本人の `consent_type` を1予約1種別で記録し、同じ `consent_type` の再送は更新として扱う。必要に応じて公開済み `legal_document_id` を関連付ける。
+
+`POST /bookings/{public_id}/health-checks` は参加者本人の施術前体調申告を記録する。`drinking_status` / `has_injury` / `has_fever` / `contraindications[]` / `notes` を受け取り、`booking_id + account_id + role` 単位で最新値に更新する。
 
 ## 9. メッセージ・通知API
 
@@ -692,7 +698,7 @@ payment_authorizing
 
 Push購読情報はエンドポイントをハッシュ化して重複管理し、エンドポイント・鍵情報は暗号化して保存する。MVPではアプリ内通知の保存・既読管理とPush購読管理までを実装し、実配信は後続のキュー処理で接続する。
 
-予約関連の主な通知種別は `booking_requested` / `booking_accepted` / `booking_canceled` / `booking_refunded` とし、`data.booking_public_id` を共通キーとして持つ。`booking_requested` はセラピスト向け、`booking_accepted` はユーザー向け、`booking_canceled` は相手方または決済失敗時のユーザー向け、`booking_refunded` は返金対象ユーザー向けに送る。
+予約関連の主な通知種別は `booking_requested` / `booking_accepted` / `booking_canceled` / `booking_interrupted` / `booking_refunded` とし、`data.booking_public_id` を共通キーとして持つ。`booking_requested` はセラピスト向け、`booking_accepted` はユーザー向け、`booking_canceled` は相手方または決済失敗時のユーザー向け、`booking_interrupted` は中断相手方への安全通知、`booking_refunded` は返金対象ユーザー向けに送る。
 
 ## 10. レビュー・通報・返金API
 

@@ -188,6 +188,8 @@ class BookingController extends Controller
             'currentPaymentIntent',
             'canceledBy',
             'refunds' => fn ($query) => $query->latest('id'),
+            'consents' => fn ($query) => $query->with(['account', 'legalDocument'])->orderBy('id'),
+            'healthChecks' => fn ($query) => $query->with('account')->latest('id'),
         ]));
     }
 

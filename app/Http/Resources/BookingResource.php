@@ -52,6 +52,8 @@ class BookingResource extends JsonResource
                 : null),
             'refund_breakdown' => $this->whenLoaded('refunds', fn () => $this->refundBreakdown()),
             'refunds' => $this->whenLoaded('refunds', fn () => BookingRefundResource::collection($this->refunds)),
+            'consents' => $this->whenLoaded('consents', fn () => BookingConsentResource::collection($this->consents)),
+            'health_checks' => $this->whenLoaded('healthChecks', fn () => BookingHealthCheckResource::collection($this->healthChecks)),
             'created_at' => $this->created_at,
         ];
     }
