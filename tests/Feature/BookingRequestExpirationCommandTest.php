@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Contracts\Payments\CreatedPaymentIntent;
 use App\Contracts\Payments\PaymentIntentGateway;
 use App\Models\Account;
+use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\BookingQuote;
 use App\Models\IdentityVerification;
@@ -114,6 +115,21 @@ class BookingRequestExpirationCommandTest extends TestCase
             'actor_role' => 'system',
             'reason_code' => 'request_expired',
         ]);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $requestedBooking->user_account_id,
+            'notification_type' => 'booking_canceled',
+            'channel' => 'in_app',
+            'status' => 'sent',
+        ]);
+
+        $notification = AppNotification::query()
+            ->where('account_id', $requestedBooking->user_account_id)
+            ->where('notification_type', 'booking_canceled')
+            ->firstOrFail();
+
+        $this->assertSame($requestedBooking->public_id, data_get($notification->data_json, 'booking_public_id'));
+        $this->assertSame('request_expired', data_get($notification->data_json, 'reason_code'));
+        $this->assertSame('system', data_get($notification->data_json, 'canceled_by_role'));
 
         $this->assertDatabaseHas('bookings', [
             'id' => $futureBooking->id,

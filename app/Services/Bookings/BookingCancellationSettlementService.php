@@ -7,6 +7,7 @@ use App\Contracts\Payments\RefundGateway;
 use App\Models\Booking;
 use App\Models\PaymentIntent;
 use App\Models\Refund;
+use App\Services\Notifications\BookingNotificationService;
 use App\Services\Payments\BookingPaymentIntentCancellationService;
 use Illuminate\Support\Str;
 
@@ -14,6 +15,7 @@ class BookingCancellationSettlementService
 {
     public function __construct(
         private readonly BookingPaymentIntentCancellationService $paymentIntentCancellationService,
+        private readonly BookingNotificationService $bookingNotificationService,
         private readonly PaymentIntentGateway $paymentIntentGateway,
         private readonly RefundGateway $refundGateway,
     ) {}
@@ -92,6 +94,8 @@ class BookingCancellationSettlementService
             'reviewed_at' => now(),
             'processed_at' => $createdRefund->status === 'succeeded' ? now() : null,
         ])->save();
+
+        $this->bookingNotificationService->notifyRefunded($refund->refresh());
     }
 
     private function capture(PaymentIntent $paymentIntent, string $lastStripeEventId): PaymentIntent

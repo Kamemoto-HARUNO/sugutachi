@@ -8,6 +8,7 @@ use App\Models\Booking;
 use App\Models\TherapistLedgerEntry;
 use App\Services\Bookings\BookingStatusTransitionService;
 use App\Services\Bookings\ScheduledBookingPolicy;
+use App\Services\Notifications\BookingNotificationService;
 use App\Services\Payments\BookingPaymentIntentCancellationService;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
@@ -19,6 +20,7 @@ class BookingStatusController extends Controller
         Booking $booking,
         BookingStatusTransitionService $transition,
         ScheduledBookingPolicy $scheduledBookingPolicy,
+        BookingNotificationService $bookingNotificationService,
     ): BookingResource {
         $this->authorizeTherapist($request, $booking);
 
@@ -58,6 +60,8 @@ class BookingStatusController extends Controller
             ),
         );
 
+        $bookingNotificationService->notifyAccepted($booking->refresh());
+
         return new BookingResource($booking->load('currentQuote'));
     }
 
@@ -66,6 +70,7 @@ class BookingStatusController extends Controller
         Booking $booking,
         BookingStatusTransitionService $transition,
         BookingPaymentIntentCancellationService $paymentIntentCancellationService,
+        BookingNotificationService $bookingNotificationService,
     ): BookingResource {
         $this->authorizeTherapist($request, $booking);
 
@@ -88,6 +93,8 @@ class BookingStatusController extends Controller
             booking: $booking,
             lastStripeEventId: 'system.therapist_rejected',
         );
+
+        $bookingNotificationService->notifyCanceled($booking->refresh());
 
         return new BookingResource($booking->load([
             'currentQuote',

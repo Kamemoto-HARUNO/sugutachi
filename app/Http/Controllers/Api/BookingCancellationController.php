@@ -5,11 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\BookingResource;
 use App\Models\Account;
-use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\TherapistProfile;
 use App\Services\Bookings\BookingCancellationPolicy;
 use App\Services\Bookings\BookingCancellationSettlementService;
+use App\Services\Notifications\BookingNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Crypt;
@@ -57,6 +57,7 @@ class BookingCancellationController extends Controller
         Booking $booking,
         BookingCancellationPolicy $policy,
         BookingCancellationSettlementService $settlementService,
+        BookingNotificationService $bookingNotificationService,
     ): JsonResponse {
         $actor = $request->user();
         $actorRole = $this->actorRole($booking, $actor);
@@ -112,28 +113,10 @@ class BookingCancellationController extends Controller
                 ],
             ]);
 
-            if (
-                $actorRole === 'therapist'
-                && in_array($fromStatus, self::THERAPIST_COUNTABLE_CANCEL_STATUSES, true)
-            ) {
+            if ($actorRole === 'therapist' && in_array($fromStatus, self::THERAPIST_COUNTABLE_CANCEL_STATUSES, true)) {
                 TherapistProfile::query()
                     ->whereKey($lockedBooking->therapist_profile_id)
                     ->increment('therapist_cancellation_count');
-
-                AppNotification::create([
-                    'account_id' => $lockedBooking->user_account_id,
-                    'notification_type' => 'booking_canceled_by_therapist',
-                    'channel' => 'in_app',
-                    'title' => '予約がキャンセルされました',
-                    'body' => "セラピスト都合で予約がキャンセルされました。{$validated['reason_note']}",
-                    'data_json' => [
-                        'booking_public_id' => $lockedBooking->public_id,
-                        'reason_code' => $validated['reason_code'],
-                        'reason_note' => $validated['reason_note'],
-                    ],
-                    'status' => 'sent',
-                    'sent_at' => now(),
-                ]);
             }
 
             return [$lockedBooking->refresh()->load('currentQuote'), $preview];
@@ -142,6 +125,7 @@ class BookingCancellationController extends Controller
         [$canceledBooking, $preview] = $result;
 
         $settlementService->settle($canceledBooking, $preview);
+        $bookingNotificationService->notifyCanceled($canceledBooking->refresh());
 
         $canceledBooking->refresh()->load([
             'currentQuote',

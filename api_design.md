@@ -635,7 +635,7 @@ payment_authorizing
 
 キャンセル確定時は予約ステータスを `canceled` に変更し、`canceled_by_account_id` / `cancel_reason_code` / `booking_status_logs.metadata_json` にキャンセル料、返金予定額、ポリシー、必要な決済アクションを保存する。`payment_action=void_authorization` は現在の PaymentIntent 与信を即時取消し、`capture_full_amount` は即時capture、`capture_cancel_fee_and_refund_remaining` は即時capture後に差額返金まで実行する。自動返金が発生した場合は `refunds` にシステム起票の履歴を残す。
 
-セラピスト都合キャンセルでは `reason_code` に加えてユーザー向け表示用の `reason_note` を必須とし、通知本文にも反映する。確定時にはセラピスト都合キャンセル回数を加算し、公開プロフィール詳細でユーザーが確認できるようにする。通知は `booking_canceled_by_therapist` としてユーザーの通知一覧に保存し、`data.booking_public_id` / `data.reason_code` / `data.reason_note` を含める。
+セラピスト都合キャンセルでは `reason_code` に加えてユーザー向け表示用の `reason_note` を必須とし、通知本文にも反映する。確定時にはセラピスト都合キャンセル回数を加算し、公開プロフィール詳細でユーザーが確認できるようにする。キャンセル通知は `booking_canceled` として保存し、`data.booking_public_id` / `data.reason_code` / `data.reason_note` / `data.canceled_by_role` を含める。
 
 ### 8.5 同意・体調確認
 
@@ -691,6 +691,8 @@ payment_authorizing
 | DELETE | `/push-subscriptions/{id}` | Auth | Web Push購読解除 |
 
 Push購読情報はエンドポイントをハッシュ化して重複管理し、エンドポイント・鍵情報は暗号化して保存する。MVPではアプリ内通知の保存・既読管理とPush購読管理までを実装し、実配信は後続のキュー処理で接続する。
+
+予約関連の主な通知種別は `booking_requested` / `booking_accepted` / `booking_canceled` / `booking_refunded` とし、`data.booking_public_id` を共通キーとして持つ。`booking_requested` はセラピスト向け、`booking_accepted` はユーザー向け、`booking_canceled` は相手方または決済失敗時のユーザー向け、`booking_refunded` は返金対象ユーザー向けに送る。
 
 ## 10. レビュー・通報・返金API
 

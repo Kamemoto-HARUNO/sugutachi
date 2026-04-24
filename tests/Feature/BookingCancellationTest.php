@@ -80,7 +80,7 @@ class BookingCancellationTest extends TestCase
     {
         $gatewayState = $this->bindPaymentGateways();
 
-        [$user, , $booking, $paymentIntent] = $this->createBookingFixture(
+        [$user, $therapist, $booking, $paymentIntent] = $this->createBookingFixture(
             status: Booking::STATUS_ACCEPTED,
             scheduledStartAt: now()->addHours(4),
             withPaymentIntent: true,
@@ -141,6 +141,38 @@ class BookingCancellationTest extends TestCase
                 'amount' => 6000,
             ],
         ], $gatewayState->refundCalls);
+
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $therapist->id,
+            'notification_type' => 'booking_canceled',
+            'channel' => 'in_app',
+            'status' => 'sent',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $user->id,
+            'notification_type' => 'booking_refunded',
+            'channel' => 'in_app',
+            'status' => 'sent',
+        ]);
+
+        $cancellationNotification = AppNotification::query()
+            ->where('account_id', $therapist->id)
+            ->where('notification_type', 'booking_canceled')
+            ->firstOrFail();
+
+        $this->assertSame($booking->public_id, data_get($cancellationNotification->data_json, 'booking_public_id'));
+        $this->assertSame('user_schedule_changed', data_get($cancellationNotification->data_json, 'reason_code'));
+        $this->assertSame('user', data_get($cancellationNotification->data_json, 'canceled_by_role'));
+
+        $refundNotification = AppNotification::query()
+            ->where('account_id', $user->id)
+            ->where('notification_type', 'booking_refunded')
+            ->firstOrFail();
+
+        $this->assertSame($booking->public_id, data_get($refundNotification->data_json, 'booking_public_id'));
+        $this->assertSame(6000, data_get($refundNotification->data_json, 'approved_amount'));
+        $this->assertSame('processed', data_get($refundNotification->data_json, 'refund_status'));
+        $this->assertTrue((bool) data_get($refundNotification->data_json, 'is_auto'));
     }
 
     public function test_user_cancel_within_3_hours_captures_full_amount_without_refund(): void
@@ -227,18 +259,19 @@ class BookingCancellationTest extends TestCase
         );
         $this->assertDatabaseHas('notifications', [
             'account_id' => $user->id,
-            'notification_type' => 'booking_canceled_by_therapist',
+            'notification_type' => 'booking_canceled',
             'channel' => 'in_app',
             'status' => 'sent',
         ]);
 
         $notification = AppNotification::query()
             ->where('account_id', $user->id)
-            ->where('notification_type', 'booking_canceled_by_therapist')
+            ->where('notification_type', 'booking_canceled')
             ->firstOrFail();
 
         $this->assertSame($booking->public_id, data_get($notification->data_json, 'booking_public_id'));
         $this->assertSame('therapist_unavailable', data_get($notification->data_json, 'reason_code'));
+        $this->assertSame('therapist', data_get($notification->data_json, 'canceled_by_role'));
         $this->assertSame(
             '急な体調不良のため、本日のご案内が難しくなりました。',
             data_get($notification->data_json, 'reason_note'),

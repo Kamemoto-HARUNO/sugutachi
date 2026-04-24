@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Contracts\Payments\CreatedRefund;
 use App\Contracts\Payments\RefundGateway;
 use App\Models\Account;
+use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\PaymentIntent;
 use App\Models\Refund;
@@ -65,6 +66,22 @@ class AdminRefundRequestTest extends TestCase
             'target_type' => Refund::class,
             'target_id' => $refund->id,
         ]);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $refund->booking->user_account_id,
+            'notification_type' => 'booking_refunded',
+            'channel' => 'in_app',
+            'status' => 'sent',
+        ]);
+
+        $notification = AppNotification::query()
+            ->where('account_id', $refund->booking->user_account_id)
+            ->where('notification_type', 'booking_refunded')
+            ->firstOrFail();
+
+        $this->assertSame('book_admin_refund', data_get($notification->data_json, 'booking_public_id'));
+        $this->assertSame('ref_admin', data_get($notification->data_json, 'refund_public_id'));
+        $this->assertSame('processed', data_get($notification->data_json, 'refund_status'));
+        $this->assertSame(5000, data_get($notification->data_json, 'approved_amount'));
     }
 
     public function test_admin_can_reject_refund_request_without_calling_gateway(): void

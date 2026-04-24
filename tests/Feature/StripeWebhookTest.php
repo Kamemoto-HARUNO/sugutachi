@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\PaymentIntent;
 use App\Models\PayoutRequest;
@@ -60,11 +61,18 @@ class StripeWebhookTest extends TestCase
             'event_type' => 'payment_intent.amount_capturable_updated',
             'processed_status' => StripeWebhookEvent::STATUS_PROCESSED,
         ]);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $booking->therapist_account_id,
+            'notification_type' => 'booking_requested',
+            'channel' => 'in_app',
+            'status' => 'sent',
+        ]);
 
         $this->sendStripeWebhook($payload)->assertOk();
 
         $this->assertDatabaseCount('stripe_webhook_events', 1);
         $this->assertDatabaseCount('booking_status_logs', 1);
+        $this->assertDatabaseCount('notifications', 1);
     }
 
     public function test_scheduled_payment_intent_authorization_uses_scheduled_request_expiry(): void
@@ -147,6 +155,21 @@ class StripeWebhookTest extends TestCase
         $this->assertNotNull($paymentIntent->canceled_at);
         $this->assertSame(Booking::STATUS_PAYMENT_CANCELED, $booking->status);
         $this->assertSame('payment_intent_canceled', $booking->cancel_reason_code);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $booking->user_account_id,
+            'notification_type' => 'booking_canceled',
+            'channel' => 'in_app',
+            'status' => 'sent',
+        ]);
+
+        $notification = AppNotification::query()
+            ->where('account_id', $booking->user_account_id)
+            ->where('notification_type', 'booking_canceled')
+            ->firstOrFail();
+
+        $this->assertSame($booking->public_id, data_get($notification->data_json, 'booking_public_id'));
+        $this->assertSame('payment_intent_canceled', data_get($notification->data_json, 'reason_code'));
+        $this->assertSame('system', data_get($notification->data_json, 'canceled_by_role'));
     }
 
     public function test_stripe_webhook_rejects_invalid_signature(): void

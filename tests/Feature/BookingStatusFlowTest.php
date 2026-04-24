@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Contracts\Payments\CreatedPaymentIntent;
 use App\Contracts\Payments\PaymentIntentGateway;
 use App\Models\Account;
+use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\BookingQuote;
 use App\Models\IdentityVerification;
@@ -41,6 +42,21 @@ class BookingStatusFlowTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.status', Booking::STATUS_ACCEPTED)
             ->assertJsonPath('data.accepted_at', fn ($value) => filled($value));
+
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $user->id,
+            'notification_type' => 'booking_accepted',
+            'channel' => 'in_app',
+            'status' => 'sent',
+        ]);
+
+        $acceptedNotification = AppNotification::query()
+            ->where('account_id', $user->id)
+            ->where('notification_type', 'booking_accepted')
+            ->firstOrFail();
+
+        $this->assertSame($booking->public_id, data_get($acceptedNotification->data_json, 'booking_public_id'));
+        $this->assertSame('on_demand', data_get($acceptedNotification->data_json, 'request_type'));
 
         $this->withToken($therapistToken)
             ->postJson("/api/bookings/{$booking->public_id}/start")
@@ -89,7 +105,7 @@ class BookingStatusFlowTest extends TestCase
         $gatewayState = (object) ['canceledStripeIds' => []];
         $this->bindPaymentIntentGateway($gatewayState);
 
-        [, $therapist, $booking, $paymentIntent] = $this->createRequestedBooking(withPaymentIntent: true);
+        [$user, $therapist, $booking, $paymentIntent] = $this->createRequestedBooking(withPaymentIntent: true);
 
         $this->withToken($therapist->createToken('api')->plainTextToken)
             ->postJson("/api/bookings/{$booking->public_id}/reject")
@@ -108,6 +124,21 @@ class BookingStatusFlowTest extends TestCase
             'last_stripe_event_id' => 'system.therapist_rejected',
         ]);
         $this->assertSame([$paymentIntent->stripe_payment_intent_id], $gatewayState->canceledStripeIds);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $user->id,
+            'notification_type' => 'booking_canceled',
+            'channel' => 'in_app',
+            'status' => 'sent',
+        ]);
+
+        $rejectedNotification = AppNotification::query()
+            ->where('account_id', $user->id)
+            ->where('notification_type', 'booking_canceled')
+            ->firstOrFail();
+
+        $this->assertSame($booking->public_id, data_get($rejectedNotification->data_json, 'booking_public_id'));
+        $this->assertSame('therapist_rejected', data_get($rejectedNotification->data_json, 'reason_code'));
+        $this->assertSame('therapist', data_get($rejectedNotification->data_json, 'canceled_by_role'));
     }
 
     public function test_user_can_confirm_therapist_completed_booking(): void

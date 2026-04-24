@@ -11,6 +11,7 @@ use App\Models\StripeDispute;
 use App\Models\StripeWebhookEvent;
 use App\Models\TherapistLedgerEntry;
 use App\Services\Bookings\ScheduledBookingPolicy;
+use App\Services\Notifications\BookingNotificationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
@@ -39,6 +40,7 @@ class StripeWebhookHandler
     public const EVENT_PAYOUT_PAID = 'payout.paid';
 
     public function __construct(
+        private readonly BookingNotificationService $bookingNotificationService,
         private readonly StripeConnectedAccountSynchronizer $connectedAccountSynchronizer,
         private readonly ScheduledBookingPolicy $scheduledBookingPolicy,
     ) {}
@@ -399,6 +401,8 @@ class StripeWebhookHandler
                 'stripe_event_id' => $eventId,
             ],
         ]);
+
+        $this->bookingNotificationService->notifyRequested($lockedBooking->refresh());
     }
 
     private function markBookingPaymentCanceled(Booking $booking, string $eventId): void
@@ -430,5 +434,7 @@ class StripeWebhookHandler
                 'stripe_event_id' => $eventId,
             ],
         ]);
+
+        $this->bookingNotificationService->notifyCanceled($lockedBooking->refresh());
     }
 }

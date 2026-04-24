@@ -10,6 +10,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\RefundResource;
 use App\Models\PaymentIntent;
 use App\Models\Refund;
+use App\Services\Notifications\BookingNotificationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\DB;
@@ -53,8 +54,12 @@ class AdminRefundRequestController extends Controller
         );
     }
 
-    public function approve(Request $request, Refund $refund, RefundGateway $gateway): RefundResource
-    {
+    public function approve(
+        Request $request,
+        Refund $refund,
+        RefundGateway $gateway,
+        BookingNotificationService $bookingNotificationService,
+    ): RefundResource {
         $admin = $request->user();
         $this->authorizeAdmin($admin);
         $refund->load(['booking.currentPaymentIntent', 'paymentIntent']);
@@ -85,6 +90,7 @@ class AdminRefundRequestController extends Controller
         });
 
         $this->recordAdminAudit($request, 'refund.approve', $refund, $before, $this->snapshot($refund->refresh()));
+        $bookingNotificationService->notifyRefunded($refund->refresh());
 
         return new RefundResource($refund->load('booking'));
     }
