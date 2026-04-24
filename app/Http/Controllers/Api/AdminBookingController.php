@@ -15,6 +15,7 @@ use App\Http\Resources\AdminReportResource;
 use App\Models\Account;
 use App\Models\Booking;
 use App\Models\BookingMessage;
+use App\Models\Refund;
 use App\Models\Report;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -39,9 +40,11 @@ class AdminBookingController extends Controller
             'therapist_account_id' => ['nullable', 'string', 'max:36'],
             'therapist_profile_id' => ['nullable', 'string', 'max:36'],
             'status' => ['nullable', Rule::in($this->bookingStatuses())],
+            'cancel_reason_code' => ['nullable', 'string', 'max:100'],
             'is_on_demand' => ['nullable', 'boolean'],
             'payment_intent_status' => ['nullable', 'string', 'max:50'],
             'has_refund_request' => ['nullable', 'boolean'],
+            'has_auto_refund' => ['nullable', 'boolean'],
             'has_open_report' => ['nullable', 'boolean'],
             'has_open_dispute' => ['nullable', 'boolean'],
             'has_flagged_message' => ['nullable', 'boolean'],
@@ -68,10 +71,13 @@ class AdminBookingController extends Controller
                     'therapistProfile',
                     'therapistMenu',
                     'serviceAddress',
+                    'canceledBy',
                     'currentPaymentIntent',
                 ])
                 ->withCount([
                     'refunds',
+                    'refunds as auto_refunds_count' => fn ($query) => $query
+                        ->where('reason_code', Refund::REASON_CODE_BOOKING_CANCELLATION_AUTO),
                     'reports',
                     'disputes as open_disputes_count' => fn ($query) => $query->whereIn('status', [
                         'needs_response',
@@ -83,6 +89,7 @@ class AdminBookingController extends Controller
                 ->when($therapistAccountId, fn ($query, int $id) => $query->where('therapist_account_id', $id))
                 ->when($therapistProfileId, fn ($query, int $id) => $query->where('therapist_profile_id', $id))
                 ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
+                ->when($validated['cancel_reason_code'] ?? null, fn ($query, string $code) => $query->where('cancel_reason_code', $code))
                 ->when(
                     array_key_exists('is_on_demand', $validated),
                     fn ($query) => $query->where('is_on_demand', (bool) $validated['is_on_demand'])
@@ -96,6 +103,14 @@ class AdminBookingController extends Controller
                     fn ($query) => $validated['has_refund_request']
                         ? $query->whereHas('refunds')
                         : $query->whereDoesntHave('refunds')
+                )
+                ->when(
+                    array_key_exists('has_auto_refund', $validated),
+                    fn ($query) => $validated['has_auto_refund']
+                        ? $query->whereHas('refunds', fn ($query) => $query
+                            ->where('reason_code', Refund::REASON_CODE_BOOKING_CANCELLATION_AUTO))
+                        : $query->whereDoesntHave('refunds', fn ($query) => $query
+                            ->where('reason_code', Refund::REASON_CODE_BOOKING_CANCELLATION_AUTO))
                 )
                 ->when(
                     array_key_exists('has_open_report', $validated),
@@ -152,6 +167,7 @@ class AdminBookingController extends Controller
             'therapistProfile',
             'therapistMenu',
             'serviceAddress',
+            'canceledBy',
             'currentQuote',
             'currentPaymentIntent',
             'refunds.booking',

@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Crypt;
 
 class AdminBookingListResource extends JsonResource
 {
@@ -16,6 +17,10 @@ class AdminBookingListResource extends JsonResource
             'scheduled_start_at' => $this->scheduled_start_at,
             'scheduled_end_at' => $this->scheduled_end_at,
             'duration_minutes' => $this->duration_minutes,
+            'cancel_reason_code' => $this->cancel_reason_code,
+            'cancel_reason_note' => $this->cancel_reason_note_encrypted
+                ? rescue(fn () => Crypt::decryptString($this->cancel_reason_note_encrypted), null, false)
+                : null,
             'total_amount' => $this->total_amount,
             'therapist_net_amount' => $this->therapist_net_amount,
             'platform_fee_amount' => $this->platform_fee_amount,
@@ -42,8 +47,15 @@ class AdminBookingListResource extends JsonResource
                 'serviceAddress',
                 fn () => $this->serviceAddress ? new AdminServiceAddressResource($this->serviceAddress) : null
             ),
+            'canceled_by_account' => $this->whenLoaded('canceledBy', fn () => $this->canceledBy ? [
+                'public_id' => $this->canceledBy->public_id,
+                'display_name' => $this->canceledBy->display_name,
+                'email' => $this->canceledBy->email,
+                'status' => $this->canceledBy->status,
+            ] : null),
             'current_payment_intent_status' => $this->whenLoaded('currentPaymentIntent', fn () => $this->currentPaymentIntent?->status),
             'refund_count' => $this->refunds_count,
+            'auto_refund_count' => $this->auto_refunds_count,
             'report_count' => $this->reports_count,
             'open_dispute_count' => $this->open_disputes_count,
             'flagged_message_count' => $this->flagged_messages_count,

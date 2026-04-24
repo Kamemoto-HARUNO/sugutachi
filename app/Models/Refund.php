@@ -20,6 +20,8 @@ class Refund extends Model
 
     public const STATUS_PROCESSED = 'processed';
 
+    public const REASON_CODE_BOOKING_CANCELLATION_AUTO = 'booking_cancellation_auto';
+
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);

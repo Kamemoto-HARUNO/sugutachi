@@ -133,6 +133,86 @@ class AdminBookingTest extends TestCase
             ->assertJsonPath('data.0.public_id', $booking->public_id);
     }
 
+    public function test_admin_can_filter_canceled_bookings_with_auto_refund_context(): void
+    {
+        [$admin, $user, $therapist, , $booking] = $this->createBookingFixture();
+
+        $booking->forceFill([
+            'status' => Booking::STATUS_CANCELED,
+            'canceled_at' => now(),
+            'canceled_by_account_id' => $therapist->id,
+            'cancel_reason_code' => 'therapist_unavailable',
+            'cancel_reason_note_encrypted' => Crypt::encryptString('急な体調不良のため、本日のご案内ができなくなりました。'),
+        ])->save();
+
+        $paymentIntentId = PaymentIntent::query()
+            ->where('booking_id', $booking->id)
+            ->value('id');
+
+        Refund::create([
+            'public_id' => 'ref_admin_booking_auto',
+            'booking_id' => $booking->id,
+            'payment_intent_id' => $paymentIntentId,
+            'requested_by_account_id' => $therapist->id,
+            'status' => Refund::STATUS_PROCESSED,
+            'reason_code' => Refund::REASON_CODE_BOOKING_CANCELLATION_AUTO,
+            'requested_amount' => 6000,
+            'approved_amount' => 6000,
+            'stripe_refund_id' => 're_admin_booking_auto',
+            'processed_at' => now(),
+        ]);
+
+        $token = $admin->createToken('api')->plainTextToken;
+
+        $this->withToken($token)
+            ->getJson('/api/admin/bookings?status=canceled&cancel_reason_code=therapist_unavailable&has_auto_refund=1')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.public_id', $booking->public_id)
+            ->assertJsonPath('data.0.cancel_reason_code', 'therapist_unavailable')
+            ->assertJsonPath('data.0.cancel_reason_note', '急な体調不良のため、本日のご案内ができなくなりました。')
+            ->assertJsonPath('data.0.canceled_by_account.public_id', $therapist->public_id)
+            ->assertJsonPath('data.0.auto_refund_count', 1);
+
+        $this->withToken($token)
+            ->getJson("/api/admin/bookings/{$booking->public_id}")
+            ->assertOk()
+            ->assertJsonPath('data.public_id', $booking->public_id)
+            ->assertJsonPath('data.cancel_reason_note', '急な体調不良のため、本日のご案内ができなくなりました。')
+            ->assertJsonPath('data.canceled_by_account.public_id', $therapist->public_id)
+            ->assertJsonPath('data.auto_refund_count', 1)
+            ->assertJsonFragment([
+                'public_id' => 'ref_admin_booking_auto',
+                'reason_code' => Refund::REASON_CODE_BOOKING_CANCELLATION_AUTO,
+                'requested_by_account_id' => $therapist->public_id,
+                'approved_amount' => 6000,
+            ]);
+
+        $this->withToken($token)
+            ->getJson('/api/admin/bookings?has_auto_refund=0&status=requested')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->withToken($token)
+            ->getJson('/api/admin/bookings?has_auto_refund=0&status=canceled')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->withToken($token)
+            ->getJson('/api/admin/bookings?has_auto_refund=1&status=requested')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'actor_account_id' => $admin->id,
+            'action' => 'booking.view',
+            'target_type' => Booking::class,
+            'target_id' => $booking->id,
+        ]);
+
+        $this->assertSame($user->id, $booking->user_account_id);
+    }
+
     public function test_non_admin_cannot_access_booking_admin_api(): void
     {
         [, $user, , , $booking] = $this->createBookingFixture();

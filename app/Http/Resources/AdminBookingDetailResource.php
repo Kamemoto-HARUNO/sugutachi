@@ -2,8 +2,10 @@
 
 namespace App\Http\Resources;
 
+use App\Models\Refund;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\Crypt;
 
 class AdminBookingDetailResource extends JsonResource
 {
@@ -26,6 +28,9 @@ class AdminBookingDetailResource extends JsonResource
             'ended_at' => $this->ended_at,
             'canceled_at' => $this->canceled_at,
             'cancel_reason_code' => $this->cancel_reason_code,
+            'cancel_reason_note' => $this->cancel_reason_note_encrypted
+                ? rescue(fn () => Crypt::decryptString($this->cancel_reason_note_encrypted), null, false)
+                : null,
             'total_amount' => $this->total_amount,
             'therapist_net_amount' => $this->therapist_net_amount,
             'platform_fee_amount' => $this->platform_fee_amount,
@@ -57,6 +62,12 @@ class AdminBookingDetailResource extends JsonResource
                 'serviceAddress',
                 fn () => $this->serviceAddress ? new AdminServiceAddressResource($this->serviceAddress, includeSensitive: true) : null
             ),
+            'canceled_by_account' => $this->whenLoaded('canceledBy', fn () => $this->canceledBy ? [
+                'public_id' => $this->canceledBy->public_id,
+                'display_name' => $this->canceledBy->display_name,
+                'email' => $this->canceledBy->email,
+                'status' => $this->canceledBy->status,
+            ] : null),
             'user_snapshot' => $this->user_snapshot_json,
             'therapist_snapshot' => $this->therapist_snapshot_json,
             'current_quote' => $this->whenLoaded('currentQuote', fn () => $this->currentQuote ? new BookingQuoteResource($this->currentQuote) : null),
@@ -64,6 +75,9 @@ class AdminBookingDetailResource extends JsonResource
                 'currentPaymentIntent',
                 fn () => $this->currentPaymentIntent ? new AdminPaymentIntentResource($this->currentPaymentIntent) : null
             ),
+            'auto_refund_count' => $this->whenLoaded('refunds', fn () => $this->refunds
+                ->where('reason_code', Refund::REASON_CODE_BOOKING_CANCELLATION_AUTO)
+                ->count()),
             'refunds' => RefundResource::collection($this->whenLoaded('refunds')),
             'reports' => ReportResource::collection($this->whenLoaded('reports')),
             'status_logs' => AdminBookingStatusLogResource::collection($this->whenLoaded('statusLogs')),

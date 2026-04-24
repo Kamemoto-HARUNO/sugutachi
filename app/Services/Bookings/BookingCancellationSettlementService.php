@@ -12,8 +12,6 @@ use Illuminate\Support\Str;
 
 class BookingCancellationSettlementService
 {
-    private const AUTO_REFUND_REASON_CODE = 'booking_cancellation_auto';
-
     public function __construct(
         private readonly BookingPaymentIntentCancellationService $paymentIntentCancellationService,
         private readonly PaymentIntentGateway $paymentIntentGateway,
@@ -63,7 +61,7 @@ class BookingCancellationSettlementService
         $refund = Refund::query()
             ->where('booking_id', $booking->id)
             ->where('payment_intent_id', $paymentIntent->id)
-            ->where('reason_code', self::AUTO_REFUND_REASON_CODE)
+            ->where('reason_code', Refund::REASON_CODE_BOOKING_CANCELLATION_AUTO)
             ->latest('id')
             ->first();
 
@@ -74,7 +72,7 @@ class BookingCancellationSettlementService
                 'payment_intent_id' => $paymentIntent->id,
                 'requested_by_account_id' => $booking->canceled_by_account_id ?: $booking->user_account_id,
                 'status' => Refund::STATUS_REQUESTED,
-                'reason_code' => self::AUTO_REFUND_REASON_CODE,
+                'reason_code' => Refund::REASON_CODE_BOOKING_CANCELLATION_AUTO,
                 'requested_amount' => $refundAmount,
             ]);
         }
