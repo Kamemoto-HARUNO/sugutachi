@@ -33,10 +33,19 @@ return [
         'business_address' => env('SERVICE_COMMERCE_ADDRESS'),
         'phone_number' => env('SERVICE_COMMERCE_PHONE_NUMBER'),
         'inquiry_hours' => env('SERVICE_COMMERCE_INQUIRY_HOURS'),
-        'payment_timing' => env('SERVICE_COMMERCE_PAYMENT_TIMING'),
-        'service_delivery_timing' => env('SERVICE_COMMERCE_SERVICE_DELIVERY_TIMING'),
-        'cancellation_policy_summary' => env('SERVICE_COMMERCE_CANCELLATION_POLICY_SUMMARY'),
-        'refund_policy_summary' => env('SERVICE_COMMERCE_REFUND_POLICY_SUMMARY'),
+        'payment_timing' => env('SERVICE_COMMERCE_PAYMENT_TIMING', '予約時にクレジットカード決済'),
+        'service_delivery_timing' => env(
+            'SERVICE_COMMERCE_SERVICE_DELIVERY_TIMING',
+            '予約成立後、予約日時にリラクゼーション役務を提供'
+        ),
+        'cancellation_policy_summary' => env(
+            'SERVICE_COMMERCE_CANCELLATION_POLICY_SUMMARY',
+            'キャンセル時刻と予約状態に応じて所定のキャンセル料が発生します。詳細は特定商取引法に基づく表記をご確認ください。'
+        ),
+        'refund_policy_summary' => env(
+            'SERVICE_COMMERCE_REFUND_POLICY_SUMMARY',
+            '返金可否はキャンセル時刻、役務提供状況、個別審査結果に応じて判断します。'
+        ),
         'supported_payment_methods' => ['card'],
         'legal_document_type' => 'commerce',
     ],

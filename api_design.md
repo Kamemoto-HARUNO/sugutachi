@@ -169,9 +169,11 @@
 
 一時ファイルは、提出APIで参照された後に本保存または削除する。本人確認書類は長期保管を避け、確認完了後に原則削除する。
 
-`GET /service-meta` は公開向けの基本設定に加え、特商法表示で利用する `commerce_notice` を返す。`commerce_notice` には事業者名、代表者名、連絡先、役務提供時期、キャンセル/返金方針の要約、対応する法務文書種別を含める。
+`GET /service-meta` は公開向けの基本設定に加え、特商法表示で利用する `commerce_notice` を返す。`commerce_notice` には事業者名、代表者名、連絡先、役務提供時期、キャンセル/返金方針の要約、対応する法務文書種別に加えて、公開中の `commerce` 文書サマリを含める。あわせて `legal_documents` として、公開中の `terms` / `privacy` / `commerce` の最新版サマリと取得導線を返す。
 
-`GET /legal-documents` は `published_at` が設定された文書のうち、種別ごとの最新公開版を返す。`GET /legal-documents/{type}` はその種別の最新公開版を1件返す。`POST /legal-documents/{public_id}/accept` は認証済みユーザーの追加同意を1文書1回で記録し、同一文書への再送は冪等に扱う。
+`GET /legal-documents` は `published_at` が設定された文書のうち、種別ごとの最新公開版を返す。各文書には `path` と `accept_path` を含める。`GET /legal-documents/{type}` はその種別の最新公開版を1件返す。`POST /legal-documents/{public_id}/accept` は認証済みユーザーの追加同意を1文書1回で記録し、同一文書への再送は冪等に扱う。
+
+初期文面の整備用として `php artisan legal-documents:sync-default-drafts` を用意し、`terms` / `privacy` / `commerce` のMVP草案を現在のサービス設定値で下書き同期できるようにする。公開前に管理画面から実文面へ更新し、公開日時を設定する運用とする。
 
 ## 5. 本人確認・プロフィールAPI
 

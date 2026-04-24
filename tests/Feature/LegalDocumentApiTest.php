@@ -55,6 +55,8 @@ class LegalDocumentApiTest extends TestCase
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.document_type', 'privacy')
             ->assertJsonPath('data.0.public_id', 'ldoc_privacy')
+            ->assertJsonPath('data.0.path', '/api/legal-documents/privacy')
+            ->assertJsonPath('data.0.accept_path', '/api/legal-documents/ldoc_privacy/accept')
             ->assertJsonPath('data.1.document_type', 'terms')
             ->assertJsonPath('data.1.public_id', 'ldoc_terms_new');
 
@@ -62,7 +64,9 @@ class LegalDocumentApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.public_id', 'ldoc_terms_new')
             ->assertJsonPath('data.version', '2026-05-01')
-            ->assertJsonPath('data.title', '利用規約 最新版');
+            ->assertJsonPath('data.title', '利用規約 最新版')
+            ->assertJsonPath('data.path', '/api/legal-documents/terms')
+            ->assertJsonPath('data.accept_path', '/api/legal-documents/ldoc_terms_new/accept');
     }
 
     public function test_authenticated_user_can_accept_published_legal_document_idempotently(): void

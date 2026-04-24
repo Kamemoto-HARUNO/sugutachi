@@ -15,6 +15,8 @@ class PublicLegalDocumentResource extends JsonResource
             'version' => $this->version,
             'title' => $this->title,
             'body' => $this->body,
+            'path' => "/api/legal-documents/{$this->document_type}",
+            'accept_path' => "/api/legal-documents/{$this->public_id}/accept",
             'published_at' => $this->published_at,
             'effective_at' => $this->effective_at,
         ];

@@ -3,12 +3,17 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Models\LegalDocument;
 use Illuminate\Http\JsonResponse;
 
 class ServiceMetaController extends Controller
 {
     public function show(): JsonResponse
     {
+        $documentTypes = config('service_meta.legal.document_types', []);
+        $latestDocuments = LegalDocument::latestPublishedByTypes($documentTypes);
+        $commerceDocumentType = config('service_meta.commerce.legal_document_type', 'commerce');
+
         return response()->json([
             'data' => [
                 'service_name' => config('service_meta.name'),
@@ -42,9 +47,34 @@ class ServiceMetaController extends Controller
                     'refund_policy_summary' => config('service_meta.commerce.refund_policy_summary'),
                     'supported_payment_methods' => config('service_meta.commerce.supported_payment_methods', ['card']),
                     'legal_document_type' => config('service_meta.commerce.legal_document_type', 'commerce'),
+                    'legal_document' => $this->documentSummary($latestDocuments->get($commerceDocumentType)),
                 ],
-                'legal_document_types' => config('service_meta.legal.document_types', []),
+                'legal_document_types' => $documentTypes,
+                'legal_documents' => collect($documentTypes)
+                    ->map(fn (string $type) => $latestDocuments->get($type))
+                    ->filter()
+                    ->map(fn (LegalDocument $document) => $this->documentSummary($document))
+                    ->values()
+                    ->all(),
             ],
         ]);
+    }
+
+    private function documentSummary(?LegalDocument $document): ?array
+    {
+        if (! $document) {
+            return null;
+        }
+
+        return [
+            'public_id' => $document->public_id,
+            'document_type' => $document->document_type,
+            'version' => $document->version,
+            'title' => $document->title,
+            'path' => "/api/legal-documents/{$document->document_type}",
+            'accept_path' => "/api/legal-documents/{$document->public_id}/accept",
+            'published_at' => $document->published_at,
+            'effective_at' => $document->effective_at,
+        ];
     }
 }

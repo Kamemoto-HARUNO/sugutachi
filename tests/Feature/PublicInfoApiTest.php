@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\LegalDocument;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -28,6 +29,33 @@ class PublicInfoApiTest extends TestCase
         config()->set('service_meta.commerce.service_delivery_timing', '予約成立後、予約日時に役務提供');
         config()->set('service_meta.commerce.cancellation_policy_summary', 'キャンセルポリシーに従います。');
         config()->set('service_meta.commerce.refund_policy_summary', '返金ポリシーに従います。');
+        LegalDocument::create([
+            'public_id' => 'ldoc_terms_meta',
+            'document_type' => 'terms',
+            'version' => '2026-05-01',
+            'title' => '利用規約',
+            'body' => '利用規約本文',
+            'published_at' => now()->subDay(),
+            'effective_at' => now(),
+        ]);
+        LegalDocument::create([
+            'public_id' => 'ldoc_privacy_meta',
+            'document_type' => 'privacy',
+            'version' => '2026-05-01',
+            'title' => 'プライバシーポリシー',
+            'body' => 'プライバシーポリシー本文',
+            'published_at' => now()->subDay(),
+            'effective_at' => now(),
+        ]);
+        LegalDocument::create([
+            'public_id' => 'ldoc_commerce_meta',
+            'document_type' => 'commerce',
+            'version' => '2026-05-01',
+            'title' => '特定商取引法に基づく表記',
+            'body' => '特商法本文',
+            'published_at' => now()->subDay(),
+            'effective_at' => now(),
+        ]);
 
         $this->getJson('/api/service-meta')
             ->assertOk()
@@ -51,7 +79,13 @@ class PublicInfoApiTest extends TestCase
             ->assertJsonPath('data.commerce_notice.cancellation_policy_summary', 'キャンセルポリシーに従います。')
             ->assertJsonPath('data.commerce_notice.refund_policy_summary', '返金ポリシーに従います。')
             ->assertJsonPath('data.commerce_notice.supported_payment_methods.0', 'card')
-            ->assertJsonPath('data.commerce_notice.legal_document_type', 'commerce');
+            ->assertJsonPath('data.commerce_notice.legal_document_type', 'commerce')
+            ->assertJsonPath('data.commerce_notice.legal_document.public_id', 'ldoc_commerce_meta')
+            ->assertJsonPath('data.commerce_notice.legal_document.path', '/api/legal-documents/commerce')
+            ->assertJsonPath('data.legal_documents.0.document_type', 'terms')
+            ->assertJsonPath('data.legal_documents.0.path', '/api/legal-documents/terms')
+            ->assertJsonPath('data.legal_documents.1.document_type', 'privacy')
+            ->assertJsonPath('data.legal_documents.2.document_type', 'commerce');
     }
 
     public function test_guest_can_get_help_faqs(): void
