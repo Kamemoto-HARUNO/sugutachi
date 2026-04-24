@@ -576,6 +576,8 @@ PaymentIntentは原則manual captureとし、与信成功はStripe Webhookを正
 
 各ステータス変更APIは、現在ステータスが許可された遷移元でない場合 `409 Conflict` を返す。
 
+`GET /me/therapist/booking-requests` は未対応の `requested` を返す。予定予約については、`dispatch_area_label`、希望開始/終了時刻、メニュー名、施術場所の都道府県・市区町村、`request_expires_at`、残り承諾秒数/分数を含め、承諾優先度を判断しやすい形にする。
+
 `POST /bookings/{public_id}/accept` リクエスト例:
 
 ```json

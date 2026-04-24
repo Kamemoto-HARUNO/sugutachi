@@ -6,6 +6,7 @@ use App\Models\Account;
 use App\Models\Booking;
 use App\Models\IdentityVerification;
 use App\Models\ServiceAddress;
+use App\Models\TherapistAvailabilitySlot;
 use App\Models\TherapistBookingSetting;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
@@ -193,6 +194,26 @@ class BookingStatusFlowTest extends TestCase
             ->assertConflict();
     }
 
+    public function test_therapist_request_list_includes_operational_context_for_scheduled_request(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2030-01-06 10:00:00'));
+
+        [, $therapist, $booking] = $this->createRequestedScheduledBooking();
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->getJson('/api/me/therapist/booking-requests')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.public_id', $booking->public_id)
+            ->assertJsonPath('data.0.request_type', 'scheduled')
+            ->assertJsonPath('data.0.dispatch_area_label', '天神周辺')
+            ->assertJsonPath('data.0.menu.name', 'Body care 60')
+            ->assertJsonPath('data.0.service_location.prefecture', '福岡県')
+            ->assertJsonPath('data.0.service_location.city', '福岡市中央区')
+            ->assertJsonPath('data.0.request_expires_in_seconds', 21600)
+            ->assertJsonPath('data.0.request_expires_in_minutes', 360);
+    }
+
     private function createRequestedBooking(): array
     {
         $user = Account::factory()->create(['public_id' => 'acc_user_'.fake()->unique()->numberBetween(1000, 9999)]);
@@ -283,9 +304,21 @@ class BookingStatusFlowTest extends TestCase
             'public_id' => 'addr_sched_'.fake()->unique()->numberBetween(1000, 9999),
             'account_id' => $user->id,
             'place_type' => 'hotel',
+            'prefecture' => '福岡県',
+            'city' => '福岡市中央区',
             'address_line_encrypted' => 'encrypted-address',
             'lat' => '35.6812360',
             'lng' => '139.7671250',
+        ]);
+
+        $slot = TherapistAvailabilitySlot::create([
+            'public_id' => 'slot_sched_'.fake()->unique()->numberBetween(1000, 9999),
+            'therapist_profile_id' => $therapistProfile->id,
+            'start_at' => CarbonImmutable::parse('2030-01-06 14:00:00'),
+            'end_at' => CarbonImmutable::parse('2030-01-06 18:00:00'),
+            'status' => TherapistAvailabilitySlot::STATUS_PUBLISHED,
+            'dispatch_base_type' => TherapistAvailabilitySlot::DISPATCH_BASE_TYPE_DEFAULT,
+            'dispatch_area_label' => '天神周辺',
         ]);
 
         $booking = Booking::create([
@@ -295,6 +328,7 @@ class BookingStatusFlowTest extends TestCase
             'therapist_profile_id' => $therapistProfile->id,
             'therapist_menu_id' => $menu->id,
             'service_address_id' => $address->id,
+            'availability_slot_id' => $slot->id,
             'status' => Booking::STATUS_REQUESTED,
             'is_on_demand' => false,
             'requested_start_at' => CarbonImmutable::parse('2030-01-06 14:30:00'),

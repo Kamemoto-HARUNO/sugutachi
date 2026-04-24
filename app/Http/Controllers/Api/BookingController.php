@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\BookingResource;
+use App\Http\Resources\TherapistBookingRequestResource;
 use App\Models\Account;
 use App\Models\Booking;
 use App\Models\BookingQuote;
@@ -39,12 +40,15 @@ class BookingController extends Controller
 
     public function therapistRequests(Request $request): AnonymousResourceCollection
     {
-        return BookingResource::collection(
+        return TherapistBookingRequestResource::collection(
             Booking::query()
-                ->with('currentQuote')
+                ->with(['currentQuote', 'availabilitySlot', 'serviceAddress', 'therapistMenu'])
                 ->where('therapist_account_id', $request->user()->id)
                 ->where('status', Booking::STATUS_REQUESTED)
-                ->oldest()
+                ->orderByRaw('case when request_expires_at is null then 1 else 0 end')
+                ->orderBy('request_expires_at')
+                ->orderBy('requested_start_at')
+                ->orderBy('id')
                 ->get()
         );
     }
