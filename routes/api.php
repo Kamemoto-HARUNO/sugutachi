@@ -18,6 +18,8 @@ use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\BookingMessageController;
 use App\Http\Controllers\Api\BookingQuoteController;
 use App\Http\Controllers\Api\BookingStatusController;
+use App\Http\Controllers\Api\ContactController;
+use App\Http\Controllers\Api\HelpFaqController;
 use App\Http\Controllers\Api\IdentityVerificationController;
 use App\Http\Controllers\Api\LegalDocumentController;
 use App\Http\Controllers\Api\NotificationController;
@@ -28,6 +30,7 @@ use App\Http\Controllers\Api\RefundRequestController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ReviewController;
 use App\Http\Controllers\Api\ServiceAddressController;
+use App\Http\Controllers\Api\ServiceMetaController;
 use App\Http\Controllers\Api\StripeConnectController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\Api\TempFileController;
@@ -46,6 +49,9 @@ Route::prefix('auth')->group(function (): void {
 
 Route::get('/legal-documents', [LegalDocumentController::class, 'index']);
 Route::get('/legal-documents/{type}', [LegalDocumentController::class, 'showLatest']);
+Route::get('/service-meta', [ServiceMetaController::class, 'show']);
+Route::get('/help/faqs', [HelpFaqController::class, 'index']);
+Route::post('/contact', [ContactController::class, 'store']);
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', [AuthController::class, 'me']);
