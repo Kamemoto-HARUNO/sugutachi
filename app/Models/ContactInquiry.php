@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Guarded;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 #[Guarded(['id'])]
 class ContactInquiry extends Model
@@ -20,6 +21,11 @@ class ContactInquiry extends Model
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);
+    }
+
+    public function adminNotes(): MorphMany
+    {
+        return $this->morphMany(AdminNote::class, 'target')->oldest('id');
     }
 
     protected function casts(): array

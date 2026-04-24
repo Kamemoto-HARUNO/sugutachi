@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\AccountBlockController;
 use App\Http\Controllers\Api\AdminAccountController;
 use App\Http\Controllers\Api\AdminAuditLogController;
+use App\Http\Controllers\Api\AdminContactInquiryController;
 use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\Api\AdminIdentityVerificationController;
 use App\Http\Controllers\Api\AdminLegalDocumentController;
@@ -109,6 +110,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/admin/legal-documents', [AdminLegalDocumentController::class, 'index']);
     Route::post('/admin/legal-documents', [AdminLegalDocumentController::class, 'store']);
     Route::patch('/admin/legal-documents/{legalDocument}', [AdminLegalDocumentController::class, 'update']);
+    Route::get('/admin/contact-inquiries', [AdminContactInquiryController::class, 'index']);
+    Route::get('/admin/contact-inquiries/{contactInquiry:public_id}', [AdminContactInquiryController::class, 'show']);
+    Route::post('/admin/contact-inquiries/{contactInquiry:public_id}/notes', [AdminContactInquiryController::class, 'note']);
+    Route::post('/admin/contact-inquiries/{contactInquiry:public_id}/resolve', [AdminContactInquiryController::class, 'resolve']);
     Route::get('/therapists', [TherapistDiscoveryController::class, 'index'])->middleware('throttle:therapist-search');
     Route::get('/therapists/{therapistProfile:public_id}', [TherapistDiscoveryController::class, 'show']);
     Route::get('/therapists/{therapistProfile:public_id}/reviews', [ReviewController::class, 'therapistReviews']);
