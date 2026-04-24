@@ -30,6 +30,11 @@ class Report extends Model
         return $this->belongsTo(Booking::class);
     }
 
+    public function sourceBookingMessage(): BelongsTo
+    {
+        return $this->belongsTo(BookingMessage::class, 'source_booking_message_id');
+    }
+
     public function reporter(): BelongsTo
     {
         return $this->belongsTo(Account::class, 'reporter_account_id');

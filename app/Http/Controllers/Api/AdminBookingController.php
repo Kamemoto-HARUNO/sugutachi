@@ -9,11 +9,15 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\AdminBookingDetailResource;
 use App\Http\Resources\AdminBookingListResource;
 use App\Http\Resources\AdminBookingMessageResource;
+use App\Http\Resources\AdminReportResource;
 use App\Models\Booking;
 use App\Models\BookingMessage;
+use App\Models\Report;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class AdminBookingController extends Controller
@@ -172,13 +176,17 @@ class AdminBookingController extends Controller
             'detected_contact_exchange' => ['nullable', 'boolean'],
             'read_status' => ['nullable', Rule::in(['read', 'unread'])],
             'has_admin_notes' => ['nullable', 'boolean'],
+            'has_open_report' => ['nullable', 'boolean'],
         ]);
         $senderAccountId = $this->resolveAccountId($validated['sender_account_id'] ?? null);
         $moderatedByAdminId = $this->resolveAccountId($validated['moderated_by_admin_account_id'] ?? null);
 
         $messages = $booking->messages()
             ->with(['booking', 'sender', 'moderatedByAdmin'])
-            ->withCount('adminNotes')
+            ->withCount([
+                'adminNotes',
+                'sourceReports as open_report_count' => fn ($query) => $query->where('status', Report::STATUS_OPEN),
+            ])
             ->when($senderAccountId, fn ($query, int $id) => $query->where('sender_account_id', $id))
             ->when($moderatedByAdminId, fn ($query, int $id) => $query->where('moderated_by_admin_account_id', $id))
             ->when(
@@ -203,6 +211,12 @@ class AdminBookingController extends Controller
                 fn ($query) => $validated['has_admin_notes']
                     ? $query->whereHas('adminNotes')
                     : $query->whereDoesntHave('adminNotes')
+            )
+            ->when(
+                array_key_exists('has_open_report', $validated),
+                fn ($query) => $validated['has_open_report']
+                    ? $query->whereHas('sourceReports', fn ($query) => $query->where('status', Report::STATUS_OPEN))
+                    : $query->whereDoesntHave('sourceReports', fn ($query) => $query->where('status', Report::STATUS_OPEN))
             )
             ->oldest('sent_at')
             ->get();
@@ -243,6 +257,95 @@ class AdminBookingController extends Controller
         );
 
         return new AdminBookingMessageResource($this->loadAdminMessage($message->fresh()));
+    }
+
+    public function createReport(Request $request, Booking $booking, BookingMessage $message): JsonResponse
+    {
+        $admin = $request->user();
+        $this->authorizeAdmin($admin);
+        $this->ensureBookingMessageBelongsToBooking($booking, $message);
+        abort_if(
+            $message->sourceReports()->where('status', Report::STATUS_OPEN)->exists(),
+            409,
+            'An open report already exists for this message.'
+        );
+
+        $validated = $request->validate([
+            'category' => ['required', 'string', 'max:100'],
+            'severity' => ['nullable', Rule::in([
+                Report::SEVERITY_LOW,
+                Report::SEVERITY_MEDIUM,
+                Report::SEVERITY_HIGH,
+                Report::SEVERITY_CRITICAL,
+            ])],
+            'detail' => ['nullable', 'string', 'max:2000'],
+            'note' => ['nullable', 'string', 'max:2000'],
+        ]);
+        $before = $this->snapshotMessage($message);
+
+        $report = Report::create([
+            'public_id' => 'rep_'.Str::ulid(),
+            'booking_id' => $booking->id,
+            'source_booking_message_id' => $message->id,
+            'reporter_account_id' => $admin->id,
+            'target_account_id' => $message->sender_account_id,
+            'category' => $validated['category'],
+            'severity' => $validated['severity'] ?? Report::SEVERITY_MEDIUM,
+            'detail_encrypted' => filled($validated['detail'] ?? null)
+                ? Crypt::encryptString($validated['detail'])
+                : null,
+            'status' => Report::STATUS_OPEN,
+            'assigned_admin_account_id' => $admin->id,
+        ]);
+        $report->actions()->create([
+            'admin_account_id' => $admin->id,
+            'action_type' => 'report_created_from_message',
+            'note_encrypted' => filled($validated['note'] ?? null)
+                ? Crypt::encryptString($validated['note'])
+                : null,
+            'metadata_json' => [
+                'source_booking_message_id' => $message->id,
+                'sender_account_id' => $message->sender_account_id,
+                'detected_contact_exchange' => $message->detected_contact_exchange,
+                'prior_moderation_status' => $message->moderation_status,
+            ],
+            'created_at' => now(),
+        ]);
+
+        $message->forceFill([
+            'moderation_status' => BookingMessage::MODERATION_STATUS_ESCALATED,
+            'moderated_by_admin_account_id' => $admin->id,
+            'moderated_at' => now(),
+        ])->save();
+
+        if (filled($validated['note'] ?? null)) {
+            $message->adminNotes()->create([
+                'author_account_id' => $admin->id,
+                'note_encrypted' => Crypt::encryptString($validated['note']),
+            ]);
+        }
+
+        $this->recordAdminAudit(
+            $request,
+            'booking.message.report_create',
+            $report,
+            [],
+            array_merge($this->snapshotReport($report), [
+                'source_message_before' => $before,
+                'source_message_after' => $this->snapshotMessage($message->fresh()),
+            ])
+        );
+
+        return (new AdminReportResource($report->load([
+            'booking',
+            'sourceBookingMessage.sender',
+            'reporter',
+            'target',
+            'assignedAdmin',
+            'actions.admin',
+        ])))
+            ->response()
+            ->setStatusCode(201);
     }
 
     public function moderate(Request $request, Booking $booking, BookingMessage $message): AdminBookingMessageResource
@@ -322,7 +425,10 @@ class AdminBookingController extends Controller
 
     private function loadAdminMessage(BookingMessage $message): BookingMessage
     {
-        return $message->load(['booking', 'sender', 'moderatedByAdmin', 'adminNotes.author'])->loadCount('adminNotes');
+        return $message->load(['booking', 'sender', 'moderatedByAdmin', 'adminNotes.author'])->loadCount([
+            'adminNotes',
+            'sourceReports as open_report_count' => fn ($query) => $query->where('status', Report::STATUS_OPEN),
+        ]);
     }
 
     private function snapshotMessage(BookingMessage $message): array
@@ -342,7 +448,25 @@ class AdminBookingController extends Controller
             ]),
             [
                 'admin_note_count' => $message->adminNotes()->count(),
+                'open_report_count' => $message->sourceReports()->where('status', Report::STATUS_OPEN)->count(),
             ],
         );
+    }
+
+    private function snapshotReport(Report $report): array
+    {
+        return $report->only([
+            'id',
+            'public_id',
+            'booking_id',
+            'source_booking_message_id',
+            'reporter_account_id',
+            'target_account_id',
+            'category',
+            'severity',
+            'status',
+            'assigned_admin_account_id',
+            'resolved_at',
+        ]);
     }
 }

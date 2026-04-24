@@ -28,6 +28,7 @@ class AdminBookingMessageResource extends JsonResource
             ] : null),
             'moderated_at' => $this->moderated_at,
             'admin_note_count' => $this->when(isset($this->admin_notes_count), $this->admin_notes_count),
+            'open_report_count' => $this->when(isset($this->open_report_count), $this->open_report_count),
             'notes' => AdminNoteResource::collection($this->whenLoaded('adminNotes')),
             'sent_at' => $this->sent_at,
             'read_at' => $this->read_at,

@@ -26,6 +26,7 @@ class AdminReportController extends Controller
 
         $validated = $request->validate([
             'booking_id' => ['nullable', 'string', 'max:36'],
+            'source_booking_message_id' => ['nullable', 'integer', 'min:1'],
             'reporter_account_id' => ['nullable', 'string', 'max:36'],
             'target_account_id' => ['nullable', 'string', 'max:36'],
             'assigned_admin_account_id' => ['nullable', 'string', 'max:36'],
@@ -40,6 +41,7 @@ class AdminReportController extends Controller
             'direction' => ['nullable', Rule::in(['asc', 'desc'])],
         ]);
         $bookingId = $this->resolveBookingId($validated['booking_id'] ?? null);
+        $sourceBookingMessageId = $validated['source_booking_message_id'] ?? null;
         $reporterId = $this->resolveAccountId($validated['reporter_account_id'] ?? null);
         $targetId = $this->resolveAccountId($validated['target_account_id'] ?? null);
         $assignedAdminId = $this->resolveAccountId($validated['assigned_admin_account_id'] ?? null);
@@ -48,8 +50,9 @@ class AdminReportController extends Controller
 
         return ReportResource::collection(
             Report::query()
-                ->with(['booking', 'reporter', 'target', 'assignedAdmin'])
+                ->with(['booking', 'sourceBookingMessage', 'reporter', 'target', 'assignedAdmin'])
                 ->when($bookingId, fn ($query, int $id) => $query->where('booking_id', $id))
+                ->when($sourceBookingMessageId, fn ($query, int $id) => $query->where('source_booking_message_id', $id))
                 ->when($reporterId, fn ($query, int $id) => $query->where('reporter_account_id', $id))
                 ->when($targetId, fn ($query, int $id) => $query->where('target_account_id', $id))
                 ->when($assignedAdminId, fn ($query, int $id) => $query->where('assigned_admin_account_id', $id))
@@ -64,7 +67,7 @@ class AdminReportController extends Controller
     public function show(Request $request, Report $report): AdminReportResource
     {
         $this->authorizeAdmin($request->user());
-        $report->load(['booking', 'reporter', 'target', 'assignedAdmin', 'actions.admin']);
+        $report->load(['booking', 'sourceBookingMessage.sender', 'reporter', 'target', 'assignedAdmin', 'actions.admin']);
 
         $this->recordAdminAudit($request, 'report.view', $report, [], $this->snapshot($report));
 
@@ -99,7 +102,14 @@ class AdminReportController extends Controller
 
         $this->recordAdminAudit($request, 'report.action', $report, $before, $this->snapshot($report->refresh()));
 
-        return new AdminReportResource($report->load(['booking', 'reporter', 'target', 'assignedAdmin', 'actions.admin']));
+        return new AdminReportResource($report->load([
+            'booking',
+            'sourceBookingMessage.sender',
+            'reporter',
+            'target',
+            'assignedAdmin',
+            'actions.admin',
+        ]));
     }
 
     public function resolve(Request $request, Report $report): AdminReportResource
@@ -132,7 +142,14 @@ class AdminReportController extends Controller
 
         $this->recordAdminAudit($request, 'report.resolve', $report, $before, $this->snapshot($report->refresh()));
 
-        return new AdminReportResource($report->load(['booking', 'reporter', 'target', 'assignedAdmin', 'actions.admin']));
+        return new AdminReportResource($report->load([
+            'booking',
+            'sourceBookingMessage.sender',
+            'reporter',
+            'target',
+            'assignedAdmin',
+            'actions.admin',
+        ]));
     }
 
     private function snapshot(Report $report): array
@@ -141,6 +158,7 @@ class AdminReportController extends Controller
             'id',
             'public_id',
             'booking_id',
+            'source_booking_message_id',
             'reporter_account_id',
             'target_account_id',
             'category',

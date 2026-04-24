@@ -12,6 +12,12 @@ class ReportResource extends JsonResource
         return [
             'public_id' => $this->public_id,
             'booking_public_id' => $this->whenLoaded('booking', fn () => $this->booking?->public_id),
+            'source_booking_message' => $this->whenLoaded('sourceBookingMessage', fn () => $this->sourceBookingMessage ? [
+                'id' => $this->sourceBookingMessage->id,
+                'moderation_status' => $this->sourceBookingMessage->moderation_status,
+                'detected_contact_exchange' => $this->sourceBookingMessage->detected_contact_exchange,
+                'sent_at' => $this->sourceBookingMessage->sent_at,
+            ] : null),
             'reporter_account_id' => $this->reporter?->public_id,
             'target_account_id' => $this->target?->public_id,
             'assigned_admin_account_id' => $this->assignedAdmin?->public_id,

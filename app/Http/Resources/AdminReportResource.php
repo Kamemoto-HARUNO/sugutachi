@@ -13,6 +13,14 @@ class AdminReportResource extends JsonResource
         return [
             'public_id' => $this->public_id,
             'booking_public_id' => $this->whenLoaded('booking', fn () => $this->booking?->public_id),
+            'source_booking_message' => $this->whenLoaded('sourceBookingMessage', fn () => $this->sourceBookingMessage ? [
+                'id' => $this->sourceBookingMessage->id,
+                'message_type' => $this->sourceBookingMessage->message_type,
+                'sender_account_public_id' => $this->sourceBookingMessage->sender?->public_id,
+                'detected_contact_exchange' => $this->sourceBookingMessage->detected_contact_exchange,
+                'moderation_status' => $this->sourceBookingMessage->moderation_status,
+                'sent_at' => $this->sourceBookingMessage->sent_at,
+            ] : null),
             'reporter_account' => $this->whenLoaded('reporter', fn () => [
                 'public_id' => $this->reporter?->public_id,
                 'display_name' => $this->reporter?->display_name,

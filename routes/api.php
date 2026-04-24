@@ -106,6 +106,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/admin/bookings/{booking:public_id}/messages', [AdminBookingController::class, 'messages']);
     Route::post('/admin/bookings/{booking:public_id}/messages/{message}/notes', [AdminBookingController::class, 'note']);
     Route::post('/admin/bookings/{booking:public_id}/messages/{message}/moderation', [AdminBookingController::class, 'moderate']);
+    Route::post('/admin/bookings/{booking:public_id}/messages/{message}/reports', [AdminBookingController::class, 'createReport']);
     Route::get('/admin/stripe-disputes', [AdminStripeDisputeController::class, 'index']);
     Route::get('/admin/dashboard', [AdminDashboardController::class, 'index']);
     Route::get('/admin/accounts', [AdminAccountController::class, 'index']);

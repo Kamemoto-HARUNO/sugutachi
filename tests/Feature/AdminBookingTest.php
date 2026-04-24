@@ -159,7 +159,8 @@ class AdminBookingTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.sender.public_id', $therapist->public_id)
-            ->assertJsonPath('data.0.detected_contact_exchange', true);
+            ->assertJsonPath('data.0.detected_contact_exchange', true)
+            ->assertJsonPath('data.0.open_report_count', 0);
 
         $this->assertDatabaseHas('admin_audit_logs', [
             'actor_account_id' => $admin->id,
@@ -234,6 +235,71 @@ class AdminBookingTest extends TestCase
             ->getJson('/api/admin/bookings?has_flagged_message=1')
             ->assertOk()
             ->assertJsonCount(0, 'data');
+    }
+
+    public function test_admin_can_create_report_from_booking_message(): void
+    {
+        [$admin, , $therapist, , $booking] = $this->createBookingFixture();
+        $message = BookingMessage::query()
+            ->where('booking_id', $booking->id)
+            ->where('sender_account_id', $therapist->id)
+            ->firstOrFail();
+
+        $this->withToken($admin->createToken('api')->plainTextToken)
+            ->postJson("/api/admin/bookings/{$booking->public_id}/messages/{$message->id}/reports", [
+                'category' => 'prohibited_contact_exchange',
+                'severity' => Report::SEVERITY_HIGH,
+                'detail' => 'Escalated after therapist shared direct contact information.',
+                'note' => 'Created report from flagged booking message.',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.booking_public_id', $booking->public_id)
+            ->assertJsonPath('data.source_booking_message.id', $message->id)
+            ->assertJsonPath('data.source_booking_message.sender_account_public_id', $therapist->public_id)
+            ->assertJsonPath('data.target_account.public_id', $therapist->public_id)
+            ->assertJsonPath('data.assigned_admin.public_id', $admin->public_id)
+            ->assertJsonPath('data.category', 'prohibited_contact_exchange')
+            ->assertJsonPath('data.actions.0.action_type', 'report_created_from_message');
+
+        $this->assertDatabaseHas('reports', [
+            'booking_id' => $booking->id,
+            'source_booking_message_id' => $message->id,
+            'reporter_account_id' => $admin->id,
+            'target_account_id' => $therapist->id,
+            'category' => 'prohibited_contact_exchange',
+            'status' => Report::STATUS_OPEN,
+            'assigned_admin_account_id' => $admin->id,
+        ]);
+        $this->assertDatabaseHas('booking_messages', [
+            'id' => $message->id,
+            'moderation_status' => BookingMessage::MODERATION_STATUS_ESCALATED,
+            'moderated_by_admin_account_id' => $admin->id,
+        ]);
+        $this->assertDatabaseHas('admin_notes', [
+            'target_type' => BookingMessage::class,
+            'target_id' => $message->id,
+        ]);
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'actor_account_id' => $admin->id,
+            'action' => 'booking.message.report_create',
+            'target_type' => Report::class,
+        ]);
+
+        $report = Report::query()->where('source_booking_message_id', $message->id)->firstOrFail();
+
+        $this->withToken($admin->createToken('api')->plainTextToken)
+            ->getJson("/api/admin/reports?source_booking_message_id={$message->id}")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.public_id', $report->public_id)
+            ->assertJsonPath('data.0.source_booking_message.id', $message->id);
+
+        $this->withToken($admin->createToken('api')->plainTextToken)
+            ->getJson("/api/admin/bookings/{$booking->public_id}/messages?has_open_report=1")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $message->id)
+            ->assertJsonPath('data.0.open_report_count', 1);
     }
 
     private function createBookingFixture(): array

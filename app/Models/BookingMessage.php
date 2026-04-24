@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Guarded;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 #[Guarded(['id'])]
@@ -66,6 +67,11 @@ class BookingMessage extends Model
     public function adminNotes(): MorphMany
     {
         return $this->morphMany(AdminNote::class, 'target')->oldest('created_at');
+    }
+
+    public function sourceReports(): HasMany
+    {
+        return $this->hasMany(Report::class, 'source_booking_message_id');
     }
 
     protected function casts(): array

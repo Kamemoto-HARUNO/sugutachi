@@ -3,7 +3,12 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\Booking;
+use App\Models\BookingMessage;
 use App\Models\Report;
+use App\Models\ServiceAddress;
+use App\Models\TherapistMenu;
+use App\Models\TherapistProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
 use Tests\TestCase;
@@ -37,7 +42,8 @@ class AdminReportTest extends TestCase
             ->getJson("/api/admin/reports/{$report->public_id}")
             ->assertOk()
             ->assertJsonPath('data.public_id', $report->public_id)
-            ->assertJsonPath('data.detail', 'The guest ignored the relaxation-only boundary.');
+            ->assertJsonPath('data.detail', 'The guest ignored the relaxation-only boundary.')
+            ->assertJsonPath('data.source_booking_message.id', $report->source_booking_message_id);
 
         $this->assertDatabaseHas('admin_audit_logs', [
             'actor_account_id' => $admin->id,
@@ -120,13 +126,63 @@ class AdminReportTest extends TestCase
             'public_id' => 'acc_reporter_admin',
             'display_name' => 'Reporter',
         ]);
+        $user = Account::factory()->create([
+            'public_id' => 'acc_report_booking_user',
+            'display_name' => 'Booking User',
+        ]);
         $target = Account::factory()->create([
             'public_id' => 'acc_report_target_admin',
             'display_name' => 'Report Target',
         ]);
+        $therapistProfile = TherapistProfile::create([
+            'account_id' => $target->id,
+            'public_id' => 'thp_report_target',
+            'public_name' => 'Report Target Therapist',
+            'profile_status' => 'approved',
+        ]);
+        $therapistMenu = TherapistMenu::create([
+            'public_id' => 'menu_report_target',
+            'therapist_profile_id' => $therapistProfile->id,
+            'name' => 'Body care 60',
+            'duration_minutes' => 60,
+            'base_price_amount' => 12000,
+        ]);
+        $serviceAddress = ServiceAddress::create([
+            'public_id' => 'addr_report_target',
+            'account_id' => $user->id,
+            'place_type' => 'hotel',
+            'address_line_encrypted' => Crypt::encryptString('Tokyo Hotel'),
+            'lat' => '35.6812360',
+            'lng' => '139.7671250',
+        ]);
+        $booking = Booking::create([
+            'public_id' => 'book_report_target',
+            'user_account_id' => $user->id,
+            'therapist_account_id' => $target->id,
+            'therapist_profile_id' => $therapistProfile->id,
+            'therapist_menu_id' => $therapistMenu->id,
+            'service_address_id' => $serviceAddress->id,
+            'status' => Booking::STATUS_REQUESTED,
+            'duration_minutes' => 60,
+            'total_amount' => 12300,
+            'therapist_net_amount' => 10800,
+            'platform_fee_amount' => 1200,
+            'matching_fee_amount' => 300,
+        ]);
+        $sourceMessage = BookingMessage::create([
+            'booking_id' => $booking->id,
+            'sender_account_id' => $target->id,
+            'message_type' => 'text',
+            'body_encrypted' => Crypt::encryptString('Let us talk directly.'),
+            'detected_contact_exchange' => true,
+            'moderation_status' => 'blocked',
+            'sent_at' => now()->subMinutes(5),
+        ]);
 
         $report = Report::create([
             'public_id' => 'rep_admin',
+            'booking_id' => $booking->id,
+            'source_booking_message_id' => $sourceMessage->id,
             'reporter_account_id' => $reporter->id,
             'target_account_id' => $target->id,
             'category' => 'boundary_violation',
