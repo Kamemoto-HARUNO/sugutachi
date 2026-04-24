@@ -22,6 +22,13 @@ class AdminBookingMessageResource extends JsonResource
             'body' => Crypt::decryptString($this->body_encrypted),
             'detected_contact_exchange' => $this->detected_contact_exchange,
             'moderation_status' => $this->moderation_status,
+            'moderated_by_admin' => $this->whenLoaded('moderatedByAdmin', fn () => $this->moderatedByAdmin ? [
+                'public_id' => $this->moderatedByAdmin->public_id,
+                'display_name' => $this->moderatedByAdmin->display_name,
+            ] : null),
+            'moderated_at' => $this->moderated_at,
+            'admin_note_count' => $this->when(isset($this->admin_notes_count), $this->admin_notes_count),
+            'notes' => AdminNoteResource::collection($this->whenLoaded('adminNotes')),
             'sent_at' => $this->sent_at,
             'read_at' => $this->read_at,
         ];

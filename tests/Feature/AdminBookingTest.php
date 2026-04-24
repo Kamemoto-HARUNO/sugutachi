@@ -169,6 +169,73 @@ class AdminBookingTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_note_and_moderate_booking_message(): void
+    {
+        [$admin, , , , $booking] = $this->createBookingFixture();
+        $message = BookingMessage::query()
+            ->where('booking_id', $booking->id)
+            ->where('moderation_status', BookingMessage::MODERATION_STATUS_BLOCKED)
+            ->firstOrFail();
+
+        $this->withToken($admin->createToken('api')->plainTextToken)
+            ->postJson("/api/admin/bookings/{$booking->public_id}/messages/{$message->id}/notes", [
+                'note' => 'Possible off-platform contact exchange. Keep under review.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.id', $message->id)
+            ->assertJsonPath('data.admin_note_count', 1)
+            ->assertJsonPath('data.notes.0.note', 'Possible off-platform contact exchange. Keep under review.')
+            ->assertJsonPath('data.moderation_status', BookingMessage::MODERATION_STATUS_BLOCKED);
+
+        $this->assertDatabaseHas('admin_notes', [
+            'target_type' => BookingMessage::class,
+            'target_id' => $message->id,
+        ]);
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'actor_account_id' => $admin->id,
+            'action' => 'booking.message.note',
+            'target_type' => BookingMessage::class,
+            'target_id' => $message->id,
+        ]);
+
+        $this->withToken($admin->createToken('api')->plainTextToken)
+            ->postJson("/api/admin/bookings/{$booking->public_id}/messages/{$message->id}/moderation", [
+                'moderation_status' => BookingMessage::MODERATION_STATUS_REVIEWED,
+                'note' => 'Reviewed by operations and closed.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.id', $message->id)
+            ->assertJsonPath('data.moderation_status', BookingMessage::MODERATION_STATUS_REVIEWED)
+            ->assertJsonPath('data.moderated_by_admin.public_id', $admin->public_id)
+            ->assertJsonPath('data.admin_note_count', 2)
+            ->assertJsonPath('data.notes.1.note', 'Reviewed by operations and closed.');
+
+        $this->assertDatabaseHas('booking_messages', [
+            'id' => $message->id,
+            'moderation_status' => BookingMessage::MODERATION_STATUS_REVIEWED,
+            'moderated_by_admin_account_id' => $admin->id,
+        ]);
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'actor_account_id' => $admin->id,
+            'action' => 'booking.message.moderate',
+            'target_type' => BookingMessage::class,
+            'target_id' => $message->id,
+        ]);
+
+        $this->withToken($admin->createToken('api')->plainTextToken)
+            ->getJson("/api/admin/bookings/{$booking->public_id}/messages?has_admin_notes=1&moderated_by_admin_account_id={$admin->public_id}&moderation_status=".BookingMessage::MODERATION_STATUS_REVIEWED)
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $message->id)
+            ->assertJsonPath('data.0.admin_note_count', 2)
+            ->assertJsonPath('data.0.moderated_by_admin.public_id', $admin->public_id);
+
+        $this->withToken($admin->createToken('api')->plainTextToken)
+            ->getJson('/api/admin/bookings?has_flagged_message=1')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
     private function createBookingFixture(): array
     {
         $admin = Account::factory()->create(['public_id' => 'acc_admin_booking']);
@@ -317,7 +384,7 @@ class AdminBookingTest extends TestCase
             'message_type' => 'text',
             'body_encrypted' => Crypt::encryptString('I am in the hotel lobby.'),
             'detected_contact_exchange' => false,
-            'moderation_status' => 'ok',
+            'moderation_status' => BookingMessage::MODERATION_STATUS_OK,
             'sent_at' => now()->subMinutes(10),
         ]);
         BookingMessage::create([
@@ -326,7 +393,7 @@ class AdminBookingTest extends TestCase
             'message_type' => 'text',
             'body_encrypted' => Crypt::encryptString('Call me at 090-0000-0000.'),
             'detected_contact_exchange' => true,
-            'moderation_status' => 'blocked',
+            'moderation_status' => BookingMessage::MODERATION_STATUS_BLOCKED,
             'sent_at' => now()->subMinutes(5),
             'read_at' => now()->subMinutes(4),
         ]);

@@ -10,8 +10,10 @@ use App\Http\Resources\AdminBookingDetailResource;
 use App\Http\Resources\AdminBookingListResource;
 use App\Http\Resources\AdminBookingMessageResource;
 use App\Models\Booking;
+use App\Models\BookingMessage;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Validation\Rule;
 
 class AdminBookingController extends Controller
@@ -165,15 +167,20 @@ class AdminBookingController extends Controller
 
         $validated = $request->validate([
             'sender_account_id' => ['nullable', 'string', 'max:36'],
+            'moderated_by_admin_account_id' => ['nullable', 'string', 'max:36'],
             'moderation_status' => ['nullable', 'string', 'max:50'],
             'detected_contact_exchange' => ['nullable', 'boolean'],
             'read_status' => ['nullable', Rule::in(['read', 'unread'])],
+            'has_admin_notes' => ['nullable', 'boolean'],
         ]);
         $senderAccountId = $this->resolveAccountId($validated['sender_account_id'] ?? null);
+        $moderatedByAdminId = $this->resolveAccountId($validated['moderated_by_admin_account_id'] ?? null);
 
         $messages = $booking->messages()
-            ->with(['booking', 'sender'])
+            ->with(['booking', 'sender', 'moderatedByAdmin'])
+            ->withCount('adminNotes')
             ->when($senderAccountId, fn ($query, int $id) => $query->where('sender_account_id', $id))
+            ->when($moderatedByAdminId, fn ($query, int $id) => $query->where('moderated_by_admin_account_id', $id))
             ->when(
                 $validated['moderation_status'] ?? null,
                 fn ($query, string $status) => $query->where('moderation_status', $status)
@@ -191,6 +198,12 @@ class AdminBookingController extends Controller
                     ? $query->whereNotNull('read_at')
                     : $query->whereNull('read_at')
             )
+            ->when(
+                array_key_exists('has_admin_notes', $validated),
+                fn ($query) => $validated['has_admin_notes']
+                    ? $query->whereHas('adminNotes')
+                    : $query->whereDoesntHave('adminNotes')
+            )
             ->oldest('sent_at')
             ->get();
 
@@ -203,6 +216,69 @@ class AdminBookingController extends Controller
         ));
 
         return AdminBookingMessageResource::collection($messages);
+    }
+
+    public function note(Request $request, Booking $booking, BookingMessage $message): AdminBookingMessageResource
+    {
+        $admin = $request->user();
+        $this->authorizeAdmin($admin);
+        $this->ensureBookingMessageBelongsToBooking($booking, $message);
+
+        $validated = $request->validate([
+            'note' => ['required', 'string', 'max:2000'],
+        ]);
+        $before = $this->snapshotMessage($message);
+
+        $message->adminNotes()->create([
+            'author_account_id' => $admin->id,
+            'note_encrypted' => Crypt::encryptString($validated['note']),
+        ]);
+
+        $this->recordAdminAudit(
+            $request,
+            'booking.message.note',
+            $message,
+            $before,
+            $this->snapshotMessage($message->fresh())
+        );
+
+        return new AdminBookingMessageResource($this->loadAdminMessage($message->fresh()));
+    }
+
+    public function moderate(Request $request, Booking $booking, BookingMessage $message): AdminBookingMessageResource
+    {
+        $admin = $request->user();
+        $this->authorizeAdmin($admin);
+        $this->ensureBookingMessageBelongsToBooking($booking, $message);
+
+        $validated = $request->validate([
+            'moderation_status' => ['required', Rule::in(BookingMessage::moderationStatuses())],
+            'note' => ['nullable', 'string', 'max:2000'],
+        ]);
+        $before = $this->snapshotMessage($message);
+
+        $message->forceFill([
+            'moderation_status' => $validated['moderation_status'],
+            'moderated_by_admin_account_id' => $admin->id,
+            'moderated_at' => now(),
+        ])->save();
+
+        if (filled($validated['note'] ?? null)) {
+            $message->adminNotes()->create([
+                'author_account_id' => $admin->id,
+                'note_encrypted' => Crypt::encryptString($validated['note']),
+            ]);
+        }
+
+        $this->recordAdminAudit(
+            $request,
+            'booking.message.moderate',
+            $message,
+            $before,
+            $this->snapshotMessage($message->fresh())
+        );
+
+        return new AdminBookingMessageResource($this->loadAdminMessage($message->fresh()));
     }
 
     private function bookingStatuses(): array
@@ -237,5 +313,36 @@ class AdminBookingController extends Controller
             'scheduled_end_at',
             'total_amount',
         ]);
+    }
+
+    private function ensureBookingMessageBelongsToBooking(Booking $booking, BookingMessage $message): void
+    {
+        abort_unless($message->booking_id === $booking->id, 404);
+    }
+
+    private function loadAdminMessage(BookingMessage $message): BookingMessage
+    {
+        return $message->load(['booking', 'sender', 'moderatedByAdmin', 'adminNotes.author'])->loadCount('adminNotes');
+    }
+
+    private function snapshotMessage(BookingMessage $message): array
+    {
+        return array_merge(
+            $message->only([
+                'id',
+                'booking_id',
+                'sender_account_id',
+                'message_type',
+                'detected_contact_exchange',
+                'moderation_status',
+                'moderated_by_admin_account_id',
+                'moderated_at',
+                'sent_at',
+                'read_at',
+            ]),
+            [
+                'admin_note_count' => $message->adminNotes()->count(),
+            ],
+        );
     }
 }

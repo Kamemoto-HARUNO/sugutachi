@@ -45,7 +45,7 @@ class BookingMessageController extends Controller
             'message_type' => 'text',
             'body_encrypted' => Crypt::encryptString($validated['body']),
             'detected_contact_exchange' => false,
-            'moderation_status' => 'ok',
+            'moderation_status' => BookingMessage::MODERATION_STATUS_OK,
             'sent_at' => now(),
         ]);
 
