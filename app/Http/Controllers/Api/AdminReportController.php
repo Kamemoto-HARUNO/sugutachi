@@ -32,6 +32,7 @@ class AdminReportController extends Controller
             'target_account_id' => ['nullable', 'string', 'max:36'],
             'assigned_admin_account_id' => ['nullable', 'string', 'max:36'],
             'status' => ['nullable', Rule::in([Report::STATUS_OPEN, Report::STATUS_RESOLVED])],
+            'category' => ['nullable', 'string', 'max:100'],
             'severity' => ['nullable', Rule::in([
                 Report::SEVERITY_LOW,
                 Report::SEVERITY_MEDIUM,
@@ -64,6 +65,7 @@ class AdminReportController extends Controller
                 ->when($targetId, fn ($query, int $id) => $query->where('target_account_id', $id))
                 ->when($assignedAdminId, fn ($query, int $id) => $query->where('assigned_admin_account_id', $id))
                 ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
+                ->when($validated['category'] ?? null, fn ($query, string $category) => $query->where('category', $category))
                 ->when($validated['severity'] ?? null, fn ($query, string $severity) => $query->where('severity', $severity))
                 ->orderBy($sort, $direction)
                 ->orderBy('id', $direction)

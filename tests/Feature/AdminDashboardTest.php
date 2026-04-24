@@ -104,6 +104,23 @@ class AdminDashboardTest extends TestCase
             'platform_fee_amount' => 1200,
             'matching_fee_amount' => 300,
         ]);
+        $interruptedBooking = Booking::create([
+            'public_id' => 'book_dashboard_interrupted',
+            'user_account_id' => $suspendedUser->id,
+            'therapist_account_id' => $therapist->id,
+            'therapist_profile_id' => $therapistProfile->id,
+            'therapist_menu_id' => $therapistMenu->id,
+            'service_address_id' => $serviceAddress->id,
+            'status' => Booking::STATUS_INTERRUPTED,
+            'duration_minutes' => 60,
+            'interrupted_at' => now(),
+            'interruption_reason_code' => 'safety_concern',
+            'cancel_reason_code' => 'safety_concern',
+            'total_amount' => 12300,
+            'therapist_net_amount' => 10800,
+            'platform_fee_amount' => 1200,
+            'matching_fee_amount' => 300,
+        ]);
         $inProgressBooking = Booking::create([
             'public_id' => 'book_dashboard_progress',
             'user_account_id' => $suspendedUser->id,
@@ -149,6 +166,15 @@ class AdminDashboardTest extends TestCase
             'reporter_account_id' => $suspendedUser->id,
             'target_account_id' => $therapist->id,
             'category' => 'boundary_violation',
+            'severity' => Report::SEVERITY_HIGH,
+            'status' => Report::STATUS_OPEN,
+        ]);
+        Report::create([
+            'public_id' => 'rep_dashboard_interrupted',
+            'booking_id' => $interruptedBooking->id,
+            'reporter_account_id' => $therapist->id,
+            'target_account_id' => $suspendedUser->id,
+            'category' => 'booking_interrupted',
             'severity' => Report::SEVERITY_HIGH,
             'status' => Report::STATUS_OPEN,
         ]);
@@ -200,13 +226,15 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.reviews.pending_therapist_profiles', 1)
             ->assertJsonPath('data.reviews.suspended_therapist_profiles', 1)
             ->assertJsonPath('data.reviews.pending_profile_photos', 1)
-            ->assertJsonPath('data.operations.open_reports', 1)
+            ->assertJsonPath('data.operations.open_reports', 2)
+            ->assertJsonPath('data.operations.open_interruption_reports', 1)
             ->assertJsonPath('data.operations.open_message_origin_reports', 1)
             ->assertJsonPath('data.operations.pending_contact_inquiries', 1)
             ->assertJsonPath('data.operations.open_stripe_disputes', 1)
             ->assertJsonPath('data.operations.requested_refunds', 1)
             ->assertJsonPath('data.operations.requested_payouts', 1)
             ->assertJsonPath('data.bookings.requested', 1)
+            ->assertJsonPath('data.bookings.interrupted', 1)
             ->assertJsonPath('data.bookings.in_progress', 1)
             ->assertJsonPath('data.bookings.completed_today', 1)
             ->assertJsonPath('data.bookings.needs_message_review', 1)
@@ -216,6 +244,8 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.navigation.reviews.pending_identity_verifications.query.sort', 'submitted_at')
             ->assertJsonPath('data.navigation.reviews.suspended_therapist_profiles.path', '/api/admin/therapist-profiles')
             ->assertJsonPath('data.navigation.reviews.suspended_therapist_profiles.query.status', TherapistProfile::STATUS_SUSPENDED)
+            ->assertJsonPath('data.navigation.operations.open_interruption_reports.path', '/api/admin/reports')
+            ->assertJsonPath('data.navigation.operations.open_interruption_reports.query.category', 'booking_interrupted')
             ->assertJsonPath('data.navigation.operations.open_message_origin_reports.path', '/api/admin/reports')
             ->assertJsonPath('data.navigation.operations.open_message_origin_reports.query.has_source_booking_message', true)
             ->assertJsonPath('data.navigation.operations.pending_contact_inquiries.path', '/api/admin/contact-inquiries')
@@ -225,6 +255,7 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.navigation.operations.requested_payouts.path', '/api/admin/payout-requests')
             ->assertJsonPath('data.navigation.operations.requested_payouts.query.direction', 'asc')
             ->assertJsonPath('data.navigation.bookings.requested.path', '/api/admin/bookings')
+            ->assertJsonPath('data.navigation.bookings.interrupted.query.status', Booking::STATUS_INTERRUPTED)
             ->assertJsonPath('data.navigation.bookings.completed_today.query.completed_on', today()->toDateString())
             ->assertJsonPath('data.navigation.bookings.needs_message_review.query.has_flagged_message', true);
     }

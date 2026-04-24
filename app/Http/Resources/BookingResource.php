@@ -31,7 +31,9 @@ class BookingResource extends JsonResource
             'started_at' => $this->started_at,
             'ended_at' => $this->ended_at,
             'canceled_at' => $this->canceled_at,
+            'interrupted_at' => $this->interrupted_at,
             'cancel_reason_code' => $this->cancel_reason_code,
+            'interruption_reason_code' => $this->interruption_reason_code,
             'cancel_reason_note' => $this->cancel_reason_note_encrypted
                 ? rescue(fn () => Crypt::decryptString($this->cancel_reason_note_encrypted), null, false)
                 : null,

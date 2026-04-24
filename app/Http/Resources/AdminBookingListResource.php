@@ -18,6 +18,8 @@ class AdminBookingListResource extends JsonResource
             'scheduled_end_at' => $this->scheduled_end_at,
             'duration_minutes' => $this->duration_minutes,
             'cancel_reason_code' => $this->cancel_reason_code,
+            'interruption_reason_code' => $this->interruption_reason_code,
+            'interrupted_at' => $this->interrupted_at,
             'cancel_reason_note' => $this->cancel_reason_note_encrypted
                 ? rescue(fn () => Crypt::decryptString($this->cancel_reason_note_encrypted), null, false)
                 : null,
@@ -57,6 +59,9 @@ class AdminBookingListResource extends JsonResource
             'refund_count' => $this->refunds_count,
             'auto_refund_count' => $this->auto_refunds_count,
             'report_count' => $this->reports_count,
+            'interruption_report_count' => $this->interruption_reports_count,
+            'consent_count' => $this->consents_count,
+            'health_check_count' => $this->health_checks_count,
             'open_dispute_count' => $this->open_disputes_count,
             'flagged_message_count' => $this->flagged_messages_count,
             'created_at' => $this->created_at,

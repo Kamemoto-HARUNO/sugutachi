@@ -184,6 +184,7 @@ class BookingSafetyController extends Controller
                 'interrupted_at' => now(),
                 'canceled_by_account_id' => $actor->id,
                 'cancel_reason_code' => $validated['reason_code'],
+                'interruption_reason_code' => $validated['reason_code'],
                 'cancel_reason_note_encrypted' => filled($validated['reason_note'] ?? null)
                     ? Crypt::encryptString($validated['reason_note'])
                     : null,

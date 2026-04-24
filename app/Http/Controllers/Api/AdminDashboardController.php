@@ -50,6 +50,10 @@ class AdminDashboardController extends Controller
                     'open_reports' => Report::query()
                         ->where('status', Report::STATUS_OPEN)
                         ->count(),
+                    'open_interruption_reports' => Report::query()
+                        ->where('status', Report::STATUS_OPEN)
+                        ->where('category', 'booking_interrupted')
+                        ->count(),
                     'open_message_origin_reports' => Report::query()
                         ->where('status', Report::STATUS_OPEN)
                         ->whereNotNull('source_booking_message_id')
@@ -72,6 +76,7 @@ class AdminDashboardController extends Controller
                 ],
                 'bookings' => [
                     'requested' => Booking::query()->where('status', Booking::STATUS_REQUESTED)->count(),
+                    'interrupted' => Booking::query()->where('status', Booking::STATUS_INTERRUPTED)->count(),
                     'in_progress' => Booking::query()->where('status', Booking::STATUS_IN_PROGRESS)->count(),
                     'completed_today' => Booking::query()
                         ->where('status', Booking::STATUS_COMPLETED)
@@ -135,6 +140,15 @@ class AdminDashboardController extends Controller
                                 'direction' => 'desc',
                             ],
                         ],
+                        'open_interruption_reports' => [
+                            'path' => '/api/admin/reports',
+                            'query' => [
+                                'status' => Report::STATUS_OPEN,
+                                'category' => 'booking_interrupted',
+                                'sort' => 'created_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
                         'open_message_origin_reports' => [
                             'path' => '/api/admin/reports',
                             'query' => [
@@ -183,6 +197,14 @@ class AdminDashboardController extends Controller
                             'query' => [
                                 'status' => Booking::STATUS_REQUESTED,
                                 'sort' => 'created_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
+                        'interrupted' => [
+                            'path' => '/api/admin/bookings',
+                            'query' => [
+                                'status' => Booking::STATUS_INTERRUPTED,
+                                'sort' => 'updated_at',
                                 'direction' => 'desc',
                             ],
                         ],

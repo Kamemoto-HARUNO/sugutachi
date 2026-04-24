@@ -27,7 +27,9 @@ class AdminBookingDetailResource extends JsonResource
             'started_at' => $this->started_at,
             'ended_at' => $this->ended_at,
             'canceled_at' => $this->canceled_at,
+            'interrupted_at' => $this->interrupted_at,
             'cancel_reason_code' => $this->cancel_reason_code,
+            'interruption_reason_code' => $this->interruption_reason_code,
             'cancel_reason_note' => $this->cancel_reason_note_encrypted
                 ? rescue(fn () => Crypt::decryptString($this->cancel_reason_note_encrypted), null, false)
                 : null,
@@ -75,11 +77,16 @@ class AdminBookingDetailResource extends JsonResource
                 'currentPaymentIntent',
                 fn () => $this->currentPaymentIntent ? new AdminPaymentIntentResource($this->currentPaymentIntent) : null
             ),
+            'interruption_report_count' => $this->whenLoaded('reports', fn () => $this->reports
+                ->where('category', 'booking_interrupted')
+                ->count()),
             'auto_refund_count' => $this->whenLoaded('refunds', fn () => $this->refunds
                 ->where('reason_code', Refund::REASON_CODE_BOOKING_CANCELLATION_AUTO)
                 ->count()),
             'refunds' => RefundResource::collection($this->whenLoaded('refunds')),
             'reports' => ReportResource::collection($this->whenLoaded('reports')),
+            'consents' => AdminBookingConsentResource::collection($this->whenLoaded('consents')),
+            'health_checks' => AdminBookingHealthCheckResource::collection($this->whenLoaded('healthChecks')),
             'status_logs' => AdminBookingStatusLogResource::collection($this->whenLoaded('statusLogs')),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,

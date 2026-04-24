@@ -41,11 +41,15 @@ class AdminBookingController extends Controller
             'therapist_profile_id' => ['nullable', 'string', 'max:36'],
             'status' => ['nullable', Rule::in($this->bookingStatuses())],
             'cancel_reason_code' => ['nullable', 'string', 'max:100'],
+            'interruption_reason_code' => ['nullable', 'string', 'max:100'],
             'is_on_demand' => ['nullable', 'boolean'],
             'payment_intent_status' => ['nullable', 'string', 'max:50'],
             'has_refund_request' => ['nullable', 'boolean'],
             'has_auto_refund' => ['nullable', 'boolean'],
             'has_open_report' => ['nullable', 'boolean'],
+            'has_interruption_report' => ['nullable', 'boolean'],
+            'has_consent' => ['nullable', 'boolean'],
+            'has_health_check' => ['nullable', 'boolean'],
             'has_open_dispute' => ['nullable', 'boolean'],
             'has_flagged_message' => ['nullable', 'boolean'],
             'scheduled_from' => ['nullable', 'date'],
@@ -79,6 +83,10 @@ class AdminBookingController extends Controller
                     'refunds as auto_refunds_count' => fn ($query) => $query
                         ->where('reason_code', Refund::REASON_CODE_BOOKING_CANCELLATION_AUTO),
                     'reports',
+                    'reports as interruption_reports_count' => fn ($query) => $query
+                        ->where('category', 'booking_interrupted'),
+                    'consents',
+                    'healthChecks',
                     'disputes as open_disputes_count' => fn ($query) => $query->whereIn('status', [
                         'needs_response',
                         'under_review',
@@ -90,6 +98,10 @@ class AdminBookingController extends Controller
                 ->when($therapistProfileId, fn ($query, int $id) => $query->where('therapist_profile_id', $id))
                 ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
                 ->when($validated['cancel_reason_code'] ?? null, fn ($query, string $code) => $query->where('cancel_reason_code', $code))
+                ->when(
+                    $validated['interruption_reason_code'] ?? null,
+                    fn ($query, string $code) => $query->where('interruption_reason_code', $code)
+                )
                 ->when(
                     array_key_exists('is_on_demand', $validated),
                     fn ($query) => $query->where('is_on_demand', (bool) $validated['is_on_demand'])
@@ -117,6 +129,24 @@ class AdminBookingController extends Controller
                     fn ($query) => $validated['has_open_report']
                         ? $query->whereHas('reports', fn ($query) => $query->where('status', 'open'))
                         : $query->whereDoesntHave('reports', fn ($query) => $query->where('status', 'open'))
+                )
+                ->when(
+                    array_key_exists('has_interruption_report', $validated),
+                    fn ($query) => $validated['has_interruption_report']
+                        ? $query->whereHas('reports', fn ($query) => $query->where('category', 'booking_interrupted'))
+                        : $query->whereDoesntHave('reports', fn ($query) => $query->where('category', 'booking_interrupted'))
+                )
+                ->when(
+                    array_key_exists('has_consent', $validated),
+                    fn ($query) => $validated['has_consent']
+                        ? $query->whereHas('consents')
+                        : $query->whereDoesntHave('consents')
+                )
+                ->when(
+                    array_key_exists('has_health_check', $validated),
+                    fn ($query) => $validated['has_health_check']
+                        ? $query->whereHas('healthChecks')
+                        : $query->whereDoesntHave('healthChecks')
                 )
                 ->when(
                     array_key_exists('has_open_dispute', $validated),
@@ -177,6 +207,8 @@ class AdminBookingController extends Controller
             'reports.reporter',
             'reports.target',
             'reports.assignedAdmin',
+            'consents' => fn ($query) => $query->with(['booking', 'account', 'legalDocument'])->orderBy('id'),
+            'healthChecks' => fn ($query) => $query->with(['booking', 'account'])->latest('id'),
             'statusLogs.actor',
         ]);
 

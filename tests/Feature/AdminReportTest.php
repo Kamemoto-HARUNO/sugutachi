@@ -41,7 +41,7 @@ class AdminReportTest extends TestCase
         $token = $admin->createToken('api')->plainTextToken;
 
         $this->withToken($token)
-            ->getJson("/api/admin/reports?status=open&severity=high&reporter_account_id={$reporter->public_id}&has_source_booking_message=1&sort=created_at&direction=asc")
+            ->getJson("/api/admin/reports?status=open&category=boundary_violation&severity=high&reporter_account_id={$reporter->public_id}&has_source_booking_message=1&sort=created_at&direction=asc")
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.public_id', $report->public_id)

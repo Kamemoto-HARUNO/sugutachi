@@ -4,8 +4,11 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\Booking;
+use App\Models\BookingConsent;
+use App\Models\BookingHealthCheck;
 use App\Models\BookingMessage;
 use App\Models\BookingQuote;
+use App\Models\LegalDocument;
 use App\Models\PaymentIntent;
 use App\Models\Refund;
 use App\Models\Report;
@@ -211,6 +214,85 @@ class AdminBookingTest extends TestCase
         ]);
 
         $this->assertSame($user->id, $booking->user_account_id);
+    }
+
+    public function test_admin_can_filter_and_view_interrupted_booking_safety_context(): void
+    {
+        [$admin, $user, $therapist, , $booking] = $this->createBookingFixture();
+
+        $booking->forceFill([
+            'status' => Booking::STATUS_INTERRUPTED,
+            'interrupted_at' => now(),
+            'interruption_reason_code' => 'safety_concern',
+            'cancel_reason_code' => 'safety_concern',
+            'cancel_reason_note_encrypted' => Crypt::encryptString('体調面の懸念により施術を中断しました。'),
+            'canceled_by_account_id' => $therapist->id,
+        ])->save();
+
+        $legalDocument = LegalDocument::create([
+            'public_id' => 'ldc_admin_booking_safety',
+            'document_type' => 'terms',
+            'version' => '2026-04-24',
+            'title' => '安全確認',
+            'body' => 'test',
+            'published_at' => now(),
+            'effective_at' => now(),
+        ]);
+
+        BookingConsent::create([
+            'booking_id' => $booking->id,
+            'account_id' => $user->id,
+            'consent_type' => 'relaxation_purpose_acknowledged',
+            'legal_document_id' => $legalDocument->id,
+            'consented_at' => now()->subMinutes(15),
+            'ip_hash' => hash('sha256', '127.0.0.1'),
+        ]);
+
+        BookingHealthCheck::create([
+            'booking_id' => $booking->id,
+            'account_id' => $user->id,
+            'role' => 'user',
+            'drinking_status' => 'none',
+            'has_injury' => false,
+            'has_fever' => false,
+            'contraindications_json' => ['首まわりは避けたい'],
+            'notes_encrypted' => Crypt::encryptString('今日は軽めの力加減を希望。'),
+            'checked_at' => now()->subMinutes(10),
+        ]);
+
+        Report::create([
+            'public_id' => 'rep_admin_booking_interrupted',
+            'booking_id' => $booking->id,
+            'reporter_account_id' => $therapist->id,
+            'target_account_id' => $user->id,
+            'category' => 'booking_interrupted',
+            'severity' => Report::SEVERITY_HIGH,
+            'status' => Report::STATUS_OPEN,
+        ]);
+
+        $token = $admin->createToken('api')->plainTextToken;
+
+        $this->withToken($token)
+            ->getJson('/api/admin/bookings?status=interrupted&interruption_reason_code=safety_concern&has_consent=1&has_health_check=1&has_interruption_report=1')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.public_id', $booking->public_id)
+            ->assertJsonPath('data.0.interruption_reason_code', 'safety_concern')
+            ->assertJsonPath('data.0.consent_count', 1)
+            ->assertJsonPath('data.0.health_check_count', 1)
+            ->assertJsonPath('data.0.interruption_report_count', 1);
+
+        $this->withToken($token)
+            ->getJson("/api/admin/bookings/{$booking->public_id}")
+            ->assertOk()
+            ->assertJsonPath('data.public_id', $booking->public_id)
+            ->assertJsonPath('data.interruption_reason_code', 'safety_concern')
+            ->assertJsonPath('data.interruption_report_count', 1)
+            ->assertJsonPath('data.consents.0.account.public_id', $user->public_id)
+            ->assertJsonPath('data.consents.0.consent_type', 'relaxation_purpose_acknowledged')
+            ->assertJsonPath('data.consents.0.legal_document.public_id', $legalDocument->public_id)
+            ->assertJsonPath('data.health_checks.0.account.public_id', $user->public_id)
+            ->assertJsonPath('data.health_checks.0.notes', '今日は軽めの力加減を希望。');
     }
 
     public function test_non_admin_cannot_access_booking_admin_api(): void

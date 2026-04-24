@@ -104,6 +104,7 @@ class BookingSafetyTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.booking.status', Booking::STATUS_INTERRUPTED)
             ->assertJsonPath('data.booking.cancel_reason_code', 'safety_concern')
+            ->assertJsonPath('data.booking.interruption_reason_code', 'safety_concern')
             ->assertJsonPath('data.booking.current_payment_intent.status', PaymentIntent::STRIPE_STATUS_CANCELED)
             ->assertJsonPath('data.report.category', 'booking_interrupted')
             ->assertJsonPath('data.report.target_account_id', $user->public_id)
@@ -113,6 +114,7 @@ class BookingSafetyTest extends TestCase
             'id' => $booking->id,
             'status' => Booking::STATUS_INTERRUPTED,
             'cancel_reason_code' => 'safety_concern',
+            'interruption_reason_code' => 'safety_concern',
             'canceled_by_account_id' => $therapist->id,
         ]);
         $this->assertDatabaseHas('reports', [
