@@ -357,17 +357,26 @@ accounts
 | start_at | timestamp | No | 空き開始 |
 | end_at | timestamp | No | 空き終了 |
 | status | varchar(50) | No | published, hidden, expired |
+| dispatch_base_type | varchar(50) | No | default, custom |
+| dispatch_area_label | varchar(120) | Yes | ユーザー向け公開エリア名 |
+| custom_dispatch_base_label | varchar(120) | Yes | セラピスト内部向け拠点ラベル |
+| custom_dispatch_base_lat | decimal(10,7) | Yes | 枠専用出動拠点の緯度 |
+| custom_dispatch_base_lng | decimal(10,7) | Yes | 枠専用出動拠点の経度 |
+| custom_dispatch_base_geohash | varchar(12) | Yes | 粗い検索補助 |
+| custom_dispatch_base_accuracy_m | unsigned int | Yes | 位置精度 |
 | created_at / updated_at | timestamp | Yes | Laravel標準 |
 | deleted_at | timestamp | Yes | 論理削除 |
 
 インデックス:
 * unique: `public_id`
 * index: `therapist_profile_id, status, start_at`
+* index: `dispatch_base_type, start_at`
 * index: `status, start_at`
 
 補足:
 * 単発登録のみを対象とし、繰り返しルールは持たない。
 * 実際の予約可能時間帯は、この空き時間から `requested` / `accepted` / `confirmed` 以降の予定予約、承諾済みバッファ、受付締切を差し引いて算出する。
+* 距離・徒歩目安・交通費・表示可否判定は、`dispatch_base_type=custom` なら枠専用出動拠点、`default` なら `therapist_booking_settings` の基本地点を使う。
 
 ### 6.5 platform_fee_settings
 運営手数料、キャンセル料、上限/下限などの設定。
