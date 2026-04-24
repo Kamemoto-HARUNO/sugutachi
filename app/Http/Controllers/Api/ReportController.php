@@ -9,11 +9,84 @@ use App\Models\Booking;
 use App\Models\Report;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class ReportController extends Controller
 {
+    public function index(Request $request): AnonymousResourceCollection
+    {
+        $validated = $request->validate([
+            'booking_id' => ['nullable', 'string', 'max:36'],
+            'target_account_id' => ['nullable', 'string', 'max:36'],
+            'status' => ['nullable', Rule::in([Report::STATUS_OPEN, Report::STATUS_RESOLVED])],
+            'category' => ['nullable', 'string', 'max:100'],
+            'severity' => ['nullable', Rule::in([
+                Report::SEVERITY_LOW,
+                Report::SEVERITY_MEDIUM,
+                Report::SEVERITY_HIGH,
+                Report::SEVERITY_CRITICAL,
+            ])],
+            'sort' => ['nullable', Rule::in(['created_at', 'resolved_at'])],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
+        ]);
+
+        $actor = $request->user();
+        $sort = $validated['sort'] ?? 'created_at';
+        $direction = $validated['direction'] ?? 'desc';
+
+        $reports = Report::query()
+            ->with(['booking', 'sourceBookingMessage.sender', 'reporter', 'target'])
+            ->where('reporter_account_id', $actor->id)
+            ->when(
+                $validated['booking_id'] ?? null,
+                fn ($query, string $bookingPublicId) => $query->whereHas(
+                    'booking',
+                    fn ($bookingQuery) => $bookingQuery->where('public_id', $bookingPublicId)
+                )
+            )
+            ->when(
+                $validated['target_account_id'] ?? null,
+                fn ($query, string $targetPublicId) => $query->whereHas(
+                    'target',
+                    fn ($targetQuery) => $targetQuery->where('public_id', $targetPublicId)
+                )
+            )
+            ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
+            ->when($validated['category'] ?? null, fn ($query, string $category) => $query->where('category', $category))
+            ->when($validated['severity'] ?? null, fn ($query, string $severity) => $query->where('severity', $severity))
+            ->orderBy($sort, $direction)
+            ->orderBy('id', $direction)
+            ->get();
+
+        return ReportResource::collection($reports)->additional([
+            'meta' => [
+                'total_count' => Report::query()
+                    ->where('reporter_account_id', $actor->id)
+                    ->count(),
+                'open_count' => Report::query()
+                    ->where('reporter_account_id', $actor->id)
+                    ->where('status', Report::STATUS_OPEN)
+                    ->count(),
+                'resolved_count' => Report::query()
+                    ->where('reporter_account_id', $actor->id)
+                    ->where('status', Report::STATUS_RESOLVED)
+                    ->count(),
+                'filters' => [
+                    'booking_id' => $validated['booking_id'] ?? null,
+                    'target_account_id' => $validated['target_account_id'] ?? null,
+                    'status' => $validated['status'] ?? null,
+                    'category' => $validated['category'] ?? null,
+                    'severity' => $validated['severity'] ?? null,
+                    'sort' => $sort,
+                    'direction' => $direction,
+                ],
+            ],
+        ]);
+    }
+
     public function store(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -60,7 +133,10 @@ class ReportController extends Controller
             'created_at' => now(),
         ]);
 
-        return (new ReportResource($report->load(['booking', 'reporter', 'target'])))
+        $report = $report->load(['booking', 'sourceBookingMessage.sender', 'reporter', 'target']);
+        $report->setAttribute('include_detail', true);
+
+        return (new ReportResource($report))
             ->response()
             ->setStatusCode(201);
     }
@@ -69,7 +145,10 @@ class ReportController extends Controller
     {
         abort_unless($report->reporter_account_id === $request->user()->id, 404);
 
-        return new ReportResource($report->load(['booking', 'reporter', 'target']));
+        $report = $report->load(['booking', 'sourceBookingMessage.sender', 'reporter', 'target']);
+        $report->setAttribute('include_detail', true);
+
+        return new ReportResource($report);
     }
 
     private function authorizeBookingParticipant(Booking $booking, Account $actor): void

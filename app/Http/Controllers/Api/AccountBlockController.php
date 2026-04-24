@@ -8,9 +8,56 @@ use App\Models\Account;
 use App\Models\AccountBlock;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Validation\Rule;
 
 class AccountBlockController extends Controller
 {
+    public function index(Request $request): AnonymousResourceCollection
+    {
+        $validated = $request->validate([
+            'reason_code' => ['nullable', 'string', 'max:100'],
+            'q' => ['nullable', 'string', 'max:120'],
+            'sort' => ['nullable', Rule::in(['created_at'])],
+            'direction' => ['nullable', Rule::in(['asc', 'desc'])],
+        ]);
+
+        $sort = $validated['sort'] ?? 'created_at';
+        $direction = $validated['direction'] ?? 'desc';
+
+        $blocks = AccountBlock::query()
+            ->with(['blocker', 'blocked'])
+            ->where('blocker_account_id', $request->user()->id)
+            ->when(
+                $validated['reason_code'] ?? null,
+                fn ($query, string $reasonCode) => $query->where('reason_code', $reasonCode)
+            )
+            ->when(
+                $validated['q'] ?? null,
+                fn ($query, string $keyword) => $query->whereHas(
+                    'blocked',
+                    fn ($blockedQuery) => $blockedQuery->where('display_name', 'like', '%'.$keyword.'%')
+                )
+            )
+            ->orderBy($sort, $direction)
+            ->orderBy('id', $direction)
+            ->get();
+
+        return AccountBlockResource::collection($blocks)->additional([
+            'meta' => [
+                'total_count' => AccountBlock::query()
+                    ->where('blocker_account_id', $request->user()->id)
+                    ->count(),
+                'filters' => [
+                    'reason_code' => $validated['reason_code'] ?? null,
+                    'q' => $validated['q'] ?? null,
+                    'sort' => $sort,
+                    'direction' => $direction,
+                ],
+            ],
+        ]);
+    }
+
     public function store(Request $request, Account $account): JsonResponse
     {
         abort_if($account->id === $request->user()->id, 422, 'You cannot block yourself.');

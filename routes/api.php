@@ -80,9 +80,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'read']);
     Route::post('/push-subscriptions', [PushSubscriptionController::class, 'store']);
     Route::delete('/push-subscriptions/{pushSubscription}', [PushSubscriptionController::class, 'destroy']);
+    Route::get('/accounts/blocks', [AccountBlockController::class, 'index']);
     Route::post('/accounts/{account:public_id}/block', [AccountBlockController::class, 'store']);
     Route::delete('/accounts/{account:public_id}/block', [AccountBlockController::class, 'destroy']);
     Route::post('/reports', [ReportController::class, 'store']);
+    Route::get('/reports', [ReportController::class, 'index']);
     Route::get('/reports/{report:public_id}', [ReportController::class, 'show']);
     Route::get('/admin/refund-requests', [AdminRefundRequestController::class, 'index']);
     Route::post('/admin/refund-requests/{refund:public_id}/approve', [AdminRefundRequestController::class, 'approve']);
