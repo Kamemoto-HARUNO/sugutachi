@@ -43,13 +43,67 @@ class NotificationApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $notification->id)
-            ->assertJsonPath('data.0.data.booking_id', 'book_notify');
+            ->assertJsonPath('data.0.data.booking_id', 'book_notify')
+            ->assertJsonPath('data.0.is_read', false)
+            ->assertJsonPath('meta.unread_count', 1);
 
         $this->withToken($token)
             ->postJson("/api/notifications/{$notification->id}/read")
-            ->assertOk();
+            ->assertOk()
+            ->assertJsonPath('status', 'read')
+            ->assertJsonPath('is_read', true);
 
         $this->assertNotNull($notification->refresh()->read_at);
+        $this->assertSame('read', $notification->refresh()->status);
+    }
+
+    public function test_account_can_filter_notifications_and_get_unread_count(): void
+    {
+        $account = Account::factory()->create(['public_id' => 'acc_notify_filter']);
+        $token = $account->createToken('api')->plainTextToken;
+
+        AppNotification::create([
+            'account_id' => $account->id,
+            'notification_type' => 'booking_requested',
+            'channel' => 'in_app',
+            'title' => 'Requested',
+            'body' => 'New request arrived.',
+            'status' => 'sent',
+            'sent_at' => now()->subMinutes(3),
+        ]);
+
+        $target = AppNotification::create([
+            'account_id' => $account->id,
+            'notification_type' => 'booking_canceled',
+            'channel' => 'in_app',
+            'title' => 'Canceled',
+            'body' => 'A booking was canceled.',
+            'status' => 'sent',
+            'sent_at' => now()->subMinutes(2),
+        ]);
+
+        AppNotification::create([
+            'account_id' => $account->id,
+            'notification_type' => 'booking_refunded',
+            'channel' => 'in_app',
+            'title' => 'Refunded',
+            'body' => 'A refund was processed.',
+            'status' => 'read',
+            'sent_at' => now()->subMinute(),
+            'read_at' => now()->subMinute(),
+        ]);
+
+        $this->withToken($token)
+            ->getJson('/api/notifications?notification_type=booking_canceled&status=sent&read_status=unread&limit=10')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $target->id)
+            ->assertJsonPath('data.0.notification_type', 'booking_canceled')
+            ->assertJsonPath('meta.unread_count', 2)
+            ->assertJsonPath('meta.limit', 10)
+            ->assertJsonPath('meta.filters.notification_type', 'booking_canceled')
+            ->assertJsonPath('meta.filters.status', 'sent')
+            ->assertJsonPath('meta.filters.read_status', 'unread');
     }
 
     public function test_account_can_create_update_and_revoke_push_subscription(): void

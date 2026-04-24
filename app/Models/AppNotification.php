@@ -11,6 +11,21 @@ class AppNotification extends Model
 {
     protected $table = 'notifications';
 
+    public const STATUS_QUEUED = 'queued';
+
+    public const STATUS_SENT = 'sent';
+
+    public const STATUS_FAILED = 'failed';
+
+    public const STATUS_READ = 'read';
+
+    public const STATUSES = [
+        self::STATUS_QUEUED,
+        self::STATUS_SENT,
+        self::STATUS_FAILED,
+        self::STATUS_READ,
+    ];
+
     public function account(): BelongsTo
     {
         return $this->belongsTo(Account::class);

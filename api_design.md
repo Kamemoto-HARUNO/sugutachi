@@ -698,6 +698,8 @@ payment_authorizing
 
 Push購読情報はエンドポイントをハッシュ化して重複管理し、エンドポイント・鍵情報は暗号化して保存する。MVPではアプリ内通知の保存・既読管理とPush購読管理までを実装し、実配信は後続のキュー処理で接続する。
 
+`GET /notifications` は `notification_type` / `status` / `read_status` / `limit` で絞り込める。レスポンス `meta.unread_count` には、現在の絞り込み条件とは別にアカウント全体の未読件数を返し、通知バッジ描画に使えるようにする。各通知には `is_read` を含める。
+
 予約関連の主な通知種別は `booking_requested` / `booking_accepted` / `booking_canceled` / `booking_interrupted` / `booking_refunded` とし、`data.booking_public_id` を共通キーとして持つ。`booking_requested` はセラピスト向け、`booking_accepted` はユーザー向け、`booking_canceled` は相手方または決済失敗時のユーザー向け、`booking_interrupted` は中断相手方への安全通知、`booking_refunded` は返金対象ユーザー向けに送る。
 
 ## 10. レビュー・通報・返金API
