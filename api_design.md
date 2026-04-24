@@ -285,6 +285,8 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
 
 緯度経度、正確な距離、詳細住所は返さない。
 
+`GET /therapists` は、`profile_status=approved`、`is_online=true`、待機位置が `is_searchable=true`、最新の本人確認が `approved`、有効メニューあり、かつブロック関係がないセラピストのみを返す。検索は `service_address_id` に紐づく自分の施術場所を基準に行い、サーバー側で徒歩目安レンジと概算総額を算出する。`GET /therapists/{public_id}` は同じ公開条件を満たすセラピストの詳細を返し、`service_address_id` と `menu_duration_minutes` を付けた場合はメニューごとの概算総額も返す。`GET /therapists` には `30回/10分/アカウント` のレート制限を適用する。
+
 ## 7. セラピストAPI
 
 ### 7.1 セラピスト登録・状態

@@ -34,6 +34,7 @@ use App\Http\Controllers\Api\ServiceMetaController;
 use App\Http\Controllers\Api\StripeConnectController;
 use App\Http\Controllers\Api\StripeWebhookController;
 use App\Http\Controllers\Api\TempFileController;
+use App\Http\Controllers\Api\TherapistDiscoveryController;
 use App\Http\Controllers\Api\TherapistLedgerController;
 use App\Http\Controllers\Api\TherapistMenuController;
 use App\Http\Controllers\Api\TherapistPayoutRequestController;
@@ -98,6 +99,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/admin/legal-documents', [AdminLegalDocumentController::class, 'index']);
     Route::post('/admin/legal-documents', [AdminLegalDocumentController::class, 'store']);
     Route::patch('/admin/legal-documents/{legalDocument}', [AdminLegalDocumentController::class, 'update']);
+    Route::get('/therapists', [TherapistDiscoveryController::class, 'index'])->middleware('throttle:therapist-search');
+    Route::get('/therapists/{therapistProfile:public_id}', [TherapistDiscoveryController::class, 'show']);
     Route::get('/therapists/{therapistProfile:public_id}/reviews', [ReviewController::class, 'therapistReviews']);
     Route::get('/me/reviews', [ReviewController::class, 'me']);
 

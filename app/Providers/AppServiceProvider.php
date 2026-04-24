@@ -10,6 +10,9 @@ use App\Services\Payments\StripeConnectGateway;
 use App\Services\Payments\StripePaymentIntentGateway;
 use App\Services\Payments\StripePayoutGateway;
 use App\Services\Payments\StripeRefundGateway;
+use Illuminate\Cache\RateLimiting\Limit;
+use Illuminate\Http\Request;
+use Illuminate\Support\Facades\RateLimiter;
 use Illuminate\Support\ServiceProvider;
 
 class AppServiceProvider extends ServiceProvider
@@ -30,6 +33,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
-        //
+        RateLimiter::for('therapist-search', function (Request $request): Limit {
+            return Limit::perMinutes(10, 30)->by((string) ($request->user()?->id ?? $request->ip()));
+        });
     }
 }
