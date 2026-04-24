@@ -460,6 +460,30 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
 | PATCH | `/me/therapist/pricing-rules/{rule_id}` | Therapist | 料金ルール更新 |
 | DELETE | `/me/therapist/pricing-rules/{rule_id}` | Therapist | 料金ルール削除 |
 
+MVP 時点では `rule_type=user_profile_attribute` のみを受け付ける。条件オブジェクトは `field` / `operator` / `value` または `values` を持ち、対応フィールドは `age_range` / `body_type` / `height_cm` / `weight_range` / `sexual_orientation` / `gender_identity`。`height_cm` は `equals` / `not_equals` / `gte` / `lte` / `between`、その他の項目は `equals` / `not_equals` / `in` / `not_in` を使う。`adjustment_type` は `fixed_amount` または `percentage` とし、パーセンテージは基本料金に対して適用する。
+
+同じメニューに対して適用される複数ルールは `priority` の昇順で評価し、同一 priority ではメニュー個別ルールをプロフィール共通ルールより先に適用する。`min_price_amount` / `max_price_amount` を指定した場合は、プロフィール由来調整を加えた後の基本料金小計をその範囲に丸める。
+
+`POST /me/therapist/pricing-rules` リクエスト例:
+
+```json
+{
+  "therapist_menu_id": "menu_xxx",
+  "rule_type": "user_profile_attribute",
+  "condition": {
+    "field": "height_cm",
+    "operator": "between",
+    "values": [180, 190]
+  },
+  "adjustment_type": "percentage",
+  "adjustment_amount": 10,
+  "min_price_amount": 13000,
+  "max_price_amount": null,
+  "priority": 20,
+  "is_active": true
+}
+```
+
 ### 7.4 Stripe Connect
 
 | Method | Path | 権限 | 用途 |

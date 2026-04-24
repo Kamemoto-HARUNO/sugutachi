@@ -13,6 +13,10 @@ class BookingQuoteCalculator
 
     public const PLATFORM_FEE_RATE = 0.10;
 
+    public function __construct(
+        private readonly TherapistPricingRuleEvaluator $pricingRuleEvaluator,
+    ) {}
+
     public function calculate(
         TherapistProfile $therapistProfile,
         TherapistMenu $menu,
@@ -28,7 +32,8 @@ class BookingQuoteCalculator
         $nightFeeAmount = $this->nightFeeAmount($requestedStartAt);
         $travelFeeAmount = $this->travelFeeAmount($walking['walking_time_minutes']);
         $demandFeeAmount = 0;
-        $profileAdjustmentAmount = 0;
+        $pricingRuleResult = $this->pricingRuleResult($therapistProfile, $menu, $serviceAddress, $baseAmount);
+        $profileAdjustmentAmount = $pricingRuleResult['profile_adjustment_amount'];
 
         $therapistGrossAmount = max(0, $baseAmount + $travelFeeAmount + $nightFeeAmount + $demandFeeAmount + $profileAdjustmentAmount);
         $platformFeeAmount = (int) round($therapistGrossAmount * self::PLATFORM_FEE_RATE);
@@ -58,12 +63,14 @@ class BookingQuoteCalculator
                 'requested_start_at' => $requestedStartAt,
                 'walking_time_minutes' => $walking['walking_time_minutes'],
                 'walking_time_range' => $walking['walking_time_range'],
+                'user_profile_attributes' => $pricingRuleResult['input_snapshot'],
             ],
             'applied_rules_json' => [
                 'matching_fee_amount' => self::MATCHING_FEE_AMOUNT,
                 'platform_fee_rate' => self::PLATFORM_FEE_RATE,
                 'travel_fee_amount' => $travelFeeAmount,
                 'night_fee_amount' => $nightFeeAmount,
+                'pricing_rules' => $pricingRuleResult['applied_rules'],
             ],
         ];
     }
@@ -158,5 +165,22 @@ class BookingQuoteCalculator
             $walkingTimeMinutes <= 60 => 1000,
             default => 2000,
         };
+    }
+
+    private function pricingRuleResult(
+        TherapistProfile $therapistProfile,
+        TherapistMenu $menu,
+        ServiceAddress $serviceAddress,
+        int $baseAmount,
+    ): array {
+        $therapistProfile->loadMissing('pricingRules');
+        $serviceAddress->loadMissing('account.userProfile');
+
+        return $this->pricingRuleEvaluator->evaluate(
+            therapistProfile: $therapistProfile,
+            menu: $menu,
+            userProfile: $serviceAddress->account?->userProfile,
+            baseAmount: $baseAmount,
+        );
     }
 }

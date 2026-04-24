@@ -45,6 +45,7 @@ use App\Http\Controllers\Api\TherapistDiscoveryController;
 use App\Http\Controllers\Api\TherapistLedgerController;
 use App\Http\Controllers\Api\TherapistMenuController;
 use App\Http\Controllers\Api\TherapistPayoutRequestController;
+use App\Http\Controllers\Api\TherapistPricingRuleController;
 use App\Http\Controllers\Api\TherapistProfileController;
 use App\Http\Controllers\Api\TherapistScheduledBookingSettingController;
 use App\Http\Controllers\Api\TherapistTravelRequestController;
@@ -174,6 +175,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/me/therapist/menus', [TherapistMenuController::class, 'store']);
     Route::patch('/me/therapist/menus/{therapistMenu:public_id}', [TherapistMenuController::class, 'update']);
     Route::delete('/me/therapist/menus/{therapistMenu:public_id}', [TherapistMenuController::class, 'destroy']);
+    Route::get('/me/therapist/pricing-rules', [TherapistPricingRuleController::class, 'index']);
+    Route::post('/me/therapist/pricing-rules', [TherapistPricingRuleController::class, 'store']);
+    Route::patch('/me/therapist/pricing-rules/{therapistPricingRule}', [TherapistPricingRuleController::class, 'update']);
+    Route::delete('/me/therapist/pricing-rules/{therapistPricingRule}', [TherapistPricingRuleController::class, 'destroy']);
     Route::get('/me/therapist/ledger', [TherapistLedgerController::class, 'index']);
     Route::get('/me/therapist/balance', [TherapistLedgerController::class, 'balance']);
     Route::get('/me/therapist/payout-requests', [TherapistPayoutRequestController::class, 'index']);
