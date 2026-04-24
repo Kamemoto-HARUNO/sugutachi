@@ -183,7 +183,12 @@ class BookingController extends Controller
             404
         );
 
-        return new BookingResource($booking->load('currentQuote'));
+        return new BookingResource($booking->load([
+            'currentQuote',
+            'currentPaymentIntent',
+            'canceledBy',
+            'refunds' => fn ($query) => $query->latest('id'),
+        ]));
     }
 
     private function ensureOnDemandQuoteStillBookable(Account $viewer, BookingQuote $quote): void

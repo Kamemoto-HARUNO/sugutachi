@@ -15,7 +15,12 @@ class PaymentSyncController extends Controller
     {
         abort_unless($booking->user_account_id === $request->user()->id, 404);
 
-        $booking->load(['currentQuote', 'currentPaymentIntent']);
+        $booking->load([
+            'currentQuote',
+            'currentPaymentIntent',
+            'canceledBy',
+            'refunds' => fn ($query) => $query->latest('id'),
+        ]);
 
         return response()->json([
             'data' => [

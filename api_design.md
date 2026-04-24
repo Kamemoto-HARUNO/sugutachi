@@ -491,6 +491,8 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
 | GET | `/bookings` | User/Therapist | 自分の予約一覧 |
 | GET | `/bookings/{public_id}` | User/Therapist/Admin | 予約詳細 |
 
+`GET /bookings/{public_id}` は参加者本人のみ参照でき、`cancel_reason_note` / `canceled_by_role` / `canceled_by_account` に加えて、現在の `current_payment_intent`、返金集計の `refund_breakdown`、返金明細の `refunds` を返す。`refund_breakdown` には `refund_count` / `auto_refund_count` / `requested_amount_total` / `approved_amount_total` / `processed_amount_total` を含める。
+
 `POST /booking-quotes` リクエスト:
 
 ```json
@@ -629,7 +631,7 @@ payment_authorizing
 }
 ```
 
-`POST /bookings/{public_id}/cancel` は `reason_code` を必須とし、セラピスト都合キャンセルでは追加で `reason_note` を必須とする。レスポンスの `booking` には `cancel_reason_note` を含める。
+`POST /bookings/{public_id}/cancel` は `reason_code` を必須とし、セラピスト都合キャンセルでは追加で `reason_note` を必須とする。レスポンスの `booking` には `cancel_reason_note` / `canceled_by_role` / `canceled_by_account` / `current_payment_intent` / `refund_breakdown` / `refunds` を含める。
 
 キャンセル確定時は予約ステータスを `canceled` に変更し、`canceled_by_account_id` / `cancel_reason_code` / `booking_status_logs.metadata_json` にキャンセル料、返金予定額、ポリシー、必要な決済アクションを保存する。`payment_action=void_authorization` は現在の PaymentIntent 与信を即時取消し、`capture_full_amount` は即時capture、`capture_cancel_fee_and_refund_remaining` は即時capture後に差額返金まで実行する。自動返金が発生した場合は `refunds` にシステム起票の履歴を残す。
 

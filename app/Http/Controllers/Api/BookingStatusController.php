@@ -89,7 +89,12 @@ class BookingStatusController extends Controller
             lastStripeEventId: 'system.therapist_rejected',
         );
 
-        return new BookingResource($booking->load('currentQuote'));
+        return new BookingResource($booking->load([
+            'currentQuote',
+            'currentPaymentIntent',
+            'canceledBy',
+            'refunds' => fn ($query) => $query->latest('id'),
+        ]));
     }
 
     public function moving(Request $request, Booking $booking, BookingStatusTransitionService $transition): BookingResource

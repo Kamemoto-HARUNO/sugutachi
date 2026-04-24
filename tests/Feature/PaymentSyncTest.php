@@ -24,6 +24,8 @@ class PaymentSyncTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.booking.public_id', $booking->public_id)
             ->assertJsonPath('data.booking.status', Booking::STATUS_REQUESTED)
+            ->assertJsonPath('data.booking.current_payment_intent.status', PaymentIntent::STRIPE_STATUS_REQUIRES_CAPTURE)
+            ->assertJsonPath('data.booking.refund_breakdown.refund_count', 0)
             ->assertJsonPath('data.payment_intent.stripe_payment_intent_id', $paymentIntent->stripe_payment_intent_id)
             ->assertJsonPath('data.payment_intent.status', PaymentIntent::STRIPE_STATUS_REQUIRES_CAPTURE)
             ->assertJsonPath('data.payment_intent.authorized_at', fn ($value) => filled($value))

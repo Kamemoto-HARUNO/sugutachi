@@ -143,6 +143,13 @@ class BookingCancellationController extends Controller
 
         $settlementService->settle($canceledBooking, $preview);
 
+        $canceledBooking->refresh()->load([
+            'currentQuote',
+            'currentPaymentIntent',
+            'canceledBy',
+            'refunds' => fn ($query) => $query->latest('id'),
+        ]);
+
         return response()->json([
             'data' => [
                 'booking' => (new BookingResource($canceledBooking))->resolve($request),

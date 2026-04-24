@@ -100,8 +100,24 @@ class BookingCancellationTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('data.booking.status', Booking::STATUS_CANCELED)
+            ->assertJsonPath('data.booking.canceled_by_role', 'user')
+            ->assertJsonPath('data.booking.canceled_by_account.public_id', $user->public_id)
+            ->assertJsonPath('data.booking.current_payment_intent.status', PaymentIntent::STRIPE_STATUS_SUCCEEDED)
+            ->assertJsonPath('data.booking.refund_breakdown.refund_count', 1)
+            ->assertJsonPath('data.booking.refund_breakdown.auto_refund_count', 1)
+            ->assertJsonPath('data.booking.refund_breakdown.processed_amount_total', 6000)
+            ->assertJsonPath('data.booking.refunds.0.reason_code', Refund::REASON_CODE_BOOKING_CANCELLATION_AUTO)
+            ->assertJsonPath('data.booking.refunds.0.is_auto', true)
             ->assertJsonPath('data.cancellation.cancel_fee_amount', 6300)
             ->assertJsonPath('data.cancellation.refund_amount', 6000);
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->getJson("/api/bookings/{$booking->public_id}")
+            ->assertOk()
+            ->assertJsonPath('data.current_payment_intent.status', PaymentIntent::STRIPE_STATUS_SUCCEEDED)
+            ->assertJsonPath('data.refund_breakdown.refund_count', 1)
+            ->assertJsonPath('data.refund_breakdown.processed_amount_total', 6000)
+            ->assertJsonPath('data.refunds.0.reason_code', Refund::REASON_CODE_BOOKING_CANCELLATION_AUTO);
 
         $this->assertDatabaseHas('payment_intents', [
             'id' => $paymentIntent->id,
@@ -185,7 +201,11 @@ class BookingCancellationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.booking.status', Booking::STATUS_CANCELED)
             ->assertJsonPath('data.booking.cancel_reason_code', 'therapist_unavailable')
-            ->assertJsonPath('data.booking.cancel_reason_note', '急な体調不良のため、本日のご案内が難しくなりました。');
+            ->assertJsonPath('data.booking.cancel_reason_note', '急な体調不良のため、本日のご案内が難しくなりました。')
+            ->assertJsonPath('data.booking.canceled_by_role', 'therapist')
+            ->assertJsonPath('data.booking.canceled_by_account.public_id', $therapist->public_id)
+            ->assertJsonPath('data.booking.current_payment_intent.status', PaymentIntent::STRIPE_STATUS_CANCELED)
+            ->assertJsonPath('data.booking.refund_breakdown.refund_count', 0);
 
         $this->assertDatabaseHas('therapist_profiles', [
             'id' => $booking->therapist_profile_id,
@@ -223,6 +243,15 @@ class BookingCancellationTest extends TestCase
             '急な体調不良のため、本日のご案内が難しくなりました。',
             data_get($notification->data_json, 'reason_note'),
         );
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->getJson("/api/bookings/{$booking->public_id}")
+            ->assertOk()
+            ->assertJsonPath('data.cancel_reason_note', '急な体調不良のため、本日のご案内が難しくなりました。')
+            ->assertJsonPath('data.canceled_by_role', 'therapist')
+            ->assertJsonPath('data.canceled_by_account.public_id', $therapist->public_id)
+            ->assertJsonPath('data.current_payment_intent.status', PaymentIntent::STRIPE_STATUS_CANCELED)
+            ->assertJsonPath('data.refund_breakdown.refund_count', 0);
     }
 
     public function test_therapist_cannot_cancel_before_acceptance(): void
