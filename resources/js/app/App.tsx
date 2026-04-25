@@ -30,6 +30,7 @@ import { PublicHomePage } from './pages/PublicHomePage';
 import { RegisterPage } from './pages/RegisterPage';
 import { RoleSelectPage } from './pages/RoleSelectPage';
 import { SectionHomePage } from './pages/SectionHomePage';
+import { UserTherapistAvailabilityPage } from './pages/UserTherapistAvailabilityPage';
 import { UserTherapistDetailPage } from './pages/UserTherapistDetailPage';
 import { UserTherapistSearchPage } from './pages/UserTherapistSearchPage';
 import { AuthProvider } from './providers/AuthProvider';
@@ -68,6 +69,7 @@ function AppRoutes() {
 
             <Route element={<RoleRoute role="user" hasRole={hasRole} isAuthenticated={isAuthenticated} activeRole={activeRole} selectRole={selectRole} />}>
                 <Route path="/user/therapists" element={<UserTherapistSearchPage />} />
+                <Route path="/user/therapists/:publicId/availability" element={<UserTherapistAvailabilityPage />} />
                 <Route
                     path="/user"
                     element={<DashboardLayout role="user" title="利用者ダッシュボード" description="検索、予約、メッセージ、安全導線の入口です。" navItems={userNavItems} />}
@@ -87,13 +89,20 @@ function AppRoutes() {
                             />
                         }
                     />
-                    {userPlaceholderRoutes.filter((route) => route.path !== 'therapists' && route.path !== 'therapists/:publicId').map((route) => (
+                    {userPlaceholderRoutes
+                        .filter(
+                            (route) =>
+                                route.path !== 'therapists'
+                                && route.path !== 'therapists/:publicId'
+                                && route.path !== 'therapists/:publicId/availability',
+                        )
+                        .map((route) => (
                         <Route
                             key={route.path}
                             path={route.path}
                             element={<PlaceholderScreen title={route.title} description={route.description} apiPath={route.apiPath} />}
                         />
-                    ))}
+                        ))}
                 </Route>
             </Route>
 

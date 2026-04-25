@@ -72,6 +72,19 @@ function formatScheduledLabel(value: string): string {
     }).format(date);
 }
 
+function resolveAvailabilityDate(value: string): string {
+    if (value) {
+        return value.slice(0, 10);
+    }
+
+    const today = new Date();
+    const year = today.getFullYear();
+    const month = String(today.getMonth() + 1).padStart(2, '0');
+    const day = String(today.getDate()).padStart(2, '0');
+
+    return `${year}-${month}-${day}`;
+}
+
 function formatReviewDate(value: string): string {
     const date = new Date(value);
 
@@ -138,9 +151,24 @@ export function UserTherapistDetailPage() {
 
     const queryString = searchParams.toString();
     const listPath = isAuthenticated ? `/user/therapists${queryString ? `?${queryString}` : ''}` : '/';
-    const availabilityPath = therapistDetail && isAuthenticated
-        ? `/user/therapists/${therapistDetail.public_id}/availability${queryString ? `?${queryString}` : ''}`
-        : '/login';
+    const availabilityPath = useMemo(() => {
+        if (!therapistDetail || !isAuthenticated) {
+            return '/login';
+        }
+
+        const nextParams = new URLSearchParams(searchParams);
+        nextParams.set('start_type', 'scheduled');
+        nextParams.set('date', resolveAvailabilityDate(scheduledStartAt));
+
+        if (highlightedMenu) {
+            nextParams.set('therapist_menu_id', highlightedMenu.public_id);
+            nextParams.set('menu_duration_minutes', String(highlightedMenu.duration_minutes));
+        }
+
+        const nextQueryString = nextParams.toString();
+
+        return `/user/therapists/${therapistDetail.public_id}/availability${nextQueryString ? `?${nextQueryString}` : ''}`;
+    }, [highlightedMenu, isAuthenticated, scheduledStartAt, searchParams, therapistDetail]);
     const serviceAddressPath = isAuthenticated ? '/user/service-addresses' : '/register';
     const primaryAction = isAuthenticated
         ? { label: '空き時間を見る', to: availabilityPath }

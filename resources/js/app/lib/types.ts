@@ -156,6 +156,24 @@ export interface TherapistDetail {
     photos: PublicProfilePhoto[];
 }
 
+export interface PublicTherapistAvailabilityWindow {
+    availability_slot_id: string;
+    start_at: string;
+    end_at: string;
+    booking_deadline_at: string;
+    dispatch_area_label: string | null;
+}
+
+export interface PublicTherapistAvailability {
+    date: string;
+    walking_time_range: string | null;
+    estimated_total_amount_range: {
+        min: number;
+        max: number;
+    } | null;
+    windows: PublicTherapistAvailabilityWindow[];
+}
+
 export interface ReviewSummary {
     id: number;
     booking_public_id: string | null;
