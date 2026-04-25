@@ -15,6 +15,7 @@ use App\Models\Report;
 use App\Models\StripeDispute;
 use App\Models\TherapistPricingRule;
 use App\Models\TherapistProfile;
+use App\Models\TherapistTravelRequest;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
@@ -61,6 +62,12 @@ class AdminDashboardController extends Controller
                         ->count(),
                     'pending_contact_inquiries' => ContactInquiry::query()
                         ->where('status', ContactInquiry::STATUS_PENDING)
+                        ->count(),
+                    'unread_travel_requests' => TherapistTravelRequest::query()
+                        ->where('status', TherapistTravelRequest::STATUS_UNREAD)
+                        ->count(),
+                    'pending_travel_request_reviews' => TherapistTravelRequest::query()
+                        ->where('monitoring_status', TherapistTravelRequest::MONITORING_STATUS_UNREVIEWED)
                         ->count(),
                     'open_stripe_disputes' => StripeDispute::query()
                         ->whereIn('status', [
@@ -194,6 +201,22 @@ class AdminDashboardController extends Controller
                             'path' => '/api/admin/contact-inquiries',
                             'query' => [
                                 'status' => ContactInquiry::STATUS_PENDING,
+                                'sort' => 'created_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
+                        'unread_travel_requests' => [
+                            'path' => '/api/admin/travel-requests',
+                            'query' => [
+                                'status' => TherapistTravelRequest::STATUS_UNREAD,
+                                'sort' => 'created_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
+                        'pending_travel_request_reviews' => [
+                            'path' => '/api/admin/travel-requests',
+                            'query' => [
+                                'monitoring_status' => TherapistTravelRequest::MONITORING_STATUS_UNREVIEWED,
                                 'sort' => 'created_at',
                                 'direction' => 'desc',
                             ],

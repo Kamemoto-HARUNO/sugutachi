@@ -16,6 +16,7 @@ use App\Http\Controllers\Api\AdminRefundRequestController;
 use App\Http\Controllers\Api\AdminReportController;
 use App\Http\Controllers\Api\AdminStripeDisputeController;
 use App\Http\Controllers\Api\AdminTherapistProfileController;
+use App\Http\Controllers\Api\AdminTravelRequestController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BookingCancellationController;
 use App\Http\Controllers\Api\BookingController;
@@ -138,6 +139,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/admin/contact-inquiries/{contactInquiry:public_id}', [AdminContactInquiryController::class, 'show']);
     Route::post('/admin/contact-inquiries/{contactInquiry:public_id}/notes', [AdminContactInquiryController::class, 'note']);
     Route::post('/admin/contact-inquiries/{contactInquiry:public_id}/resolve', [AdminContactInquiryController::class, 'resolve']);
+    Route::get('/admin/travel-requests', [AdminTravelRequestController::class, 'index']);
+    Route::get('/admin/travel-requests/{travelRequest:public_id}', [AdminTravelRequestController::class, 'show']);
+    Route::post('/admin/travel-requests/{travelRequest:public_id}/notes', [AdminTravelRequestController::class, 'note']);
+    Route::post('/admin/travel-requests/{travelRequest:public_id}/monitoring', [AdminTravelRequestController::class, 'monitor']);
     Route::get('/therapists', [TherapistDiscoveryController::class, 'index'])->middleware('throttle:therapist-search');
     Route::get('/therapists/{therapistProfile:public_id}', [TherapistDiscoveryController::class, 'show']);
     Route::get('/therapists/{therapistProfile:public_id}/availability', [TherapistDiscoveryController::class, 'availability']);

@@ -17,6 +17,7 @@ use App\Models\StripeDispute;
 use App\Models\TherapistMenu;
 use App\Models\TherapistPricingRule;
 use App\Models\TherapistProfile;
+use App\Models\TherapistTravelRequest;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
 use Tests\TestCase;
@@ -269,6 +270,16 @@ class AdminDashboardTest extends TestCase
             'status' => ContactInquiry::STATUS_PENDING,
             'source' => ContactInquiry::SOURCE_AUTHENTICATED,
         ]);
+        TherapistTravelRequest::create([
+            'public_id' => 'trv_dashboard_unread',
+            'user_account_id' => $suspendedUser->id,
+            'therapist_account_id' => $therapist->id,
+            'therapist_profile_id' => $therapistProfile->id,
+            'prefecture' => '福岡県',
+            'message_encrypted' => Crypt::encryptString('Travel dashboard request'),
+            'status' => TherapistTravelRequest::STATUS_UNREAD,
+            'monitoring_status' => TherapistTravelRequest::MONITORING_STATUS_UNREVIEWED,
+        ]);
         StripeDispute::create([
             'booking_id' => $completedBooking->id,
             'payment_intent_id' => null,
@@ -293,6 +304,8 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.operations.open_interruption_reports', 1)
             ->assertJsonPath('data.operations.open_message_origin_reports', 1)
             ->assertJsonPath('data.operations.pending_contact_inquiries', 1)
+            ->assertJsonPath('data.operations.unread_travel_requests', 1)
+            ->assertJsonPath('data.operations.pending_travel_request_reviews', 1)
             ->assertJsonPath('data.operations.open_stripe_disputes', 1)
             ->assertJsonPath('data.operations.requested_refunds', 1)
             ->assertJsonPath('data.operations.requested_payouts', 1)
@@ -323,6 +336,9 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.navigation.operations.open_message_origin_reports.query.has_source_booking_message', true)
             ->assertJsonPath('data.navigation.operations.pending_contact_inquiries.path', '/api/admin/contact-inquiries')
             ->assertJsonPath('data.navigation.operations.pending_contact_inquiries.query.status', ContactInquiry::STATUS_PENDING)
+            ->assertJsonPath('data.navigation.operations.unread_travel_requests.path', '/api/admin/travel-requests')
+            ->assertJsonPath('data.navigation.operations.unread_travel_requests.query.status', TherapistTravelRequest::STATUS_UNREAD)
+            ->assertJsonPath('data.navigation.operations.pending_travel_request_reviews.query.monitoring_status', TherapistTravelRequest::MONITORING_STATUS_UNREVIEWED)
             ->assertJsonPath('data.navigation.operations.open_stripe_disputes.path', '/api/admin/stripe-disputes')
             ->assertJsonPath('data.navigation.operations.open_stripe_disputes.query.status_group', 'open')
             ->assertJsonPath('data.navigation.operations.requested_payouts.path', '/api/admin/payout-requests')
