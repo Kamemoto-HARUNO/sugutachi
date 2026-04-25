@@ -156,6 +156,22 @@ export interface TherapistDetail {
     photos: PublicProfilePhoto[];
 }
 
+export interface ReviewSummary {
+    id: number;
+    booking_public_id: string | null;
+    reviewer_account_id: string | null;
+    reviewee_account_id: string | null;
+    reviewer_role: string;
+    rating_overall: number;
+    rating_manners: number | null;
+    rating_skill: number | null;
+    rating_cleanliness: number | null;
+    rating_safety: number | null;
+    public_comment: string | null;
+    status: string;
+    created_at: string;
+}
+
 export interface NavItem {
     label: string;
     to: string;

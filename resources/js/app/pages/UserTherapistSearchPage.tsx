@@ -84,6 +84,7 @@ export function UserTherapistSearchPage() {
         () => serviceAddresses.find((address) => address.public_id === selectedAddressId) ?? null,
         [selectedAddressId, serviceAddresses],
     );
+    const queryString = searchParams.toString();
 
     useEffect(() => {
         let isMounted = true;
@@ -629,7 +630,7 @@ export function UserTherapistSearchPage() {
                                         therapistCancellationCount={therapist.therapist_cancellation_count}
                                         bioExcerpt={therapist.bio_excerpt}
                                         photoUrl={therapist.photos[0]?.url ?? null}
-                                        to={`/user/therapists/${therapist.public_id}`}
+                                        to={`/user/therapists/${therapist.public_id}${queryString ? `?${queryString}` : ''}`}
                                         footerHint="タップして詳細を見る"
                                     />
                                 ))}
