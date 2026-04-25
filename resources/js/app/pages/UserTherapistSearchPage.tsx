@@ -630,7 +630,7 @@ export function UserTherapistSearchPage() {
                                         therapistCancellationCount={therapist.therapist_cancellation_count}
                                         bioExcerpt={therapist.bio_excerpt}
                                         photoUrl={therapist.photos[0]?.url ?? null}
-                                        to={`/user/therapists/${therapist.public_id}${queryString ? `?${queryString}` : ''}`}
+                                        to={`/therapists/${therapist.public_id}${queryString ? `?${queryString}` : ''}`}
                                         footerHint="タップして詳細を見る"
                                     />
                                 ))}

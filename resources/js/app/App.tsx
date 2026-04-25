@@ -6,6 +6,7 @@ import {
     Route,
     Routes,
     useLocation,
+    useParams,
 } from 'react-router-dom';
 import { LoadingScreen } from './components/LoadingScreen';
 import { PlaceholderScreen } from './components/PlaceholderScreen';
@@ -43,6 +44,8 @@ function AppRoutes() {
     return (
         <Routes>
             <Route path="/" element={<PublicHomePage />} />
+            <Route path="/therapists/:publicId" element={<UserTherapistDetailPage />} />
+            <Route path="/user/therapists/:publicId" element={<LegacyUserTherapistDetailRedirect />} />
 
             <Route element={<PublicLayout />}>
                 <Route path="/help" element={<HelpPage />} />
@@ -65,7 +68,6 @@ function AppRoutes() {
 
             <Route element={<RoleRoute role="user" hasRole={hasRole} isAuthenticated={isAuthenticated} activeRole={activeRole} selectRole={selectRole} />}>
                 <Route path="/user/therapists" element={<UserTherapistSearchPage />} />
-                <Route path="/user/therapists/:publicId" element={<UserTherapistDetailPage />} />
                 <Route
                     path="/user"
                     element={<DashboardLayout role="user" title="利用者ダッシュボード" description="検索、予約、メッセージ、安全導線の入口です。" navItems={userNavItems} />}
@@ -221,6 +223,17 @@ function RoleRoute({
     }
 
     return <Outlet />;
+}
+
+function LegacyUserTherapistDetailRedirect() {
+    const location = useLocation();
+    const { publicId } = useParams();
+
+    if (!publicId) {
+        return <Navigate to="/" replace />;
+    }
+
+    return <Navigate to={`/therapists/${publicId}${location.search}`} replace />;
 }
 
 export function App() {

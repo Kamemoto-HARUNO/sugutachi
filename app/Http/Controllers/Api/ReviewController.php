@@ -11,6 +11,7 @@ use App\Models\TherapistProfile;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\DB;
 
@@ -21,12 +22,17 @@ class ReviewController extends Controller
         Booking::STATUS_COMPLETED,
     ];
 
-    public function therapistReviews(TherapistProfile $therapistProfile): AnonymousResourceCollection
+    public function therapistReviews(Request $request, TherapistProfile $therapistProfile): AnonymousResourceCollection
     {
+        $profile = TherapistProfile::query()
+            ->visibleTo($request->user() ?? Auth::guard('sanctum')->user())
+            ->whereKey($therapistProfile->id)
+            ->firstOrFail();
+
         return ReviewResource::collection(
             Review::query()
                 ->with(['booking', 'reviewer', 'reviewee'])
-                ->where('reviewee_account_id', $therapistProfile->account_id)
+                ->where('reviewee_account_id', $profile->account_id)
                 ->where('reviewer_role', 'user')
                 ->where('status', Review::STATUS_VISIBLE)
                 ->latest()

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\Booking;
+use App\Models\IdentityVerification;
 use App\Models\Review;
 use App\Models\ServiceAddress;
 use App\Models\TherapistMenu;
@@ -132,6 +133,13 @@ class ReviewApiTest extends TestCase
             'public_id' => 'thp_review',
             'public_name' => 'Review Therapist',
             'profile_status' => 'approved',
+        ]);
+        IdentityVerification::create([
+            'account_id' => $therapist->id,
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'is_age_verified' => true,
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now(),
         ]);
 
         $menu = TherapistMenu::create([

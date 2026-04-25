@@ -25,46 +25,54 @@ class TherapistProfile extends Model
 
     public const STATUS_SUSPENDED = 'suspended';
 
-    public function scopeDiscoverableTo(Builder $query, Account $viewer): Builder
+    public function scopePubliclyViewable(Builder $query): Builder
     {
         return $query
-            ->where('account_id', '!=', $viewer->id)
             ->where('profile_status', self::STATUS_APPROVED)
-            ->where('is_online', true)
             ->whereHas('menus', fn (Builder $query) => $query->where('is_active', true))
-            ->whereHas('location', fn (Builder $query) => $query->where('is_searchable', true))
+            ->whereHas('account', fn (Builder $query) => $query
+                ->where('status', Account::STATUS_ACTIVE))
+            ->whereHas('account.latestIdentityVerification', fn (Builder $query) => $query
+                ->where('status', IdentityVerification::STATUS_APPROVED));
+    }
+
+    public function scopeVisibleTo(Builder $query, ?Account $viewer): Builder
+    {
+        $query->publiclyViewable();
+
+        if (! $viewer) {
+            return $query;
+        }
+
+        return $query
+            ->where('account_id', '!=', $viewer->id)
             ->whereHas('account', function (Builder $query) use ($viewer): void {
                 $query
-                    ->where('status', Account::STATUS_ACTIVE)
                     ->whereDoesntHave('blockedByAccounts', fn (Builder $blockedBy) => $blockedBy
                         ->where('blocker_account_id', $viewer->id))
                     ->whereDoesntHave('blockedAccounts', fn (Builder $blocked) => $blocked
                         ->where('blocked_account_id', $viewer->id));
-            })
-            ->whereHas('account.latestIdentityVerification', fn (Builder $query) => $query
-                ->where('status', IdentityVerification::STATUS_APPROVED));
+            });
+    }
+
+    public function scopeDiscoverableTo(Builder $query, Account $viewer): Builder
+    {
+        return $query
+            ->visibleTo($viewer)
+            ->where('is_online', true)
+            ->whereHas('location', fn (Builder $query) => $query->where('is_searchable', true))
+            ->whereHas('menus', fn (Builder $query) => $query->where('is_active', true));
     }
 
     public function scopeScheduledDiscoverableTo(Builder $query, Account $viewer): Builder
     {
         return $query
-            ->where('account_id', '!=', $viewer->id)
-            ->where('profile_status', self::STATUS_APPROVED)
+            ->visibleTo($viewer)
             ->whereHas('menus', fn (Builder $query) => $query->where('is_active', true))
             ->whereHas('bookingSetting')
             ->whereHas('availabilitySlots', fn (Builder $query) => $query
                 ->where('status', TherapistAvailabilitySlot::STATUS_PUBLISHED)
-                ->where('end_at', '>', now()))
-            ->whereHas('account', function (Builder $query) use ($viewer): void {
-                $query
-                    ->where('status', Account::STATUS_ACTIVE)
-                    ->whereDoesntHave('blockedByAccounts', fn (Builder $blockedBy) => $blockedBy
-                        ->where('blocker_account_id', $viewer->id))
-                    ->whereDoesntHave('blockedAccounts', fn (Builder $blocked) => $blocked
-                        ->where('blocked_account_id', $viewer->id));
-            })
-            ->whereHas('account.latestIdentityVerification', fn (Builder $query) => $query
-                ->where('status', IdentityVerification::STATUS_APPROVED));
+                ->where('end_at', '>', now()));
     }
 
     public function account(): BelongsTo

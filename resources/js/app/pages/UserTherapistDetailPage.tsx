@@ -99,7 +99,7 @@ function buildReviewMeta(review: ReviewSummary): string {
 
 export function UserTherapistDetailPage() {
     const { publicId } = useParams();
-    const { token } = useAuth();
+    const { isAuthenticated, token } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
     const [serviceAddresses, setServiceAddresses] = useState<ServiceAddress[]>([]);
     const [therapistDetail, setTherapistDetail] = useState<TherapistDetail | null>(null);
@@ -137,10 +137,17 @@ export function UserTherapistDetailPage() {
     }, [selectedDuration, therapistDetail]);
 
     const queryString = searchParams.toString();
-    const listPath = `/user/therapists${queryString ? `?${queryString}` : ''}`;
-    const availabilityPath = therapistDetail
+    const listPath = isAuthenticated ? `/user/therapists${queryString ? `?${queryString}` : ''}` : '/';
+    const availabilityPath = therapistDetail && isAuthenticated
         ? `/user/therapists/${therapistDetail.public_id}/availability${queryString ? `?${queryString}` : ''}`
-        : listPath;
+        : '/login';
+    const serviceAddressPath = isAuthenticated ? '/user/service-addresses' : '/register';
+    const primaryAction = isAuthenticated
+        ? { label: '空き時間を見る', to: availabilityPath }
+        : { label: 'ログインして空き時間を見る', to: '/login' };
+    const secondaryAction = isAuthenticated
+        ? { label: '一覧へ戻る', to: listPath, variant: 'secondary' as const }
+        : { label: '無料登録する', to: '/register', variant: 'secondary' as const };
 
     usePageTitle(therapistDetail ? `${therapistDetail.public_name}の詳細` : 'セラピスト詳細');
 
@@ -148,25 +155,23 @@ export function UserTherapistDetailPage() {
         let isMounted = true;
 
         async function bootstrap() {
-            if (!token || !publicId) {
-                return;
-            }
-
             try {
-                const [addressPayload, metaPayload] = await Promise.all([
-                    apiRequest<ApiEnvelope<ServiceAddress[]>>('/me/service-addresses', { token }),
+                const [metaPayload, addressPayload] = await Promise.all([
                     apiRequest<ApiEnvelope<{ domain: string; support_email: string }>>('/service-meta'),
+                    token
+                        ? apiRequest<ApiEnvelope<ServiceAddress[]>>('/me/service-addresses', { token })
+                        : Promise.resolve(null),
                 ]);
 
                 if (!isMounted) {
                     return;
                 }
 
-                const nextAddresses = unwrapData(addressPayload);
-                setServiceAddresses(nextAddresses);
                 setServiceMeta(unwrapData(metaPayload));
+                const nextAddresses = addressPayload ? unwrapData(addressPayload) : [];
+                setServiceAddresses(nextAddresses);
 
-                if (!selectedAddressId) {
+                if (token && !selectedAddressId) {
                     const fallbackAddress = getDefaultServiceAddress(nextAddresses);
 
                     if (fallbackAddress) {
@@ -208,7 +213,10 @@ export function UserTherapistDetailPage() {
         let isMounted = true;
 
         async function loadDetail() {
-            if (!token || !publicId) {
+            if (!publicId) {
+                setTherapistDetail(null);
+                setReviews([]);
+                setError('プロフィールが見つかりませんでした。');
                 return;
             }
 
@@ -218,7 +226,7 @@ export function UserTherapistDetailPage() {
             try {
                 const detailParams = new URLSearchParams();
 
-                if (selectedAddressId) {
+                if (isAuthenticated && selectedAddressId) {
                     detailParams.set('service_address_id', selectedAddressId);
                 }
 
@@ -250,7 +258,9 @@ export function UserTherapistDetailPage() {
                 }
 
                 const message =
-                    requestError instanceof ApiError ? requestError.message : 'プロフィールの取得に失敗しました。';
+                    requestError instanceof ApiError
+                        ? requestError.message
+                        : 'プロフィールの取得に失敗しました。';
 
                 setError(message);
                 setTherapistDetail(null);
@@ -267,7 +277,7 @@ export function UserTherapistDetailPage() {
         return () => {
             isMounted = false;
         };
-    }, [publicId, scheduledStartAt, selectedAddressId, selectedDuration, selectedStartType, token]);
+    }, [isAuthenticated, publicId, scheduledStartAt, selectedAddressId, selectedDuration, selectedStartType, token]);
 
     if (isBootstrapping) {
         return <LoadingScreen title="プロフィール準備中" message="施術場所と公開情報を確認しています。" />;
@@ -292,10 +302,10 @@ export function UserTherapistDetailPage() {
                     bullets={[
                         therapistDetail ? `総合 ★${therapistDetail.rating_average.toFixed(1)}（${therapistDetail.review_count}件）` : 'レビューを確認',
                         therapistDetail ? formatWalkingTimeRange(therapistDetail.walking_time_range) : '徒歩目安を確認',
-                        selectedAddress ? `${getServiceAddressLabel(selectedAddress)} 基準` : '施術場所未設定でも閲覧可能',
+                        selectedAddress ? `${getServiceAddressLabel(selectedAddress)} 基準` : isAuthenticated ? '施術場所未設定でも閲覧可能' : 'ログイン後に施術場所を指定',
                     ]}
-                    primaryAction={{ label: '空き時間を見る', to: availabilityPath }}
-                    secondaryAction={{ label: '一覧へ戻る', to: listPath, variant: 'secondary' }}
+                    primaryAction={primaryAction}
+                    secondaryAction={secondaryAction}
                 >
                     <div className="rounded-[32px] border border-white/12 bg-[linear-gradient(109deg,rgba(255,249,241,0.18)_2.98%,rgba(255,255,255,0.04)_101.1%)] p-6 text-white shadow-[0_24px_60px_rgba(0,0,0,0.16)] md:p-8">
                         <div className="space-y-4">
@@ -365,7 +375,7 @@ export function UserTherapistDetailPage() {
                             </div>
 
                             <div className="rounded-[20px] border border-white/10 bg-white/6 px-4 py-3 text-xs text-[#d8d3ca]">
-                                施術場所: {selectedAddress ? getServiceAddressLabel(selectedAddress) : '未設定'}
+                                施術場所: {selectedAddress ? getServiceAddressLabel(selectedAddress) : isAuthenticated ? '未設定' : 'ログイン後に指定'}
                             </div>
                         </div>
                     </div>
@@ -391,7 +401,7 @@ export function UserTherapistDetailPage() {
                                             to={listPath}
                                             className="inline-flex items-center rounded-full border border-[#ddcfb4] px-4 py-2 text-sm font-semibold text-[#17202b]"
                                         >
-                                            一覧に戻る
+                                            {isAuthenticated ? '一覧に戻る' : 'トップへ戻る'}
                                         </Link>
                                     </div>
 
@@ -569,14 +579,14 @@ export function UserTherapistDetailPage() {
                                         <div className="rounded-[20px] bg-[#f6f1e7] p-4">
                                             <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">施術場所</p>
                                             <p className="mt-2 font-semibold text-[#17202b]">
-                                                {selectedAddress ? getServiceAddressLabel(selectedAddress) : '未設定'}
+                                                {selectedAddress ? getServiceAddressLabel(selectedAddress) : isAuthenticated ? '未設定' : 'ログイン後に指定'}
                                             </p>
                                             {!selectedAddress ? (
                                                 <Link
-                                                    to="/user/service-addresses"
+                                                    to={serviceAddressPath}
                                                     className="mt-3 inline-flex text-xs font-semibold text-[#9a7a49] underline underline-offset-4"
                                                 >
-                                                    施術場所を追加する
+                                                    {isAuthenticated ? '施術場所を追加する' : '無料登録して施術場所を設定する'}
                                                 </Link>
                                             ) : null}
                                         </div>
@@ -596,23 +606,25 @@ export function UserTherapistDetailPage() {
                                         <div className="rounded-[20px] bg-[#17202b] p-5 text-white">
                                             <p className="text-xs font-semibold tracking-wide text-[#d2b179]">NEXT STEP</p>
                                             <p className="mt-2 text-sm leading-7 text-[#d8d3ca]">
-                                                空き時間を確認すると、予定予約のリクエスト導線へ進めます。今すぐ予約との比較もここから続けられます。
+                                                {isAuthenticated
+                                                    ? '空き時間を確認すると、予定予約のリクエスト導線へ進めます。今すぐ予約との比較もここから続けられます。'
+                                                    : 'プロフィール、メニュー、レビューはこのまま確認できます。空き時間確認と予約リクエストはログイン後に利用できます。'}
                                             </p>
                                         </div>
                                     </div>
 
                                     <div className="space-y-3">
                                         <Link
-                                            to={availabilityPath}
+                                            to={primaryAction.to}
                                             className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-bold text-[#1a2430] transition hover:brightness-105"
                                         >
-                                            空き時間を確認
+                                            {primaryAction.label}
                                         </Link>
                                         <Link
-                                            to={listPath}
+                                            to={secondaryAction.to}
                                             className="inline-flex w-full items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]"
                                         >
-                                            一覧で比較し直す
+                                            {secondaryAction.label}
                                         </Link>
                                     </div>
                                 </div>
@@ -624,9 +636,11 @@ export function UserTherapistDetailPage() {
 
             <DiscoveryFooter
                 domain={serviceMeta?.domain ?? 'sugutachi.com'}
-                description="プロフィール、料金、レビューを確認したうえで、空き時間や予約導線へ進めます。"
-                primaryAction={{ label: '空き時間を見る', to: availabilityPath }}
-                secondaryAction={{ label: '一覧へ戻る', to: listPath }}
+                description={isAuthenticated
+                    ? 'プロフィール、料金、レビューを確認したうえで、空き時間や予約導線へ進めます。'
+                    : 'プロフィールとレビューは公開で確認でき、空き時間確認と予約導線はログイン後に続けられます。'}
+                primaryAction={primaryAction}
+                secondaryAction={secondaryAction}
                 supportEmail={serviceMeta?.support_email ?? null}
             />
         </div>

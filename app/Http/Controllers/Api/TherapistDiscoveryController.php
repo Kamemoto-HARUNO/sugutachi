@@ -19,6 +19,7 @@ use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\Auth;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
@@ -68,8 +69,27 @@ class TherapistDiscoveryController extends Controller
     public function index(Request $request, BookingQuoteCalculator $calculator): AnonymousResourceCollection
     {
         [$validated, $serviceAddress] = $this->validatedDiscoveryContext($request, requireServiceAddress: true);
+        $viewer = $request->user();
+        $profiles = ($validated['start_type'] ?? 'now') === 'scheduled'
+            ? TherapistProfile::query()
+                ->scheduledDiscoverableTo($viewer)
+                ->with([
+                    'location',
+                    'menus' => fn ($query) => $query
+                        ->where('is_active', true)
+                        ->orderBy('sort_order')
+                        ->orderBy('id'),
+                    'pricingRules',
+                    'photos' => fn ($query) => $query
+                        ->where('status', ProfilePhoto::STATUS_APPROVED)
+                        ->orderBy('sort_order')
+                        ->orderBy('id'),
+                ])
+                ->get()
+            : $this->discoverableProfilesQuery($viewer)->get();
+
         $results = $this->buildSearchResults(
-            profiles: $this->discoverableProfilesQuery($request->user())->get(),
+            profiles: $profiles,
             serviceAddress: $serviceAddress,
             calculator: $calculator,
             requestedDurationMinutes: $validated['menu_duration_minutes'] ?? null,
@@ -96,9 +116,10 @@ class TherapistDiscoveryController extends Controller
         TherapistProfile $therapistProfile,
         BookingQuoteCalculator $calculator,
     ): PublicTherapistDetailResource {
-        [$validated, $serviceAddress] = $this->validatedDiscoveryContext($request, requireServiceAddress: false);
+        $viewer = $this->authenticatedViewer($request);
+        [$validated, $serviceAddress] = $this->validatedDiscoveryContext($request, requireServiceAddress: false, viewer: $viewer);
 
-        $profile = $this->discoverableProfilesQuery($request->user())
+        $profile = $this->detailProfilesQuery($viewer)
             ->whereKey($therapistProfile->id)
             ->firstOrFail();
 
@@ -118,6 +139,24 @@ class TherapistDiscoveryController extends Controller
     {
         return TherapistProfile::query()
             ->discoverableTo($viewer)
+            ->with([
+                'location',
+                'menus' => fn ($query) => $query
+                    ->where('is_active', true)
+                    ->orderBy('sort_order')
+                    ->orderBy('id'),
+                'pricingRules',
+                'photos' => fn ($query) => $query
+                    ->where('status', ProfilePhoto::STATUS_APPROVED)
+                    ->orderBy('sort_order')
+                    ->orderBy('id'),
+            ]);
+    }
+
+    private function detailProfilesQuery(?Account $viewer): Builder
+    {
+        return TherapistProfile::query()
+            ->visibleTo($viewer)
             ->with([
                 'location',
                 'menus' => fn ($query) => $query
@@ -323,8 +362,9 @@ class TherapistDiscoveryController extends Controller
             ->all();
     }
 
-    private function validatedDiscoveryContext(Request $request, bool $requireServiceAddress): array
+    private function validatedDiscoveryContext(Request $request, bool $requireServiceAddress, ?Account $viewer = null): array
     {
+        $viewer ??= $this->authenticatedViewer($request);
         $validated = $request->validate([
             'service_address_id' => array_values(array_filter([
                 $requireServiceAddress ? 'required' : 'nullable',
@@ -352,12 +392,23 @@ class TherapistDiscoveryController extends Controller
         $serviceAddress = null;
 
         if (filled($validated['service_address_id'] ?? null)) {
+            if (! $viewer) {
+                throw ValidationException::withMessages([
+                    'service_address_id' => 'Authentication is required to use a saved service address.',
+                ]);
+            }
+
             $serviceAddress = ServiceAddress::query()
                 ->where('public_id', $validated['service_address_id'])
-                ->where('account_id', $request->user()->id)
+                ->where('account_id', $viewer->id)
                 ->firstOrFail();
         }
 
         return [$validated, $serviceAddress];
+    }
+
+    private function authenticatedViewer(Request $request): ?Account
+    {
+        return $request->user() ?? Auth::guard('sanctum')->user();
     }
 }

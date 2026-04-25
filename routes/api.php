@@ -66,6 +66,8 @@ Route::get('/legal-documents/{type}', [LegalDocumentController::class, 'showLate
 Route::get('/service-meta', [ServiceMetaController::class, 'show']);
 Route::get('/help/faqs', [HelpFaqController::class, 'index']);
 Route::post('/contact', [ContactController::class, 'store']);
+Route::get('/therapists/{therapistProfile:public_id}', [TherapistDiscoveryController::class, 'show']);
+Route::get('/therapists/{therapistProfile:public_id}/reviews', [ReviewController::class, 'therapistReviews']);
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', [AuthController::class, 'me']);
@@ -147,9 +149,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/admin/travel-requests/{travelRequest:public_id}/restrict-sender', [AdminTravelRequestController::class, 'restrictSender']);
     Route::post('/admin/travel-requests/{travelRequest:public_id}/suspend-sender', [AdminTravelRequestController::class, 'suspendSender']);
     Route::get('/therapists', [TherapistDiscoveryController::class, 'index'])->middleware('throttle:therapist-search');
-    Route::get('/therapists/{therapistProfile:public_id}', [TherapistDiscoveryController::class, 'show']);
     Route::get('/therapists/{therapistProfile:public_id}/availability', [TherapistDiscoveryController::class, 'availability']);
-    Route::get('/therapists/{therapistProfile:public_id}/reviews', [ReviewController::class, 'therapistReviews']);
     Route::post('/therapists/{therapistProfile:public_id}/travel-requests', [TherapistTravelRequestController::class, 'store']);
     Route::get('/me/reviews', [ReviewController::class, 'me']);
 

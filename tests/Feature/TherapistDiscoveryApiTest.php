@@ -4,8 +4,10 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\AccountBlock;
+use App\Models\Booking;
 use App\Models\IdentityVerification;
 use App\Models\ProfilePhoto;
+use App\Models\Review;
 use App\Models\ServiceAddress;
 use App\Models\TherapistLocation;
 use App\Models\TherapistMenu;
@@ -87,6 +89,50 @@ class TherapistDiscoveryApiTest extends TestCase
             ->assertJsonPath('data.menus.1.public_id', 'menu_near_60')
             ->assertJsonPath('data.menus.1.estimated_total_amount', 19300)
             ->assertJsonCount(1, 'data.photos');
+    }
+
+    public function test_guest_can_view_public_therapist_detail_without_saved_address(): void
+    {
+        [, , $nearbyProfile] = $this->createDiscoveryFixture();
+
+        $this->getJson("/api/therapists/{$nearbyProfile->public_id}")
+            ->assertOk()
+            ->assertJsonPath('data.public_id', $nearbyProfile->public_id)
+            ->assertJsonPath('data.walking_time_range', null)
+            ->assertJsonPath('data.lowest_estimated_total_amount', null)
+            ->assertJsonPath('data.menus.0.estimated_total_amount', null);
+    }
+
+    public function test_guest_can_view_offline_public_therapist_detail_without_saved_address(): void
+    {
+        $this->createDiscoveryFixture();
+
+        $this->getJson('/api/therapists/thp_offline')
+            ->assertOk()
+            ->assertJsonPath('data.public_id', 'thp_offline')
+            ->assertJsonPath('data.is_online', false)
+            ->assertJsonPath('data.walking_time_range', null)
+            ->assertJsonPath('data.lowest_estimated_total_amount', null);
+    }
+
+    public function test_guest_can_view_public_reviews_without_authentication(): void
+    {
+        [$user, , $nearbyProfile, , $nearbyTherapist, $booking] = $this->createDiscoveryFixture();
+
+        Review::create([
+            'booking_id' => $booking->id,
+            'reviewer_account_id' => $user->id,
+            'reviewee_account_id' => $nearbyTherapist->id,
+            'reviewer_role' => 'user',
+            'rating_overall' => 5,
+            'public_comment' => '落ち着いて受けられました。',
+            'status' => Review::STATUS_VISIBLE,
+        ]);
+
+        $this->getJson("/api/therapists/{$nearbyProfile->public_id}/reviews")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.public_comment', '落ち着いて受けられました。');
     }
 
     public function test_blocked_or_unverified_therapists_are_hidden(): void
@@ -199,7 +245,7 @@ class TherapistDiscoveryApiTest extends TestCase
             'review_count' => 8,
             'therapist_cancellation_count' => 1,
         ]);
-        TherapistMenu::create([
+        $nearbyPrimaryMenu = TherapistMenu::create([
             'public_id' => 'menu_near_90',
             'therapist_profile_id' => $nearbyProfile->id,
             'name' => 'Body Care 90',
@@ -216,6 +262,20 @@ class TherapistDiscoveryApiTest extends TestCase
             'base_price_amount' => 12000,
             'is_active' => true,
             'sort_order' => 1,
+        ]);
+        $booking = Booking::create([
+            'public_id' => 'book_discovery_review',
+            'user_account_id' => $user->id,
+            'therapist_account_id' => $nearbyTherapist->id,
+            'therapist_profile_id' => $nearbyProfile->id,
+            'therapist_menu_id' => $nearbyPrimaryMenu->id,
+            'service_address_id' => $address->id,
+            'status' => Booking::STATUS_COMPLETED,
+            'duration_minutes' => 60,
+            'total_amount' => 10300,
+            'therapist_net_amount' => 9400,
+            'platform_fee_amount' => 600,
+            'matching_fee_amount' => 300,
         ]);
         TherapistLocation::create([
             'therapist_profile_id' => $nearbyProfile->id,
@@ -306,6 +366,6 @@ class TherapistDiscoveryApiTest extends TestCase
             'reviewed_at' => now(),
         ]);
 
-        return [$user, $address, $nearbyProfile, $farProfile];
+        return [$user, $address, $nearbyProfile, $farProfile, $nearbyTherapist, $booking];
     }
 }
