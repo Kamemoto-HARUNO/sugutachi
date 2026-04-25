@@ -545,6 +545,15 @@ export function UserBookingsPage() {
                                                     </div>
                                                 ) : null}
                                             </div>
+
+                                            <div className="mt-5 grid gap-2">
+                                                <Link
+                                                    to={`/user/bookings/${booking.public_id}`}
+                                                    className="inline-flex w-full items-center justify-center rounded-full bg-[#17202b] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#243447]"
+                                                >
+                                                    詳細を見る
+                                                </Link>
+                                            </div>
                                         </div>
                                     </div>
                                 </div>

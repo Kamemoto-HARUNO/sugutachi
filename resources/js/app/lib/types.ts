@@ -369,6 +369,67 @@ export interface BookingListRecord {
     created_at: string;
 }
 
+export interface BookingCanceledByAccount {
+    public_id: string;
+    display_name: string | null;
+}
+
+export interface BookingRefundBreakdown {
+    refund_count: number;
+    auto_refund_count: number;
+    requested_amount_total: number;
+    approved_amount_total: number;
+    processed_amount_total: number;
+}
+
+export interface BookingRefundRecord {
+    public_id: string;
+    status: string;
+    reason_code: string | null;
+    is_auto: boolean;
+    requested_amount: number | null;
+    approved_amount: number | null;
+    processed_amount: number;
+    processed_at: string | null;
+    created_at: string;
+}
+
+export interface BookingConsentRecord {
+    id: number;
+    booking_public_id: string | null;
+    account_id: string | null;
+    consent_type: string;
+    legal_document_public_id: string | null;
+    legal_document_type: string | null;
+    consented_at: string | null;
+    created_at: string;
+}
+
+export interface BookingHealthCheckRecord {
+    id: number;
+    booking_public_id: string | null;
+    account_id: string | null;
+    role: string;
+    drinking_status: string | null;
+    has_injury: boolean;
+    has_fever: boolean;
+    contraindications: string[];
+    notes: string | null;
+    checked_at: string | null;
+    created_at: string;
+}
+
+export interface BookingDetailRecord extends BookingListRecord {
+    cancel_reason_note: string | null;
+    canceled_by_role: string | null;
+    canceled_by_account: BookingCanceledByAccount | null;
+    current_quote: BookingQuoteRecord | null;
+    refund_breakdown: BookingRefundBreakdown | null;
+    refunds: BookingRefundRecord[];
+    consents: BookingConsentRecord[];
+    health_checks: BookingHealthCheckRecord[];
+}
+
 export interface NavItem {
     label: string;
     to: string;
