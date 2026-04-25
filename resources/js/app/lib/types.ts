@@ -293,6 +293,82 @@ export interface BookingQuoteRecord {
     amounts: BookingQuoteAmounts;
 }
 
+export interface BookingCounterparty {
+    role: string;
+    public_id: string;
+    display_name: string | null;
+    account_status: string | null;
+    therapist_profile_public_id: string | null;
+}
+
+export interface BookingTherapistProfileSummary {
+    public_id: string;
+    public_name: string;
+}
+
+export interface BookingTherapistMenuSummary {
+    public_id: string;
+    name: string;
+    duration_minutes: number;
+    base_price_amount: number;
+}
+
+export interface PaymentIntentRecord {
+    stripe_payment_intent_id: string;
+    client_secret?: string | null;
+    status: string;
+    capture_method: string | null;
+    currency: string;
+    amount: number;
+    application_fee_amount: number;
+    transfer_amount: number;
+    is_current: boolean;
+    authorized_at: string | null;
+    captured_at: string | null;
+    canceled_at: string | null;
+    last_stripe_event_id: string | null;
+}
+
+export interface BookingListRecord {
+    public_id: string;
+    status: string;
+    request_type: 'on_demand' | 'scheduled';
+    is_on_demand: boolean;
+    availability_slot_id: string | null;
+    requested_start_at: string | null;
+    scheduled_start_at: string | null;
+    scheduled_end_at: string | null;
+    duration_minutes: number;
+    buffer_before_minutes: number;
+    buffer_after_minutes: number;
+    request_expires_at: string | null;
+    accepted_at: string | null;
+    confirmed_at: string | null;
+    moving_at: string | null;
+    arrived_at: string | null;
+    started_at: string | null;
+    ended_at: string | null;
+    canceled_at: string | null;
+    interrupted_at: string | null;
+    cancel_reason_code: string | null;
+    interruption_reason_code: string | null;
+    cancel_reason_note?: string | null;
+    total_amount: number;
+    therapist_net_amount: number;
+    platform_fee_amount: number;
+    matching_fee_amount: number;
+    counterparty: BookingCounterparty | null;
+    therapist_profile: BookingTherapistProfileSummary | null;
+    therapist_menu: BookingTherapistMenuSummary | null;
+    service_address: ServiceAddress | null;
+    current_payment_intent: PaymentIntentRecord | null;
+    unread_message_count: number;
+    refund_count: number;
+    open_report_count: number;
+    latest_message_sent_at: string | null;
+    created_at: string;
+}
+
 export interface NavItem {
     label: string;
     to: string;

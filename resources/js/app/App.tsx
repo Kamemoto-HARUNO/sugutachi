@@ -34,6 +34,7 @@ import { TherapistIdentityVerificationPage } from './pages/TherapistIdentityVeri
 import { TherapistOnboardingPage } from './pages/TherapistOnboardingPage';
 import { TherapistProfilePage } from './pages/TherapistProfilePage';
 import { TherapistStripeConnectPage } from './pages/TherapistStripeConnectPage';
+import { UserBookingsPage } from './pages/UserBookingsPage';
 import { UserBookingQuotePage } from './pages/UserBookingQuotePage';
 import { UserBookingRequestPage } from './pages/UserBookingRequestPage';
 import { UserServiceAddressesPage } from './pages/UserServiceAddressesPage';
@@ -96,6 +97,7 @@ function AppRoutes() {
                             />
                         }
                     />
+                    <Route path="bookings" element={<UserBookingsPage />} />
                     <Route path="service-addresses" element={<UserServiceAddressesPage />} />
                     <Route path="booking-request" element={<UserBookingRequestPage />} />
                     <Route path="booking-request/quote" element={<UserBookingQuotePage />} />
@@ -103,6 +105,7 @@ function AppRoutes() {
                         .filter(
                             (route) =>
                                 route.path !== 'therapists'
+                                && route.path !== 'bookings'
                                 && route.path !== 'service-addresses'
                                 && route.path !== 'booking-request'
                                 && route.path !== 'booking-request/quote'
