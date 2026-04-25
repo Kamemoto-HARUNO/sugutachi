@@ -150,6 +150,10 @@ function buildTimeline(booking: BookingDetailRecord): Array<{ key: string; label
     ];
 }
 
+function isReviewableStatus(status: string): boolean {
+    return status === 'therapist_completed' || status === 'completed';
+}
+
 function renderConsentLabel(consent: BookingConsentRecord): string {
     switch (consent.consent_type) {
         case 'terms':
@@ -286,6 +290,14 @@ export function UserBookingDetailPage() {
                         >
                             予約一覧へ戻る
                         </Link>
+                        {isReviewableStatus(booking.status) ? (
+                            <Link
+                                to={`/user/bookings/${booking.public_id}/review`}
+                                className="inline-flex items-center rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8"
+                            >
+                                レビューを書く
+                            </Link>
+                        ) : null}
                         <Link
                             to={`/user/bookings/${booking.public_id}/messages`}
                             className="inline-flex items-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105"
@@ -486,6 +498,14 @@ export function UserBookingDetailPage() {
                         </div>
 
                         <div className="mt-6 space-y-3">
+                            {isReviewableStatus(booking.status) ? (
+                                <Link
+                                    to={`/user/bookings/${booking.public_id}/review`}
+                                    className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
+                                >
+                                    レビューを書く
+                                </Link>
+                            ) : null}
                             <Link
                                 to={`/user/bookings/${booking.public_id}/messages`}
                                 className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105"
