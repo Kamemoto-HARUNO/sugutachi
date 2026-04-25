@@ -6,7 +6,6 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import {
     formatCurrency,
     formatWalkingTimeRange,
-    getDefaultServiceAddress,
     getServiceAddressLabel,
 } from '../lib/discovery';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';

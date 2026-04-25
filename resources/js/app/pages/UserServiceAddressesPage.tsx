@@ -143,18 +143,6 @@ export function UserServiceAddressesPage() {
         };
     }, [loadAddresses]);
 
-    async function refreshAfterMutation(nextMessage: string, nextSelectedId?: string | null) {
-        await loadAddresses();
-        if (nextSelectedId !== undefined) {
-            const nextAddress = nextSelectedId
-                ? addresses.find((address) => address.public_id === nextSelectedId) ?? null
-                : null;
-
-            setDraft(createDraft(nextAddress));
-        }
-        setSuccessMessage(nextMessage);
-    }
-
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
