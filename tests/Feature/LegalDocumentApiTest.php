@@ -101,4 +101,26 @@ class LegalDocumentApiTest extends TestCase
 
         $this->assertDatabaseCount('legal_acceptances', 1);
     }
+
+    public function test_guest_can_get_bootstrapped_default_registration_documents_when_missing(): void
+    {
+        $response = $this->getJson('/api/legal-documents')
+            ->assertOk()
+            ->assertJsonCount(2, 'data');
+
+        $documents = collect($response->json('data'))->keyBy('document_type');
+
+        $this->assertSame('terms', $documents['terms']['document_type']);
+        $this->assertSame('privacy', $documents['privacy']['document_type']);
+        $this->assertNotNull(LegalDocument::query()->where('document_type', 'terms')->first()?->published_at);
+        $this->assertNotNull(LegalDocument::query()->where('document_type', 'privacy')->first()?->published_at);
+
+        $this->getJson('/api/legal-documents/terms')
+            ->assertOk()
+            ->assertJsonPath('data.document_type', 'terms');
+
+        $this->getJson('/api/legal-documents/privacy')
+            ->assertOk()
+            ->assertJsonPath('data.document_type', 'privacy');
+    }
 }

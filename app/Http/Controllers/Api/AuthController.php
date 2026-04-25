@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\AccountResource;
 use App\Models\Account;
 use App\Models\LegalDocument;
+use App\Services\Legal\DefaultLegalDocumentService;
 use Illuminate\Database\Eloquent\Collection;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,6 +18,10 @@ use Illuminate\Validation\ValidationException;
 
 class AuthController extends Controller
 {
+    public function __construct(
+        private readonly DefaultLegalDocumentService $defaultLegalDocumentService,
+    ) {}
+
     public function register(Request $request): JsonResponse
     {
         $validated = $request->validate([
@@ -118,6 +123,8 @@ class AuthController extends Controller
 
     private function resolveAcceptedRegistrationDocuments(array $validated): Collection
     {
+        $this->defaultLegalDocumentService->ensurePublished(['terms', 'privacy']);
+
         $documents = LegalDocument::query()
             ->published()
             ->where(function ($query) use ($validated): void {

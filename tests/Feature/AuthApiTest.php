@@ -75,6 +75,40 @@ class AuthApiTest extends TestCase
             ->assertJsonPath('account.email', 'existing@example.test');
     }
 
+    public function test_account_can_register_after_default_registration_documents_are_bootstrapped(): void
+    {
+        $documents = collect(
+            $this->getJson('/api/legal-documents')
+                ->assertOk()
+                ->json('data')
+        )->keyBy('document_type');
+
+        $registerResponse = $this->postJson('/api/auth/register', [
+            'email' => 'bootstrapped@example.test',
+            'password' => 'very-secure-password',
+            'password_confirmation' => 'very-secure-password',
+            'display_name' => 'Bootstrapped User',
+            'accepted_terms_version' => $documents['terms']['version'],
+            'accepted_privacy_version' => $documents['privacy']['version'],
+            'is_over_18' => true,
+            'relaxation_purpose_agreed' => true,
+        ]);
+
+        $registerResponse
+            ->assertCreated()
+            ->assertJsonPath('account.email', 'bootstrapped@example.test')
+            ->assertJsonPath('account.roles.0.role', 'user');
+
+        $this->assertDatabaseHas('legal_documents', [
+            'document_type' => 'terms',
+            'version' => $documents['terms']['version'],
+        ]);
+        $this->assertDatabaseHas('legal_documents', [
+            'document_type' => 'privacy',
+            'version' => $documents['privacy']['version'],
+        ]);
+    }
+
     public function test_register_requires_published_terms_and_privacy_versions(): void
     {
         $this->postJson('/api/auth/register', [

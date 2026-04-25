@@ -7,14 +7,17 @@ use App\Http\Resources\LegalAcceptanceResource;
 use App\Http\Resources\PublicLegalDocumentResource;
 use App\Models\LegalAcceptance;
 use App\Models\LegalDocument;
+use App\Services\Legal\DefaultLegalDocumentService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 
 class LegalDocumentController extends Controller
 {
-    public function index(): AnonymousResourceCollection
+    public function index(DefaultLegalDocumentService $defaultLegalDocumentService): AnonymousResourceCollection
     {
+        $defaultLegalDocumentService->ensurePublished(['terms', 'privacy']);
+
         $documents = LegalDocument::query()
             ->published()
             ->orderBy('document_type')
@@ -28,8 +31,12 @@ class LegalDocumentController extends Controller
         return PublicLegalDocumentResource::collection($documents);
     }
 
-    public function showLatest(string $type): PublicLegalDocumentResource
+    public function showLatest(string $type, DefaultLegalDocumentService $defaultLegalDocumentService): PublicLegalDocumentResource
     {
+        if (in_array($type, ['terms', 'privacy'], true)) {
+            $defaultLegalDocumentService->ensurePublished([$type]);
+        }
+
         $document = LegalDocument::query()
             ->published()
             ->where('document_type', $type)
