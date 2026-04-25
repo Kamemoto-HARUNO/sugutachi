@@ -106,6 +106,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/admin/therapist-profiles/{therapistProfile:public_id}/restore', [AdminTherapistProfileController::class, 'restore']);
     Route::get('/admin/pricing-rules', [AdminPricingRuleController::class, 'index']);
     Route::get('/admin/pricing-rules/{therapistPricingRule}', [AdminPricingRuleController::class, 'show']);
+    Route::post('/admin/pricing-rules/{therapistPricingRule}/notes', [AdminPricingRuleController::class, 'note']);
+    Route::post('/admin/pricing-rules/{therapistPricingRule}/monitoring', [AdminPricingRuleController::class, 'monitor']);
     Route::get('/admin/profile-photos', [AdminProfilePhotoController::class, 'index']);
     Route::post('/admin/profile-photos/{profilePhoto}/approve', [AdminProfilePhotoController::class, 'approve']);
     Route::post('/admin/profile-photos/{profilePhoto}/reject', [AdminProfilePhotoController::class, 'reject']);

@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Guarded;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\MorphMany;
 
 #[Guarded(['id'])]
 class TherapistPricingRule extends Model
@@ -68,6 +69,14 @@ class TherapistPricingRule extends Model
 
     public const MONITORING_FLAG_MENU_PRICE_OVERRIDE = 'menu_price_override';
 
+    public const MONITORING_STATUS_UNREVIEWED = 'unreviewed';
+
+    public const MONITORING_STATUS_UNDER_REVIEW = 'under_review';
+
+    public const MONITORING_STATUS_REVIEWED = 'reviewed';
+
+    public const MONITORING_STATUS_ESCALATED = 'escalated';
+
     private const FIELD_VALUE_OPTIONS = [
         self::FIELD_AGE_RANGE => ['18_24', '20s', '30s', '40s', '50s', '60_plus'],
         self::FIELD_BODY_TYPE => ['slim', 'average', 'muscular', 'chubby', 'large', 'other'],
@@ -126,6 +135,16 @@ class TherapistPricingRule extends Model
         return $this->belongsTo(TherapistMenu::class);
     }
 
+    public function monitoredByAdmin(): BelongsTo
+    {
+        return $this->belongsTo(Account::class, 'monitored_by_admin_account_id');
+    }
+
+    public function adminNotes(): MorphMany
+    {
+        return $this->morphMany(AdminNote::class, 'target')->oldest('created_at');
+    }
+
     public function scopeWithMonitoringFlag(Builder $query, string $flag): Builder
     {
         return match ($flag) {
@@ -175,6 +194,7 @@ class TherapistPricingRule extends Model
             'max_price_amount' => 'integer',
             'priority' => 'integer',
             'is_active' => 'boolean',
+            'monitored_at' => 'datetime',
         ];
     }
 
@@ -233,6 +253,16 @@ class TherapistPricingRule extends Model
             self::MONITORING_FLAG_INACTIVE_MENU,
             self::MONITORING_FLAG_EXTREME_PERCENTAGE,
             self::MONITORING_FLAG_MENU_PRICE_OVERRIDE,
+        ];
+    }
+
+    public static function supportedMonitoringStatuses(): array
+    {
+        return [
+            self::MONITORING_STATUS_UNREVIEWED,
+            self::MONITORING_STATUS_UNDER_REVIEW,
+            self::MONITORING_STATUS_REVIEWED,
+            self::MONITORING_STATUS_ESCALATED,
         ];
     }
 

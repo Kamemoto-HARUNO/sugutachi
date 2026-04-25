@@ -104,6 +104,10 @@ class AdminDashboardController extends Controller
                         ])
                         ->count(),
                     'needs_attention' => TherapistPricingRule::query()->needsMonitoring()->count(),
+                    'pending_review' => TherapistPricingRule::query()
+                        ->needsMonitoring()
+                        ->where('monitoring_status', TherapistPricingRule::MONITORING_STATUS_UNREVIEWED)
+                        ->count(),
                     'inactive_menu_rules' => TherapistPricingRule::query()
                         ->withMonitoringFlag(TherapistPricingRule::MONITORING_FLAG_INACTIVE_MENU)
                         ->count(),
@@ -301,6 +305,15 @@ class AdminDashboardController extends Controller
                             'path' => '/api/admin/pricing-rules',
                             'query' => [
                                 'has_monitoring_flags' => true,
+                                'sort' => 'updated_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
+                        'pending_review' => [
+                            'path' => '/api/admin/pricing-rules',
+                            'query' => [
+                                'has_monitoring_flags' => true,
+                                'monitoring_status' => TherapistPricingRule::MONITORING_STATUS_UNREVIEWED,
                                 'sort' => 'updated_at',
                                 'direction' => 'desc',
                             ],

@@ -7,10 +7,12 @@ use App\Http\Controllers\Api\Concerns\RecordsAdminAuditLogs;
 use App\Http\Controllers\Api\Concerns\ResolvesAdminFilterIds;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AdminPricingRuleResource;
+use App\Models\AdminNote;
 use App\Models\TherapistMenu;
 use App\Models\TherapistPricingRule;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Validation\Rule;
 
 class AdminPricingRuleController extends Controller
@@ -31,12 +33,15 @@ class AdminPricingRuleController extends Controller
             'adjustment_bucket' => ['nullable', Rule::in(['profile_adjustment', 'demand_fee'])],
             'monitoring_flag' => ['nullable', Rule::in(TherapistPricingRule::supportedMonitoringFlags())],
             'has_monitoring_flags' => ['nullable', 'boolean'],
+            'monitoring_status' => ['nullable', Rule::in(TherapistPricingRule::supportedMonitoringStatuses())],
+            'monitored_by_admin_account_id' => ['nullable', 'string', 'max:36'],
             'adjustment_type' => ['nullable', Rule::in([
                 TherapistPricingRule::ADJUSTMENT_TYPE_FIXED_AMOUNT,
                 TherapistPricingRule::ADJUSTMENT_TYPE_PERCENTAGE,
             ])],
             'scope' => ['nullable', Rule::in(['profile', 'menu'])],
             'is_active' => ['nullable', 'boolean'],
+            'has_notes' => ['nullable', 'boolean'],
             'q' => ['nullable', 'string', 'max:100'],
             'sort' => ['nullable', Rule::in(['created_at', 'updated_at', 'priority', 'adjustment_amount'])],
             'direction' => ['nullable', Rule::in(['asc', 'desc'])],
@@ -45,12 +50,14 @@ class AdminPricingRuleController extends Controller
         $accountId = $this->resolveAccountId($validated['account_id'] ?? null);
         $therapistProfileId = $this->resolveTherapistProfileId($validated['therapist_profile_id'] ?? null);
         $therapistMenuId = $this->resolveTherapistMenuId($validated['therapist_menu_id'] ?? null);
+        $monitoredByAdminId = $this->resolveAccountId($validated['monitored_by_admin_account_id'] ?? null);
         $sort = $validated['sort'] ?? 'priority';
         $direction = $validated['direction'] ?? 'asc';
 
         return AdminPricingRuleResource::collection(
             TherapistPricingRule::query()
-                ->with(['therapistProfile.account', 'therapistMenu'])
+                ->with(['therapistProfile.account', 'therapistMenu', 'monitoredByAdmin'])
+                ->withCount('adminNotes')
                 ->when($accountId, fn ($query, int $id) => $query->whereHas('therapistProfile', fn ($profile) => $profile->where('account_id', $id)))
                 ->when($therapistProfileId, fn ($query, int $id) => $query->where('therapist_profile_id', $id))
                 ->when($therapistMenuId, fn ($query, int $id) => $query->where('therapist_menu_id', $id))
@@ -76,6 +83,14 @@ class AdminPricingRuleController extends Controller
                     fn ($query, string $flag) => $query->withMonitoringFlag($flag)
                 )
                 ->when(
+                    $validated['monitoring_status'] ?? null,
+                    fn ($query, string $status) => $query->where('monitoring_status', $status)
+                )
+                ->when(
+                    $monitoredByAdminId,
+                    fn ($query, int $id) => $query->where('monitored_by_admin_account_id', $id)
+                )
+                ->when(
                     array_key_exists('has_monitoring_flags', $validated),
                     fn ($query) => $validated['has_monitoring_flags']
                         ? $query->needsMonitoring()
@@ -90,6 +105,12 @@ class AdminPricingRuleController extends Controller
                 ->when(
                     array_key_exists('is_active', $validated),
                     fn ($query) => $query->where('is_active', (bool) $validated['is_active'])
+                )
+                ->when(
+                    array_key_exists('has_notes', $validated),
+                    fn ($query) => $validated['has_notes']
+                        ? $query->whereHas('adminNotes')
+                        : $query->whereDoesntHave('adminNotes')
                 )
                 ->when($validated['q'] ?? null, function ($query, string $term): void {
                     $query->where(function ($query) use ($term): void {
@@ -117,7 +138,7 @@ class AdminPricingRuleController extends Controller
     {
         $this->authorizeAdmin($request->user());
 
-        $therapistPricingRule->load(['therapistProfile.account', 'therapistMenu']);
+        $therapistPricingRule = $this->loadAdminPricingRule($therapistPricingRule);
 
         $this->recordAdminAudit(
             $request,
@@ -128,6 +149,73 @@ class AdminPricingRuleController extends Controller
         );
 
         return new AdminPricingRuleResource($therapistPricingRule);
+    }
+
+    public function note(Request $request, TherapistPricingRule $therapistPricingRule): AdminPricingRuleResource
+    {
+        $admin = $request->user();
+        $this->authorizeAdmin($admin);
+
+        $validated = $request->validate([
+            'note' => ['required', 'string', 'max:2000'],
+        ]);
+        $before = $this->snapshot($therapistPricingRule);
+
+        $therapistPricingRule->adminNotes()->create([
+            'author_account_id' => $admin->id,
+            'note_encrypted' => Crypt::encryptString($validated['note']),
+        ]);
+
+        $this->recordAdminAudit(
+            $request,
+            'pricing_rule.note',
+            $therapistPricingRule,
+            $before,
+            $this->snapshot($therapistPricingRule->fresh())
+        );
+
+        return new AdminPricingRuleResource($this->loadAdminPricingRule($therapistPricingRule->fresh()));
+    }
+
+    public function monitor(Request $request, TherapistPricingRule $therapistPricingRule): AdminPricingRuleResource
+    {
+        $admin = $request->user();
+        $this->authorizeAdmin($admin);
+
+        $validated = $request->validate([
+            'monitoring_status' => ['required', Rule::in(TherapistPricingRule::supportedMonitoringStatuses())],
+            'note' => ['nullable', 'string', 'max:2000'],
+        ]);
+        $before = $this->snapshot($therapistPricingRule);
+
+        $therapistPricingRule->forceFill([
+            'monitoring_status' => $validated['monitoring_status'],
+            'monitored_by_admin_account_id' => $admin->id,
+            'monitored_at' => now(),
+        ])->save();
+
+        if (filled($validated['note'] ?? null)) {
+            $therapistPricingRule->adminNotes()->create([
+                'author_account_id' => $admin->id,
+                'note_encrypted' => Crypt::encryptString($validated['note']),
+            ]);
+        }
+
+        $this->recordAdminAudit(
+            $request,
+            'pricing_rule.monitor',
+            $therapistPricingRule,
+            $before,
+            $this->snapshot($therapistPricingRule->fresh())
+        );
+
+        return new AdminPricingRuleResource($this->loadAdminPricingRule($therapistPricingRule->fresh()));
+    }
+
+    private function loadAdminPricingRule(TherapistPricingRule $rule): TherapistPricingRule
+    {
+        return $rule->load(['therapistProfile.account', 'therapistMenu', 'monitoredByAdmin', 'adminNotes.author'])
+            ->loadCount('adminNotes');
     }
 
     private function resolveTherapistMenuId(?string $publicId): ?int
@@ -160,6 +248,13 @@ class AdminPricingRuleController extends Controller
             'max_price_amount' => $rule->max_price_amount,
             'priority' => $rule->priority,
             'is_active' => $rule->is_active,
+            'monitoring_status' => $rule->monitoring_status,
+            'monitored_by_admin_account_id' => $rule->monitored_by_admin_account_id,
+            'monitored_at' => $rule->monitored_at,
+            'admin_note_count' => AdminNote::query()
+                ->where('target_type', TherapistPricingRule::class)
+                ->where('target_id', $rule->id)
+                ->count(),
         ];
     }
 }

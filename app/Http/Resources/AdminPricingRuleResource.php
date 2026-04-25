@@ -26,8 +26,16 @@ class AdminPricingRuleResource extends JsonResource
             'max_price_amount' => $rule->max_price_amount,
             'priority' => $rule->priority,
             'is_active' => $rule->is_active,
+            'monitoring_status' => $rule->monitoring_status,
             'monitoring_flags' => $rule->adminMonitoringFlags(),
             'has_monitoring_flags' => $rule->adminMonitoringFlags() !== [],
+            'monitored_by_admin' => $this->whenLoaded('monitoredByAdmin', fn () => $rule->monitoredByAdmin ? [
+                'public_id' => $rule->monitoredByAdmin->public_id,
+                'display_name' => $rule->monitoredByAdmin->display_name,
+            ] : null),
+            'monitored_at' => $rule->monitored_at,
+            'admin_note_count' => $this->when(isset($this->admin_notes_count), $this->admin_notes_count),
+            'notes' => AdminNoteResource::collection($this->whenLoaded('adminNotes')),
             'therapist_profile' => $this->whenLoaded('therapistProfile', fn () => [
                 'public_id' => $rule->therapistProfile?->public_id,
                 'public_name' => $rule->therapistProfile?->public_name,

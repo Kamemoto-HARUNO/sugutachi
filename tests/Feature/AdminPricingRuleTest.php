@@ -86,12 +86,26 @@ class AdminPricingRuleTest extends TestCase
     {
         [, $matchingProfile, , $matchingRule] = $this->createAdminPricingRuleFixture();
 
-        $this->withToken($matchingProfile->account->createToken('api')->plainTextToken)
+        $token = $matchingProfile->account->createToken('api')->plainTextToken;
+
+        $this->withToken($token)
             ->getJson('/api/admin/pricing-rules')
             ->assertForbidden();
 
-        $this->withToken($matchingProfile->account->createToken('api')->plainTextToken)
+        $this->withToken($token)
             ->getJson("/api/admin/pricing-rules/{$matchingRule->id}")
+            ->assertForbidden();
+
+        $this->withToken($token)
+            ->postJson("/api/admin/pricing-rules/{$matchingRule->id}/notes", [
+                'note' => 'Should not be allowed.',
+            ])
+            ->assertForbidden();
+
+        $this->withToken($token)
+            ->postJson("/api/admin/pricing-rules/{$matchingRule->id}/monitoring", [
+                'monitoring_status' => TherapistPricingRule::MONITORING_STATUS_UNDER_REVIEW,
+            ])
             ->assertForbidden();
     }
 
@@ -167,6 +181,65 @@ class AdminPricingRuleTest extends TestCase
             ->assertJsonPath('data.0.has_monitoring_flags', false);
     }
 
+    public function test_admin_can_note_and_update_monitoring_status_for_pricing_rule(): void
+    {
+        [$admin, $profile, $menu, $rule] = $this->createAdminPricingRuleFixture();
+
+        $token = $admin->createToken('api')->plainTextToken;
+
+        $this->withToken($token)
+            ->postJson("/api/admin/pricing-rules/{$rule->id}/notes", [
+                'note' => 'Need to confirm whether this demand surcharge is intentional.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.id', $rule->id)
+            ->assertJsonPath('data.admin_note_count', 1)
+            ->assertJsonPath('data.notes.0.note', 'Need to confirm whether this demand surcharge is intentional.');
+
+        $this->withToken($token)
+            ->postJson("/api/admin/pricing-rules/{$rule->id}/monitoring", [
+                'monitoring_status' => TherapistPricingRule::MONITORING_STATUS_UNDER_REVIEW,
+                'note' => 'Operations is checking whether this should remain active.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.id', $rule->id)
+            ->assertJsonPath('data.monitoring_status', TherapistPricingRule::MONITORING_STATUS_UNDER_REVIEW)
+            ->assertJsonPath('data.monitored_by_admin.public_id', $admin->public_id)
+            ->assertJsonPath('data.admin_note_count', 2)
+            ->assertJsonPath('data.notes.1.note', 'Operations is checking whether this should remain active.');
+
+        $this->withToken($token)
+            ->getJson('/api/admin/pricing-rules?monitoring_status='.TherapistPricingRule::MONITORING_STATUS_UNDER_REVIEW.'&monitored_by_admin_account_id='.$admin->public_id.'&has_notes=1')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $rule->id)
+            ->assertJsonPath('data.0.monitoring_status', TherapistPricingRule::MONITORING_STATUS_UNDER_REVIEW)
+            ->assertJsonPath('data.0.admin_note_count', 2);
+
+        $this->assertDatabaseHas('admin_notes', [
+            'author_account_id' => $admin->id,
+            'target_type' => TherapistPricingRule::class,
+            'target_id' => $rule->id,
+        ]);
+        $this->assertDatabaseHas('therapist_pricing_rules', [
+            'id' => $rule->id,
+            'monitoring_status' => TherapistPricingRule::MONITORING_STATUS_UNDER_REVIEW,
+            'monitored_by_admin_account_id' => $admin->id,
+        ]);
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'actor_account_id' => $admin->id,
+            'action' => 'pricing_rule.note',
+            'target_type' => TherapistPricingRule::class,
+            'target_id' => $rule->id,
+        ]);
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'actor_account_id' => $admin->id,
+            'action' => 'pricing_rule.monitor',
+            'target_type' => TherapistPricingRule::class,
+            'target_id' => $rule->id,
+        ]);
+    }
+
     private function createAdminPricingRuleFixture(): array
     {
         $admin = Account::factory()->create(['public_id' => 'acc_admin_pricing_rules']);
@@ -209,6 +282,7 @@ class AdminPricingRuleTest extends TestCase
             'min_price_amount' => 13000,
             'priority' => 10,
             'is_active' => true,
+            'monitoring_status' => TherapistPricingRule::MONITORING_STATUS_UNREVIEWED,
         ]);
 
         return [$admin, $profile, $menu, $rule];
