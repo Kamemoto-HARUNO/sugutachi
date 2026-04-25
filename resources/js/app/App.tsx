@@ -30,6 +30,10 @@ import { PublicHomePage } from './pages/PublicHomePage';
 import { RegisterPage } from './pages/RegisterPage';
 import { RoleSelectPage } from './pages/RoleSelectPage';
 import { SectionHomePage } from './pages/SectionHomePage';
+import { TherapistIdentityVerificationPage } from './pages/TherapistIdentityVerificationPage';
+import { TherapistOnboardingPage } from './pages/TherapistOnboardingPage';
+import { TherapistProfilePage } from './pages/TherapistProfilePage';
+import { TherapistStripeConnectPage } from './pages/TherapistStripeConnectPage';
 import { UserTherapistAvailabilityPage } from './pages/UserTherapistAvailabilityPage';
 import { UserTherapistDetailPage } from './pages/UserTherapistDetailPage';
 import { UserTherapistSearchPage } from './pages/UserTherapistSearchPage';
@@ -128,6 +132,7 @@ function AppRoutes() {
                                 title="セラピストダッシュボード"
                                 description="プロフィール審査から空き枠、料金ルール、売上管理までをここからつないでいきます。"
                                 actions={[
+                                    { label: '準備状況', to: '/therapist/onboarding', description: '本人確認、プロフィール、Stripe の進み具合を確認します。' },
                                     { label: 'プロフィール編集', to: '/therapist/profile', description: '公開プロフィールと審査状態を確認します。' },
                                     { label: '空き枠管理', to: '/therapist/availability', description: '予定予約設定と公開枠を管理します。' },
                                     { label: '予約依頼一覧', to: '/therapist/requests', description: '今すぐ予約と予定予約の依頼を確認します。' },
@@ -135,13 +140,19 @@ function AppRoutes() {
                             />
                         }
                     />
-                    {therapistPlaceholderRoutes.map((route) => (
+                    <Route path="onboarding" element={<TherapistOnboardingPage />} />
+                    <Route path="identity-verification" element={<TherapistIdentityVerificationPage />} />
+                    <Route path="stripe-connect" element={<TherapistStripeConnectPage />} />
+                    <Route path="profile" element={<TherapistProfilePage />} />
+                    {therapistPlaceholderRoutes
+                        .filter((route) => !['onboarding', 'identity-verification', 'stripe-connect', 'profile'].includes(route.path))
+                        .map((route) => (
                         <Route
                             key={route.path}
                             path={route.path}
                             element={<PlaceholderScreen title={route.title} description={route.description} apiPath={route.apiPath} />}
                         />
-                    ))}
+                        ))}
                 </Route>
             </Route>
 

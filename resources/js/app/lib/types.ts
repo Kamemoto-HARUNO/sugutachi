@@ -138,6 +138,8 @@ export interface TherapistMenu {
     description: string | null;
     duration_minutes: number;
     base_price_amount: number;
+    is_active: boolean;
+    sort_order: number;
     estimated_total_amount: number | null;
 }
 
@@ -154,6 +156,84 @@ export interface TherapistDetail {
     lowest_estimated_total_amount: number | null;
     menus: TherapistMenu[];
     photos: PublicProfilePhoto[];
+}
+
+export interface TherapistProfileRecord {
+    public_id: string;
+    public_name: string;
+    bio: string | null;
+    profile_status: string;
+    training_status: string | null;
+    photo_review_status: string;
+    is_online: boolean;
+    online_since: string | null;
+    last_location_updated_at: string | null;
+    rating_average: number;
+    review_count: number;
+    approved_at: string | null;
+    rejected_reason_code: string | null;
+    menus: TherapistMenu[];
+}
+
+export interface TherapistReviewRequirement {
+    key: string;
+    label: string;
+    is_satisfied: boolean;
+}
+
+export interface TherapistReviewStatus {
+    profile: TherapistProfileRecord;
+    can_submit: boolean;
+    active_menu_count: number;
+    latest_identity_verification_status: string | null;
+    requirements: TherapistReviewRequirement[];
+}
+
+export interface StripeConnectedAccountStatus {
+    has_account: boolean;
+    stripe_account_id: string | null;
+    account_type: string | null;
+    status: string | null;
+    charges_enabled: boolean;
+    payouts_enabled: boolean;
+    details_submitted: boolean;
+    requirements_currently_due: string[];
+    requirements_past_due: string[];
+    disabled_reason: string | null;
+    onboarding_completed_at: string | null;
+    last_synced_at: string | null;
+}
+
+export interface StripeAccountLink {
+    url: string;
+    expires_at: string | null;
+    type: string;
+}
+
+export interface IdentityVerificationRecord {
+    id: number;
+    provider: string;
+    status: string;
+    birth_year: number | null;
+    is_age_verified: boolean;
+    self_declared_male: boolean;
+    document_type: string | null;
+    submitted_at: string | null;
+    reviewed_at: string | null;
+    rejection_reason_code: string | null;
+    purge_after: string | null;
+}
+
+export interface TempFileRecord {
+    file_id: string;
+    purpose: string;
+    original_name: string;
+    mime_type: string;
+    size_bytes: number;
+    status: string;
+    expires_at: string | null;
+    used_at: string | null;
+    created_at: string;
 }
 
 export interface PublicTherapistAvailabilityWindow {
