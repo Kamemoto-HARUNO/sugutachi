@@ -179,4 +179,11 @@ class TherapistPricingRule extends Model
             self::DEMAND_LEVEL_PEAK,
         ];
     }
+
+    public static function adjustmentBucketFor(string $ruleType): string
+    {
+        return $ruleType === self::RULE_TYPE_USER_PROFILE_ATTRIBUTE
+            ? 'profile_adjustment'
+            : 'demand_fee';
+    }
 }

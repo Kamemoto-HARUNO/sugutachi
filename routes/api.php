@@ -10,6 +10,7 @@ use App\Http\Controllers\Api\AdminIdentityVerificationController;
 use App\Http\Controllers\Api\AdminLegalDocumentController;
 use App\Http\Controllers\Api\AdminPayoutRequestController;
 use App\Http\Controllers\Api\AdminPlatformFeeSettingController;
+use App\Http\Controllers\Api\AdminPricingRuleController;
 use App\Http\Controllers\Api\AdminProfilePhotoController;
 use App\Http\Controllers\Api\AdminRefundRequestController;
 use App\Http\Controllers\Api\AdminReportController;
@@ -103,6 +104,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/admin/therapist-profiles/{therapistProfile:public_id}/reject', [AdminTherapistProfileController::class, 'reject']);
     Route::post('/admin/therapist-profiles/{therapistProfile:public_id}/suspend', [AdminTherapistProfileController::class, 'suspend']);
     Route::post('/admin/therapist-profiles/{therapistProfile:public_id}/restore', [AdminTherapistProfileController::class, 'restore']);
+    Route::get('/admin/pricing-rules', [AdminPricingRuleController::class, 'index']);
+    Route::get('/admin/pricing-rules/{therapistPricingRule}', [AdminPricingRuleController::class, 'show']);
     Route::get('/admin/profile-photos', [AdminProfilePhotoController::class, 'index']);
     Route::post('/admin/profile-photos/{profilePhoto}/approve', [AdminProfilePhotoController::class, 'approve']);
     Route::post('/admin/profile-photos/{profilePhoto}/reject', [AdminProfilePhotoController::class, 'reject']);
