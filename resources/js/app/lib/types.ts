@@ -430,6 +430,38 @@ export interface BookingDetailRecord extends BookingListRecord {
     health_checks: BookingHealthCheckRecord[];
 }
 
+export interface BookingMessageSender {
+    public_id: string;
+    display_name: string | null;
+    status: string | null;
+}
+
+export interface BookingMessageRecord {
+    id: number;
+    booking_public_id: string | null;
+    sender_account_id: string | null;
+    sender: BookingMessageSender | null;
+    sender_role: string | null;
+    message_type: string;
+    body: string;
+    detected_contact_exchange: boolean;
+    moderation_status: string;
+    is_own: boolean | null;
+    is_read: boolean;
+    sent_at: string | null;
+    read_at: string | null;
+}
+
+export interface BookingMessagesMeta {
+    booking_public_id: string;
+    booking_status: string;
+    unread_count: number;
+    counterparty: BookingCounterparty | null;
+    filters: {
+        read_status: 'read' | 'unread' | null;
+    };
+}
+
 export interface NavItem {
     label: string;
     to: string;
