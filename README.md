@@ -6,7 +6,8 @@
 
 * Laravel 13
 * PHP 8.3+
-* SQLite / MySQL想定
+* MySQL 8+ / MariaDB 10.6+（ローカル・本番の基本DB）
+* SQLite（自動テストの高速実行用途）
 * Stripe Connect予定
 
 ## セットアップ
@@ -14,11 +15,16 @@
 ```bash
 composer install
 cp .env.example .env
+# .env の DB_* をローカル MySQL に合わせて必要に応じて修正
+mysql -u your_user -p -e "CREATE DATABASE IF NOT EXISTS sugutachi_local CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 php artisan key:generate
-touch database/database.sqlite
 php artisan migrate
 php artisan serve
 ```
+
+ローカル開発と本番受け入れ確認は MySQL / MariaDB を前提にします。SQLite は `php artisan test` の高速実行用です。
+ブランチ更新後や `git pull` 後は、必ず `php artisan migrate` を実行してローカルDBを最新スキーマに追従させてください。
+Homebrew の `mysql` 9 系は、既存の 8.0 系データディレクトリから直接起動できず失敗することがあります。ローカル検証には `mysql@8.4` か MariaDB 10.6+ を推奨します。
 
 ## 検証
 
@@ -26,6 +32,8 @@ php artisan serve
 php artisan test
 vendor/bin/pint --test
 ```
+
+主要フローの最終確認では、MySQL 接続で `php artisan migrate:fresh --seed` 相当の検証を行ってから反映してください。
 
 ## 設計ドキュメント
 
