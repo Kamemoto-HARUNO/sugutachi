@@ -33,6 +33,14 @@ class TherapistTravelRequestController extends Controller
 
         $actor = $request->user();
 
+        if ($actor->hasActiveTravelRequestRestriction()) {
+            return response()->json([
+                'message' => 'Travel request sending is temporarily restricted.',
+                'restricted_until' => $actor->travel_request_restricted_until,
+                'reason_code' => $actor->travel_request_restriction_reason,
+            ], 429);
+        }
+
         abort_if($therapistProfile->account_id === $actor->id, 409, 'You cannot send a travel request to yourself.');
 
         $targetProfile = TherapistProfile::query()

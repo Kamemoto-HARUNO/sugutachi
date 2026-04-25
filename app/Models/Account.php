@@ -14,7 +14,21 @@ use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 use Laravel\Sanctum\HasApiTokens;
 
-#[Fillable(['public_id', 'email', 'phone_e164', 'password', 'display_name', 'status', 'last_active_role', 'registered_ip_hash'])]
+#[Fillable([
+    'public_id',
+    'email',
+    'phone_e164',
+    'password',
+    'display_name',
+    'status',
+    'last_active_role',
+    'registered_ip_hash',
+    'travel_request_warning_count',
+    'travel_request_last_warned_at',
+    'travel_request_last_warning_reason',
+    'travel_request_restricted_until',
+    'travel_request_restriction_reason',
+])]
 #[Hidden(['password', 'remember_token'])]
 class Account extends Authenticatable
 {
@@ -225,7 +239,14 @@ class Account extends Authenticatable
             'phone_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
             'suspended_at' => 'datetime',
+            'travel_request_last_warned_at' => 'datetime',
+            'travel_request_restricted_until' => 'datetime',
             'password' => 'hashed',
         ];
+    }
+
+    public function hasActiveTravelRequestRestriction(): bool
+    {
+        return $this->travel_request_restricted_until?->isFuture() ?? false;
     }
 }

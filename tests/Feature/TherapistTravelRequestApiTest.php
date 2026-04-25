@@ -125,6 +125,25 @@ class TherapistTravelRequestApiTest extends TestCase
             ->assertStatus(429);
     }
 
+    public function test_user_cannot_send_when_temporarily_restricted(): void
+    {
+        $user = Account::factory()->create([
+            'public_id' => 'acc_travel_restricted_user',
+            'travel_request_restricted_until' => now()->addDays(3),
+            'travel_request_restriction_reason' => 'policy_warning',
+        ]);
+        [, $profile] = $this->createTravelRequestableTherapist();
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson("/api/therapists/{$profile->public_id}/travel-requests", [
+                'prefecture' => '福岡県',
+                'message' => 'restricted case',
+            ])
+            ->assertStatus(429)
+            ->assertJsonPath('message', 'Travel request sending is temporarily restricted.')
+            ->assertJsonPath('reason_code', 'policy_warning');
+    }
+
     public function test_therapist_can_list_show_read_and_archive_travel_requests(): void
     {
         $sender = Account::factory()->create([

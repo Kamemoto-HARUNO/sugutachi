@@ -11,6 +11,7 @@ use App\Http\Resources\AdminAccountResource;
 use App\Http\Resources\AdminTravelRequestResource;
 use App\Models\Account;
 use App\Models\AdminNote;
+use App\Models\AppNotification;
 use App\Models\TherapistTravelRequest;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -31,6 +32,8 @@ class AdminTravelRequestController extends Controller
         $validated = $request->validate([
             'user_account_id' => ['nullable', 'string', 'max:36'],
             'sender_status' => ['nullable', Rule::in([Account::STATUS_ACTIVE, Account::STATUS_SUSPENDED])],
+            'has_sender_warning' => ['nullable', 'boolean'],
+            'sender_restriction_status' => ['nullable', Rule::in(['restricted', 'clear'])],
             'therapist_account_id' => ['nullable', 'string', 'max:36'],
             'therapist_profile_id' => ['nullable', 'string', 'max:36'],
             'status' => ['nullable', Rule::in(TherapistTravelRequest::statuses())],
@@ -61,6 +64,22 @@ class AdminTravelRequestController extends Controller
                 ->when(
                     $validated['sender_status'] ?? null,
                     fn ($query, string $status) => $query->whereHas('userAccount', fn ($account) => $account->where('status', $status))
+                )
+                ->when(
+                    array_key_exists('has_sender_warning', $validated),
+                    fn ($query) => $validated['has_sender_warning']
+                        ? $query->whereHas('userAccount', fn ($account) => $account->where('travel_request_warning_count', '>', 0))
+                        : $query->whereHas('userAccount', fn ($account) => $account->where('travel_request_warning_count', 0))
+                )
+                ->when(
+                    $validated['sender_restriction_status'] ?? null,
+                    fn ($query, string $restrictionStatus) => $restrictionStatus === 'restricted'
+                        ? $query->whereHas('userAccount', fn ($account) => $account->where('travel_request_restricted_until', '>', now()))
+                        : $query->whereHas('userAccount', fn ($account) => $account->where(function ($account) {
+                            $account
+                                ->whereNull('travel_request_restricted_until')
+                                ->orWhere('travel_request_restricted_until', '<=', now());
+                        }))
                 )
                 ->when($therapistAccountId, fn ($query, int $id) => $query->where('therapist_account_id', $id))
                 ->when($therapistProfileId, fn ($query, int $id) => $query->where('therapist_profile_id', $id))
@@ -187,6 +206,116 @@ class AdminTravelRequestController extends Controller
         return new AdminTravelRequestResource($this->loadAdminTravelRequest($travelRequest->fresh()));
     }
 
+    public function warnSender(Request $request, TherapistTravelRequest $travelRequest): AdminAccountResource
+    {
+        $admin = $request->user();
+        $this->authorizeAdmin($admin);
+
+        $travelRequest->loadMissing('userAccount');
+        $sender = $travelRequest->userAccount;
+        abort_unless($sender, 409, 'Sender account is unavailable.');
+
+        $validated = $request->validate([
+            'reason_code' => ['required', 'string', 'max:100'],
+            'note' => ['nullable', 'string', 'max:2000'],
+        ]);
+        $accountBefore = $this->snapshotAccount($sender);
+        $travelRequestBefore = $this->snapshot($travelRequest);
+
+        $sender->forceFill([
+            'travel_request_warning_count' => (int) $sender->travel_request_warning_count + 1,
+            'travel_request_last_warned_at' => now(),
+            'travel_request_last_warning_reason' => $validated['reason_code'],
+        ])->save();
+
+        $travelRequest->forceFill([
+            'monitoring_status' => $travelRequest->monitoring_status === TherapistTravelRequest::MONITORING_STATUS_ESCALATED
+                ? TherapistTravelRequest::MONITORING_STATUS_ESCALATED
+                : TherapistTravelRequest::MONITORING_STATUS_REVIEWED,
+            'monitored_by_admin_account_id' => $admin->id,
+            'monitored_at' => now(),
+        ])->save();
+
+        $this->appendAdminNote($travelRequest, $admin, $validated['note'] ?? null);
+        $this->notifySenderWarning($sender->refresh(), $travelRequest, $validated['reason_code']);
+
+        $this->recordAdminAudit(
+            $request,
+            'account.travel_request_warn',
+            $sender,
+            $accountBefore,
+            $this->snapshotAccount($sender->refresh())
+        );
+        $this->recordAdminAudit(
+            $request,
+            'travel_request.warn_sender',
+            $travelRequest,
+            $travelRequestBefore,
+            $this->snapshot($travelRequest->fresh())
+        );
+
+        return new AdminAccountResource($sender->load([
+            'roleAssignments',
+            'latestIdentityVerification',
+            'userProfile',
+            'therapistProfile',
+        ]));
+    }
+
+    public function restrictSender(Request $request, TherapistTravelRequest $travelRequest): AdminAccountResource
+    {
+        $admin = $request->user();
+        $this->authorizeAdmin($admin);
+
+        $travelRequest->loadMissing('userAccount');
+        $sender = $travelRequest->userAccount;
+        abort_unless($sender, 409, 'Sender account is unavailable.');
+
+        $validated = $request->validate([
+            'reason_code' => ['required', 'string', 'max:100'],
+            'restricted_until' => ['required', 'date', 'after:now'],
+            'note' => ['nullable', 'string', 'max:2000'],
+        ]);
+        $accountBefore = $this->snapshotAccount($sender);
+        $travelRequestBefore = $this->snapshot($travelRequest);
+
+        $sender->forceFill([
+            'travel_request_restricted_until' => $validated['restricted_until'],
+            'travel_request_restriction_reason' => $validated['reason_code'],
+        ])->save();
+
+        $travelRequest->forceFill([
+            'monitoring_status' => TherapistTravelRequest::MONITORING_STATUS_ESCALATED,
+            'monitored_by_admin_account_id' => $admin->id,
+            'monitored_at' => now(),
+        ])->save();
+
+        $this->appendAdminNote($travelRequest, $admin, $validated['note'] ?? null);
+        $this->notifySenderRestriction($sender->refresh(), $travelRequest, $validated['reason_code']);
+
+        $this->recordAdminAudit(
+            $request,
+            'account.travel_request_restrict',
+            $sender,
+            $accountBefore,
+            $this->snapshotAccount($sender->refresh())
+        );
+        $this->recordAdminAudit(
+            $request,
+            'travel_request.restrict_sender',
+            $travelRequest,
+            $travelRequestBefore,
+            $this->snapshot($travelRequest->fresh())
+        );
+
+        return new AdminAccountResource($sender->load([
+            'roleAssignments',
+            'latestIdentityVerification',
+            'userProfile',
+            'therapistProfile',
+        ]));
+    }
+
     public function suspendSender(Request $request, TherapistTravelRequest $travelRequest): AdminAccountResource
     {
         $admin = $request->user();
@@ -211,12 +340,7 @@ class AdminTravelRequestController extends Controller
             'monitored_at' => now(),
         ])->save();
 
-        if (filled($validated['note'] ?? null)) {
-            $travelRequest->adminNotes()->create([
-                'author_account_id' => $admin->id,
-                'note_encrypted' => Crypt::encryptString($validated['note']),
-            ]);
-        }
+        $this->appendAdminNote($travelRequest, $admin, $validated['note'] ?? null);
 
         $this->recordAdminAudit(
             $request,
@@ -290,6 +414,59 @@ class AdminTravelRequestController extends Controller
             'last_active_role',
             'suspended_at',
             'suspension_reason',
+            'travel_request_warning_count',
+            'travel_request_last_warned_at',
+            'travel_request_last_warning_reason',
+            'travel_request_restricted_until',
+            'travel_request_restriction_reason',
+        ]);
+    }
+
+    private function appendAdminNote(TherapistTravelRequest $travelRequest, Account $admin, ?string $note): void
+    {
+        if (! filled($note)) {
+            return;
+        }
+
+        $travelRequest->adminNotes()->create([
+            'author_account_id' => $admin->id,
+            'note_encrypted' => Crypt::encryptString($note),
+        ]);
+    }
+
+    private function notifySenderWarning(Account $sender, TherapistTravelRequest $travelRequest, string $reasonCode): void
+    {
+        AppNotification::create([
+            'account_id' => $sender->id,
+            'notification_type' => 'travel_request_warning',
+            'channel' => 'in_app',
+            'title' => '出張リクエスト送信に関する注意',
+            'body' => '送信内容がガイドラインに抵触する可能性があるため、出張リクエストの利用に注意してください。',
+            'data_json' => [
+                'travel_request_id' => $travelRequest->public_id,
+                'reason_code' => $reasonCode,
+                'warning_count' => (int) $sender->travel_request_warning_count,
+            ],
+            'status' => AppNotification::STATUS_SENT,
+            'sent_at' => now(),
+        ]);
+    }
+
+    private function notifySenderRestriction(Account $sender, TherapistTravelRequest $travelRequest, string $reasonCode): void
+    {
+        AppNotification::create([
+            'account_id' => $sender->id,
+            'notification_type' => 'travel_request_restricted',
+            'channel' => 'in_app',
+            'title' => '出張リクエスト送信制限',
+            'body' => 'ガイドライン確認のため、出張リクエストの送信を一時停止しました。',
+            'data_json' => [
+                'travel_request_id' => $travelRequest->public_id,
+                'reason_code' => $reasonCode,
+                'restricted_until' => $sender->travel_request_restricted_until?->toIso8601String(),
+            ],
+            'status' => AppNotification::STATUS_SENT,
+            'sent_at' => now(),
         ]);
     }
 }

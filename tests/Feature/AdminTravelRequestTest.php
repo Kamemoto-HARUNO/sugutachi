@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\AppNotification;
 use App\Models\IdentityVerification;
 use App\Models\TherapistProfile;
 use App\Models\TherapistTravelRequest;
@@ -76,6 +77,26 @@ class AdminTravelRequestTest extends TestCase
             ->assertJsonPath('data.notes.1.note', 'Ops is checking whether sender activity needs follow-up.');
 
         $this->withToken($token)
+            ->postJson("/api/admin/travel-requests/{$travelRequest->public_id}/warn-sender", [
+                'reason_code' => 'policy_warning',
+                'note' => 'First warning issued for suspicious solicitation.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.public_id', $sender->public_id)
+            ->assertJsonPath('data.travel_request_warning_count', 1)
+            ->assertJsonPath('data.travel_request_last_warning_reason', 'policy_warning');
+
+        $this->withToken($token)
+            ->postJson("/api/admin/travel-requests/{$travelRequest->public_id}/restrict-sender", [
+                'reason_code' => 'cooldown_required',
+                'restricted_until' => now()->addDays(7)->toIso8601String(),
+                'note' => 'Temporary cooldown applied while abuse review is ongoing.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.public_id', $sender->public_id)
+            ->assertJsonPath('data.travel_request_restriction_reason', 'cooldown_required');
+
+        $this->withToken($token)
             ->postJson("/api/admin/travel-requests/{$travelRequest->public_id}/suspend-sender", [
                 'reason_code' => 'policy_violation',
                 'note' => 'Sender was suspended after repeated off-platform solicitation attempts.',
@@ -86,18 +107,33 @@ class AdminTravelRequestTest extends TestCase
             ->assertJsonPath('data.suspension_reason', 'policy_violation');
 
         $this->withToken($token)
-            ->getJson('/api/admin/travel-requests?monitoring_status=escalated&monitored_by_admin_account_id='.$admin->public_id.'&sender_status=suspended&has_notes=1')
+            ->getJson('/api/admin/travel-requests?monitoring_status=escalated&monitored_by_admin_account_id='.$admin->public_id.'&sender_status=suspended&has_notes=1&has_sender_warning=1&sender_restriction_status=restricted')
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.public_id', $travelRequest->public_id)
             ->assertJsonPath('data.0.monitoring_status', TherapistTravelRequest::MONITORING_STATUS_ESCALATED)
             ->assertJsonPath('data.0.sender.status', Account::STATUS_SUSPENDED)
-            ->assertJsonPath('data.0.sender.suspension_reason', 'policy_violation');
+            ->assertJsonPath('data.0.sender.suspension_reason', 'policy_violation')
+            ->assertJsonPath('data.0.sender.travel_request_warning_count', 1)
+            ->assertJsonPath('data.0.sender.travel_request_restriction_reason', 'cooldown_required');
 
         $this->assertDatabaseHas('accounts', [
             'id' => $sender->id,
             'status' => Account::STATUS_SUSPENDED,
             'suspension_reason' => 'policy_violation',
+            'travel_request_warning_count' => 1,
+            'travel_request_last_warning_reason' => 'policy_warning',
+            'travel_request_restriction_reason' => 'cooldown_required',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $sender->id,
+            'notification_type' => 'travel_request_warning',
+            'status' => AppNotification::STATUS_SENT,
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $sender->id,
+            'notification_type' => 'travel_request_restricted',
+            'status' => AppNotification::STATUS_SENT,
         ]);
 
         $this->assertDatabaseHas('admin_audit_logs', [
@@ -115,6 +151,30 @@ class AdminTravelRequestTest extends TestCase
         $this->assertDatabaseHas('admin_audit_logs', [
             'actor_account_id' => $admin->id,
             'action' => 'travel_request.monitor',
+            'target_type' => TherapistTravelRequest::class,
+            'target_id' => $travelRequest->id,
+        ]);
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'actor_account_id' => $admin->id,
+            'action' => 'account.travel_request_warn',
+            'target_type' => Account::class,
+            'target_id' => $sender->id,
+        ]);
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'actor_account_id' => $admin->id,
+            'action' => 'travel_request.warn_sender',
+            'target_type' => TherapistTravelRequest::class,
+            'target_id' => $travelRequest->id,
+        ]);
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'actor_account_id' => $admin->id,
+            'action' => 'account.travel_request_restrict',
+            'target_type' => Account::class,
+            'target_id' => $sender->id,
+        ]);
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'actor_account_id' => $admin->id,
+            'action' => 'travel_request.restrict_sender',
             'target_type' => TherapistTravelRequest::class,
             'target_id' => $travelRequest->id,
         ]);
@@ -154,6 +214,19 @@ class AdminTravelRequestTest extends TestCase
         $this->withToken($token)
             ->postJson("/api/admin/travel-requests/{$travelRequest->public_id}/monitoring", [
                 'monitoring_status' => TherapistTravelRequest::MONITORING_STATUS_UNDER_REVIEW,
+            ])
+            ->assertForbidden();
+
+        $this->withToken($token)
+            ->postJson("/api/admin/travel-requests/{$travelRequest->public_id}/warn-sender", [
+                'reason_code' => 'policy_warning',
+            ])
+            ->assertForbidden();
+
+        $this->withToken($token)
+            ->postJson("/api/admin/travel-requests/{$travelRequest->public_id}/restrict-sender", [
+                'reason_code' => 'cooldown_required',
+                'restricted_until' => now()->addDay()->toIso8601String(),
             ])
             ->assertForbidden();
 

@@ -143,6 +143,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/admin/travel-requests/{travelRequest:public_id}', [AdminTravelRequestController::class, 'show']);
     Route::post('/admin/travel-requests/{travelRequest:public_id}/notes', [AdminTravelRequestController::class, 'note']);
     Route::post('/admin/travel-requests/{travelRequest:public_id}/monitoring', [AdminTravelRequestController::class, 'monitor']);
+    Route::post('/admin/travel-requests/{travelRequest:public_id}/warn-sender', [AdminTravelRequestController::class, 'warnSender']);
+    Route::post('/admin/travel-requests/{travelRequest:public_id}/restrict-sender', [AdminTravelRequestController::class, 'restrictSender']);
     Route::post('/admin/travel-requests/{travelRequest:public_id}/suspend-sender', [AdminTravelRequestController::class, 'suspendSender']);
     Route::get('/therapists', [TherapistDiscoveryController::class, 'index'])->middleware('throttle:therapist-search');
     Route::get('/therapists/{therapistProfile:public_id}', [TherapistDiscoveryController::class, 'show']);

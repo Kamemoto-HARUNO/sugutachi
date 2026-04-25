@@ -18,6 +18,11 @@ class AdminAccountResource extends JsonResource
             'last_active_role' => $this->last_active_role,
             'suspended_at' => $this->suspended_at,
             'suspension_reason' => $this->suspension_reason,
+            'travel_request_warning_count' => $this->travel_request_warning_count,
+            'travel_request_last_warned_at' => $this->travel_request_last_warned_at,
+            'travel_request_last_warning_reason' => $this->travel_request_last_warning_reason,
+            'travel_request_restricted_until' => $this->travel_request_restricted_until,
+            'travel_request_restriction_reason' => $this->travel_request_restriction_reason,
             'roles' => $this->whenLoaded('roleAssignments', fn () => $this->roleAssignments
                 ->map(fn ($role) => [
                     'role' => $role->role,
