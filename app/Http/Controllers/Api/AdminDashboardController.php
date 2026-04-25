@@ -13,6 +13,7 @@ use App\Models\ProfilePhoto;
 use App\Models\Refund;
 use App\Models\Report;
 use App\Models\StripeDispute;
+use App\Models\TherapistPricingRule;
 use App\Models\TherapistProfile;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -84,6 +85,23 @@ class AdminDashboardController extends Controller
                         ->count(),
                     'needs_message_review' => Booking::query()
                         ->whereHas('messages', fn ($query) => $query->flagged())
+                        ->count(),
+                ],
+                'pricing_rules' => [
+                    'total' => TherapistPricingRule::query()->count(),
+                    'active' => TherapistPricingRule::query()->where('is_active', true)->count(),
+                    'inactive' => TherapistPricingRule::query()->where('is_active', false)->count(),
+                    'active_profile_adjustments' => TherapistPricingRule::query()
+                        ->where('is_active', true)
+                        ->where('rule_type', TherapistPricingRule::RULE_TYPE_USER_PROFILE_ATTRIBUTE)
+                        ->count(),
+                    'active_demand_fees' => TherapistPricingRule::query()
+                        ->where('is_active', true)
+                        ->whereIn('rule_type', [
+                            TherapistPricingRule::RULE_TYPE_TIME_BAND,
+                            TherapistPricingRule::RULE_TYPE_WALKING_TIME_RANGE,
+                            TherapistPricingRule::RULE_TYPE_DEMAND_LEVEL,
+                        ])
                         ->count(),
                 ],
                 'navigation' => [
@@ -231,6 +249,42 @@ class AdminDashboardController extends Controller
                                 'has_flagged_message' => true,
                                 'sort' => 'updated_at',
                                 'direction' => 'desc',
+                            ],
+                        ],
+                    ],
+                    'pricing_rules' => [
+                        'active' => [
+                            'path' => '/api/admin/pricing-rules',
+                            'query' => [
+                                'is_active' => true,
+                                'sort' => 'priority',
+                                'direction' => 'asc',
+                            ],
+                        ],
+                        'inactive' => [
+                            'path' => '/api/admin/pricing-rules',
+                            'query' => [
+                                'is_active' => false,
+                                'sort' => 'updated_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
+                        'active_profile_adjustments' => [
+                            'path' => '/api/admin/pricing-rules',
+                            'query' => [
+                                'is_active' => true,
+                                'adjustment_bucket' => 'profile_adjustment',
+                                'sort' => 'priority',
+                                'direction' => 'asc',
+                            ],
+                        ],
+                        'active_demand_fees' => [
+                            'path' => '/api/admin/pricing-rules',
+                            'query' => [
+                                'is_active' => true,
+                                'adjustment_bucket' => 'demand_fee',
+                                'sort' => 'priority',
+                                'direction' => 'asc',
                             ],
                         ],
                     ],

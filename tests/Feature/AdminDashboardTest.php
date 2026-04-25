@@ -15,6 +15,7 @@ use App\Models\ServiceAddress;
 use App\Models\StripeConnectedAccount;
 use App\Models\StripeDispute;
 use App\Models\TherapistMenu;
+use App\Models\TherapistPricingRule;
 use App\Models\TherapistProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
@@ -68,6 +69,46 @@ class AdminDashboardTest extends TestCase
             'name' => 'Body care 60',
             'duration_minutes' => 60,
             'base_price_amount' => 12000,
+        ]);
+        TherapistPricingRule::create([
+            'therapist_profile_id' => $therapistProfile->id,
+            'therapist_menu_id' => null,
+            'rule_type' => TherapistPricingRule::RULE_TYPE_USER_PROFILE_ATTRIBUTE,
+            'condition_json' => [
+                'field' => TherapistPricingRule::FIELD_BODY_TYPE,
+                'operator' => TherapistPricingRule::OPERATOR_EQUALS,
+                'value' => 'muscular',
+            ],
+            'adjustment_type' => TherapistPricingRule::ADJUSTMENT_TYPE_FIXED_AMOUNT,
+            'adjustment_amount' => 1000,
+            'priority' => 10,
+            'is_active' => true,
+        ]);
+        TherapistPricingRule::create([
+            'therapist_profile_id' => $therapistProfile->id,
+            'therapist_menu_id' => $therapistMenu->id,
+            'rule_type' => TherapistPricingRule::RULE_TYPE_DEMAND_LEVEL,
+            'condition_json' => [
+                'operator' => TherapistPricingRule::OPERATOR_EQUALS,
+                'value' => TherapistPricingRule::DEMAND_LEVEL_BUSY,
+            ],
+            'adjustment_type' => TherapistPricingRule::ADJUSTMENT_TYPE_FIXED_AMOUNT,
+            'adjustment_amount' => 1500,
+            'priority' => 20,
+            'is_active' => true,
+        ]);
+        TherapistPricingRule::create([
+            'therapist_profile_id' => $therapistProfile->id,
+            'therapist_menu_id' => null,
+            'rule_type' => TherapistPricingRule::RULE_TYPE_TIME_BAND,
+            'condition_json' => [
+                'start_hour' => 21,
+                'end_hour' => 24,
+            ],
+            'adjustment_type' => TherapistPricingRule::ADJUSTMENT_TYPE_PERCENTAGE,
+            'adjustment_amount' => 10,
+            'priority' => 30,
+            'is_active' => false,
         ]);
         $serviceAddress = ServiceAddress::create([
             'public_id' => 'addr_dashboard',
@@ -238,6 +279,11 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.bookings.in_progress', 1)
             ->assertJsonPath('data.bookings.completed_today', 1)
             ->assertJsonPath('data.bookings.needs_message_review', 1)
+            ->assertJsonPath('data.pricing_rules.total', 3)
+            ->assertJsonPath('data.pricing_rules.active', 2)
+            ->assertJsonPath('data.pricing_rules.inactive', 1)
+            ->assertJsonPath('data.pricing_rules.active_profile_adjustments', 1)
+            ->assertJsonPath('data.pricing_rules.active_demand_fees', 1)
             ->assertJsonPath('data.navigation.accounts.suspended.path', '/api/admin/accounts')
             ->assertJsonPath('data.navigation.accounts.suspended.query.status', Account::STATUS_SUSPENDED)
             ->assertJsonPath('data.navigation.reviews.pending_identity_verifications.path', '/api/admin/identity-verifications')
@@ -257,7 +303,12 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.navigation.bookings.requested.path', '/api/admin/bookings')
             ->assertJsonPath('data.navigation.bookings.interrupted.query.status', Booking::STATUS_INTERRUPTED)
             ->assertJsonPath('data.navigation.bookings.completed_today.query.completed_on', today()->toDateString())
-            ->assertJsonPath('data.navigation.bookings.needs_message_review.query.has_flagged_message', true);
+            ->assertJsonPath('data.navigation.bookings.needs_message_review.query.has_flagged_message', true)
+            ->assertJsonPath('data.navigation.pricing_rules.active.path', '/api/admin/pricing-rules')
+            ->assertJsonPath('data.navigation.pricing_rules.active.query.is_active', true)
+            ->assertJsonPath('data.navigation.pricing_rules.inactive.query.is_active', false)
+            ->assertJsonPath('data.navigation.pricing_rules.active_profile_adjustments.query.adjustment_bucket', 'profile_adjustment')
+            ->assertJsonPath('data.navigation.pricing_rules.active_demand_fees.query.adjustment_bucket', 'demand_fee');
     }
 
     public function test_non_admin_cannot_view_dashboard_summary(): void
