@@ -103,6 +103,16 @@ class AdminDashboardController extends Controller
                             TherapistPricingRule::RULE_TYPE_DEMAND_LEVEL,
                         ])
                         ->count(),
+                    'needs_attention' => TherapistPricingRule::query()->needsMonitoring()->count(),
+                    'inactive_menu_rules' => TherapistPricingRule::query()
+                        ->withMonitoringFlag(TherapistPricingRule::MONITORING_FLAG_INACTIVE_MENU)
+                        ->count(),
+                    'extreme_percentage_adjustments' => TherapistPricingRule::query()
+                        ->withMonitoringFlag(TherapistPricingRule::MONITORING_FLAG_EXTREME_PERCENTAGE)
+                        ->count(),
+                    'menu_price_override_rules' => TherapistPricingRule::query()
+                        ->withMonitoringFlag(TherapistPricingRule::MONITORING_FLAG_MENU_PRICE_OVERRIDE)
+                        ->count(),
                 ],
                 'navigation' => [
                     'accounts' => [
@@ -283,6 +293,38 @@ class AdminDashboardController extends Controller
                             'query' => [
                                 'is_active' => true,
                                 'adjustment_bucket' => 'demand_fee',
+                                'sort' => 'priority',
+                                'direction' => 'asc',
+                            ],
+                        ],
+                        'needs_attention' => [
+                            'path' => '/api/admin/pricing-rules',
+                            'query' => [
+                                'has_monitoring_flags' => true,
+                                'sort' => 'updated_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
+                        'inactive_menu_rules' => [
+                            'path' => '/api/admin/pricing-rules',
+                            'query' => [
+                                'monitoring_flag' => TherapistPricingRule::MONITORING_FLAG_INACTIVE_MENU,
+                                'sort' => 'updated_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
+                        'extreme_percentage_adjustments' => [
+                            'path' => '/api/admin/pricing-rules',
+                            'query' => [
+                                'monitoring_flag' => TherapistPricingRule::MONITORING_FLAG_EXTREME_PERCENTAGE,
+                                'sort' => 'priority',
+                                'direction' => 'asc',
+                            ],
+                        ],
+                        'menu_price_override_rules' => [
+                            'path' => '/api/admin/pricing-rules',
+                            'query' => [
+                                'monitoring_flag' => TherapistPricingRule::MONITORING_FLAG_MENU_PRICE_OVERRIDE,
                                 'sort' => 'priority',
                                 'direction' => 'asc',
                             ],

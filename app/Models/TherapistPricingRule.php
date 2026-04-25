@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Guarded;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -61,6 +62,12 @@ class TherapistPricingRule extends Model
 
     public const DEMAND_LEVEL_PEAK = 'peak';
 
+    public const MONITORING_FLAG_INACTIVE_MENU = 'inactive_menu';
+
+    public const MONITORING_FLAG_EXTREME_PERCENTAGE = 'extreme_percentage';
+
+    public const MONITORING_FLAG_MENU_PRICE_OVERRIDE = 'menu_price_override';
+
     private const FIELD_VALUE_OPTIONS = [
         self::FIELD_AGE_RANGE => ['18_24', '20s', '30s', '40s', '50s', '60_plus'],
         self::FIELD_BODY_TYPE => ['slim', 'average', 'muscular', 'chubby', 'large', 'other'],
@@ -117,6 +124,46 @@ class TherapistPricingRule extends Model
     public function therapistMenu(): BelongsTo
     {
         return $this->belongsTo(TherapistMenu::class);
+    }
+
+    public function scopeWithMonitoringFlag(Builder $query, string $flag): Builder
+    {
+        return match ($flag) {
+            self::MONITORING_FLAG_INACTIVE_MENU => $query
+                ->where('is_active', true)
+                ->whereNotNull('therapist_menu_id')
+                ->whereHas('therapistMenu', fn (Builder $menu) => $menu->where('is_active', false)),
+            self::MONITORING_FLAG_EXTREME_PERCENTAGE => $query
+                ->where('is_active', true)
+                ->where('adjustment_type', self::ADJUSTMENT_TYPE_PERCENTAGE)
+                ->where(function (Builder $query): void {
+                    $query
+                        ->where('adjustment_amount', '>=', 100)
+                        ->orWhere('adjustment_amount', '<=', -100);
+                }),
+            self::MONITORING_FLAG_MENU_PRICE_OVERRIDE => $query
+                ->where('is_active', true)
+                ->where('adjustment_type', self::ADJUSTMENT_TYPE_FIXED_AMOUNT)
+                ->whereNotNull('therapist_menu_id')
+                ->whereHas('therapistMenu', fn (Builder $menu) => $menu
+                    ->whereRaw('ABS(therapist_pricing_rules.adjustment_amount) >= therapist_menus.base_price_amount')),
+            default => $query->whereRaw('1 = 0'),
+        };
+    }
+
+    public function scopeNeedsMonitoring(Builder $query): Builder
+    {
+        return $query->where(function (Builder $query): void {
+            foreach (self::supportedMonitoringFlags() as $index => $flag) {
+                if ($index === 0) {
+                    $query->withMonitoringFlag($flag);
+
+                    continue;
+                }
+
+                $query->orWhere(fn (Builder $nested) => $nested->withMonitoringFlag($flag));
+            }
+        });
     }
 
     protected function casts(): array
@@ -180,10 +227,62 @@ class TherapistPricingRule extends Model
         ];
     }
 
+    public static function supportedMonitoringFlags(): array
+    {
+        return [
+            self::MONITORING_FLAG_INACTIVE_MENU,
+            self::MONITORING_FLAG_EXTREME_PERCENTAGE,
+            self::MONITORING_FLAG_MENU_PRICE_OVERRIDE,
+        ];
+    }
+
     public static function adjustmentBucketFor(string $ruleType): string
     {
         return $ruleType === self::RULE_TYPE_USER_PROFILE_ATTRIBUTE
             ? 'profile_adjustment'
             : 'demand_fee';
+    }
+
+    public function adminMonitoringFlags(): array
+    {
+        $flags = [];
+
+        if ($this->isActiveOnInactiveMenu()) {
+            $flags[] = self::MONITORING_FLAG_INACTIVE_MENU;
+        }
+
+        if ($this->isExtremePercentageAdjustment()) {
+            $flags[] = self::MONITORING_FLAG_EXTREME_PERCENTAGE;
+        }
+
+        if ($this->isMenuPriceOverride()) {
+            $flags[] = self::MONITORING_FLAG_MENU_PRICE_OVERRIDE;
+        }
+
+        return array_values(array_unique($flags));
+    }
+
+    private function isActiveOnInactiveMenu(): bool
+    {
+        return $this->is_active
+            && $this->therapist_menu_id !== null
+            && $this->therapistMenu !== null
+            && ! $this->therapistMenu->is_active;
+    }
+
+    private function isExtremePercentageAdjustment(): bool
+    {
+        return $this->is_active
+            && $this->adjustment_type === self::ADJUSTMENT_TYPE_PERCENTAGE
+            && ($this->adjustment_amount >= 100 || $this->adjustment_amount <= -100);
+    }
+
+    private function isMenuPriceOverride(): bool
+    {
+        return $this->is_active
+            && $this->adjustment_type === self::ADJUSTMENT_TYPE_FIXED_AMOUNT
+            && $this->therapist_menu_id !== null
+            && $this->therapistMenu !== null
+            && abs($this->adjustment_amount) >= $this->therapistMenu->base_price_amount;
     }
 }

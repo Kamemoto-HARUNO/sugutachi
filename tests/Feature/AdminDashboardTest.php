@@ -92,8 +92,8 @@ class AdminDashboardTest extends TestCase
                 'operator' => TherapistPricingRule::OPERATOR_EQUALS,
                 'value' => TherapistPricingRule::DEMAND_LEVEL_BUSY,
             ],
-            'adjustment_type' => TherapistPricingRule::ADJUSTMENT_TYPE_FIXED_AMOUNT,
-            'adjustment_amount' => 1500,
+            'adjustment_type' => TherapistPricingRule::ADJUSTMENT_TYPE_PERCENTAGE,
+            'adjustment_amount' => 120,
             'priority' => 20,
             'is_active' => true,
         ]);
@@ -109,6 +109,28 @@ class AdminDashboardTest extends TestCase
             'adjustment_amount' => 10,
             'priority' => 30,
             'is_active' => false,
+        ]);
+        $inactiveMenu = TherapistMenu::create([
+            'public_id' => 'menu_dashboard_inactive_90',
+            'therapist_profile_id' => $therapistProfile->id,
+            'name' => 'Inactive Body care 90',
+            'duration_minutes' => 90,
+            'base_price_amount' => 18000,
+            'is_active' => false,
+        ]);
+        TherapistPricingRule::create([
+            'therapist_profile_id' => $therapistProfile->id,
+            'therapist_menu_id' => $inactiveMenu->id,
+            'rule_type' => TherapistPricingRule::RULE_TYPE_USER_PROFILE_ATTRIBUTE,
+            'condition_json' => [
+                'field' => TherapistPricingRule::FIELD_BODY_TYPE,
+                'operator' => TherapistPricingRule::OPERATOR_EQUALS,
+                'value' => 'muscular',
+            ],
+            'adjustment_type' => TherapistPricingRule::ADJUSTMENT_TYPE_FIXED_AMOUNT,
+            'adjustment_amount' => 18000,
+            'priority' => 40,
+            'is_active' => true,
         ]);
         $serviceAddress = ServiceAddress::create([
             'public_id' => 'addr_dashboard',
@@ -279,11 +301,15 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.bookings.in_progress', 1)
             ->assertJsonPath('data.bookings.completed_today', 1)
             ->assertJsonPath('data.bookings.needs_message_review', 1)
-            ->assertJsonPath('data.pricing_rules.total', 3)
-            ->assertJsonPath('data.pricing_rules.active', 2)
+            ->assertJsonPath('data.pricing_rules.total', 4)
+            ->assertJsonPath('data.pricing_rules.active', 3)
             ->assertJsonPath('data.pricing_rules.inactive', 1)
-            ->assertJsonPath('data.pricing_rules.active_profile_adjustments', 1)
+            ->assertJsonPath('data.pricing_rules.active_profile_adjustments', 2)
             ->assertJsonPath('data.pricing_rules.active_demand_fees', 1)
+            ->assertJsonPath('data.pricing_rules.needs_attention', 2)
+            ->assertJsonPath('data.pricing_rules.inactive_menu_rules', 1)
+            ->assertJsonPath('data.pricing_rules.extreme_percentage_adjustments', 1)
+            ->assertJsonPath('data.pricing_rules.menu_price_override_rules', 1)
             ->assertJsonPath('data.navigation.accounts.suspended.path', '/api/admin/accounts')
             ->assertJsonPath('data.navigation.accounts.suspended.query.status', Account::STATUS_SUSPENDED)
             ->assertJsonPath('data.navigation.reviews.pending_identity_verifications.path', '/api/admin/identity-verifications')
@@ -307,6 +333,10 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.navigation.pricing_rules.active.path', '/api/admin/pricing-rules')
             ->assertJsonPath('data.navigation.pricing_rules.active.query.is_active', true)
             ->assertJsonPath('data.navigation.pricing_rules.inactive.query.is_active', false)
+            ->assertJsonPath('data.navigation.pricing_rules.needs_attention.query.has_monitoring_flags', true)
+            ->assertJsonPath('data.navigation.pricing_rules.inactive_menu_rules.query.monitoring_flag', TherapistPricingRule::MONITORING_FLAG_INACTIVE_MENU)
+            ->assertJsonPath('data.navigation.pricing_rules.extreme_percentage_adjustments.query.monitoring_flag', TherapistPricingRule::MONITORING_FLAG_EXTREME_PERCENTAGE)
+            ->assertJsonPath('data.navigation.pricing_rules.menu_price_override_rules.query.monitoring_flag', TherapistPricingRule::MONITORING_FLAG_MENU_PRICE_OVERRIDE)
             ->assertJsonPath('data.navigation.pricing_rules.active_profile_adjustments.query.adjustment_bucket', 'profile_adjustment')
             ->assertJsonPath('data.navigation.pricing_rules.active_demand_fees.query.adjustment_bucket', 'demand_fee');
     }

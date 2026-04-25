@@ -29,6 +29,8 @@ class AdminPricingRuleController extends Controller
             'therapist_menu_id' => ['nullable', 'string', 'max:36'],
             'rule_type' => ['nullable', Rule::in(TherapistPricingRule::supportedRuleTypes())],
             'adjustment_bucket' => ['nullable', Rule::in(['profile_adjustment', 'demand_fee'])],
+            'monitoring_flag' => ['nullable', Rule::in(TherapistPricingRule::supportedMonitoringFlags())],
+            'has_monitoring_flags' => ['nullable', 'boolean'],
             'adjustment_type' => ['nullable', Rule::in([
                 TherapistPricingRule::ADJUSTMENT_TYPE_FIXED_AMOUNT,
                 TherapistPricingRule::ADJUSTMENT_TYPE_PERCENTAGE,
@@ -68,6 +70,16 @@ class AdminPricingRuleController extends Controller
                 ->when(
                     $validated['adjustment_type'] ?? null,
                     fn ($query, string $adjustmentType) => $query->where('adjustment_type', $adjustmentType)
+                )
+                ->when(
+                    $validated['monitoring_flag'] ?? null,
+                    fn ($query, string $flag) => $query->withMonitoringFlag($flag)
+                )
+                ->when(
+                    array_key_exists('has_monitoring_flags', $validated),
+                    fn ($query) => $validated['has_monitoring_flags']
+                        ? $query->needsMonitoring()
+                        : $query->whereNot(fn ($nested) => $nested->needsMonitoring())
                 )
                 ->when(
                     $validated['scope'] ?? null,

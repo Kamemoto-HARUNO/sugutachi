@@ -95,6 +95,78 @@ class AdminPricingRuleTest extends TestCase
             ->assertForbidden();
     }
 
+    public function test_admin_can_filter_pricing_rules_by_monitoring_flags(): void
+    {
+        [$admin, $profile, $menu, $safeRule] = $this->createAdminPricingRuleFixture();
+
+        $inactiveMenu = TherapistMenu::create([
+            'therapist_profile_id' => $profile->id,
+            'public_id' => 'menu_admin_pricing_inactive',
+            'name' => 'Inactive Body care 90',
+            'duration_minutes' => 90,
+            'base_price_amount' => 18000,
+            'is_active' => false,
+        ]);
+        $inactiveMenuRule = TherapistPricingRule::create([
+            'therapist_profile_id' => $profile->id,
+            'therapist_menu_id' => $inactiveMenu->id,
+            'rule_type' => TherapistPricingRule::RULE_TYPE_USER_PROFILE_ATTRIBUTE,
+            'condition_json' => [
+                'field' => TherapistPricingRule::FIELD_BODY_TYPE,
+                'operator' => TherapistPricingRule::OPERATOR_EQUALS,
+                'value' => 'muscular',
+            ],
+            'adjustment_type' => TherapistPricingRule::ADJUSTMENT_TYPE_FIXED_AMOUNT,
+            'adjustment_amount' => 18000,
+            'priority' => 20,
+            'is_active' => true,
+        ]);
+        $extremePercentageRule = TherapistPricingRule::create([
+            'therapist_profile_id' => $profile->id,
+            'therapist_menu_id' => null,
+            'rule_type' => TherapistPricingRule::RULE_TYPE_TIME_BAND,
+            'condition_json' => [
+                'start_hour' => 21,
+                'end_hour' => 24,
+            ],
+            'adjustment_type' => TherapistPricingRule::ADJUSTMENT_TYPE_PERCENTAGE,
+            'adjustment_amount' => 120,
+            'priority' => 30,
+            'is_active' => true,
+        ]);
+
+        $token = $admin->createToken('api')->plainTextToken;
+
+        $this->withToken($token)
+            ->getJson('/api/admin/pricing-rules?has_monitoring_flags=1&sort=priority&direction=asc')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.id', $inactiveMenuRule->id)
+            ->assertJsonPath('data.0.has_monitoring_flags', true)
+            ->assertJsonPath('data.1.id', $extremePercentageRule->id)
+            ->assertJsonMissingPath('data.2');
+
+        $this->withToken($token)
+            ->getJson('/api/admin/pricing-rules?monitoring_flag=inactive_menu&sort=priority&direction=asc')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $inactiveMenuRule->id)
+            ->assertJsonPath('data.0.monitoring_flags.0', TherapistPricingRule::MONITORING_FLAG_INACTIVE_MENU)
+            ->assertJsonFragment([
+                'monitoring_flags' => [
+                    TherapistPricingRule::MONITORING_FLAG_INACTIVE_MENU,
+                    TherapistPricingRule::MONITORING_FLAG_MENU_PRICE_OVERRIDE,
+                ],
+            ]);
+
+        $this->withToken($token)
+            ->getJson('/api/admin/pricing-rules?has_monitoring_flags=0&sort=priority&direction=asc')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.id', $safeRule->id)
+            ->assertJsonPath('data.0.has_monitoring_flags', false);
+    }
+
     private function createAdminPricingRuleFixture(): array
     {
         $admin = Account::factory()->create(['public_id' => 'acc_admin_pricing_rules']);
