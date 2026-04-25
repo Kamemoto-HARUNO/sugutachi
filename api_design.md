@@ -264,8 +264,17 @@ MVPでは、Stripe Connect側で本人確認できるセラピストについて
 
 | Method | Path | 権限 | 用途 |
 | --- | --- | --- | --- |
+| GET | `/public-therapists` | Guest/Auth | 公開トップ向けセラピストプレビュー一覧 |
 | GET | `/therapists` | User | 稼働中セラピスト検索 |
 | GET | `/therapists/{public_id}` | Guest/Auth | セラピスト詳細 |
+
+`GET /public-therapists` クエリ:
+
+| パラメータ | 必須 | 説明 |
+| --- | --- | --- |
+| limit | No | 取得件数。デフォルト4、最大12 |
+
+`GET /public-therapists` は公開トップやLPで使う軽量一覧を返す。`profile_status=approved`、最新の本人確認が `approved`、有効メニューあり、アカウントが有効、かつブロック関係がないプロフィールのみ対象にする。公開トップでは保存済み施術場所がない前提のため、`walking_time_range` と `estimated_total_amount` は `null` を返し、写真、表示名、レビュー件数、公開レビュー評価、セラピスト都合キャンセル回数、紹介文抜粋を中心に返す。並び順は、オンライン中プロフィールを優先しつつ、評価、レビュー件数順を基本とする。
 
 `GET /therapists` クエリ:
 

@@ -3,7 +3,10 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\IdentityVerification;
 use App\Models\LegalDocument;
+use App\Models\TherapistMenu;
+use App\Models\TherapistProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -112,6 +115,101 @@ class PublicInfoApiTest extends TestCase
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.id', 'about')
             ->assertJsonPath('data.1.id', 'payment');
+    }
+
+    public function test_guest_can_get_public_therapist_previews(): void
+    {
+        $visibleOnline = Account::factory()->create(['public_id' => 'acc_public_online']);
+        $visibleOffline = Account::factory()->create(['public_id' => 'acc_public_offline']);
+        $hidden = Account::factory()->create(['public_id' => 'acc_public_hidden']);
+
+        $onlineProfile = TherapistProfile::create([
+            'account_id' => $visibleOnline->id,
+            'public_id' => 'thp_public_online',
+            'public_name' => 'Public Online',
+            'bio' => '落ち着いたボディケアを提供します。',
+            'profile_status' => TherapistProfile::STATUS_APPROVED,
+            'training_status' => 'completed',
+            'is_online' => true,
+            'rating_average' => 4.9,
+            'review_count' => 22,
+            'therapist_cancellation_count' => 1,
+        ]);
+        TherapistMenu::create([
+            'public_id' => 'menu_public_online',
+            'therapist_profile_id' => $onlineProfile->id,
+            'name' => 'Body Care 60',
+            'duration_minutes' => 60,
+            'base_price_amount' => 12000,
+            'is_active' => true,
+        ]);
+        IdentityVerification::create([
+            'account_id' => $visibleOnline->id,
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'is_age_verified' => true,
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now(),
+        ]);
+
+        $offlineProfile = TherapistProfile::create([
+            'account_id' => $visibleOffline->id,
+            'public_id' => 'thp_public_offline',
+            'public_name' => 'Public Offline',
+            'bio' => '予定予約中心で公開しています。',
+            'profile_status' => TherapistProfile::STATUS_APPROVED,
+            'training_status' => 'completed',
+            'is_online' => false,
+            'rating_average' => 4.7,
+            'review_count' => 14,
+            'therapist_cancellation_count' => 0,
+        ]);
+        TherapistMenu::create([
+            'public_id' => 'menu_public_offline',
+            'therapist_profile_id' => $offlineProfile->id,
+            'name' => 'Body Care 90',
+            'duration_minutes' => 90,
+            'base_price_amount' => 15000,
+            'is_active' => true,
+        ]);
+        IdentityVerification::create([
+            'account_id' => $visibleOffline->id,
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'is_age_verified' => true,
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now(),
+        ]);
+
+        $hiddenProfile = TherapistProfile::create([
+            'account_id' => $hidden->id,
+            'public_id' => 'thp_public_hidden',
+            'public_name' => 'Hidden Profile',
+            'profile_status' => TherapistProfile::STATUS_APPROVED,
+            'training_status' => 'completed',
+            'is_online' => true,
+        ]);
+        TherapistMenu::create([
+            'public_id' => 'menu_public_hidden',
+            'therapist_profile_id' => $hiddenProfile->id,
+            'name' => 'Body Care 60',
+            'duration_minutes' => 60,
+            'base_price_amount' => 12000,
+            'is_active' => true,
+        ]);
+        IdentityVerification::create([
+            'account_id' => $hidden->id,
+            'status' => IdentityVerification::STATUS_REJECTED,
+            'is_age_verified' => false,
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now(),
+        ]);
+
+        $this->getJson('/api/public-therapists?limit=4')
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonPath('data.0.public_id', 'thp_public_online')
+            ->assertJsonPath('data.0.walking_time_range', null)
+            ->assertJsonPath('data.0.estimated_total_amount', null)
+            ->assertJsonPath('data.1.public_id', 'thp_public_offline');
     }
 
     public function test_guest_can_submit_contact_inquiry(): void

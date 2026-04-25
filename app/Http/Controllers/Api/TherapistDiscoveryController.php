@@ -28,6 +28,50 @@ use Illuminate\Validation\ValidationException;
 
 class TherapistDiscoveryController extends Controller
 {
+    public function publicIndex(Request $request): AnonymousResourceCollection
+    {
+        $validated = $request->validate([
+            'limit' => ['nullable', 'integer', 'min:1', 'max:12'],
+        ]);
+
+        $viewer = $this->authenticatedViewer($request);
+        $limit = $validated['limit'] ?? 4;
+
+        $profiles = TherapistProfile::query()
+            ->visibleTo($viewer)
+            ->with([
+                'photos' => fn ($query) => $query
+                    ->where('status', ProfilePhoto::STATUS_APPROVED)
+                    ->orderBy('sort_order')
+                    ->orderBy('id'),
+            ])
+            ->orderByDesc('is_online')
+            ->orderByDesc('rating_average')
+            ->orderByDesc('review_count')
+            ->orderBy('id')
+            ->limit($limit)
+            ->get();
+
+        $results = $profiles->map(function (TherapistProfile $profile): array {
+            return [
+                'public_id' => $profile->public_id,
+                'public_name' => $profile->public_name,
+                'bio_excerpt' => filled($profile->bio)
+                    ? Str::limit($profile->bio, 80, '...')
+                    : null,
+                'training_status' => $profile->training_status,
+                'rating_average' => (float) $profile->rating_average,
+                'review_count' => $profile->review_count,
+                'therapist_cancellation_count' => (int) $profile->therapist_cancellation_count,
+                'walking_time_range' => null,
+                'estimated_total_amount' => null,
+                'photos' => $this->publicPhotos($profile->photos->take(1)),
+            ];
+        });
+
+        return PublicTherapistSearchResultResource::collection($results);
+    }
+
     public function availability(
         Request $request,
         TherapistProfile $therapistProfile,

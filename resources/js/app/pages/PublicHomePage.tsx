@@ -7,62 +7,12 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { getRoleHomePath } from '../lib/account';
-import type { ApiEnvelope, ServiceMeta } from '../lib/types';
-
-const previewTherapists = [
-    {
-        public_id: 'preview_haru',
-        public_name: 'Haru',
-        rating_average: 4.9,
-        review_count: 68,
-        walking_time_range: 'within_15_min',
-        estimated_total_amount: 9000,
-        therapist_cancellation_count: 0,
-        training_status: 'completed',
-        tags: ['もみほぐし', 'ボディケア'],
-        bio_excerpt: '静かな雰囲気で受けられる、丁寧なボディケアが中心です。',
-    },
-    {
-        public_id: 'preview_reo',
-        public_name: 'Reo',
-        rating_average: 4.8,
-        review_count: 52,
-        walking_time_range: 'within_15_min',
-        estimated_total_amount: 12800,
-        therapist_cancellation_count: 1,
-        training_status: 'completed',
-        tags: ['オイル', 'もみほぐし'],
-        bio_excerpt: '夜帯の予定予約にも対応しやすい、落ち着いた施術スタイルです。',
-    },
-    {
-        public_id: 'preview_kaito',
-        public_name: 'Kaito',
-        rating_average: 4.7,
-        review_count: 41,
-        walking_time_range: 'within_30_min',
-        estimated_total_amount: 5000,
-        therapist_cancellation_count: 0,
-        training_status: 'completed',
-        tags: ['ストレッチ', 'ボディケア'],
-        bio_excerpt: '短時間でも入りやすいコースが見つけやすいサンプルです。',
-    },
-    {
-        public_id: 'preview_shin',
-        public_name: 'Shin',
-        rating_average: 4.9,
-        review_count: 77,
-        walking_time_range: 'within_15_min',
-        estimated_total_amount: 16800,
-        therapist_cancellation_count: 2,
-        training_status: 'completed',
-        tags: ['リラクゼーション', 'もみほぐし'],
-        bio_excerpt: 'レビュー重視で比較したいときの見え方を想定したカードです。',
-    },
-];
+import type { ApiEnvelope, ServiceMeta, TherapistSearchResult } from '../lib/types';
 
 export function PublicHomePage() {
-    const { account, activeRole, hasRole, isAuthenticated } = useAuth();
+    const { account, activeRole, hasRole, isAuthenticated, token } = useAuth();
     const [serviceMeta, setServiceMeta] = useState<ServiceMeta | null>(null);
+    const [previewTherapists, setPreviewTherapists] = useState<TherapistSearchResult[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [bookingType, setBookingType] = useState<'now' | 'scheduled'>('now');
 
@@ -71,11 +21,17 @@ export function PublicHomePage() {
     useEffect(() => {
         let isMounted = true;
 
-        void apiRequest<ApiEnvelope<ServiceMeta>>('/service-meta')
-            .then((payload) => {
-                if (isMounted) {
-                    setServiceMeta(unwrapData(payload));
+        void Promise.all([
+            apiRequest<ApiEnvelope<ServiceMeta>>('/service-meta'),
+            apiRequest<ApiEnvelope<TherapistSearchResult[]>>('/public-therapists?limit=4', { token }),
+        ])
+            .then(([metaPayload, therapistPayload]) => {
+                if (!isMounted) {
+                    return;
                 }
+
+                setServiceMeta(unwrapData(metaPayload));
+                setPreviewTherapists(unwrapData(therapistPayload));
             })
             .catch((requestError: unknown) => {
                 if (!isMounted) {
@@ -83,7 +39,7 @@ export function PublicHomePage() {
                 }
 
                 const message =
-                    requestError instanceof ApiError ? requestError.message : '公開情報の読み込みに失敗しました。';
+                    requestError instanceof ApiError ? requestError.message : '公開トップの読み込みに失敗しました。';
 
                 setError(message);
             });
@@ -91,7 +47,7 @@ export function PublicHomePage() {
         return () => {
             isMounted = false;
         };
-    }, []);
+    }, [token]);
 
     const primaryAction = useMemo(() => {
         if (isAuthenticated && hasRole('user')) {
@@ -285,23 +241,29 @@ export function PublicHomePage() {
                         </aside>
 
                         <div className="grid gap-5 md:grid-cols-2">
-                            {previewTherapists.map((therapist) => (
-                                <TherapistDiscoveryCard
-                                    key={therapist.public_id}
-                                    name={therapist.public_name}
-                                    ratingAverage={therapist.rating_average}
-                                    reviewCount={therapist.review_count}
-                                    walkingTimeRange={therapist.walking_time_range}
-                                    estimatedTotalAmount={therapist.estimated_total_amount}
-                                    durationMinutes={60}
-                                    trainingStatus={therapist.training_status}
-                                    therapistCancellationCount={therapist.therapist_cancellation_count}
-                                    bioExcerpt={therapist.bio_excerpt}
-                                    tags={therapist.tags}
-                                    to={isAuthenticated && hasRole('user') ? '/user/therapists' : '/register'}
-                                    footerHint={isAuthenticated && hasRole('user') ? '一覧で条件を絞って探す' : 'ログイン後に詳細比較できます'}
-                                />
-                            ))}
+                            {previewTherapists.length > 0 ? (
+                                previewTherapists.map((therapist) => (
+                                    <TherapistDiscoveryCard
+                                        key={therapist.public_id}
+                                        name={therapist.public_name}
+                                        ratingAverage={therapist.rating_average}
+                                        reviewCount={therapist.review_count}
+                                        walkingTimeRange={therapist.walking_time_range}
+                                        estimatedTotalAmount={therapist.estimated_total_amount}
+                                        durationMinutes={60}
+                                        trainingStatus={therapist.training_status}
+                                        therapistCancellationCount={therapist.therapist_cancellation_count}
+                                        bioExcerpt={therapist.bio_excerpt}
+                                        photoUrl={therapist.photos[0]?.url ?? null}
+                                        to={`/therapists/${therapist.public_id}`}
+                                        footerHint="公開プロフィールを見る"
+                                    />
+                                ))
+                            ) : (
+                                <article className="rounded-[28px] bg-[#fffcf7] p-8 text-sm leading-7 text-[#5b6470] shadow-[0_10px_24px_rgba(23,32,43,0.08)] md:col-span-2">
+                                    現在、公開中のプロフィールを準備しています。しばらくしてから再度ご確認ください。
+                                </article>
+                            )}
                         </div>
                     </div>
                 </section>

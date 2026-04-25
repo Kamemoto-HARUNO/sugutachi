@@ -66,6 +66,7 @@ Route::get('/legal-documents/{type}', [LegalDocumentController::class, 'showLate
 Route::get('/service-meta', [ServiceMetaController::class, 'show']);
 Route::get('/help/faqs', [HelpFaqController::class, 'index']);
 Route::post('/contact', [ContactController::class, 'store']);
+Route::get('/public-therapists', [TherapistDiscoveryController::class, 'publicIndex']);
 Route::get('/therapists/{therapistProfile:public_id}', [TherapistDiscoveryController::class, 'show']);
 Route::get('/therapists/{therapistProfile:public_id}/reviews', [ReviewController::class, 'therapistReviews']);
 
