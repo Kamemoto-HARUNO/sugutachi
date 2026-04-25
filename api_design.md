@@ -81,6 +81,7 @@
 | POST | `/auth/login` | Guest | ログイン |
 | POST | `/auth/logout` | Auth | ログアウト |
 | GET | `/me` | Auth | ログイン中アカウント取得 |
+| POST | `/me/roles` | Auth | 既存アカウントへ user / therapist ロール追加 |
 | PATCH | `/me` | Auth | 共通表示名、メール等の更新 |
 | POST | `/me/switch-role` | Auth | 利用側/提供側/管理側の切替 |
 | POST | `/auth/password/forgot` | Guest | パスワード再設定メール送信 |
@@ -100,6 +101,7 @@
   "password": "password",
   "password_confirmation": "password",
   "display_name": "表示名",
+  "initial_role": "user",
   "accepted_terms_version": "2026-04-01",
   "accepted_privacy_version": "2026-04-01",
   "is_over_18": true,
@@ -124,6 +126,47 @@
       }
     ],
     "status": "active"
+  }
+}
+```
+
+`initial_role` は `user` または `therapist` を受け付ける。省略時は `user` とする。新規登録では最初に使うロールのみ付与し、もう片方のロールはログイン後に `POST /me/roles` で追加できる。
+
+### 3.2 `POST /me/roles`
+
+既存アカウントに不足している `user` または `therapist` ロールを追加する。重複追加は冪等に扱い、既に同ロールを持つ場合も成功レスポンスを返す。`therapist` を追加する場合は、下書きのセラピストプロフィールを同時に用意して `/therapist/onboarding` へ進める前提とする。
+
+リクエスト:
+
+```json
+{
+  "role": "therapist"
+}
+```
+
+レスポンス:
+
+```json
+{
+  "data": {
+    "public_id": "acc_xxx",
+    "email": "user@example.com",
+    "roles": [
+      {
+        "role": "user",
+        "status": "active"
+      },
+      {
+        "role": "therapist",
+        "status": "active"
+      }
+    ],
+    "last_active_role": "therapist"
+  },
+  "meta": {
+    "active_role": "therapist",
+    "role_added": "therapist",
+    "was_created": true
   }
 }
 ```

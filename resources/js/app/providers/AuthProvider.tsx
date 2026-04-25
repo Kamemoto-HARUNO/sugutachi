@@ -41,6 +41,7 @@ interface AuthContextValue {
     isBootstrapping: boolean;
     login: (payload: LoginPayload) => Promise<Account>;
     register: (payload: RegisterPayload) => Promise<Account>;
+    addRole: (role: 'user' | 'therapist') => Promise<Account>;
     logout: () => Promise<void>;
     refreshAccount: () => Promise<void>;
     selectRole: (role: RoleName) => void;
@@ -179,6 +180,29 @@ export function AuthProvider({ children }: PropsWithChildren) {
         }
     }, [clearSession, token]);
 
+    const addRole = useCallback(
+        async (role: 'user' | 'therapist'): Promise<Account> => {
+            const currentToken = token ?? window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
+
+            if (!currentToken) {
+                throw new Error('ログイン状態を確認できませんでした。');
+            }
+
+            const payload = await apiRequest<ApiEnvelope<Account>>('/me/roles', {
+                method: 'POST',
+                token: currentToken,
+                body: { role },
+            });
+
+            const nextAccount = unwrapData(payload);
+
+            applySession(currentToken, nextAccount, role);
+
+            return nextAccount;
+        },
+        [applySession, token],
+    );
+
     const selectRole = useCallback(
         (role: RoleName) => {
             if (!account || !hasActiveRole(account, role)) {
@@ -207,12 +231,13 @@ export function AuthProvider({ children }: PropsWithChildren) {
             isBootstrapping,
             login,
             register,
+            addRole,
             logout,
             refreshAccount,
             selectRole,
             hasRole,
         }),
-        [account, token, activeRole, isBootstrapping, login, register, logout, refreshAccount, selectRole, hasRole],
+        [account, token, activeRole, isBootstrapping, login, register, addRole, logout, refreshAccount, selectRole, hasRole],
     );
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

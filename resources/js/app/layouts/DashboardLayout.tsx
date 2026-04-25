@@ -41,12 +41,12 @@ export function DashboardLayout({ role, title, description, navItems }: Dashboar
                     </div>
 
                     <div className="flex flex-wrap items-center gap-3">
-                        {availableRoles.length > 1 ? (
+                        {availableRoles.length > 0 ? (
                             <Link
                                 to="/role-select"
                                 className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
                             >
-                                モード切替
+                                モード管理
                             </Link>
                         ) : null}
                         <span className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200">

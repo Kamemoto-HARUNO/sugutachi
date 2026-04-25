@@ -112,7 +112,7 @@ function buildReviewMeta(review: ReviewSummary): string {
 
 export function UserTherapistDetailPage() {
     const { publicId } = useParams();
-    const { isAuthenticated, token } = useAuth();
+    const { hasRole, isAuthenticated, token } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
     const [serviceAddresses, setServiceAddresses] = useState<ServiceAddress[]>([]);
     const [therapistDetail, setTherapistDetail] = useState<TherapistDetail | null>(null);
@@ -169,19 +169,31 @@ export function UserTherapistDetailPage() {
 
         return `/user/therapists/${therapistDetail.public_id}/availability${nextQueryString ? `?${nextQueryString}` : ''}`;
     }, [highlightedMenu, scheduledStartAt, searchParams, therapistDetail]);
+    const canUseUserFlows = isAuthenticated && hasRole('user');
     const loginAvailabilityPath = intendedAvailabilityPath
         ? `/login?return_to=${encodeURIComponent(intendedAvailabilityPath)}`
         : '/login';
     const registerAvailabilityPath = intendedAvailabilityPath
         ? `/register?return_to=${encodeURIComponent(intendedAvailabilityPath)}`
         : '/register';
-    const availabilityPath = isAuthenticated ? intendedAvailabilityPath ?? '/user/therapists' : loginAvailabilityPath;
-    const serviceAddressPath = isAuthenticated ? '/user/service-addresses' : '/register';
-    const primaryAction = isAuthenticated
+    const enableUserRolePath = intendedAvailabilityPath
+        ? `/role-select?add_role=user&return_to=${encodeURIComponent(intendedAvailabilityPath)}`
+        : '/role-select?add_role=user&return_to=%2Fuser';
+    const availabilityPath = canUseUserFlows ? intendedAvailabilityPath ?? '/user/therapists' : loginAvailabilityPath;
+    const serviceAddressPath = canUseUserFlows
+        ? '/user/service-addresses'
+        : isAuthenticated
+            ? '/role-select?add_role=user&return_to=%2Fuser%2Fservice-addresses'
+            : '/register';
+    const primaryAction = canUseUserFlows
         ? { label: '空き時間を見る', to: availabilityPath }
+        : isAuthenticated
+            ? { label: '利用者モードを追加して空き時間を見る', to: enableUserRolePath }
         : { label: 'ログインして空き時間を見る', to: loginAvailabilityPath };
-    const secondaryAction = isAuthenticated
+    const secondaryAction = canUseUserFlows
         ? { label: '一覧へ戻る', to: listPath, variant: 'secondary' as const }
+        : isAuthenticated
+            ? { label: '利用モードを管理する', to: '/role-select', variant: 'secondary' as const }
         : { label: '無料登録する', to: registerAvailabilityPath, variant: 'secondary' as const };
 
     usePageTitle(therapistDetail ? `${therapistDetail.public_name}の詳細` : 'セラピスト詳細');

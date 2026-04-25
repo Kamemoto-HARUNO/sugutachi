@@ -158,7 +158,7 @@ export function RegisterPage() {
                                     まずは会員登録から
                                 </h1>
                                 <p className="max-w-2xl text-sm leading-7 text-[#d8d3ca] md:text-base md:leading-8">
-                                    利用者として探し始めることも、セラピストとして準備を始めることもできます。登録後は本人確認やプロフィール設定へそのまま進めます。
+                                    1つのアカウントで、利用者として探し始めることも、セラピストとして準備を始めることもできます。ここでは最初に使うモードを選び、もう片方はログイン後に追加できます。
                                 </p>
                             </div>
                         </div>
@@ -167,13 +167,13 @@ export function RegisterPage() {
                             {[
                                 {
                                     value: 'user' as const,
-                                    label: '利用者としてはじめる',
+                                    label: '最初は利用者としてはじめる',
                                     body: '検索、公開プロフィール確認、空き時間選択、予約リクエストまで進めます。',
                                     active: initialRole === 'user',
                                 },
                                 {
                                     value: 'therapist' as const,
-                                    label: 'セラピストとしてはじめる',
+                                    label: '最初はセラピストとしてはじめる',
                                     body: '本人確認、Stripe Connect、プロフィール審査、空き枠公開の準備へ進みます。',
                                     active: initialRole === 'therapist',
                                 },

@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AccountBlockController;
+use App\Http\Controllers\Api\AccountRoleController;
 use App\Http\Controllers\Api\AdminAccountController;
 use App\Http\Controllers\Api\AdminAuditLogController;
 use App\Http\Controllers\Api\AdminBookingController;
@@ -73,6 +74,7 @@ Route::get('/therapists/{therapistProfile:public_id}/reviews', [ReviewController
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
+    Route::post('/me/roles', [AccountRoleController::class, 'store']);
     Route::post('/legal-documents/{legalDocument:public_id}/accept', [LegalDocumentController::class, 'accept']);
     Route::get('/me/profile', [MeProfileController::class, 'show']);
     Route::patch('/me/profile', [MeProfileController::class, 'update']);

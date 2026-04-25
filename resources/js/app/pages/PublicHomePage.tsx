@@ -6,11 +6,10 @@ import { TherapistDiscoveryCard } from '../components/discovery/TherapistDiscove
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
-import { getRoleHomePath } from '../lib/account';
 import type { ApiEnvelope, ServiceMeta, TherapistSearchResult } from '../lib/types';
 
 export function PublicHomePage() {
-    const { account, activeRole, hasRole, isAuthenticated, token } = useAuth();
+    const { account, hasRole, isAuthenticated, token } = useAuth();
     const [serviceMeta, setServiceMeta] = useState<ServiceMeta | null>(null);
     const [previewTherapists, setPreviewTherapists] = useState<TherapistSearchResult[]>([]);
     const [error, setError] = useState<string | null>(null);
@@ -57,10 +56,10 @@ export function PublicHomePage() {
             };
         }
 
-        if (isAuthenticated && activeRole) {
+        if (isAuthenticated) {
             return {
-                label: 'マイページへ戻る',
-                to: getRoleHomePath(activeRole),
+                label: '利用者モードを追加',
+                to: '/role-select?add_role=user&return_to=%2Fuser%2Ftherapists',
             };
         }
 
@@ -68,7 +67,7 @@ export function PublicHomePage() {
             label: 'ログイン・無料登録',
             to: '/register',
         };
-    }, [activeRole, hasRole, isAuthenticated]);
+    }, [hasRole, isAuthenticated]);
 
     const secondaryAction = useMemo(() => {
         if (isAuthenticated && hasRole('therapist')) {
@@ -79,18 +78,22 @@ export function PublicHomePage() {
         }
 
         return {
-            label: 'タチとして登録',
-            to: '/register',
+            label: isAuthenticated ? 'セラピストモードを追加' : 'タチとして登録',
+            to: isAuthenticated ? '/role-select?add_role=therapist&return_to=%2Ftherapist%2Fonboarding' : '/register',
         };
     }, [hasRole, isAuthenticated]);
 
     const footerPrimaryAction = isAuthenticated && hasRole('user')
         ? { label: '利用者ダッシュボード', to: '/user' }
-        : { label: 'ログイン・無料登録', to: '/register' };
+        : isAuthenticated
+            ? { label: '利用者モードを追加', to: '/role-select?add_role=user&return_to=%2Fuser' }
+            : { label: 'ログイン・無料登録', to: '/register' };
 
-    const footerSecondaryAction = isAuthenticated && activeRole
-        ? { label: 'マイページへ戻る', to: getRoleHomePath(activeRole) }
-        : { label: 'タチとして登録', to: '/register' };
+    const footerSecondaryAction = isAuthenticated && hasRole('therapist')
+        ? { label: 'セラピストダッシュボード', to: '/therapist' }
+        : isAuthenticated
+            ? { label: 'セラピストモードを追加', to: '/role-select?add_role=therapist&return_to=%2Ftherapist%2Fonboarding' }
+            : { label: 'タチとして登録', to: '/register' };
 
     return (
         <div className="min-h-screen bg-[#f6f1e7] text-[#17202b]">
