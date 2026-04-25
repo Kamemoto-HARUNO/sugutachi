@@ -66,6 +66,9 @@ class AdminDashboardController extends Controller
                     'unread_travel_requests' => TherapistTravelRequest::query()
                         ->where('status', TherapistTravelRequest::STATUS_UNREAD)
                         ->count(),
+                    'flagged_travel_requests' => TherapistTravelRequest::query()
+                        ->where('detected_contact_exchange', true)
+                        ->count(),
                     'pending_travel_request_reviews' => TherapistTravelRequest::query()
                         ->where('monitoring_status', TherapistTravelRequest::MONITORING_STATUS_UNREVIEWED)
                         ->count(),
@@ -209,6 +212,14 @@ class AdminDashboardController extends Controller
                             'path' => '/api/admin/travel-requests',
                             'query' => [
                                 'status' => TherapistTravelRequest::STATUS_UNREAD,
+                                'sort' => 'created_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
+                        'flagged_travel_requests' => [
+                            'path' => '/api/admin/travel-requests',
+                            'query' => [
+                                'detected_contact_exchange' => true,
                                 'sort' => 'created_at',
                                 'direction' => 'desc',
                             ],

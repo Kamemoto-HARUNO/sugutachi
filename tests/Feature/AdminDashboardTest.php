@@ -277,6 +277,7 @@ class AdminDashboardTest extends TestCase
             'therapist_profile_id' => $therapistProfile->id,
             'prefecture' => '福岡県',
             'message_encrypted' => Crypt::encryptString('Travel dashboard request'),
+            'detected_contact_exchange' => true,
             'status' => TherapistTravelRequest::STATUS_UNREAD,
             'monitoring_status' => TherapistTravelRequest::MONITORING_STATUS_UNREVIEWED,
         ]);
@@ -305,6 +306,7 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.operations.open_message_origin_reports', 1)
             ->assertJsonPath('data.operations.pending_contact_inquiries', 1)
             ->assertJsonPath('data.operations.unread_travel_requests', 1)
+            ->assertJsonPath('data.operations.flagged_travel_requests', 1)
             ->assertJsonPath('data.operations.pending_travel_request_reviews', 1)
             ->assertJsonPath('data.operations.open_stripe_disputes', 1)
             ->assertJsonPath('data.operations.requested_refunds', 1)
@@ -338,6 +340,8 @@ class AdminDashboardTest extends TestCase
             ->assertJsonPath('data.navigation.operations.pending_contact_inquiries.query.status', ContactInquiry::STATUS_PENDING)
             ->assertJsonPath('data.navigation.operations.unread_travel_requests.path', '/api/admin/travel-requests')
             ->assertJsonPath('data.navigation.operations.unread_travel_requests.query.status', TherapistTravelRequest::STATUS_UNREAD)
+            ->assertJsonPath('data.navigation.operations.flagged_travel_requests.path', '/api/admin/travel-requests')
+            ->assertJsonPath('data.navigation.operations.flagged_travel_requests.query.detected_contact_exchange', true)
             ->assertJsonPath('data.navigation.operations.pending_travel_request_reviews.query.monitoring_status', TherapistTravelRequest::MONITORING_STATUS_UNREVIEWED)
             ->assertJsonPath('data.navigation.operations.open_stripe_disputes.path', '/api/admin/stripe-disputes')
             ->assertJsonPath('data.navigation.operations.open_stripe_disputes.query.status_group', 'open')

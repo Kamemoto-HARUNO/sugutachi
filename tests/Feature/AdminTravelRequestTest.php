@@ -76,11 +76,29 @@ class AdminTravelRequestTest extends TestCase
             ->assertJsonPath('data.notes.1.note', 'Ops is checking whether sender activity needs follow-up.');
 
         $this->withToken($token)
-            ->getJson('/api/admin/travel-requests?monitoring_status=under_review&monitored_by_admin_account_id='.$admin->public_id.'&has_notes=1')
+            ->postJson("/api/admin/travel-requests/{$travelRequest->public_id}/suspend-sender", [
+                'reason_code' => 'policy_violation',
+                'note' => 'Sender was suspended after repeated off-platform solicitation attempts.',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.public_id', $sender->public_id)
+            ->assertJsonPath('data.status', Account::STATUS_SUSPENDED)
+            ->assertJsonPath('data.suspension_reason', 'policy_violation');
+
+        $this->withToken($token)
+            ->getJson('/api/admin/travel-requests?monitoring_status=escalated&monitored_by_admin_account_id='.$admin->public_id.'&sender_status=suspended&has_notes=1')
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.public_id', $travelRequest->public_id)
-            ->assertJsonPath('data.0.monitoring_status', TherapistTravelRequest::MONITORING_STATUS_UNDER_REVIEW);
+            ->assertJsonPath('data.0.monitoring_status', TherapistTravelRequest::MONITORING_STATUS_ESCALATED)
+            ->assertJsonPath('data.0.sender.status', Account::STATUS_SUSPENDED)
+            ->assertJsonPath('data.0.sender.suspension_reason', 'policy_violation');
+
+        $this->assertDatabaseHas('accounts', [
+            'id' => $sender->id,
+            'status' => Account::STATUS_SUSPENDED,
+            'suspension_reason' => 'policy_violation',
+        ]);
 
         $this->assertDatabaseHas('admin_audit_logs', [
             'actor_account_id' => $admin->id,
@@ -97,6 +115,18 @@ class AdminTravelRequestTest extends TestCase
         $this->assertDatabaseHas('admin_audit_logs', [
             'actor_account_id' => $admin->id,
             'action' => 'travel_request.monitor',
+            'target_type' => TherapistTravelRequest::class,
+            'target_id' => $travelRequest->id,
+        ]);
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'actor_account_id' => $admin->id,
+            'action' => 'account.suspend',
+            'target_type' => Account::class,
+            'target_id' => $sender->id,
+        ]);
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'actor_account_id' => $admin->id,
+            'action' => 'travel_request.suspend_sender',
             'target_type' => TherapistTravelRequest::class,
             'target_id' => $travelRequest->id,
         ]);
@@ -124,6 +154,12 @@ class AdminTravelRequestTest extends TestCase
         $this->withToken($token)
             ->postJson("/api/admin/travel-requests/{$travelRequest->public_id}/monitoring", [
                 'monitoring_status' => TherapistTravelRequest::MONITORING_STATUS_UNDER_REVIEW,
+            ])
+            ->assertForbidden();
+
+        $this->withToken($token)
+            ->postJson("/api/admin/travel-requests/{$travelRequest->public_id}/suspend-sender", [
+                'reason_code' => 'policy_violation',
             ])
             ->assertForbidden();
     }
@@ -172,6 +208,7 @@ class AdminTravelRequestTest extends TestCase
             'therapist_profile_id' => $profile->id,
             'prefecture' => '福岡県',
             'message_encrypted' => Crypt::encryptString('福岡で会える日があれば知らせてほしいです。'),
+            'detected_contact_exchange' => true,
             'status' => TherapistTravelRequest::STATUS_UNREAD,
             'monitoring_status' => TherapistTravelRequest::MONITORING_STATUS_UNREVIEWED,
         ]);

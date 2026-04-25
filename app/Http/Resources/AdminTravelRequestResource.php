@@ -35,6 +35,8 @@ class AdminTravelRequestResource extends JsonResource
                 'display_name' => $travelRequest->userAccount->display_name,
                 'email' => $travelRequest->userAccount->email,
                 'status' => $travelRequest->userAccount->status,
+                'suspended_at' => $travelRequest->userAccount->suspended_at,
+                'suspension_reason' => $travelRequest->userAccount->suspension_reason,
             ] : null),
             'therapist_profile' => $this->whenLoaded('therapistProfile', fn () => $travelRequest->therapistProfile ? [
                 'public_id' => $travelRequest->therapistProfile->public_id,

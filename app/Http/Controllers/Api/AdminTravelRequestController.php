@@ -5,8 +5,11 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Api\Concerns\AuthorizesAdminRequests;
 use App\Http\Controllers\Api\Concerns\RecordsAdminAuditLogs;
 use App\Http\Controllers\Api\Concerns\ResolvesAdminFilterIds;
+use App\Http\Controllers\Api\Concerns\SuspendsAccounts;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\AdminAccountResource;
 use App\Http\Resources\AdminTravelRequestResource;
+use App\Models\Account;
 use App\Models\AdminNote;
 use App\Models\TherapistTravelRequest;
 use Illuminate\Http\Request;
@@ -19,6 +22,7 @@ class AdminTravelRequestController extends Controller
     use AuthorizesAdminRequests;
     use RecordsAdminAuditLogs;
     use ResolvesAdminFilterIds;
+    use SuspendsAccounts;
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -26,6 +30,7 @@ class AdminTravelRequestController extends Controller
 
         $validated = $request->validate([
             'user_account_id' => ['nullable', 'string', 'max:36'],
+            'sender_status' => ['nullable', Rule::in([Account::STATUS_ACTIVE, Account::STATUS_SUSPENDED])],
             'therapist_account_id' => ['nullable', 'string', 'max:36'],
             'therapist_profile_id' => ['nullable', 'string', 'max:36'],
             'status' => ['nullable', Rule::in(TherapistTravelRequest::statuses())],
@@ -53,6 +58,10 @@ class AdminTravelRequestController extends Controller
                 ->with(['userAccount', 'therapistProfile.account', 'monitoredByAdmin'])
                 ->withCount('adminNotes')
                 ->when($userAccountId, fn ($query, int $id) => $query->where('user_account_id', $id))
+                ->when(
+                    $validated['sender_status'] ?? null,
+                    fn ($query, string $status) => $query->whereHas('userAccount', fn ($account) => $account->where('status', $status))
+                )
                 ->when($therapistAccountId, fn ($query, int $id) => $query->where('therapist_account_id', $id))
                 ->when($therapistProfileId, fn ($query, int $id) => $query->where('therapist_profile_id', $id))
                 ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
@@ -178,6 +187,60 @@ class AdminTravelRequestController extends Controller
         return new AdminTravelRequestResource($this->loadAdminTravelRequest($travelRequest->fresh()));
     }
 
+    public function suspendSender(Request $request, TherapistTravelRequest $travelRequest): AdminAccountResource
+    {
+        $admin = $request->user();
+        $this->authorizeAdmin($admin);
+
+        $travelRequest->loadMissing('userAccount');
+        $sender = $travelRequest->userAccount;
+        abort_unless($sender, 409, 'Sender account is unavailable.');
+
+        $validated = $request->validate([
+            'reason_code' => ['required', 'string', 'max:100'],
+            'note' => ['nullable', 'string', 'max:2000'],
+        ]);
+        $accountBefore = $this->snapshotAccount($sender);
+        $travelRequestBefore = $this->snapshot($travelRequest);
+
+        $this->suspendAccount($sender, $admin, $validated['reason_code']);
+
+        $travelRequest->forceFill([
+            'monitoring_status' => TherapistTravelRequest::MONITORING_STATUS_ESCALATED,
+            'monitored_by_admin_account_id' => $admin->id,
+            'monitored_at' => now(),
+        ])->save();
+
+        if (filled($validated['note'] ?? null)) {
+            $travelRequest->adminNotes()->create([
+                'author_account_id' => $admin->id,
+                'note_encrypted' => Crypt::encryptString($validated['note']),
+            ]);
+        }
+
+        $this->recordAdminAudit(
+            $request,
+            'account.suspend',
+            $sender,
+            $accountBefore,
+            $this->snapshotAccount($sender->refresh())
+        );
+        $this->recordAdminAudit(
+            $request,
+            'travel_request.suspend_sender',
+            $travelRequest,
+            $travelRequestBefore,
+            $this->snapshot($travelRequest->fresh())
+        );
+
+        return new AdminAccountResource($sender->load([
+            'roleAssignments',
+            'latestIdentityVerification',
+            'userProfile',
+            'therapistProfile',
+        ]));
+    }
+
     private function loadAdminTravelRequest(TherapistTravelRequest $travelRequest): TherapistTravelRequest
     {
         return $travelRequest->load([
@@ -213,5 +276,20 @@ class AdminTravelRequestController extends Controller
                     ->count(),
             ],
         );
+    }
+
+    private function snapshotAccount(Account $account): array
+    {
+        return $account->only([
+            'id',
+            'public_id',
+            'email',
+            'phone_e164',
+            'display_name',
+            'status',
+            'last_active_role',
+            'suspended_at',
+            'suspension_reason',
+        ]);
     }
 }
