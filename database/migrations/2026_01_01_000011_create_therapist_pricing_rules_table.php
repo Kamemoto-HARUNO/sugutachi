@@ -22,8 +22,8 @@ return new class extends Migration
             $table->boolean('is_active')->default(true);
             $table->timestamps();
 
-            $table->index(['therapist_profile_id', 'is_active', 'priority']);
-            $table->index(['therapist_menu_id', 'is_active']);
+            $table->index(['therapist_profile_id', 'is_active', 'priority'], 'tpr_profile_active_priority_idx');
+            $table->index(['therapist_menu_id', 'is_active'], 'tpr_menu_active_idx');
         });
     }
 

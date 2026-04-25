@@ -17,16 +17,16 @@ return new class extends Migration
                 ->nullOnDelete();
             $table->timestamp('monitored_at')->nullable()->after('monitored_by_admin_account_id');
 
-            $table->index(['monitoring_status', 'status', 'created_at']);
-            $table->index(['monitored_by_admin_account_id', 'monitored_at']);
+            $table->index(['monitoring_status', 'status', 'created_at'], 'ttr_monitoring_status_created_idx');
+            $table->index(['monitored_by_admin_account_id', 'monitored_at'], 'ttr_monitored_admin_at_idx');
         });
     }
 
     public function down(): void
     {
         Schema::table('therapist_travel_requests', function (Blueprint $table): void {
-            $table->dropIndex(['monitoring_status', 'status', 'created_at']);
-            $table->dropIndex(['monitored_by_admin_account_id', 'monitored_at']);
+            $table->dropIndex('ttr_monitoring_status_created_idx');
+            $table->dropIndex('ttr_monitored_admin_at_idx');
             $table->dropConstrainedForeignId('monitored_by_admin_account_id');
             $table->dropColumn(['monitoring_status', 'monitored_at']);
         });

@@ -25,9 +25,9 @@ return new class extends Migration
             $table->timestamps();
             $table->softDeletes();
 
-            $table->index(['therapist_profile_id', 'status', 'start_at']);
-            $table->index(['dispatch_base_type', 'start_at']);
-            $table->index(['status', 'start_at']);
+            $table->index(['therapist_profile_id', 'status', 'start_at'], 'tas_profile_status_start_idx');
+            $table->index(['dispatch_base_type', 'start_at'], 'tas_dispatch_start_idx');
+            $table->index(['status', 'start_at'], 'tas_status_start_idx');
         });
     }
 

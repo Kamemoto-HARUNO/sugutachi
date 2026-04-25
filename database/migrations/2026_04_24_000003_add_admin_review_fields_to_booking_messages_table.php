@@ -16,14 +16,14 @@ return new class extends Migration
                 ->nullOnDelete();
             $table->timestamp('moderated_at')->nullable()->after('moderation_status');
 
-            $table->index(['moderated_by_admin_account_id', 'moderated_at']);
+            $table->index(['moderated_by_admin_account_id', 'moderated_at'], 'bm_moderated_admin_at_idx');
         });
     }
 
     public function down(): void
     {
         Schema::table('booking_messages', function (Blueprint $table) {
-            $table->dropIndex(['moderated_by_admin_account_id', 'moderated_at']);
+            $table->dropIndex('bm_moderated_admin_at_idx');
             $table->dropConstrainedForeignId('moderated_by_admin_account_id');
             $table->dropColumn('moderated_at');
         });

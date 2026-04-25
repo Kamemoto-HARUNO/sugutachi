@@ -17,16 +17,16 @@ return new class extends Migration
                 ->nullOnDelete();
             $table->timestamp('monitored_at')->nullable()->after('monitored_by_admin_account_id');
 
-            $table->index(['monitoring_status', 'is_active']);
-            $table->index(['monitored_by_admin_account_id', 'monitored_at']);
+            $table->index(['monitoring_status', 'is_active'], 'tpr_monitoring_active_idx');
+            $table->index(['monitored_by_admin_account_id', 'monitored_at'], 'tpr_monitored_admin_at_idx');
         });
     }
 
     public function down(): void
     {
         Schema::table('therapist_pricing_rules', function (Blueprint $table): void {
-            $table->dropIndex(['monitoring_status', 'is_active']);
-            $table->dropIndex(['monitored_by_admin_account_id', 'monitored_at']);
+            $table->dropIndex('tpr_monitoring_active_idx');
+            $table->dropIndex('tpr_monitored_admin_at_idx');
             $table->dropConstrainedForeignId('monitored_by_admin_account_id');
             $table->dropColumn(['monitoring_status', 'monitored_at']);
         });

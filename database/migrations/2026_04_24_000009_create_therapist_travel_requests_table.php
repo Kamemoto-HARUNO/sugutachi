@@ -22,10 +22,10 @@ return new class extends Migration
             $table->timestamp('archived_at')->nullable();
             $table->timestamps();
 
-            $table->index(['therapist_account_id', 'status', 'created_at']);
-            $table->index(['therapist_profile_id', 'status', 'created_at']);
-            $table->index(['user_account_id', 'created_at']);
-            $table->index(['prefecture', 'created_at']);
+            $table->index(['therapist_account_id', 'status', 'created_at'], 'ttr_account_status_created_idx');
+            $table->index(['therapist_profile_id', 'status', 'created_at'], 'ttr_profile_status_created_idx');
+            $table->index(['user_account_id', 'created_at'], 'ttr_user_created_idx');
+            $table->index(['prefecture', 'created_at'], 'ttr_prefecture_created_idx');
         });
     }
 
