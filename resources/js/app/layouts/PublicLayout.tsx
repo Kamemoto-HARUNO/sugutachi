@@ -1,4 +1,4 @@
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { getAccountDisplayName, getRoleHomePath } from '../lib/account';
 import { publicNavItems } from '../lib/navigation';
 import { useAuth } from '../hooks/useAuth';
@@ -12,6 +12,10 @@ function navLinkClass(isActive: boolean): string {
 
 export function PublicLayout() {
     const { account, activeRole, isAuthenticated, logout } = useAuth();
+    const location = useLocation();
+    const returnTo = `${location.pathname}${location.search}`;
+    const loginPath = location.pathname === '/login' ? '/login' : `/login?return_to=${encodeURIComponent(returnTo)}`;
+    const registerPath = location.pathname === '/register' ? '/register' : `/register?return_to=${encodeURIComponent(returnTo)}`;
 
     return (
         <div className="min-h-screen">
@@ -57,13 +61,13 @@ export function PublicLayout() {
                             ) : (
                                 <>
                                     <Link
-                                        to="/login"
+                                        to={loginPath}
                                         className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
                                     >
                                         ログイン
                                     </Link>
                                     <Link
-                                        to="/register"
+                                        to={registerPath}
                                         className="rounded-full bg-rose-300 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-rose-200"
                                     >
                                         無料ではじめる

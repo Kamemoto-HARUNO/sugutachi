@@ -198,7 +198,7 @@ function ProtectedRoute({ isAuthenticated }: { isAuthenticated: boolean }) {
     const location = useLocation();
 
     if (!isAuthenticated) {
-        return <Navigate to="/login" replace state={{ from: location.pathname }} />;
+        return <Navigate to="/login" replace state={{ from: `${location.pathname}${location.search}` }} />;
     }
 
     return <Outlet />;
@@ -217,6 +217,8 @@ function RoleRoute({
     activeRole: RoleName | null;
     selectRole: (role: RoleName) => void;
 }) {
+    const location = useLocation();
+
     useEffect(() => {
         if (isAuthenticated && hasRole(role) && activeRole !== role) {
             selectRole(role);
@@ -224,7 +226,7 @@ function RoleRoute({
     }, [activeRole, hasRole, isAuthenticated, role, selectRole]);
 
     if (!isAuthenticated) {
-        return <Navigate to={role === 'admin' ? '/admin/login' : '/login'} replace />;
+        return <Navigate to={role === 'admin' ? '/admin/login' : '/login'} replace state={{ from: `${location.pathname}${location.search}` }} />;
     }
 
     if (!hasRole(role)) {

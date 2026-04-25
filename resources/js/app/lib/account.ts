@@ -41,6 +41,36 @@ export function getRoleHomePath(role: RoleName): string {
     return ROLE_HOME_PATHS[role];
 }
 
+export function sanitizeAppPath(value: string | null | undefined): string | null {
+    if (!value || !value.startsWith('/') || value.startsWith('//')) {
+        return null;
+    }
+
+    return value;
+}
+
+export function inferRoleFromPath(path: string | null | undefined): RoleName | null {
+    const normalizedPath = sanitizeAppPath(path);
+
+    if (!normalizedPath) {
+        return null;
+    }
+
+    if (normalizedPath === '/user' || normalizedPath.startsWith('/user/')) {
+        return 'user';
+    }
+
+    if (normalizedPath === '/therapist' || normalizedPath.startsWith('/therapist/')) {
+        return 'therapist';
+    }
+
+    if (normalizedPath === '/admin' || normalizedPath.startsWith('/admin/')) {
+        return 'admin';
+    }
+
+    return null;
+}
+
 export function getPostAuthPath(account: Account | null, requestedRole?: RoleName | null): string {
     if (!account) {
         return '/login';

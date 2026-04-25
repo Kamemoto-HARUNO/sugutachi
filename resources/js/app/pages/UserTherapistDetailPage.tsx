@@ -151,9 +151,9 @@ export function UserTherapistDetailPage() {
 
     const queryString = searchParams.toString();
     const listPath = isAuthenticated ? `/user/therapists${queryString ? `?${queryString}` : ''}` : '/';
-    const availabilityPath = useMemo(() => {
-        if (!therapistDetail || !isAuthenticated) {
-            return '/login';
+    const intendedAvailabilityPath = useMemo(() => {
+        if (!therapistDetail) {
+            return null;
         }
 
         const nextParams = new URLSearchParams(searchParams);
@@ -168,14 +168,21 @@ export function UserTherapistDetailPage() {
         const nextQueryString = nextParams.toString();
 
         return `/user/therapists/${therapistDetail.public_id}/availability${nextQueryString ? `?${nextQueryString}` : ''}`;
-    }, [highlightedMenu, isAuthenticated, scheduledStartAt, searchParams, therapistDetail]);
+    }, [highlightedMenu, scheduledStartAt, searchParams, therapistDetail]);
+    const loginAvailabilityPath = intendedAvailabilityPath
+        ? `/login?return_to=${encodeURIComponent(intendedAvailabilityPath)}`
+        : '/login';
+    const registerAvailabilityPath = intendedAvailabilityPath
+        ? `/register?return_to=${encodeURIComponent(intendedAvailabilityPath)}`
+        : '/register';
+    const availabilityPath = isAuthenticated ? intendedAvailabilityPath ?? '/user/therapists' : loginAvailabilityPath;
     const serviceAddressPath = isAuthenticated ? '/user/service-addresses' : '/register';
     const primaryAction = isAuthenticated
         ? { label: '空き時間を見る', to: availabilityPath }
-        : { label: 'ログインして空き時間を見る', to: '/login' };
+        : { label: 'ログインして空き時間を見る', to: loginAvailabilityPath };
     const secondaryAction = isAuthenticated
         ? { label: '一覧へ戻る', to: listPath, variant: 'secondary' as const }
-        : { label: '無料登録する', to: '/register', variant: 'secondary' as const };
+        : { label: '無料登録する', to: registerAvailabilityPath, variant: 'secondary' as const };
 
     usePageTitle(therapistDetail ? `${therapistDetail.public_name}の詳細` : 'セラピスト詳細');
 
