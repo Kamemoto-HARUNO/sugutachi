@@ -270,6 +270,29 @@ export interface ReviewSummary {
     created_at: string;
 }
 
+export interface BookingQuoteAmounts {
+    base_amount: number;
+    travel_fee_amount: number;
+    night_fee_amount: number;
+    demand_fee_amount: number;
+    profile_adjustment_amount: number;
+    matching_fee_amount: number;
+    platform_fee_amount: number;
+    total_amount: number;
+    therapist_gross_amount: number;
+    therapist_net_amount: number;
+}
+
+export interface BookingQuoteRecord {
+    quote_id: string;
+    expires_at: string | null;
+    is_on_demand: boolean;
+    requested_start_at: string | null;
+    availability_slot_id: string | null;
+    walking_time_range: string | null;
+    amounts: BookingQuoteAmounts;
+}
+
 export interface NavItem {
     label: string;
     to: string;

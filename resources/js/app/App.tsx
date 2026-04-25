@@ -34,6 +34,9 @@ import { TherapistIdentityVerificationPage } from './pages/TherapistIdentityVeri
 import { TherapistOnboardingPage } from './pages/TherapistOnboardingPage';
 import { TherapistProfilePage } from './pages/TherapistProfilePage';
 import { TherapistStripeConnectPage } from './pages/TherapistStripeConnectPage';
+import { UserBookingQuotePage } from './pages/UserBookingQuotePage';
+import { UserBookingRequestPage } from './pages/UserBookingRequestPage';
+import { UserServiceAddressesPage } from './pages/UserServiceAddressesPage';
 import { UserTherapistAvailabilityPage } from './pages/UserTherapistAvailabilityPage';
 import { UserTherapistDetailPage } from './pages/UserTherapistDetailPage';
 import { UserTherapistSearchPage } from './pages/UserTherapistSearchPage';
@@ -93,10 +96,16 @@ function AppRoutes() {
                             />
                         }
                     />
+                    <Route path="service-addresses" element={<UserServiceAddressesPage />} />
+                    <Route path="booking-request" element={<UserBookingRequestPage />} />
+                    <Route path="booking-request/quote" element={<UserBookingQuotePage />} />
                     {userPlaceholderRoutes
                         .filter(
                             (route) =>
                                 route.path !== 'therapists'
+                                && route.path !== 'service-addresses'
+                                && route.path !== 'booking-request'
+                                && route.path !== 'booking-request/quote'
                                 && route.path !== 'therapists/:publicId'
                                 && route.path !== 'therapists/:publicId/availability',
                         )
