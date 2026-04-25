@@ -29,6 +29,7 @@ import { PublicHomePage } from './pages/PublicHomePage';
 import { RegisterPage } from './pages/RegisterPage';
 import { RoleSelectPage } from './pages/RoleSelectPage';
 import { SectionHomePage } from './pages/SectionHomePage';
+import { UserTherapistSearchPage } from './pages/UserTherapistSearchPage';
 import { AuthProvider } from './providers/AuthProvider';
 
 function AppRoutes() {
@@ -40,8 +41,9 @@ function AppRoutes() {
 
     return (
         <Routes>
+            <Route path="/" element={<PublicHomePage />} />
+
             <Route element={<PublicLayout />}>
-                <Route path="/" element={<PublicHomePage />} />
                 <Route path="/help" element={<HelpPage />} />
                 <Route path="/terms" element={<LegalDocumentPage documentType="terms" title="利用規約" />} />
                 <Route path="/privacy" element={<LegalDocumentPage documentType="privacy" title="プライバシーポリシー" />} />
@@ -61,6 +63,7 @@ function AppRoutes() {
             </Route>
 
             <Route element={<RoleRoute role="user" hasRole={hasRole} isAuthenticated={isAuthenticated} activeRole={activeRole} selectRole={selectRole} />}>
+                <Route path="/user/therapists" element={<UserTherapistSearchPage />} />
                 <Route
                     path="/user"
                     element={<DashboardLayout role="user" title="利用者ダッシュボード" description="検索、予約、メッセージ、安全導線の入口です。" navItems={userNavItems} />}
@@ -80,7 +83,7 @@ function AppRoutes() {
                             />
                         }
                     />
-                    {userPlaceholderRoutes.map((route) => (
+                    {userPlaceholderRoutes.filter((route) => route.path !== 'therapists').map((route) => (
                         <Route
                             key={route.path}
                             path={route.path}

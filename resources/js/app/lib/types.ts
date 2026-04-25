@@ -97,6 +97,65 @@ export interface HelpFaqItem {
     sort_order: number;
 }
 
+export interface ServiceAddress {
+    public_id: string;
+    label: string | null;
+    place_type: 'home' | 'hotel' | 'office' | 'other';
+    postal_code: string | null;
+    prefecture: string | null;
+    city: string | null;
+    address_line: string | null;
+    building: string | null;
+    access_notes: string | null;
+    lat: number | string;
+    lng: number | string;
+    is_default: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface PublicProfilePhoto {
+    sort_order: number;
+    url: string;
+}
+
+export interface TherapistSearchResult {
+    public_id: string;
+    public_name: string;
+    bio_excerpt: string | null;
+    training_status: string | null;
+    rating_average: number;
+    review_count: number;
+    therapist_cancellation_count: number;
+    walking_time_range: string | null;
+    estimated_total_amount: number | null;
+    photos: PublicProfilePhoto[];
+}
+
+export interface TherapistMenu {
+    public_id: string;
+    name: string;
+    description: string | null;
+    duration_minutes: number;
+    base_price_amount: number;
+    estimated_total_amount: number | null;
+}
+
+export interface TherapistDetail {
+    public_id: string;
+    public_name: string;
+    bio: string | null;
+    training_status: string | null;
+    rating_average: number;
+    review_count: number;
+    therapist_cancellation_count: number;
+    is_online: boolean;
+    walking_time_range: string | null;
+    lowest_estimated_total_amount: number | null;
+    menus: TherapistMenu[];
+    photos: PublicProfilePhoto[];
+}
+
 export interface NavItem {
     label: string;
     to: string;

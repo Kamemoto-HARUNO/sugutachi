@@ -1,12 +1,70 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
+import { DiscoveryFooter } from '../components/discovery/DiscoveryFooter';
+import { DiscoveryHeroShell } from '../components/discovery/DiscoveryHeroShell';
+import { TherapistDiscoveryCard } from '../components/discovery/TherapistDiscoveryCard';
+import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { getRoleHomePath } from '../lib/account';
 import type { ApiEnvelope, ServiceMeta } from '../lib/types';
 
+const previewTherapists = [
+    {
+        public_id: 'preview_haru',
+        public_name: 'Haru',
+        rating_average: 4.9,
+        review_count: 68,
+        walking_time_range: 'within_15_min',
+        estimated_total_amount: 9000,
+        therapist_cancellation_count: 0,
+        training_status: 'completed',
+        tags: ['もみほぐし', 'ボディケア'],
+        bio_excerpt: '静かな雰囲気で受けられる、丁寧なボディケアが中心です。',
+    },
+    {
+        public_id: 'preview_reo',
+        public_name: 'Reo',
+        rating_average: 4.8,
+        review_count: 52,
+        walking_time_range: 'within_15_min',
+        estimated_total_amount: 12800,
+        therapist_cancellation_count: 1,
+        training_status: 'completed',
+        tags: ['オイル', 'もみほぐし'],
+        bio_excerpt: '夜帯の予定予約にも対応しやすい、落ち着いた施術スタイルです。',
+    },
+    {
+        public_id: 'preview_kaito',
+        public_name: 'Kaito',
+        rating_average: 4.7,
+        review_count: 41,
+        walking_time_range: 'within_30_min',
+        estimated_total_amount: 5000,
+        therapist_cancellation_count: 0,
+        training_status: 'completed',
+        tags: ['ストレッチ', 'ボディケア'],
+        bio_excerpt: '短時間でも入りやすいコースが見つけやすいサンプルです。',
+    },
+    {
+        public_id: 'preview_shin',
+        public_name: 'Shin',
+        rating_average: 4.9,
+        review_count: 77,
+        walking_time_range: 'within_15_min',
+        estimated_total_amount: 16800,
+        therapist_cancellation_count: 2,
+        training_status: 'completed',
+        tags: ['リラクゼーション', 'もみほぐし'],
+        bio_excerpt: 'レビュー重視で比較したいときの見え方を想定したカードです。',
+    },
+];
+
 export function PublicHomePage() {
+    const { account, activeRole, hasRole, isAuthenticated } = useAuth();
     const [serviceMeta, setServiceMeta] = useState<ServiceMeta | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [bookingType, setBookingType] = useState<'now' | 'scheduled'>('now');
 
     usePageTitle('ホーム');
 
@@ -35,98 +93,251 @@ export function PublicHomePage() {
         };
     }, []);
 
+    const primaryAction = useMemo(() => {
+        if (isAuthenticated && hasRole('user')) {
+            return {
+                label: 'セラピストを検索',
+                to: '/user/therapists',
+            };
+        }
+
+        if (isAuthenticated && activeRole) {
+            return {
+                label: 'マイページへ戻る',
+                to: getRoleHomePath(activeRole),
+            };
+        }
+
+        return {
+            label: 'ログイン・無料登録',
+            to: '/register',
+        };
+    }, [activeRole, hasRole, isAuthenticated]);
+
+    const secondaryAction = useMemo(() => {
+        if (isAuthenticated && hasRole('therapist')) {
+            return {
+                label: 'セラピスト画面へ',
+                to: '/therapist',
+            };
+        }
+
+        return {
+            label: 'タチとして登録',
+            to: '/register',
+        };
+    }, [hasRole, isAuthenticated]);
+
+    const footerPrimaryAction = isAuthenticated && hasRole('user')
+        ? { label: '利用者ダッシュボード', to: '/user' }
+        : { label: 'ログイン・無料登録', to: '/register' };
+
+    const footerSecondaryAction = isAuthenticated && activeRole
+        ? { label: 'マイページへ戻る', to: getRoleHomePath(activeRole) }
+        : { label: 'タチとして登録', to: '/register' };
+
     return (
-        <div className="space-y-16">
-            <section className="grid gap-10 lg:grid-cols-[1.4fr_0.9fr] lg:items-end">
-                <div className="space-y-6">
-                    <p className="text-sm font-medium tracking-wide text-rose-200">Frontend Foundation</p>
-                    <div className="space-y-4">
-                        <h1 className="max-w-4xl text-5xl font-semibold tracking-tight text-white">
-                            {serviceMeta?.service_name ?? 'すぐタチ'} の画面実装を始められる土台を整えました。
-                        </h1>
-                        <p className="max-w-3xl text-base leading-8 text-slate-300">
-                            公開ページ、利用者、セラピスト、運営の URL を SPA で受けられるようにして、認証・役割切替・法務文書表示・会員登録の入口まで
-                            一続きで動く形にしています。
-                        </p>
-                    </div>
-                    <div className="flex flex-wrap gap-3">
-                        <Link
-                            to="/register"
-                            className="rounded-full bg-rose-300 px-5 py-3 text-sm font-medium text-slate-950 transition hover:bg-rose-200"
-                        >
-                            会員登録を試す
-                        </Link>
-                        <Link
-                            to="/login"
-                            className="rounded-full border border-white/10 px-5 py-3 text-sm text-slate-200 transition hover:bg-white/5"
-                        >
-                            ログイン
-                        </Link>
-                        <Link
-                            to="/help"
-                            className="rounded-full border border-white/10 px-5 py-3 text-sm text-slate-200 transition hover:bg-white/5"
-                        >
-                            ヘルプを見る
-                        </Link>
-                    </div>
-                    {error ? <p className="text-sm text-amber-200">{error}</p> : null}
-                </div>
-
-                <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-1">
-                    <div className="rounded-lg border border-white/10 bg-white/5 p-5">
-                        <p className="text-xs uppercase tracking-wide text-slate-400">決済</p>
-                        <p className="mt-3 text-lg font-medium text-white">
-                            {serviceMeta?.booking.payment_methods.join(', ') ?? 'card'}
-                        </p>
-                        <p className="mt-2 text-sm leading-6 text-slate-300">与信取得・返金・チャージバック監視まで API 側と接続済みです。</p>
-                    </div>
-                    <div className="rounded-lg border border-white/10 bg-white/5 p-5">
-                        <p className="text-xs uppercase tracking-wide text-slate-400">年齢基準</p>
-                        <p className="mt-3 text-lg font-medium text-white">
-                            {serviceMeta?.booking.minimum_age ?? 18}歳以上
-                        </p>
-                        <p className="mt-2 text-sm leading-6 text-slate-300">会員登録と本人確認で成年利用前提を通す構成です。</p>
-                    </div>
-                </div>
-            </section>
-
-            <section className="grid gap-4 lg:grid-cols-3">
-                <Link to="/user" className="rounded-lg border border-white/10 bg-white/5 p-6 transition hover:border-rose-300/40 hover:bg-white/10">
-                    <p className="text-sm font-medium text-rose-200">利用者</p>
-                    <h2 className="mt-3 text-xl font-semibold text-white">探す・予約する</h2>
-                    <p className="mt-3 text-sm leading-7 text-slate-300">検索、詳細、空き枠、予約、メッセージまでをここからつないでいきます。</p>
-                </Link>
-                <Link
-                    to="/therapist"
-                    className="rounded-lg border border-white/10 bg-white/5 p-6 transition hover:border-amber-300/40 hover:bg-white/10"
+        <div className="min-h-screen bg-[#f6f1e7] text-[#17202b]">
+            <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-16 px-6 py-10 md:px-10 md:py-14 xl:gap-[60px] xl:px-0">
+                <DiscoveryHeroShell
+                    domain={serviceMeta?.domain}
+                    title="今すぐ会える、近くで探せる。"
+                    description="リラクゼーション / ボディケア / もみほぐし目的のマッチングサービスです。徒歩目安、料金、レビューを見ながら、自分に合う相手を落ち着いて探せます。"
+                    topBadge="本人確認済みタチのみ掲載"
+                    bullets={['18歳以上確認済み', '位置情報は概算表示', '直接取引禁止']}
+                    primaryAction={primaryAction}
+                    secondaryAction={secondaryAction}
                 >
-                    <p className="text-sm font-medium text-amber-200">セラピスト</p>
-                    <h2 className="mt-3 text-xl font-semibold text-white">公開・稼働・売上管理</h2>
-                    <p className="mt-3 text-sm leading-7 text-slate-300">プロフィール審査、空き枠、料金ルール、出金までの入り口です。</p>
-                </Link>
-                <Link to="/admin/login" className="rounded-lg border border-white/10 bg-white/5 p-6 transition hover:border-emerald-300/40 hover:bg-white/10">
-                    <p className="text-sm font-medium text-emerald-200">運営</p>
-                    <h2 className="mt-3 text-xl font-semibold text-white">監視・審査・運用</h2>
-                    <p className="mt-3 text-sm leading-7 text-slate-300">ダッシュボード、通報、予約監視、料金ルール監視へつながります。</p>
-                </Link>
-            </section>
+                    <div className="rounded-[32px] border border-white/12 bg-[linear-gradient(109deg,rgba(255,249,241,0.18)_2.98%,rgba(255,255,255,0.04)_101.1%)] p-6 text-white shadow-[0_24px_60px_rgba(0,0,0,0.16)] md:p-8">
+                        <div className="space-y-1">
+                            <h2 className="text-[1.35rem] font-semibold">条件を指定して探す</h2>
+                            <p className="text-sm text-[#c8c2b6]">検索前に、近さと安心条件をまとめて確認できます。</p>
+                        </div>
 
-            <section className="space-y-5">
-                <div className="space-y-2">
-                    <p className="text-sm font-medium tracking-wide text-slate-300">公開導線</p>
-                    <h2 className="text-2xl font-semibold text-white">法務文書とサポートページも SPA から辿れます。</h2>
-                </div>
+                        <div className="mt-5 space-y-3">
+                            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
+                                <div className="rounded-[24px] bg-white px-5 py-3 text-[#121a23]">
+                                    <p className="text-xs font-semibold text-[#69707a]">待ち合わせ場所</p>
+                                    <p className="mt-1 text-lg font-semibold">
+                                        {isAuthenticated && hasRole('user') ? 'デフォルトの施術場所を使う' : 'ログイン後に施術場所を選択'}
+                                    </p>
+                                </div>
 
-                <div className="grid gap-4 md:grid-cols-3">
-                    {(serviceMeta?.legal_documents ?? []).map((document) => (
-                        <Link key={document.public_id} to={`/${document.document_type === 'terms' ? 'terms' : document.document_type === 'privacy' ? 'privacy' : 'commerce'}`} className="rounded-lg border border-white/10 bg-white/5 p-5 transition hover:bg-white/10">
-                            <p className="text-xs uppercase tracking-wide text-slate-400">{document.document_type}</p>
-                            <h3 className="mt-3 text-lg font-medium text-white">{document.title}</h3>
-                            <p className="mt-2 text-sm text-slate-300">バージョン {document.version}</p>
-                        </Link>
+                                <div className="rounded-[24px] bg-white px-5 py-3 text-[#121a23]">
+                                    <p className="text-xs font-semibold text-[#69707a]">予約タイプ</p>
+                                    <div className="mt-1 flex gap-2 text-sm font-semibold">
+                                        <button
+                                            type="button"
+                                            onClick={() => setBookingType('now')}
+                                            className={[
+                                                'rounded-full px-3 py-1 transition',
+                                                bookingType === 'now' ? 'bg-[#17202b] text-white' : 'bg-[#f3ede4] text-[#17202b]',
+                                            ].join(' ')}
+                                        >
+                                            今すぐ
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setBookingType('scheduled')}
+                                            className={[
+                                                'rounded-full px-3 py-1 transition',
+                                                bookingType === 'scheduled' ? 'bg-[#17202b] text-white' : 'bg-[#f3ede4] text-[#17202b]',
+                                            ].join(' ')}
+                                        >
+                                            日時指定
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="flex flex-wrap gap-2">
+                                {['研修済みのみ', '評価4.5以上', '徒歩30分以内'].map((chip) => (
+                                    <span
+                                        key={chip}
+                                        className="rounded-full border border-white/14 bg-white/8 px-4 py-2 text-xs font-bold text-[#f0e9de]"
+                                    >
+                                        {chip}
+                                    </span>
+                                ))}
+                            </div>
+                        </div>
+
+                        <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center">
+                            <Link
+                                to={primaryAction.to}
+                                className="inline-flex items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-6 py-3 text-sm font-bold text-[#1a2430] transition hover:brightness-105"
+                            >
+                                {isAuthenticated && hasRole('user') ? 'セラピストを検索' : 'ログインして検索'}
+                            </Link>
+                            <p className="text-xs text-[#c8c2b6]">正確な現在地や住所は、相手ユーザーに公開されません。</p>
+                        </div>
+                    </div>
+                </DiscoveryHeroShell>
+
+                <section id="how-it-works" className="grid gap-4 md:grid-cols-3">
+                    {[
+                        {
+                            label: 'LISTING RULE',
+                            title: '掲載条件',
+                            body: '本人確認と審査を完了したセラピストのみ表示。安心感を損なうアカウントは掲載対象外です。',
+                        },
+                        {
+                            label: 'DISTANCE',
+                            title: '表示ロジック',
+                            body: '位置情報は徒歩目安レンジで表示し、正確な地点は非公開。比較しやすさと安全性を両立します。',
+                        },
+                        {
+                            label: 'SAFETY',
+                            title: '禁止事項',
+                            body: '医療・治療・性的サービスを想起させる表現は使わず、リラクゼーション目的としてご利用ください。',
+                        },
+                    ].map((card) => (
+                        <article key={card.title} className="rounded-[24px] bg-[#fffdf8] p-6 shadow-[0_10px_24px_rgba(23,32,43,0.06)]">
+                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">{card.label}</p>
+                            <h2 className="mt-1 text-[1.35rem] font-semibold text-[#17202b]">{card.title}</h2>
+                            <p className="mt-3 text-sm leading-7 text-[#5b6470]">{card.body}</p>
+                        </article>
                     ))}
-                </div>
-            </section>
+                </section>
+
+                <section id="safety" className="space-y-6">
+                    <div className="space-y-1">
+                        <h2 className="text-[2rem] font-semibold text-[#17202b] md:text-[2.2rem]">
+                            近くのセラピストをイメージしながら探せます。
+                        </h2>
+                        <p className="text-sm text-[#68707a] md:text-base">
+                            ログイン後は、徒歩目安レンジ、料金、レビューを見ながら自分の条件で比較できます。
+                        </p>
+                    </div>
+
+                    <div className="grid gap-8 lg:grid-cols-[280px_minmax(0,1fr)]">
+                        <aside className="rounded-[32px] bg-[#fffcf7] p-6 shadow-[0_10px_24px_rgba(23,32,43,0.08)]">
+                            <div className="space-y-5">
+                                <div>
+                                    <p className="text-sm font-semibold text-[#17202b]">ログイン後の検索</p>
+                                    <p className="mt-2 text-sm leading-7 text-[#68707a]">
+                                        施術場所を登録すると、近さと概算料金を見ながら一覧で比較できます。
+                                    </p>
+                                </div>
+
+                                <div className="space-y-2">
+                                    {['今すぐ / 日時指定', '研修済みのみ', '評価4.5以上', '徒歩30分以内'].map((item) => (
+                                        <div key={item} className="rounded-full bg-[#f5efe4] px-4 py-2 text-sm text-[#17202b]">
+                                            {item}
+                                        </div>
+                                    ))}
+                                </div>
+
+                                <div className="rounded-[24px] bg-[#17202b] p-5 text-white">
+                                    <p className="text-xs font-semibold tracking-wide text-[#d2b179]">SAFETY NOTE</p>
+                                    <p className="mt-2 text-sm leading-7 text-[#d8d3ca]">
+                                        直接取引の持ちかけや、リラクゼーション目的から外れる依頼は禁止です。
+                                    </p>
+                                </div>
+
+                                <Link
+                                    to={primaryAction.to}
+                                    className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-6 py-3 text-sm font-bold text-[#1a2430] transition hover:brightness-105"
+                                >
+                                    {isAuthenticated && hasRole('user') ? '検索を始める' : '登録して検索'}
+                                </Link>
+                            </div>
+                        </aside>
+
+                        <div className="grid gap-5 md:grid-cols-2">
+                            {previewTherapists.map((therapist) => (
+                                <TherapistDiscoveryCard
+                                    key={therapist.public_id}
+                                    name={therapist.public_name}
+                                    ratingAverage={therapist.rating_average}
+                                    reviewCount={therapist.review_count}
+                                    walkingTimeRange={therapist.walking_time_range}
+                                    estimatedTotalAmount={therapist.estimated_total_amount}
+                                    durationMinutes={60}
+                                    trainingStatus={therapist.training_status}
+                                    therapistCancellationCount={therapist.therapist_cancellation_count}
+                                    bioExcerpt={therapist.bio_excerpt}
+                                    tags={therapist.tags}
+                                    to={isAuthenticated && hasRole('user') ? '/user/therapists' : '/register'}
+                                    footerHint={isAuthenticated && hasRole('user') ? '一覧で条件を絞って探す' : 'ログイン後に詳細比較できます'}
+                                />
+                            ))}
+                        </div>
+                    </div>
+                </section>
+
+                <section className="space-y-4">
+                    <div className="flex flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                        <div>
+                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">PUBLIC INFO</p>
+                            <h2 className="mt-1 text-2xl font-semibold text-[#17202b]">公開導線と法務情報</h2>
+                        </div>
+                        {error ? <p className="text-sm text-[#9a4b35]">{error}</p> : null}
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-3">
+                        {(serviceMeta?.legal_documents ?? []).map((document) => (
+                            <Link
+                                key={document.public_id}
+                                to={`/${document.document_type === 'terms' ? 'terms' : document.document_type === 'privacy' ? 'privacy' : 'commerce'}`}
+                                className="rounded-[24px] bg-[#fffdf8] p-5 shadow-[0_10px_24px_rgba(23,32,43,0.06)] transition hover:-translate-y-0.5"
+                            >
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">{document.document_type.toUpperCase()}</p>
+                                <h3 className="mt-2 text-lg font-semibold text-[#17202b]">{document.title}</h3>
+                                <p className="mt-3 text-sm text-[#68707a]">バージョン {document.version}</p>
+                            </Link>
+                        ))}
+                    </div>
+                </section>
+            </div>
+
+            <DiscoveryFooter
+                domain={serviceMeta?.domain ?? 'sugutachi.com'}
+                description="リラクゼーション目的の出張セラピストを、近さ・料金・レビューから比較できる公開トップです。ログイン後は一覧検索、予約、メッセージまでそのまま進めます。"
+                primaryAction={footerPrimaryAction}
+                secondaryAction={footerSecondaryAction}
+                supportEmail={serviceMeta?.support_email ?? account?.email ?? null}
+            />
         </div>
     );
 }
