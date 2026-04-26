@@ -40,6 +40,7 @@ import { UserBookingReviewPage } from './pages/UserBookingReviewPage';
 import { UserBookingsPage } from './pages/UserBookingsPage';
 import { UserBookingQuotePage } from './pages/UserBookingQuotePage';
 import { UserBookingRequestPage } from './pages/UserBookingRequestPage';
+import { UserIdentityVerificationPage } from './pages/UserIdentityVerificationPage';
 import { UserProfilePage } from './pages/UserProfilePage';
 import { UserReportsPage } from './pages/UserReportsPage';
 import { UserServiceAddressesPage } from './pages/UserServiceAddressesPage';
@@ -106,6 +107,7 @@ function AppRoutes() {
                     <Route path="bookings/:publicId" element={<UserBookingDetailPage />} />
                     <Route path="bookings/:publicId/messages" element={<UserBookingMessagesPage />} />
                     <Route path="bookings/:publicId/review" element={<UserBookingReviewPage />} />
+                    <Route path="identity-verification" element={<UserIdentityVerificationPage />} />
                     <Route path="profile" element={<UserProfilePage />} />
                     <Route path="reports" element={<UserReportsPage />} />
                     <Route path="service-addresses" element={<UserServiceAddressesPage />} />
@@ -119,6 +121,7 @@ function AppRoutes() {
                                 && route.path !== 'bookings/:publicId'
                                 && route.path !== 'bookings/:publicId/messages'
                                 && route.path !== 'bookings/:publicId/review'
+                                && route.path !== 'identity-verification'
                                 && route.path !== 'profile'
                                 && route.path !== 'reports'
                                 && route.path !== 'service-addresses'

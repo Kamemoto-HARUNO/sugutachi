@@ -9,6 +9,7 @@ import type {
     ApiEnvelope,
     MeProfileRecord,
     SelfProfilePhotoSummary,
+    TempFileRecord,
     UserProfileRecord,
 } from '../lib/types';
 
@@ -206,6 +207,32 @@ function verificationTone(status: string | null | undefined): string {
     }
 }
 
+function photoStatusLabel(status: string): string {
+    switch (status) {
+        case 'pending':
+            return '審査待ち';
+        case 'approved':
+            return '承認済み';
+        case 'rejected':
+            return '差し戻し';
+        default:
+            return status;
+    }
+}
+
+function photoStatusTone(status: string): string {
+    switch (status) {
+        case 'approved':
+            return 'bg-[#e9f4ea] text-[#24553a]';
+        case 'pending':
+            return 'bg-[#fff2dd] text-[#8b5a16]';
+        case 'rejected':
+            return 'bg-[#f7e7e3] text-[#8c4738]';
+        default:
+            return 'bg-[#f1efe8] text-[#48505a]';
+    }
+}
+
 function formatDateTime(value: string | null): string {
     if (!value) {
         return '未設定';
@@ -225,11 +252,33 @@ function formatDateTime(value: string | null): string {
     }).format(date);
 }
 
-function PhotoStrip({ photos }: { photos: SelfProfilePhotoSummary[] }) {
+async function uploadProfilePhotoTempFile(token: string, file: File): Promise<TempFileRecord> {
+    const formData = new FormData();
+    formData.append('purpose', 'profile_photo');
+    formData.append('file', file);
+
+    const payload = await apiRequest<ApiEnvelope<TempFileRecord>>('/temp-files', {
+        method: 'POST',
+        token,
+        body: formData,
+    });
+
+    return unwrapData(payload);
+}
+
+function PhotoStrip({
+    isDeletingPhotoId,
+    onDelete,
+    photos,
+}: {
+    isDeletingPhotoId: number | null;
+    onDelete: (photoId: number) => void;
+    photos: SelfProfilePhotoSummary[];
+}) {
     if (photos.length === 0) {
         return (
             <div className="rounded-[20px] border border-dashed border-[#d8c9b2] bg-[#fffaf3] px-4 py-5 text-sm leading-7 text-[#68707a]">
-                まだプロフィール写真はありません。写真アップロード導線は次の画面でつないでいきます。
+                まだプロフィール写真はありません。顔が分かる写真を追加しておくと、相手に安心感が伝わりやすくなります。
             </div>
         );
     }
@@ -255,13 +304,21 @@ function PhotoStrip({ photos }: { photos: SelfProfilePhotoSummary[] }) {
                             <span className="rounded-full bg-[#f5efe4] px-3 py-1 text-xs font-semibold text-[#48505a]">
                                 {photo.usage_type === 'account_profile' ? '共通プロフィール' : 'セラピスト用'}
                             </span>
-                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${profileStatusTone(photo.status)}`}>
-                                {photo.status}
+                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${photoStatusTone(photo.status)}`}>
+                                {photoStatusLabel(photo.status)}
                             </span>
                         </div>
                         {photo.rejection_reason_code ? (
                             <p className="text-xs leading-6 text-[#9a4b35]">差し戻し理由: {photo.rejection_reason_code}</p>
                         ) : null}
+                        <button
+                            type="button"
+                            onClick={() => onDelete(photo.id)}
+                            disabled={isDeletingPhotoId === photo.id}
+                            className="inline-flex items-center rounded-full border border-[#d9c9ae] px-3 py-2 text-xs font-semibold text-[#17202b] transition hover:bg-[#fff8ee] disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            {isDeletingPhotoId === photo.id ? '削除中...' : '削除'}
+                        </button>
                     </div>
                 </article>
             ))}
@@ -278,11 +335,16 @@ export function UserProfilePage() {
     const [userForm, setUserForm] = useState<UserProfileFormState>(emptyUserProfileForm());
     const [pageError, setPageError] = useState<string | null>(null);
     const [commonError, setCommonError] = useState<string | null>(null);
+    const [photoError, setPhotoError] = useState<string | null>(null);
+    const [photoSuccess, setPhotoSuccess] = useState<string | null>(null);
     const [userError, setUserError] = useState<string | null>(null);
     const [commonSuccess, setCommonSuccess] = useState<string | null>(null);
     const [userSuccess, setUserSuccess] = useState<string | null>(null);
+    const [photoFile, setPhotoFile] = useState<File | null>(null);
+    const [isDeletingPhotoId, setIsDeletingPhotoId] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSavingCommon, setIsSavingCommon] = useState(false);
+    const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
     const [isSavingUser, setIsSavingUser] = useState(false);
 
     usePageTitle('利用者プロフィール');
@@ -327,6 +389,10 @@ export function UserProfilePage() {
     }, [loadData]);
 
     const activeRoles = useMemo(() => getActiveRoles(account), [account]);
+    const accountProfilePhotos = useMemo(
+        () => (meProfile?.photos ?? []).filter((photo) => photo.usage_type === 'account_profile'),
+        [meProfile],
+    );
 
     function updateUserForm<K extends keyof UserProfileFormState>(key: K, value: UserProfileFormState[K]) {
         setUserForm((current) => ({
@@ -419,6 +485,75 @@ export function UserProfilePage() {
             setUserError(message);
         } finally {
             setIsSavingUser(false);
+        }
+    }
+
+    async function handlePhotoUpload(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+
+        if (!token || !photoFile) {
+            return;
+        }
+
+        setIsUploadingPhoto(true);
+        setPhotoError(null);
+        setPhotoSuccess(null);
+        setPageError(null);
+
+        try {
+            const tempFile = await uploadProfilePhotoTempFile(token, photoFile);
+
+            await apiRequest<ApiEnvelope<SelfProfilePhotoSummary>>('/me/profile/photos', {
+                method: 'POST',
+                token,
+                body: {
+                    temp_file_id: tempFile.file_id,
+                    usage_type: 'account_profile',
+                },
+            });
+
+            await loadData();
+            setPhotoFile(null);
+            setPhotoSuccess('プロフィール写真を追加しました。審査待ちとして保存されています。');
+        } catch (requestError) {
+            const message =
+                requestError instanceof ApiError
+                    ? requestError.message
+                    : 'プロフィール写真の追加に失敗しました。';
+
+            setPhotoError(message);
+        } finally {
+            setIsUploadingPhoto(false);
+        }
+    }
+
+    async function handlePhotoDelete(photoId: number) {
+        if (!token) {
+            return;
+        }
+
+        setIsDeletingPhotoId(photoId);
+        setPhotoError(null);
+        setPhotoSuccess(null);
+        setPageError(null);
+
+        try {
+            await apiRequest<null>(`/me/profile/photos/${photoId}`, {
+                method: 'DELETE',
+                token,
+            });
+
+            await loadData();
+            setPhotoSuccess('プロフィール写真を削除しました。');
+        } catch (requestError) {
+            const message =
+                requestError instanceof ApiError
+                    ? requestError.message
+                    : 'プロフィール写真の削除に失敗しました。';
+
+            setPhotoError(message);
+        } finally {
+            setIsDeletingPhotoId(null);
         }
     }
 
@@ -730,7 +865,48 @@ export function UserProfilePage() {
                             <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">PHOTOS</p>
                             <h2 className="text-2xl font-semibold text-[#17202b]">プロフィール写真</h2>
                         </div>
-                        <PhotoStrip photos={meProfile?.photos ?? []} />
+                        <form onSubmit={handlePhotoUpload} className="space-y-4 rounded-[22px] border border-[#ebe2d3] bg-[#fffcf7] p-4">
+                            <label className="block space-y-2">
+                                <span className="text-sm font-semibold text-[#17202b]">写真を追加</span>
+                                <input
+                                    type="file"
+                                    accept=".jpg,.jpeg,.png,.webp"
+                                    onChange={(event) => setPhotoFile(event.target.files?.[0] ?? null)}
+                                    className="block w-full rounded-[18px] border border-[#e4d7c2] bg-white px-4 py-3 text-sm text-[#17202b]"
+                                />
+                                <p className="text-xs text-[#7a7066]">
+                                    {photoFile ? photoFile.name : 'jpg / png / webp の画像を選択'}
+                                </p>
+                            </label>
+
+                            {photoError ? (
+                                <div className="rounded-[18px] border border-[#f1d4b5] bg-[#fff4e8] px-4 py-3 text-sm text-[#9a4b35]">
+                                    {photoError}
+                                </div>
+                            ) : null}
+
+                            {photoSuccess ? (
+                                <div className="rounded-[18px] border border-[#cfe5d5] bg-[#edf8f0] px-4 py-3 text-sm text-[#24553a]">
+                                    {photoSuccess}
+                                </div>
+                            ) : null}
+
+                            <button
+                                type="submit"
+                                disabled={isUploadingPhoto || !photoFile}
+                                className="inline-flex items-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {isUploadingPhoto ? 'アップロード中...' : '写真を追加する'}
+                            </button>
+                        </form>
+
+                        <PhotoStrip
+                            isDeletingPhotoId={isDeletingPhotoId}
+                            onDelete={(photoId) => {
+                                void handlePhotoDelete(photoId);
+                            }}
+                            photos={accountProfilePhotos}
+                        />
                     </section>
                 </section>
 
@@ -762,7 +938,7 @@ export function UserProfilePage() {
 
                         <div className="mt-6 space-y-3">
                             <Link
-                                to="/identity-verification"
+                                to="/user/identity-verification"
                                 className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
                             >
                                 本人確認へ
