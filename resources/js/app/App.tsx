@@ -35,6 +35,7 @@ import { TherapistAvailabilityPage } from './pages/TherapistAvailabilityPage';
 import { TherapistBalancePage } from './pages/TherapistBalancePage';
 import { TherapistBookingDetailPage } from './pages/TherapistBookingDetailPage';
 import { TherapistBookingsPage } from './pages/TherapistBookingsPage';
+import { TherapistBookingMessagesPage } from './pages/TherapistBookingMessagesPage';
 import { TherapistOnboardingPage } from './pages/TherapistOnboardingPage';
 import { TherapistProfilePage } from './pages/TherapistProfilePage';
 import { TherapistRequestsPage } from './pages/TherapistRequestsPage';
@@ -184,10 +185,11 @@ function AppRoutes() {
                     <Route path="requests" element={<TherapistRequestsPage />} />
                     <Route path="bookings" element={<TherapistBookingsPage />} />
                     <Route path="bookings/:publicId" element={<TherapistBookingDetailPage />} />
+                    <Route path="bookings/:publicId/messages" element={<TherapistBookingMessagesPage />} />
                     <Route path="travel-requests" element={<TherapistTravelRequestsPage />} />
                     <Route path="balance" element={<TherapistBalancePage />} />
                     {therapistPlaceholderRoutes
-                        .filter((route) => !['onboarding', 'identity-verification', 'stripe-connect', 'profile', 'availability', 'requests', 'bookings', 'bookings/:publicId', 'travel-requests', 'balance'].includes(route.path))
+                        .filter((route) => !['onboarding', 'identity-verification', 'stripe-connect', 'profile', 'availability', 'requests', 'bookings', 'bookings/:publicId', 'bookings/:publicId/messages', 'travel-requests', 'balance'].includes(route.path))
                         .map((route) => (
                         <Route
                             key={route.path}
