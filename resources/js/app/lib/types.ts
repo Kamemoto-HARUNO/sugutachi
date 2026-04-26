@@ -766,3 +766,60 @@ export interface PlaceholderRouteDefinition {
     description: string;
     apiPath?: string;
 }
+
+export interface AdminDashboardNavigationTarget {
+    path: string;
+    query: Record<string, string | number | boolean | null>;
+}
+
+export interface AdminDashboardRecord {
+    accounts: {
+        total: number;
+        active: number;
+        suspended: number;
+    };
+    reviews: {
+        pending_identity_verifications: number;
+        pending_therapist_profiles: number;
+        suspended_therapist_profiles: number;
+        pending_profile_photos: number;
+    };
+    operations: {
+        open_reports: number;
+        open_interruption_reports: number;
+        open_message_origin_reports: number;
+        pending_contact_inquiries: number;
+        unread_travel_requests: number;
+        flagged_travel_requests: number;
+        pending_travel_request_reviews: number;
+        open_stripe_disputes: number;
+        requested_refunds: number;
+        requested_payouts: number;
+    };
+    bookings: {
+        requested: number;
+        interrupted: number;
+        in_progress: number;
+        completed_today: number;
+        needs_message_review: number;
+    };
+    pricing_rules: {
+        total: number;
+        active: number;
+        inactive: number;
+        active_profile_adjustments: number;
+        active_demand_fees: number;
+        needs_attention: number;
+        pending_review: number;
+        inactive_menu_rules: number;
+        extreme_percentage_adjustments: number;
+        menu_price_override_rules: number;
+    };
+    navigation: {
+        accounts: Record<string, AdminDashboardNavigationTarget>;
+        reviews: Record<string, AdminDashboardNavigationTarget>;
+        operations: Record<string, AdminDashboardNavigationTarget>;
+        bookings: Record<string, AdminDashboardNavigationTarget>;
+        pricing_rules: Record<string, AdminDashboardNavigationTarget>;
+    };
+}

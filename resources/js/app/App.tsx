@@ -26,6 +26,7 @@ import { HelpPage } from './pages/HelpPage';
 import { LegalDocumentPage } from './pages/LegalDocumentPage';
 import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
+import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { PublicHomePage } from './pages/PublicHomePage';
 import { RegisterPage } from './pages/RegisterPage';
 import { RoleSelectPage } from './pages/RoleSelectPage';
@@ -232,21 +233,7 @@ function AppRoutes() {
                     path="/admin"
                     element={<DashboardLayout role="admin" title="運営ダッシュボード" description="監視、審査、法務、料金運用の入口です。" navItems={adminNavItems} />}
                 >
-                    <Route
-                        index
-                        element={
-                            <SectionHomePage
-                                eyebrow="Admin Workspace"
-                                title="運営ダッシュボード"
-                                description="既に実装済みの管理 API へつながるルートをここからフロントに載せていきます。"
-                                actions={[
-                                    { label: 'アカウント監視', to: '/admin/accounts', description: '停止・復旧・詳細確認の導線です。' },
-                                    { label: '予約監視', to: '/admin/bookings', description: '決済、返金、メッセージ監視へ進めます。' },
-                                    { label: '通報対応', to: '/admin/reports', description: '未解決通報と運営アクションを確認します。' },
-                                ]}
-                            />
-                        }
-                    />
+                    <Route index element={<AdminDashboardPage />} />
                     {adminPlaceholderRoutes.map((route) => (
                         <Route
                             key={route.path}
