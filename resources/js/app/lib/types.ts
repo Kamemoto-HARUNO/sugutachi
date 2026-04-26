@@ -200,6 +200,52 @@ export interface ReportRecord {
     created_at: string;
 }
 
+export interface AdminReportSourceBookingMessage {
+    id: number;
+    message_type: string | null;
+    sender_account_public_id: string | null;
+    detected_contact_exchange: boolean;
+    moderation_status: string;
+    sent_at: string | null;
+}
+
+export interface AdminReportPartySummary {
+    public_id: string | null;
+    display_name: string | null;
+    email: string | null;
+}
+
+export interface ReportActionRecord {
+    id: number;
+    action_type: string;
+    note: string | null;
+    metadata: Record<string, unknown> | null;
+    admin: {
+        public_id: string | null;
+        display_name: string | null;
+    } | null;
+    created_at: string;
+}
+
+export interface AdminReportRecord {
+    public_id: string;
+    booking_public_id: string | null;
+    source_booking_message: AdminReportSourceBookingMessage | null;
+    reporter_account: AdminReportPartySummary | null;
+    target_account: AdminReportPartySummary | null;
+    assigned_admin: {
+        public_id: string | null;
+        display_name: string | null;
+    } | null;
+    category: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    detail: string | null;
+    status: 'open' | 'resolved';
+    resolved_at: string | null;
+    actions: ReportActionRecord[];
+    created_at: string;
+}
+
 export interface ReportListMeta {
     total_count: number;
     open_count: number;
