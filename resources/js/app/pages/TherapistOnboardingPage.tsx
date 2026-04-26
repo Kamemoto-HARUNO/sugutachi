@@ -29,10 +29,71 @@ interface SetupStep {
     actionLabel: string;
 }
 
+interface TherapistBookingSettingRecord {
+    booking_request_lead_time_minutes: number;
+    has_scheduled_base_location: boolean;
+    can_publish_scheduled_bookings: boolean;
+    scheduled_base_location: {
+        label: string | null;
+        lat: number | null;
+        lng: number | null;
+        accuracy_m: number | null;
+    } | null;
+}
+
+interface TherapistAvailabilitySlotRecord {
+    public_id: string;
+    start_at: string;
+    end_at: string;
+    status: 'published' | 'hidden' | 'expired';
+    dispatch_base_type: 'default' | 'custom';
+    dispatch_area_label: string | null;
+    has_blocking_booking: boolean;
+    blocking_booking_count: number;
+}
+
+interface TherapistPricingRuleRecord {
+    id: number;
+    therapist_menu_id: string | null;
+    therapist_menu: {
+        public_id: string;
+        name: string;
+    } | null;
+    rule_type: string;
+    adjustment_type: string;
+    adjustment_amount: number;
+    is_active: boolean;
+}
+
 function statusTone(isComplete: boolean): string {
     return isComplete
         ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100'
         : 'border-amber-300/30 bg-amber-300/10 text-amber-100';
+}
+
+function photoReviewLabel(status: string | null | undefined): string {
+    switch (status) {
+        case 'approved':
+            return '承認済み';
+        case 'pending':
+            return '審査待ち';
+        case 'rejected':
+            return '差し戻し';
+        default:
+            return '未提出';
+    }
+}
+
+function leadTimeLabel(minutes: number | null | undefined): string {
+    if (!minutes) {
+        return '未設定';
+    }
+
+    if (minutes % 60 === 0) {
+        return `${minutes / 60}時間前まで`;
+    }
+
+    return `${minutes}分前まで`;
 }
 
 export function TherapistOnboardingPage() {
@@ -40,6 +101,9 @@ export function TherapistOnboardingPage() {
     const [reviewStatus, setReviewStatus] = useState<TherapistReviewStatus | null>(null);
     const [stripeStatus, setStripeStatus] = useState<StripeConnectedAccountStatus | null>(null);
     const [identityVerification, setIdentityVerification] = useState<IdentityVerificationRecord | null>(null);
+    const [bookingSetting, setBookingSetting] = useState<TherapistBookingSettingRecord | null>(null);
+    const [availabilitySlots, setAvailabilitySlots] = useState<TherapistAvailabilitySlotRecord[]>([]);
+    const [pricingRules, setPricingRules] = useState<TherapistPricingRuleRecord[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmittingReview, setIsSubmittingReview] = useState(false);
@@ -54,7 +118,7 @@ export function TherapistOnboardingPage() {
         setError(null);
 
         try {
-            const [reviewPayload, stripePayload, identityPayload] = await Promise.all([
+            const [reviewPayload, stripePayload, identityPayload, bookingSettingPayload, availabilityPayload, pricingPayload] = await Promise.all([
                 apiRequest<ApiEnvelope<TherapistReviewStatus>>('/me/therapist-profile/review-status', { token }),
                 apiRequest<ApiEnvelope<StripeConnectedAccountStatus>>('/me/stripe-connect', { token }),
                 apiRequest<ApiEnvelope<IdentityVerificationRecord>>('/me/identity-verification', { token }).catch((requestError: unknown) => {
@@ -64,11 +128,17 @@ export function TherapistOnboardingPage() {
 
                     throw requestError;
                 }),
+                apiRequest<ApiEnvelope<TherapistBookingSettingRecord>>('/me/therapist/scheduled-booking-settings', { token }),
+                apiRequest<ApiEnvelope<TherapistAvailabilitySlotRecord[]>>('/me/therapist/availability-slots', { token }),
+                apiRequest<ApiEnvelope<TherapistPricingRuleRecord[]>>('/me/therapist/pricing-rules?is_active=1', { token }),
             ]);
 
             setReviewStatus(unwrapData(reviewPayload));
             setStripeStatus(unwrapData(stripePayload));
             setIdentityVerification(identityPayload ? unwrapData(identityPayload) : null);
+            setBookingSetting(unwrapData(bookingSettingPayload));
+            setAvailabilitySlots(unwrapData(availabilityPayload));
+            setPricingRules(unwrapData(pricingPayload));
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -96,6 +166,9 @@ export function TherapistOnboardingPage() {
             && stripeStatus.details_submitted
             && (stripeStatus.payouts_enabled || stripeStatus.charges_enabled),
         );
+        const hasPublishedSlots = availabilitySlots.some((slot) => slot.status === 'published');
+        const hasActivePricingRule = pricingRules.some((rule) => rule.is_active);
+        const isPhotoReady = reviewStatus?.profile.photo_review_status === 'approved' || reviewStatus?.profile.photo_review_status === 'pending';
 
         return [
             {
@@ -117,6 +190,15 @@ export function TherapistOnboardingPage() {
                 actionLabel: hasProfileBasics ? '編集する' : '入力する',
             },
             {
+                key: 'photos',
+                title: 'プロフィール写真',
+                description: '顔や雰囲気が分かる写真を追加して、写真審査を進めます。',
+                value: photoReviewLabel(reviewStatus?.profile.photo_review_status),
+                isComplete: Boolean(isPhotoReady),
+                to: '/therapist/photos',
+                actionLabel: isPhotoReady ? '状態を確認' : '写真を追加',
+            },
+            {
                 key: 'stripe',
                 title: '売上受取設定',
                 description: 'Stripe Connect で本人情報と受取口座を登録します。',
@@ -125,16 +207,40 @@ export function TherapistOnboardingPage() {
                 to: '/therapist/stripe-connect',
                 actionLabel: stripeStatus?.has_account ? '状態を確認' : '連携を始める',
             },
+            {
+                key: 'availability',
+                title: '予定予約の空き枠',
+                description: '予定予約の受付締切と出動拠点を決めて、公開する枠を作ります。',
+                value: hasPublishedSlots
+                    ? `公開枠 ${availabilitySlots.filter((slot) => slot.status === 'published').length}件 / 締切 ${leadTimeLabel(bookingSetting?.booking_request_lead_time_minutes)}`
+                    : `未公開 / 締切 ${leadTimeLabel(bookingSetting?.booking_request_lead_time_minutes)}`,
+                isComplete: Boolean(bookingSetting?.can_publish_scheduled_bookings && hasPublishedSlots),
+                to: '/therapist/availability',
+                actionLabel: hasPublishedSlots ? '空き枠を確認' : '空き枠を作成',
+            },
+            {
+                key: 'pricing',
+                title: '料金ルール',
+                description: '属性別・時間帯別の動的料金を設定して、見積もりの調整を行います。',
+                value: hasActivePricingRule ? `有効ルール ${pricingRules.filter((rule) => rule.is_active).length}件` : '未設定',
+                isComplete: hasActivePricingRule,
+                to: '/therapist/pricing',
+                actionLabel: hasActivePricingRule ? 'ルールを確認' : 'ルールを追加',
+            },
         ];
-    }, [identityVerification, reviewStatus, stripeStatus]);
-
-    const requirementMap = useMemo(() => {
-        return new Map((reviewStatus?.requirements ?? []).map((requirement) => [requirement.key, requirement]));
-    }, [reviewStatus]);
+    }, [availabilitySlots, bookingSetting?.booking_request_lead_time_minutes, bookingSetting?.can_publish_scheduled_bookings, identityVerification, pricingRules, reviewStatus, stripeStatus]);
 
     const completedStepCount = setupSteps.filter((step) => step.isComplete).length;
     const canSubmit = reviewStatus?.can_submit ?? false;
     const profileStatus = reviewStatus?.profile.profile_status ?? null;
+    const publishedSlotCount = availabilitySlots.filter((slot) => slot.status === 'published').length;
+    const activePricingRuleCount = pricingRules.filter((rule) => rule.is_active).length;
+    const hasPastDueStripeRequirements = Boolean(stripeStatus?.requirements_past_due?.length);
+    const nextRecommendedLink = !setupSteps.find((step) => !step.isComplete)?.to
+        ? '/therapist/profile'
+        : setupSteps.find((step) => !step.isComplete)?.to ?? '/therapist/profile';
+    const nextRecommendedLabel = setupSteps.find((step) => !step.isComplete)?.actionLabel ?? 'プロフィールを確認';
+    const nextRecommendedTitle = setupSteps.find((step) => !step.isComplete)?.title ?? '公開後の調整';
 
     async function submitReview() {
         if (!token || !canSubmit) {
@@ -213,7 +319,7 @@ export function TherapistOnboardingPage() {
                 ) : null}
             </section>
 
-            <section className="grid gap-4 lg:grid-cols-3">
+            <section className="grid gap-4 lg:grid-cols-2 xl:grid-cols-3">
                 {setupSteps.map((step) => (
                     <article key={step.key} className="rounded-[24px] border border-white/10 bg-white/5 p-6">
                         <div className="flex items-start justify-between gap-3">
@@ -270,6 +376,26 @@ export function TherapistOnboardingPage() {
                                 </span>
                             </div>
                         ))}
+
+                        <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
+                            <div>
+                                <p className="text-sm font-semibold text-white">写真審査</p>
+                                <p className="text-xs text-slate-400">プロフィール写真の提出状態です。</p>
+                            </div>
+                            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(reviewStatus?.profile.photo_review_status === 'approved' || reviewStatus?.profile.photo_review_status === 'pending')}`}>
+                                {photoReviewLabel(reviewStatus?.profile.photo_review_status)}
+                            </span>
+                        </div>
+
+                        <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
+                            <div>
+                                <p className="text-sm font-semibold text-white">空き枠の公開</p>
+                                <p className="text-xs text-slate-400">公開中の予定予約枠と出動拠点の準備です。</p>
+                            </div>
+                            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(Boolean(bookingSetting?.can_publish_scheduled_bookings && publishedSlotCount > 0))}`}>
+                                {bookingSetting?.can_publish_scheduled_bookings && publishedSlotCount > 0 ? `公開中 ${publishedSlotCount}件` : '要対応'}
+                            </span>
+                        </div>
                     </div>
                 </article>
 
@@ -291,7 +417,7 @@ export function TherapistOnboardingPage() {
                         <p className="text-sm font-semibold text-white">プロフィール</p>
                         <p className="mt-2 text-sm text-slate-300">{formatProfileStatus(profileStatus)}</p>
                         <p className="mt-2 text-xs text-slate-400">
-                            有効メニュー: {reviewStatus?.active_menu_count ?? 0}件
+                            有効メニュー: {reviewStatus?.active_menu_count ?? 0}件 / 写真審査: {photoReviewLabel(reviewStatus?.profile.photo_review_status)}
                         </p>
                     </div>
 
@@ -311,6 +437,24 @@ export function TherapistOnboardingPage() {
                         )}
                     </div>
 
+                    <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
+                        <p className="text-sm font-semibold text-white">予定予約の設定</p>
+                        <p className="mt-2 text-sm text-slate-300">
+                            {bookingSetting?.has_scheduled_base_location ? '出動拠点あり' : '出動拠点未設定'}
+                        </p>
+                        <p className="mt-2 text-xs text-slate-400">
+                            受付締切: {leadTimeLabel(bookingSetting?.booking_request_lead_time_minutes)} / 公開枠: {publishedSlotCount}件
+                        </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
+                        <p className="text-sm font-semibold text-white">料金ルール</p>
+                        <p className="mt-2 text-sm text-slate-300">{activePricingRuleCount > 0 ? `${activePricingRuleCount}件の有効ルール` : '未設定'}</p>
+                        <p className="mt-2 text-xs text-slate-400">
+                            {activePricingRuleCount > 0 ? '属性別や時間帯別の調整が有効です。' : 'まずはメニュー基準のままでも始められます。'}
+                        </p>
+                    </div>
+
                     <div className="flex flex-wrap gap-3 pt-2">
                         <Link
                             to="/therapist/profile"
@@ -324,6 +468,12 @@ export function TherapistOnboardingPage() {
                         >
                             Stripeを確認
                         </Link>
+                        <Link
+                            to="/therapist/availability"
+                            className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
+                        >
+                            空き枠を確認
+                        </Link>
                     </div>
                 </article>
             </section>
@@ -334,16 +484,16 @@ export function TherapistOnboardingPage() {
                         <p className="text-xs font-semibold tracking-wide text-rose-200">NEXT ACTION</p>
                         <h2 className="text-xl font-semibold text-white">次に進むときのおすすめ</h2>
                         <p className="text-sm leading-7 text-slate-300">
-                            本人確認とメニューが揃ったら審査提出、その後は写真と空き枠の準備へ進むのがスムーズです。
+                            いま未完了の項目から順に埋めれば、公開審査と予定予約の準備がそのまま整っていきます。
                         </p>
                     </div>
 
                     <div className="flex flex-wrap gap-3">
                         <Link
-                            to="/therapist/photos"
+                            to={nextRecommendedLink}
                             className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
                         >
-                            写真審査へ
+                            {nextRecommendedTitle}: {nextRecommendedLabel}
                         </Link>
                         <Link
                             to="/therapist/availability"
@@ -351,8 +501,20 @@ export function TherapistOnboardingPage() {
                         >
                             空き枠へ進む
                         </Link>
+                        <Link
+                            to="/therapist/pricing"
+                            className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
+                        >
+                            料金ルールへ
+                        </Link>
                     </div>
                 </div>
+
+                {hasPastDueStripeRequirements ? (
+                    <div className="mt-5 rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm leading-7 text-amber-100">
+                        Stripe Connect に期限切れの追加提出項目があります。受取設定画面から内容を確認してください。
+                    </div>
+                ) : null}
             </section>
         </div>
     );
