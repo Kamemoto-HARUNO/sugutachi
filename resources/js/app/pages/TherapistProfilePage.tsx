@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
@@ -7,6 +7,9 @@ import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatProfileStatus, formatRejectionReason } from '../lib/therapist';
 import type {
     ApiEnvelope,
+    MeProfileRecord,
+    SelfProfilePhotoSummary,
+    TempFileRecord,
     TherapistMenu,
     TherapistProfileRecord,
     TherapistReviewStatus,
@@ -20,6 +23,54 @@ interface MenuDraft {
     base_price_amount: number;
     is_active: boolean;
     sort_order: number;
+}
+
+async function uploadProfilePhotoTempFile(token: string, file: File): Promise<TempFileRecord> {
+    const formData = new FormData();
+    formData.append('purpose', 'profile_photo');
+    formData.append('file', file);
+
+    const payload = await apiRequest<ApiEnvelope<TempFileRecord>>('/temp-files', {
+        method: 'POST',
+        token,
+        body: formData,
+    });
+
+    return unwrapData(payload);
+}
+
+function photoStatusLabel(status: string): string {
+    switch (status) {
+        case 'pending':
+            return '審査待ち';
+        case 'approved':
+            return '承認済み';
+        case 'rejected':
+            return '差し戻し';
+        default:
+            return status;
+    }
+}
+
+function photoStatusTone(status: string): string {
+    switch (status) {
+        case 'approved':
+            return 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100';
+        case 'pending':
+            return 'border-amber-300/30 bg-amber-300/10 text-amber-100';
+        case 'rejected':
+            return 'border-rose-300/30 bg-rose-300/10 text-rose-100';
+        default:
+            return 'border-white/10 bg-white/5 text-slate-300';
+    }
+}
+
+function formatFileSize(sizeBytes: number): string {
+    if (sizeBytes < 1024 * 1024) {
+        return `${Math.max(1, Math.round(sizeBytes / 1024))}KB`;
+    }
+
+    return `${(sizeBytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
 const trainingOptions = [
@@ -43,6 +94,7 @@ function createMenuDraft(menu?: TherapistMenu): MenuDraft {
 
 export function TherapistProfilePage() {
     const { token } = useAuth();
+    const [meProfile, setMeProfile] = useState<MeProfileRecord | null>(null);
     const [profile, setProfile] = useState<TherapistProfileRecord | null>(null);
     const [reviewStatus, setReviewStatus] = useState<TherapistReviewStatus | null>(null);
     const [publicName, setPublicName] = useState('');
@@ -51,9 +103,15 @@ export function TherapistProfilePage() {
     const [menuDrafts, setMenuDrafts] = useState<MenuDraft[]>([]);
     const [newMenuDraft, setNewMenuDraft] = useState<MenuDraft>(createMenuDraft());
     const [error, setError] = useState<string | null>(null);
+    const [photoError, setPhotoError] = useState<string | null>(null);
+    const [photoSuccessMessage, setPhotoSuccessMessage] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [photoFile, setPhotoFile] = useState<File | null>(null);
+    const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSavingProfile, setIsSavingProfile] = useState(false);
+    const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
+    const [isDeletingPhotoId, setIsDeletingPhotoId] = useState<number | null>(null);
     const [pendingMenuId, setPendingMenuId] = useState<string | null>(null);
     const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
@@ -64,14 +122,17 @@ export function TherapistProfilePage() {
             return;
         }
 
-        const [profilePayload, reviewPayload] = await Promise.all([
+        const [meProfilePayload, profilePayload, reviewPayload] = await Promise.all([
+            apiRequest<ApiEnvelope<MeProfileRecord>>('/me/profile', { token }),
             apiRequest<ApiEnvelope<TherapistProfileRecord>>('/me/therapist-profile', { token }),
             apiRequest<ApiEnvelope<TherapistReviewStatus>>('/me/therapist-profile/review-status', { token }),
         ]);
 
+        const nextMeProfile = unwrapData(meProfilePayload);
         const nextProfile = unwrapData(profilePayload);
         const nextReviewStatus = unwrapData(reviewPayload);
 
+        setMeProfile(nextMeProfile);
         setProfile(nextProfile);
         setReviewStatus(nextReviewStatus);
         setPublicName(nextProfile.public_name ?? '');
@@ -109,6 +170,42 @@ export function TherapistProfilePage() {
 
     const requirementList = reviewStatus?.requirements ?? [];
     const canSubmit = reviewStatus?.can_submit ?? false;
+    const therapistPhotos = useMemo(
+        () => (meProfile?.photos ?? []).filter((photo) => photo.usage_type === 'therapist_profile'),
+        [meProfile],
+    );
+    const approvedOrPendingPhotoCount = useMemo(
+        () => therapistPhotos.filter((photo) => photo.status === 'approved' || photo.status === 'pending').length,
+        [therapistPhotos],
+    );
+
+    useEffect(() => {
+        if (!photoFile) {
+            setPhotoPreviewUrl((currentUrl) => {
+                if (currentUrl) {
+                    URL.revokeObjectURL(currentUrl);
+                }
+
+                return null;
+            });
+
+            return;
+        }
+
+        const nextPreviewUrl = URL.createObjectURL(photoFile);
+
+        setPhotoPreviewUrl((currentUrl) => {
+            if (currentUrl) {
+                URL.revokeObjectURL(currentUrl);
+            }
+
+            return nextPreviewUrl;
+        });
+
+        return () => {
+            URL.revokeObjectURL(nextPreviewUrl);
+        };
+    }, [photoFile]);
 
     function updateMenuDraft(publicId: string | null, patch: Partial<MenuDraft>) {
         setMenuDrafts((current) => current.map((draft) => (
@@ -116,10 +213,47 @@ export function TherapistProfilePage() {
         )));
     }
 
+    function handlePhotoFileChange(event: ChangeEvent<HTMLInputElement>) {
+        const nextFile = event.target.files?.[0] ?? null;
+
+        if (!nextFile) {
+            setPhotoFile(null);
+            setPhotoError(null);
+            return;
+        }
+
+        const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+
+        if (!allowedMimeTypes.includes(nextFile.type)) {
+            setPhotoFile(null);
+            setPhotoSuccessMessage(null);
+            setPhotoError('jpg / png / webp の画像を選択してください。');
+            return;
+        }
+
+        if (nextFile.size > 10 * 1024 * 1024) {
+            setPhotoFile(null);
+            setPhotoSuccessMessage(null);
+            setPhotoError('画像サイズは10MB以下にしてください。');
+            return;
+        }
+
+        setPhotoError(null);
+        setPhotoSuccessMessage(null);
+        setPhotoFile(nextFile);
+    }
+
     async function refreshAfterMutation(nextSuccessMessage?: string) {
         await loadData();
         if (nextSuccessMessage) {
             setSuccessMessage(nextSuccessMessage);
+        }
+    }
+
+    async function refreshAfterPhotoMutation(nextSuccessMessage?: string) {
+        await loadData();
+        if (nextSuccessMessage) {
+            setPhotoSuccessMessage(nextSuccessMessage);
         }
     }
 
@@ -157,6 +291,75 @@ export function TherapistProfilePage() {
             setError(message);
         } finally {
             setIsSavingProfile(false);
+        }
+    }
+
+    async function handlePhotoUpload(event: FormEvent<HTMLFormElement>) {
+        event.preventDefault();
+
+        if (!token || !photoFile) {
+            return;
+        }
+
+        setIsUploadingPhoto(true);
+        setError(null);
+        setPhotoError(null);
+        setPhotoSuccessMessage(null);
+        setSuccessMessage(null);
+
+        try {
+            const tempFile = await uploadProfilePhotoTempFile(token, photoFile);
+
+            await apiRequest<ApiEnvelope<SelfProfilePhotoSummary>>('/me/profile/photos', {
+                method: 'POST',
+                token,
+                body: {
+                    temp_file_id: tempFile.file_id,
+                    usage_type: 'therapist_profile',
+                },
+            });
+
+            setPhotoFile(null);
+            await refreshAfterPhotoMutation('プロフィール写真を追加しました。審査待ちとして保存されています。');
+        } catch (requestError) {
+            const message =
+                requestError instanceof ApiError
+                    ? requestError.message
+                    : 'プロフィール写真の追加に失敗しました。';
+
+            setPhotoError(message);
+        } finally {
+            setIsUploadingPhoto(false);
+        }
+    }
+
+    async function deletePhoto(photoId: number) {
+        if (!token) {
+            return;
+        }
+
+        setIsDeletingPhotoId(photoId);
+        setError(null);
+        setPhotoError(null);
+        setPhotoSuccessMessage(null);
+        setSuccessMessage(null);
+
+        try {
+            await apiRequest<null>(`/me/profile/photos/${photoId}`, {
+                method: 'DELETE',
+                token,
+            });
+
+            await refreshAfterPhotoMutation('プロフィール写真を削除しました。');
+        } catch (requestError) {
+            const message =
+                requestError instanceof ApiError
+                    ? requestError.message
+                    : 'プロフィール写真の削除に失敗しました。';
+
+            setPhotoError(message);
+        } finally {
+            setIsDeletingPhotoId(null);
         }
     }
 
@@ -314,7 +517,7 @@ export function TherapistProfilePage() {
                             {formatProfileStatus(profile?.profile_status)}
                         </p>
                         <p className="mt-2 text-xs text-slate-400">
-                            有効メニュー {activeMenuCount}件 / 写真審査 {profile?.photo_review_status}
+                            有効メニュー {activeMenuCount}件 / 写真審査 {photoStatusLabel(profile?.photo_review_status ?? 'pending')}
                         </p>
                     </div>
                 </div>
@@ -326,12 +529,12 @@ export function TherapistProfilePage() {
                     >
                         準備状況へ戻る
                     </Link>
-                    <Link
-                        to="/therapist/photos"
+                    <a
+                        href="#profile-photos"
                         className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
                     >
                         写真審査へ
-                    </Link>
+                    </a>
                 </div>
 
                 {error ? (
@@ -343,6 +546,18 @@ export function TherapistProfilePage() {
                 {successMessage ? (
                     <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
                         {successMessage}
+                    </div>
+                ) : null}
+
+                {photoError ? (
+                    <div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
+                        {photoError}
+                    </div>
+                ) : null}
+
+                {photoSuccessMessage ? (
+                    <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
+                        {photoSuccessMessage}
                     </div>
                 ) : null}
 
@@ -444,6 +659,160 @@ export function TherapistProfilePage() {
                     <p className="text-sm leading-7 text-slate-300">
                         本人確認承認と有効メニューが揃うと審査提出できます。写真審査や Stripe Connect は公開準備としてこのあと続けて整えます。
                     </p>
+                </article>
+            </section>
+
+            <section id="profile-photos" className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+                <article className="space-y-5 rounded-[24px] border border-white/10 bg-white/5 p-6">
+                    <div className="space-y-2">
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">PHOTOS</p>
+                        <h2 className="text-xl font-semibold text-white">プロフィール写真</h2>
+                        <p className="text-sm leading-7 text-slate-300">
+                            顔や雰囲気が分かる写真を登録して、公開前の写真審査を進めます。追加後は審査待ちになり、承認済みプロフィールでも再確認の対象になります。
+                        </p>
+                    </div>
+
+                    <form onSubmit={handlePhotoUpload} className="space-y-4 rounded-[22px] border border-white/10 bg-[#111923] p-5">
+                        <label className="block space-y-2">
+                            <span className="text-sm font-semibold text-white">写真を追加</span>
+                            <input
+                                type="file"
+                                accept=".jpg,.jpeg,.png,.webp"
+                                onChange={handlePhotoFileChange}
+                                className="block w-full rounded-[18px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white"
+                            />
+                            <p className="text-xs text-slate-400">
+                                {photoFile ? photoFile.name : 'jpg / png / webp の画像を選択'}
+                            </p>
+                        </label>
+
+                        {photoFile && photoPreviewUrl ? (
+                            <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                                    <div className="h-28 w-28 overflow-hidden rounded-[18px] bg-[#1d2a37]">
+                                        <img src={photoPreviewUrl} alt="" className="h-full w-full object-cover" />
+                                    </div>
+                                    <div className="space-y-2 text-sm text-slate-300">
+                                        <p className="font-semibold text-white">{photoFile.name}</p>
+                                        <p>{formatFileSize(photoFile.size)}</p>
+                                        <p className="text-xs leading-6 text-slate-400">
+                                            明るくて見やすい写真ほど審査を通しやすく、公開後の安心感にもつながります。
+                                        </p>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPhotoFile(null)}
+                                            className="inline-flex items-center rounded-full border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/5"
+                                        >
+                                            選択を取り消す
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        ) : null}
+
+                        <button
+                            type="submit"
+                            disabled={isUploadingPhoto || !photoFile}
+                            className="inline-flex items-center rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            {isUploadingPhoto ? 'アップロード中...' : '写真を追加する'}
+                        </button>
+                    </form>
+
+                    {therapistPhotos.length > 0 ? (
+                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                            {therapistPhotos.map((photo) => (
+                                <article
+                                    key={photo.id}
+                                    className="overflow-hidden rounded-[22px] border border-white/10 bg-[#111923]"
+                                >
+                                    <div className="aspect-[1.05] bg-[#1d2a37]">
+                                        {photo.url ? (
+                                            <img src={photo.url} alt="" className="h-full w-full object-cover" />
+                                        ) : (
+                                            <div className="flex h-full items-center justify-center text-sm font-semibold text-slate-400">
+                                                画像を準備中
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="space-y-3 px-4 py-4 text-sm text-slate-300">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${photoStatusTone(photo.status)}`}>
+                                                {photoStatusLabel(photo.status)}
+                                            </span>
+                                        </div>
+
+                                        {photo.rejection_reason_code ? (
+                                            <p className="text-xs leading-6 text-rose-200">
+                                                差し戻し理由: {formatRejectionReason(photo.rejection_reason_code)}
+                                            </p>
+                                        ) : (
+                                            <p className="text-xs leading-6 text-slate-400">
+                                                登録日時: {new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(photo.created_at))}
+                                            </p>
+                                        )}
+
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                void deletePhoto(photo.id);
+                                            }}
+                                            disabled={isDeletingPhotoId === photo.id}
+                                            className="inline-flex items-center rounded-full border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            {isDeletingPhotoId === photo.id ? '削除中...' : '削除'}
+                                        </button>
+                                    </div>
+                                </article>
+                            ))}
+                        </div>
+                    ) : (
+                        <div className="rounded-[22px] border border-dashed border-white/15 bg-[#111923] px-4 py-5 text-sm leading-7 text-slate-300">
+                            まだセラピスト用のプロフィール写真はありません。まず1枚追加すると、写真審査の準備が進みます。
+                        </div>
+                    )}
+                </article>
+
+                <article className="space-y-4 rounded-[24px] border border-white/10 bg-white/5 p-6">
+                    <div className="space-y-2">
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">PHOTO STATUS</p>
+                        <h2 className="text-xl font-semibold text-white">写真審査の状況</h2>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
+                        <p className="text-sm font-semibold text-white">現在の審査状態</p>
+                        <p className="mt-2 text-sm text-slate-300">{photoStatusLabel(profile?.photo_review_status ?? 'pending')}</p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
+                        <p className="text-sm font-semibold text-white">登録済み写真</p>
+                        <p className="mt-2 text-sm text-slate-300">{therapistPhotos.length}枚</p>
+                        <p className="mt-2 text-xs text-slate-400">
+                            承認済み・審査待ち: {approvedOrPendingPhotoCount}枚
+                        </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
+                        <p className="text-sm font-semibold text-white">公開前の目安</p>
+                        <p className="mt-2 text-sm leading-7 text-slate-300">
+                            写真が1枚以上あり、プロフィールとメニューが整っていると公開準備がかなり進みます。
+                        </p>
+                    </div>
+
+                    <div className="flex flex-wrap gap-3 pt-2">
+                        <Link
+                            to="/therapist/onboarding"
+                            className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
+                        >
+                            準備状況を確認
+                        </Link>
+                        <Link
+                            to="/therapist/availability"
+                            className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
+                        >
+                            空き枠へ進む
+                        </Link>
+                    </div>
                 </article>
             </section>
 
