@@ -27,6 +27,7 @@ import { LegalDocumentPage } from './pages/LegalDocumentPage';
 import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
+import { AdminAccountsPage } from './pages/AdminAccountsPage';
 import { PublicHomePage } from './pages/PublicHomePage';
 import { RegisterPage } from './pages/RegisterPage';
 import { RoleSelectPage } from './pages/RoleSelectPage';
@@ -234,13 +235,17 @@ function AppRoutes() {
                     element={<DashboardLayout role="admin" title="運営ダッシュボード" description="監視、審査、法務、料金運用の入口です。" navItems={adminNavItems} />}
                 >
                     <Route index element={<AdminDashboardPage />} />
-                    {adminPlaceholderRoutes.map((route) => (
+                    <Route path="accounts" element={<AdminAccountsPage />} />
+                    <Route path="accounts/:publicId" element={<AdminAccountsPage />} />
+                    {adminPlaceholderRoutes
+                        .filter((route) => route.path !== 'accounts' && route.path !== 'accounts/:publicId')
+                        .map((route) => (
                         <Route
                             key={route.path}
                             path={route.path}
                             element={<PlaceholderScreen title={route.title} description={route.description} apiPath={route.apiPath} />}
                         />
-                    ))}
+                        ))}
                 </Route>
             </Route>
 

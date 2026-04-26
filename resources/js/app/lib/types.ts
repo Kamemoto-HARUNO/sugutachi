@@ -823,3 +823,58 @@ export interface AdminDashboardRecord {
         pricing_rules: Record<string, AdminDashboardNavigationTarget>;
     };
 }
+
+export interface AdminAccountRoleRecord {
+    role: string;
+    status: string;
+    granted_at: string | null;
+    revoked_at: string | null;
+}
+
+export interface AdminAccountIdentitySummary {
+    status: string;
+    is_age_verified: boolean;
+    submitted_at: string | null;
+    reviewed_at: string | null;
+}
+
+export interface AdminAccountUserProfileSummary {
+    profile_status: string | null;
+    age_range: string | null;
+    body_type: string | null;
+    height_cm: number | null;
+    weight_range: string | null;
+    sexual_orientation: string | null;
+    gender_identity: string | null;
+    disclose_sensitive_profile_to_therapist: boolean;
+}
+
+export interface AdminAccountTherapistProfileSummary {
+    public_id: string;
+    public_name: string | null;
+    profile_status: string | null;
+    photo_review_status: string | null;
+    is_online: boolean;
+}
+
+export interface AdminAccountRecord {
+    public_id: string;
+    email: string;
+    phone_e164: string | null;
+    display_name: string | null;
+    status: string;
+    last_active_role: string | null;
+    suspended_at: string | null;
+    suspension_reason: string | null;
+    travel_request_warning_count: number;
+    travel_request_last_warned_at: string | null;
+    travel_request_last_warning_reason: string | null;
+    travel_request_restricted_until: string | null;
+    travel_request_restriction_reason: string | null;
+    roles?: AdminAccountRoleRecord[];
+    latest_identity_verification?: AdminAccountIdentitySummary | null;
+    user_profile?: AdminAccountUserProfileSummary | null;
+    therapist_profile?: AdminAccountTherapistProfileSummary | null;
+    created_at: string;
+    updated_at: string;
+}
