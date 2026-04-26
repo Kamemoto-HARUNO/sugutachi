@@ -337,6 +337,35 @@ export interface TempFileRecord {
     created_at: string;
 }
 
+export interface TherapistBookingSettingRecord {
+    booking_request_lead_time_minutes: number;
+    has_scheduled_base_location: boolean;
+    can_publish_scheduled_bookings: boolean;
+    scheduled_base_location: {
+        label: string | null;
+        lat: number | null;
+        lng: number | null;
+        accuracy_m: number | null;
+    } | null;
+}
+
+export interface TherapistAvailabilitySlotRecord {
+    public_id: string;
+    start_at: string;
+    end_at: string;
+    status: 'published' | 'hidden' | 'expired';
+    dispatch_base_type: 'default' | 'custom';
+    dispatch_area_label: string | null;
+    custom_dispatch_base: {
+        label: string | null;
+        lat: number | null;
+        lng: number | null;
+        accuracy_m: number | null;
+    } | null;
+    has_blocking_booking: boolean;
+    blocking_booking_count: number;
+}
+
 export interface PublicTherapistAvailabilityWindow {
     availability_slot_id: string;
     start_at: string;
