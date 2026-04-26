@@ -421,6 +421,55 @@ export interface TherapistTravelRequestRecord {
     created_at: string;
 }
 
+export interface TherapistBalanceRecord {
+    pending_amount: number;
+    available_amount: number;
+    payout_requested_amount: number;
+    paid_amount: number;
+    held_amount: number;
+    requestable_amount: number;
+    active_payout_request_count: number;
+    next_scheduled_process_date: string | null;
+}
+
+export interface TherapistLedgerEntryRecord {
+    id: number;
+    booking_public_id: string | null;
+    payout_request_id: string | null;
+    entry_type: string;
+    amount_signed: number;
+    status: string;
+    available_at: string | null;
+    description: string | null;
+    metadata: Record<string, unknown> | null;
+    created_at: string;
+}
+
+export interface TherapistLedgerPayload {
+    summary: {
+        pending_amount: number;
+        available_amount: number;
+        payout_requested_amount: number;
+        paid_amount: number;
+        held_amount: number;
+    };
+    entries: TherapistLedgerEntryRecord[];
+}
+
+export interface PayoutRequestRecord {
+    public_id: string;
+    status: string;
+    requested_amount: number;
+    fee_amount: number;
+    net_amount: number;
+    requested_at: string | null;
+    scheduled_process_date: string | null;
+    processed_at: string | null;
+    stripe_payout_id: string | null;
+    failure_reason: string | null;
+    created_at: string;
+}
+
 export interface PublicTherapistAvailabilityWindow {
     availability_slot_id: string;
     start_at: string;
