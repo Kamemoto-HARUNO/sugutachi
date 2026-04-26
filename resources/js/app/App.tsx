@@ -40,6 +40,7 @@ import { TherapistOnboardingPage } from './pages/TherapistOnboardingPage';
 import { TherapistPricingPage } from './pages/TherapistPricingPage';
 import { TherapistProfilePage } from './pages/TherapistProfilePage';
 import { TherapistRequestsPage } from './pages/TherapistRequestsPage';
+import { TherapistReviewsPage } from './pages/TherapistReviewsPage';
 import { TherapistStripeConnectPage } from './pages/TherapistStripeConnectPage';
 import { TherapistTravelRequestsPage } from './pages/TherapistTravelRequestsPage';
 import { UserBookingDetailPage } from './pages/UserBookingDetailPage';
@@ -186,6 +187,7 @@ function AppRoutes() {
                     <Route path="pricing" element={<TherapistPricingPage />} />
                     <Route path="availability" element={<TherapistAvailabilityPage />} />
                     <Route path="requests" element={<TherapistRequestsPage />} />
+                    <Route path="reviews" element={<TherapistReviewsPage />} />
                     <Route path="bookings" element={<TherapistBookingsPage />} />
                     <Route path="bookings/:publicId" element={<TherapistBookingDetailPage />} />
                     <Route path="bookings/:publicId/messages" element={<TherapistBookingMessagesPage />} />
@@ -193,7 +195,7 @@ function AppRoutes() {
                     <Route path="balance" element={<TherapistBalancePage />} />
                     <Route path="payouts" element={<Navigate to="/therapist/balance" replace />} />
                     {therapistPlaceholderRoutes
-                        .filter((route) => !['onboarding', 'identity-verification', 'stripe-connect', 'photos', 'profile', 'pricing', 'availability', 'requests', 'bookings', 'bookings/:publicId', 'bookings/:publicId/messages', 'travel-requests', 'balance', 'payouts'].includes(route.path))
+                        .filter((route) => !['onboarding', 'identity-verification', 'stripe-connect', 'photos', 'profile', 'pricing', 'availability', 'requests', 'reviews', 'bookings', 'bookings/:publicId', 'bookings/:publicId/messages', 'travel-requests', 'balance', 'payouts'].includes(route.path))
                         .map((route) => (
                         <Route
                             key={route.path}
