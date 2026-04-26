@@ -404,6 +404,23 @@ export interface TherapistBookingRequestRecord {
     created_at: string;
 }
 
+export interface TherapistTravelRequestSenderSummary {
+    public_id: string | null;
+    display_name: string | null;
+}
+
+export interface TherapistTravelRequestRecord {
+    public_id: string;
+    prefecture: string;
+    message: string | null;
+    status: 'unread' | 'read' | 'archived';
+    read_at: string | null;
+    archived_at: string | null;
+    sender: TherapistTravelRequestSenderSummary | null;
+    therapist_profile_id: string | null;
+    created_at: string;
+}
+
 export interface PublicTherapistAvailabilityWindow {
     availability_slot_id: string;
     start_at: string;
