@@ -5,9 +5,11 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { formatRoleLabel, getActiveRoles } from '../lib/account';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { formatRejectionReason } from '../lib/therapist';
 import type {
     ApiEnvelope,
     MeProfileRecord,
+    ServiceAddress,
     SelfProfilePhotoSummary,
     TempFileRecord,
     UserProfileRecord,
@@ -66,6 +68,15 @@ interface UserProfileFormState {
     sexual_orientation: string;
     gender_identity: string;
     disclose_sensitive_profile_to_therapist: boolean;
+}
+
+interface ProfileSetupItem {
+    key: string;
+    label: string;
+    description: string;
+    isComplete: boolean;
+    actionLabel: string;
+    actionTo: string;
 }
 
 function emptyUserProfileForm(): UserProfileFormState {
@@ -252,6 +263,27 @@ function formatDateTime(value: string | null): string {
     }).format(date);
 }
 
+function formatFileSize(sizeBytes: number): string {
+    if (sizeBytes < 1024 * 1024) {
+        return `${Math.max(1, Math.round(sizeBytes / 1024))}KB`;
+    }
+
+    return `${(sizeBytes / (1024 * 1024)).toFixed(1)}MB`;
+}
+
+function formatPlaceType(placeType: ServiceAddress['place_type']): string {
+    switch (placeType) {
+        case 'home':
+            return '自宅';
+        case 'hotel':
+            return 'ホテル';
+        case 'office':
+            return 'オフィス';
+        default:
+            return 'その他';
+    }
+}
+
 async function uploadProfilePhotoTempFile(token: string, file: File): Promise<TempFileRecord> {
     const formData = new FormData();
     formData.append('purpose', 'profile_photo');
@@ -309,7 +341,9 @@ function PhotoStrip({
                             </span>
                         </div>
                         {photo.rejection_reason_code ? (
-                            <p className="text-xs leading-6 text-[#9a4b35]">差し戻し理由: {photo.rejection_reason_code}</p>
+                            <p className="text-xs leading-6 text-[#9a4b35]">
+                                差し戻し理由: {formatRejectionReason(photo.rejection_reason_code)}
+                            </p>
                         ) : null}
                         <button
                             type="button"
@@ -329,6 +363,7 @@ function PhotoStrip({
 export function UserProfilePage() {
     const { account, refreshAccount, token } = useAuth();
     const [meProfile, setMeProfile] = useState<MeProfileRecord | null>(null);
+    const [serviceAddresses, setServiceAddresses] = useState<ServiceAddress[]>([]);
     const [userProfile, setUserProfile] = useState<UserProfileRecord | null>(null);
     const [displayName, setDisplayName] = useState('');
     const [phoneE164, setPhoneE164] = useState('');
@@ -341,6 +376,7 @@ export function UserProfilePage() {
     const [commonSuccess, setCommonSuccess] = useState<string | null>(null);
     const [userSuccess, setUserSuccess] = useState<string | null>(null);
     const [photoFile, setPhotoFile] = useState<File | null>(null);
+    const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
     const [isDeletingPhotoId, setIsDeletingPhotoId] = useState<number | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSavingCommon, setIsSavingCommon] = useState(false);
@@ -358,16 +394,19 @@ export function UserProfilePage() {
         setIsLoading(true);
 
         try {
-            const [meProfilePayload, userProfilePayload] = await Promise.all([
+            const [meProfilePayload, userProfilePayload, serviceAddressesPayload] = await Promise.all([
                 apiRequest<ApiEnvelope<MeProfileRecord>>('/me/profile', { token }),
                 apiRequest<ApiEnvelope<UserProfileRecord | null>>('/me/user-profile', { token }),
+                apiRequest<ApiEnvelope<ServiceAddress[]>>('/me/service-addresses', { token }),
             ]);
 
             const nextMeProfile = unwrapData(meProfilePayload);
             const nextUserProfile = unwrapData(userProfilePayload);
+            const nextServiceAddresses = unwrapData(serviceAddressesPayload);
 
             setMeProfile(nextMeProfile);
             setUserProfile(nextUserProfile);
+            setServiceAddresses(nextServiceAddresses);
             setDisplayName(nextMeProfile.display_name ?? '');
             setPhoneE164(nextMeProfile.phone_e164 ?? '');
             setUserForm(buildUserProfileForm(nextUserProfile));
@@ -393,12 +432,118 @@ export function UserProfilePage() {
         () => (meProfile?.photos ?? []).filter((photo) => photo.usage_type === 'account_profile'),
         [meProfile],
     );
+    const defaultServiceAddress = useMemo(
+        () => serviceAddresses.find((address) => address.is_default) ?? null,
+        [serviceAddresses],
+    );
+    const hasReadyPhoto = useMemo(
+        () => accountProfilePhotos.some((photo) => photo.status === 'approved' || photo.status === 'pending'),
+        [accountProfilePhotos],
+    );
+    const profileSetupItems = useMemo<ProfileSetupItem[]>(() => ([
+        {
+            key: 'identity',
+            label: '本人確認・年齢確認',
+            description: meProfile?.latest_identity_verification?.status === 'rejected'
+                ? '差し戻しがあるため、再提出して承認待ちへ戻します。'
+                : '予約前の安全確認として提出しておきます。',
+            isComplete: meProfile?.latest_identity_verification?.status === 'approved',
+            actionLabel: meProfile?.latest_identity_verification?.status === 'approved' ? '状況を見る' : '提出する',
+            actionTo: '/user/identity-verification',
+        },
+        {
+            key: 'profile',
+            label: '利用者プロフィール',
+            description: '体格や希望条件を入れておくと、見積もりとマッチングが安定します。',
+            isComplete: userProfile?.profile_status === 'active',
+            actionLabel: 'プロフィールを整える',
+            actionTo: '/user/profile',
+        },
+        {
+            key: 'photo',
+            label: 'プロフィール写真',
+            description: hasReadyPhoto
+                ? '審査待ちまたは承認済みの写真があります。'
+                : '共通プロフィール写真を追加して、相手に安心感を伝えます。',
+            isComplete: hasReadyPhoto,
+            actionLabel: '写真を確認する',
+            actionTo: '/user/profile',
+        },
+        {
+            key: 'address',
+            label: '施術場所',
+            description: defaultServiceAddress
+                ? 'デフォルトの施術場所が設定されています。'
+                : '来てほしい場所を先に登録しておくと予約が早く進みます。',
+            isComplete: defaultServiceAddress !== null,
+            actionLabel: defaultServiceAddress ? '住所を確認する' : '住所を追加する',
+            actionTo: '/user/service-addresses',
+        },
+    ]), [defaultServiceAddress, hasReadyPhoto, meProfile?.latest_identity_verification?.status, userProfile?.profile_status]);
+
+    useEffect(() => {
+        if (!photoFile) {
+            setPhotoPreviewUrl((currentUrl) => {
+                if (currentUrl) {
+                    URL.revokeObjectURL(currentUrl);
+                }
+
+                return null;
+            });
+
+            return;
+        }
+
+        const nextPreviewUrl = URL.createObjectURL(photoFile);
+
+        setPhotoPreviewUrl((currentUrl) => {
+            if (currentUrl) {
+                URL.revokeObjectURL(currentUrl);
+            }
+
+            return nextPreviewUrl;
+        });
+
+        return () => {
+            URL.revokeObjectURL(nextPreviewUrl);
+        };
+    }, [photoFile]);
 
     function updateUserForm<K extends keyof UserProfileFormState>(key: K, value: UserProfileFormState[K]) {
         setUserForm((current) => ({
             ...current,
             [key]: value,
         }));
+    }
+
+    function handlePhotoFileChange(event: ChangeEvent<HTMLInputElement>) {
+        const nextFile = event.target.files?.[0] ?? null;
+
+        if (!nextFile) {
+            setPhotoFile(null);
+            setPhotoError(null);
+            return;
+        }
+
+        const allowedMimeTypes = ['image/jpeg', 'image/png', 'image/webp'];
+
+        if (!allowedMimeTypes.includes(nextFile.type)) {
+            setPhotoFile(null);
+            setPhotoSuccess(null);
+            setPhotoError('jpg / png / webp の画像を選択してください。');
+            return;
+        }
+
+        if (nextFile.size > 10 * 1024 * 1024) {
+            setPhotoFile(null);
+            setPhotoSuccess(null);
+            setPhotoError('画像サイズは10MB以下にしてください。');
+            return;
+        }
+
+        setPhotoError(null);
+        setPhotoSuccess(null);
+        setPhotoFile(nextFile);
     }
 
     async function handleCommonSave(event: FormEvent<HTMLFormElement>) {
@@ -871,13 +1016,37 @@ export function UserProfilePage() {
                                 <input
                                     type="file"
                                     accept=".jpg,.jpeg,.png,.webp"
-                                    onChange={(event) => setPhotoFile(event.target.files?.[0] ?? null)}
+                                    onChange={handlePhotoFileChange}
                                     className="block w-full rounded-[18px] border border-[#e4d7c2] bg-white px-4 py-3 text-sm text-[#17202b]"
                                 />
                                 <p className="text-xs text-[#7a7066]">
                                     {photoFile ? photoFile.name : 'jpg / png / webp の画像を選択'}
                                 </p>
                             </label>
+
+                            {photoFile && photoPreviewUrl ? (
+                                <div className="rounded-[20px] border border-[#ebe2d3] bg-white p-4">
+                                    <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                                        <div className="h-28 w-28 overflow-hidden rounded-[18px] bg-[#efe7d9]">
+                                            <img src={photoPreviewUrl} alt="" className="h-full w-full object-cover" />
+                                        </div>
+                                        <div className="space-y-2 text-sm text-[#48505a]">
+                                            <p className="font-semibold text-[#17202b]">{photoFile.name}</p>
+                                            <p>{formatFileSize(photoFile.size)}</p>
+                                            <p className="text-xs leading-6 text-[#7a7066]">
+                                                追加後は審査待ちになります。顔が見やすく、明るい写真だと通りやすくなります。
+                                            </p>
+                                            <button
+                                                type="button"
+                                                onClick={() => setPhotoFile(null)}
+                                                className="inline-flex items-center rounded-full border border-[#d9c9ae] px-3 py-2 text-xs font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
+                                            >
+                                                選択を取り消す
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                            ) : null}
 
                             {photoError ? (
                                 <div className="rounded-[18px] border border-[#f1d4b5] bg-[#fff4e8] px-4 py-3 text-sm text-[#9a4b35]">
@@ -912,6 +1081,38 @@ export function UserProfilePage() {
 
                 <aside className="space-y-5">
                     <section className="rounded-[28px] bg-[#fffcf7] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.1)]">
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">READY CHECK</p>
+                        <div className="mt-4 space-y-3">
+                            {profileSetupItems.map((item) => (
+                                <div key={item.key} className="rounded-[20px] border border-[#ebe2d3] bg-white px-4 py-4">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="space-y-1">
+                                            <p className="text-sm font-semibold text-[#17202b]">{item.label}</p>
+                                            <p className="text-xs leading-6 text-[#6f6459]">{item.description}</p>
+                                        </div>
+                                        <span
+                                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                                item.isComplete
+                                                    ? 'bg-[#e9f4ea] text-[#24553a]'
+                                                    : 'bg-[#fff2dd] text-[#8b5a16]'
+                                            }`}
+                                        >
+                                            {item.isComplete ? '完了' : '未完了'}
+                                        </span>
+                                    </div>
+
+                                    <Link
+                                        to={item.actionTo}
+                                        className="mt-3 inline-flex items-center rounded-full border border-[#d9c9ae] px-3 py-2 text-xs font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
+                                    >
+                                        {item.actionLabel}
+                                    </Link>
+                                </div>
+                            ))}
+                        </div>
+                    </section>
+
+                    <section className="rounded-[28px] bg-[#fffcf7] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.1)]">
                         <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">PROFILE STATUS</p>
                         <div className="mt-4 space-y-4 text-sm text-[#48505a]">
                             <div>
@@ -933,6 +1134,18 @@ export function UserProfilePage() {
                                 <p className="mt-1 font-semibold text-[#17202b]">
                                     {formatDateTime(meProfile?.latest_identity_verification?.submitted_at ?? null)}
                                 </p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold text-[#7d6852]">施術場所</p>
+                                <p className="mt-1 font-semibold text-[#17202b]">
+                                    {defaultServiceAddress
+                                        ? `${defaultServiceAddress.prefecture ?? ''}${defaultServiceAddress.city ?? ''} / ${formatPlaceType(defaultServiceAddress.place_type)}`
+                                        : '未設定'}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold text-[#7d6852]">登録済み住所数</p>
+                                <p className="mt-1 font-semibold text-[#17202b]">{serviceAddresses.length}件</p>
                             </div>
                         </div>
 
