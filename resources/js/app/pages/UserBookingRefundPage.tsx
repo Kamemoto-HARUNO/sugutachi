@@ -50,6 +50,39 @@ function refundStatusTone(status: string): string {
     }
 }
 
+function bookingStatusLabel(status: string): string {
+    switch (status) {
+        case 'payment_authorizing':
+            return '与信確認中';
+        case 'requested':
+            return '承諾待ち';
+        case 'accepted':
+            return '予約確定';
+        case 'moving':
+            return '移動中';
+        case 'arrived':
+            return '到着';
+        case 'in_progress':
+            return '施術中';
+        case 'therapist_completed':
+            return '完了確認待ち';
+        case 'completed':
+            return '完了';
+        case 'rejected':
+            return '辞退';
+        case 'expired':
+            return '期限切れ';
+        case 'payment_canceled':
+            return '与信取消';
+        case 'canceled':
+            return 'キャンセル';
+        case 'interrupted':
+            return '中断';
+        default:
+            return status;
+    }
+}
+
 export function UserBookingRefundPage() {
     const { publicId } = useParams<{ publicId: string }>();
     const { token } = useAuth();
@@ -182,7 +215,7 @@ export function UserBookingRefundPage() {
                     </div>
                     <div className="rounded-[22px] border border-white/10 bg-white/5 px-5 py-4 text-sm text-slate-200">
                         <p className="text-xs font-semibold tracking-wide text-slate-400">現在の予約状態</p>
-                        <p className="mt-2 text-lg font-semibold text-white">{booking.status}</p>
+                        <p className="mt-2 text-lg font-semibold text-white">{bookingStatusLabel(booking.status)}</p>
                     </div>
                 </div>
             </section>
