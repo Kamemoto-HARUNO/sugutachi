@@ -19,6 +19,7 @@ cp .env.example .env
 mysql -u your_user -p -e "CREATE DATABASE IF NOT EXISTS sugutachi_local CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 php artisan key:generate
 php artisan migrate
+php artisan db:seed
 php artisan serve
 ```
 
@@ -34,6 +35,22 @@ vendor/bin/pint --test
 ```
 
 主要フローの最終確認では、MySQL 接続で `php artisan migrate:fresh --seed` 相当の検証を行ってから反映してください。
+
+## ローカルプレビュー用シーダー
+
+ローカル環境で `php artisan db:seed` を実行すると、法務文書の初期公開に加えて、画面プレビュー用の利用者 / セラピスト / 兼用アカウントと、予約・空き枠・レビュー・通知などの関連データが入ります。
+
+必要に応じて個別実行もできます。
+
+```bash
+php artisan db:seed --class=Database\\Seeders\\LocalPreviewSeeder
+```
+
+主なログイン情報:
+
+* 利用者: `preview-user@sugutachi.local` / `password`
+* セラピスト: `preview-therapist@sugutachi.local` / `password`
+* 兼用: `preview-hybrid@sugutachi.local` / `password`
 
 ## 設計ドキュメント
 
