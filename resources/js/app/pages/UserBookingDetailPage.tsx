@@ -498,6 +498,22 @@ export function UserBookingDetailPage() {
                         </div>
 
                         <div className="mt-6 space-y-3">
+                            {['payment_authorizing', 'requested', 'accepted', 'moving', 'arrived'].includes(booking.status) ? (
+                                <Link
+                                    to={`/user/bookings/${booking.public_id}/cancel`}
+                                    className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
+                                >
+                                    キャンセル条件を確認
+                                </Link>
+                            ) : null}
+                            {['therapist_completed', 'completed', 'canceled'].includes(booking.status) ? (
+                                <Link
+                                    to={`/user/bookings/${booking.public_id}/refund`}
+                                    className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
+                                >
+                                    返金申請を見る
+                                </Link>
+                            ) : null}
                             {isReviewableStatus(booking.status) ? (
                                 <Link
                                     to={`/user/bookings/${booking.public_id}/review`}

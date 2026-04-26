@@ -647,6 +647,29 @@ export interface BookingRefundRecord {
     created_at: string;
 }
 
+export interface BookingCancellationPreview {
+    cancel_fee_amount: number;
+    refund_amount: number;
+    policy_code: string;
+    policy_label: string;
+    payment_action: string;
+}
+
+export interface RefundRequestRecord {
+    public_id: string;
+    booking_public_id: string | null;
+    requested_by_account_id: string | null;
+    reviewed_by_account_id: string | null;
+    status: string;
+    reason_code: string | null;
+    requested_amount: number | null;
+    approved_amount: number | null;
+    stripe_refund_id: string | null;
+    reviewed_at: string | null;
+    processed_at: string | null;
+    created_at: string;
+}
+
 export interface BookingConsentRecord {
     id: number;
     booking_public_id: string | null;
@@ -681,6 +704,22 @@ export interface BookingDetailRecord extends BookingListRecord {
     refunds: BookingRefundRecord[];
     consents: BookingConsentRecord[];
     health_checks: BookingHealthCheckRecord[];
+}
+
+export interface AccountBlockAccountSummary {
+    public_id: string;
+    display_name: string | null;
+    status: string | null;
+}
+
+export interface AccountBlockRecord {
+    id: number;
+    blocker_account_id: string | null;
+    blocker_account: AccountBlockAccountSummary | null;
+    blocked_account_id: string | null;
+    blocked_account: AccountBlockAccountSummary | null;
+    reason_code: string | null;
+    created_at: string;
 }
 
 export interface BookingMessageSender {

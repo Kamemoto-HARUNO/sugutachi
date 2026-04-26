@@ -45,11 +45,15 @@ import { TherapistStripeConnectPage } from './pages/TherapistStripeConnectPage';
 import { TherapistTravelRequestsPage } from './pages/TherapistTravelRequestsPage';
 import { UserBookingDetailPage } from './pages/UserBookingDetailPage';
 import { UserBookingMessagesPage } from './pages/UserBookingMessagesPage';
+import { UserBookingCancelPage } from './pages/UserBookingCancelPage';
 import { UserBookingReviewPage } from './pages/UserBookingReviewPage';
 import { UserBookingsPage } from './pages/UserBookingsPage';
 import { UserBookingQuotePage } from './pages/UserBookingQuotePage';
 import { UserBookingRequestPage } from './pages/UserBookingRequestPage';
+import { UserBookingRefundPage } from './pages/UserBookingRefundPage';
+import { UserBookingReportPage } from './pages/UserBookingReportPage';
 import { UserIdentityVerificationPage } from './pages/UserIdentityVerificationPage';
+import { UserBlocksPage } from './pages/UserBlocksPage';
 import { UserProfilePage } from './pages/UserProfilePage';
 import { UserReportsPage } from './pages/UserReportsPage';
 import { UserServiceAddressesPage } from './pages/UserServiceAddressesPage';
@@ -116,9 +120,13 @@ function AppRoutes() {
                     <Route path="bookings/:publicId" element={<UserBookingDetailPage />} />
                     <Route path="bookings/:publicId/messages" element={<UserBookingMessagesPage />} />
                     <Route path="bookings/:publicId/review" element={<UserBookingReviewPage />} />
+                    <Route path="bookings/:publicId/cancel" element={<UserBookingCancelPage />} />
+                    <Route path="bookings/:publicId/refund" element={<UserBookingRefundPage />} />
+                    <Route path="bookings/:publicId/report" element={<UserBookingReportPage />} />
                     <Route path="identity-verification" element={<UserIdentityVerificationPage />} />
                     <Route path="profile" element={<UserProfilePage />} />
                     <Route path="reports" element={<UserReportsPage />} />
+                    <Route path="blocks" element={<UserBlocksPage />} />
                     <Route path="service-addresses" element={<UserServiceAddressesPage />} />
                     <Route path="booking-request" element={<UserBookingRequestPage />} />
                     <Route path="booking-request/quote" element={<UserBookingQuotePage />} />
@@ -130,9 +138,13 @@ function AppRoutes() {
                                 && route.path !== 'bookings/:publicId'
                                 && route.path !== 'bookings/:publicId/messages'
                                 && route.path !== 'bookings/:publicId/review'
+                                && route.path !== 'bookings/:publicId/cancel'
+                                && route.path !== 'bookings/:publicId/refund'
+                                && route.path !== 'bookings/:publicId/report'
                                 && route.path !== 'identity-verification'
                                 && route.path !== 'profile'
                                 && route.path !== 'reports'
+                                && route.path !== 'blocks'
                                 && route.path !== 'service-addresses'
                                 && route.path !== 'booking-request'
                                 && route.path !== 'booking-request/quote'
