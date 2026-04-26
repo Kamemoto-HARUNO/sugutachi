@@ -12,7 +12,7 @@ export function BrandMark({
     compact = false,
 }: BrandMarkProps) {
     const domainClass = inverse ? 'text-[#d2b179]' : 'text-[#6b7280]';
-    const logoHeightClass = compact ? 'h-9' : 'h-11';
+    const logoWidthClass = compact ? 'w-[108px] sm:w-[116px]' : 'w-[136px] sm:w-[148px]';
     const textGapClass = compact ? 'gap-2' : 'gap-3';
 
     return (
@@ -20,7 +20,7 @@ export function BrandMark({
             <img
                 src="/logo-horizontal.png"
                 alt="すぐタチ ロゴ"
-                className={['block h-auto w-auto shrink-0', logoHeightClass].join(' ')}
+                className={['block h-auto shrink-0', logoWidthClass].join(' ')}
             />
 
             {domain ? (
