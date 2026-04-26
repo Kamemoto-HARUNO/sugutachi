@@ -366,6 +366,44 @@ export interface TherapistAvailabilitySlotRecord {
     blocking_booking_count: number;
 }
 
+export interface TherapistBookingRequestMenuSummary {
+    public_id: string | null;
+    name: string | null;
+}
+
+export interface TherapistBookingRequestServiceLocation {
+    place_type: string | null;
+    prefecture: string | null;
+    city: string | null;
+}
+
+export interface TherapistBookingRequestAmounts {
+    total_amount: number;
+    therapist_net_amount: number;
+    platform_fee_amount: number;
+    matching_fee_amount: number;
+}
+
+export interface TherapistBookingRequestRecord {
+    public_id: string;
+    status: string;
+    request_type: 'on_demand' | 'scheduled';
+    is_on_demand: boolean;
+    availability_slot_id: string | null;
+    requested_start_at: string | null;
+    scheduled_start_at: string | null;
+    scheduled_end_at: string | null;
+    duration_minutes: number;
+    dispatch_area_label: string | null;
+    request_expires_at: string | null;
+    request_expires_in_seconds: number | null;
+    request_expires_in_minutes: number | null;
+    menu: TherapistBookingRequestMenuSummary;
+    service_location: TherapistBookingRequestServiceLocation | null;
+    amounts: TherapistBookingRequestAmounts;
+    created_at: string;
+}
+
 export interface PublicTherapistAvailabilityWindow {
     availability_slot_id: string;
     start_at: string;
