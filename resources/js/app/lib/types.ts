@@ -166,6 +166,55 @@ export interface UserProfileRecord {
     updated_at: string;
 }
 
+export interface ReportAccountSummary {
+    public_id: string;
+    display_name: string | null;
+    status: string | null;
+}
+
+export interface ReportSourceBookingMessage {
+    id: number;
+    sender: {
+        public_id: string | null;
+        display_name: string | null;
+    } | null;
+    moderation_status: string;
+    detected_contact_exchange: boolean;
+    sent_at: string | null;
+}
+
+export interface ReportRecord {
+    public_id: string;
+    booking_public_id: string | null;
+    source_booking_message: ReportSourceBookingMessage | null;
+    reporter_account_id: string | null;
+    reporter_account: ReportAccountSummary | null;
+    target_account_id: string | null;
+    target_account: ReportAccountSummary | null;
+    assigned_admin_account_id: string | null;
+    category: string;
+    severity: 'low' | 'medium' | 'high' | 'critical';
+    status: 'open' | 'resolved';
+    detail?: string | null;
+    resolved_at: string | null;
+    created_at: string;
+}
+
+export interface ReportListMeta {
+    total_count: number;
+    open_count: number;
+    resolved_count: number;
+    filters: {
+        booking_id: string | null;
+        target_account_id: string | null;
+        status: 'open' | 'resolved' | null;
+        category: string | null;
+        severity: 'low' | 'medium' | 'high' | 'critical' | null;
+        sort: 'created_at' | 'resolved_at';
+        direction: 'asc' | 'desc';
+    };
+}
+
 export interface PublicProfilePhoto {
     sort_order: number;
     url: string;
