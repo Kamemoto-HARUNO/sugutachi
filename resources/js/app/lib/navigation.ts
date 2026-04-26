@@ -26,6 +26,7 @@ export const therapistNavItems: NavItem[] = [
     { label: '予約', to: '/therapist/bookings' },
     { label: '出張リクエスト', to: '/therapist/travel-requests' },
     { label: '売上', to: '/therapist/balance' },
+    { label: '設定', to: '/therapist/settings' },
 ];
 
 export const adminNavItems: NavItem[] = [
@@ -79,6 +80,7 @@ export const therapistPlaceholderRoutes: PlaceholderRouteDefinition[] = [
     { path: 'payouts', title: '出金申請', description: '出金申請履歴と現在の申請状況を管理します。', apiPath: '/api/me/therapist/payout-requests' },
     { path: 'reviews', title: 'レビュー', description: '自分に届いたレビューと平均評価を確認します。', apiPath: '/api/me/reviews' },
     { path: 'settings', title: '稼働設定', description: 'オンライン状態や通知設定をまとめる画面です。', apiPath: '/api/me/therapist-profile' },
+    { path: 'settings/hotpepper', title: 'ホットペッパー連携', description: '外部掲載導線としてホットペッパー連携の準備を行う画面です。' },
 ];
 
 export const adminPlaceholderRoutes: PlaceholderRouteDefinition[] = [
