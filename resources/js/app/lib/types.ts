@@ -3,6 +3,7 @@ export type RoleName = 'user' | 'therapist' | 'admin';
 export interface RoleAssignment {
     role: string;
     status: string;
+    granted_at?: string | null;
 }
 
 export interface IdentityVerificationSummary {
@@ -110,6 +111,57 @@ export interface ServiceAddress {
     lat: number | string;
     lng: number | string;
     is_default: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface SelfProfilePhotoSummary {
+    id: number;
+    usage_type: string;
+    status: string;
+    rejection_reason_code: string | null;
+    sort_order: number;
+    url: string | null;
+    therapist_profile: {
+        public_id: string | null;
+        public_name: string | null;
+        photo_review_status: string | null;
+    } | null;
+    created_at: string;
+}
+
+export interface MeProfileRecord {
+    public_id: string;
+    email: string;
+    phone_e164: string | null;
+    phone_verified_at: string | null;
+    display_name: string | null;
+    status: string;
+    last_active_role: string | null;
+    roles: RoleAssignment[];
+    latest_identity_verification: {
+        status: string;
+        is_age_verified: boolean;
+        submitted_at: string | null;
+        reviewed_at: string | null;
+    } | null;
+    photos: SelfProfilePhotoSummary[];
+    created_at: string;
+    updated_at: string;
+}
+
+export interface UserProfileRecord {
+    profile_status: string;
+    age_range: string | null;
+    body_type: string | null;
+    height_cm: number | null;
+    weight_range: string | null;
+    preferences: Record<string, string> | string[] | null;
+    touch_ng: string[] | Record<string, string> | null;
+    health_notes: string | null;
+    sexual_orientation: string | null;
+    gender_identity: string | null;
+    disclose_sensitive_profile_to_therapist: boolean;
     created_at: string;
     updated_at: string;
 }

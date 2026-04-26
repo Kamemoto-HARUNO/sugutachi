@@ -40,6 +40,7 @@ import { UserBookingReviewPage } from './pages/UserBookingReviewPage';
 import { UserBookingsPage } from './pages/UserBookingsPage';
 import { UserBookingQuotePage } from './pages/UserBookingQuotePage';
 import { UserBookingRequestPage } from './pages/UserBookingRequestPage';
+import { UserProfilePage } from './pages/UserProfilePage';
 import { UserServiceAddressesPage } from './pages/UserServiceAddressesPage';
 import { UserTherapistAvailabilityPage } from './pages/UserTherapistAvailabilityPage';
 import { UserTherapistDetailPage } from './pages/UserTherapistDetailPage';
@@ -104,6 +105,7 @@ function AppRoutes() {
                     <Route path="bookings/:publicId" element={<UserBookingDetailPage />} />
                     <Route path="bookings/:publicId/messages" element={<UserBookingMessagesPage />} />
                     <Route path="bookings/:publicId/review" element={<UserBookingReviewPage />} />
+                    <Route path="profile" element={<UserProfilePage />} />
                     <Route path="service-addresses" element={<UserServiceAddressesPage />} />
                     <Route path="booking-request" element={<UserBookingRequestPage />} />
                     <Route path="booking-request/quote" element={<UserBookingQuotePage />} />
@@ -115,6 +117,7 @@ function AppRoutes() {
                                 && route.path !== 'bookings/:publicId'
                                 && route.path !== 'bookings/:publicId/messages'
                                 && route.path !== 'bookings/:publicId/review'
+                                && route.path !== 'profile'
                                 && route.path !== 'service-addresses'
                                 && route.path !== 'booking-request'
                                 && route.path !== 'booking-request/quote'
