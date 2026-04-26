@@ -379,6 +379,45 @@ export interface AdminBookingDetailRecord extends AdminBookingListRecord {
     status_logs: AdminBookingStatusLogRecord[];
 }
 
+export interface AdminNoteRecord {
+    id: number;
+    author: {
+        public_id: string | null;
+        display_name: string | null;
+    } | null;
+    note: string;
+    created_at: string;
+}
+
+export interface AdminBookingMessageSenderSummary {
+    public_id: string | null;
+    display_name: string | null;
+    email: string | null;
+    status: string | null;
+    suspension_reason: string | null;
+    suspended_at: string | null;
+}
+
+export interface AdminBookingMessageRecord {
+    id: number;
+    booking_public_id: string | null;
+    sender: AdminBookingMessageSenderSummary | null;
+    message_type: string;
+    body: string;
+    detected_contact_exchange: boolean;
+    moderation_status: string;
+    moderated_by_admin: {
+        public_id: string | null;
+        display_name: string | null;
+    } | null;
+    moderated_at: string | null;
+    admin_note_count: number;
+    open_report_count: number;
+    notes: AdminNoteRecord[];
+    sent_at: string | null;
+    read_at: string | null;
+}
+
 export interface ReportListMeta {
     total_count: number;
     open_count: number;
