@@ -21,6 +21,7 @@ export const therapistNavItems: NavItem[] = [
     { label: 'ダッシュボード', to: '/therapist', exact: true },
     { label: '準備状況', to: '/therapist/onboarding' },
     { label: 'プロフィール', to: '/therapist/profile' },
+    { label: '料金', to: '/therapist/pricing' },
     { label: '空き枠', to: '/therapist/availability' },
     { label: '予約依頼', to: '/therapist/requests' },
     { label: '予約', to: '/therapist/bookings' },

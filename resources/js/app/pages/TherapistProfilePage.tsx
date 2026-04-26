@@ -207,6 +207,16 @@ export function TherapistProfilePage() {
         };
     }, [photoFile]);
 
+    useEffect(() => {
+        if (isLoading || window.location.hash !== '#profile-photos') {
+            return;
+        }
+
+        window.requestAnimationFrame(() => {
+            document.getElementById('profile-photos')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        });
+    }, [isLoading]);
+
     function updateMenuDraft(publicId: string | null, patch: Partial<MenuDraft>) {
         setMenuDrafts((current) => current.map((draft) => (
             draft.public_id === publicId ? { ...draft, ...patch } : draft

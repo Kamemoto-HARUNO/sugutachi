@@ -37,6 +37,7 @@ import { TherapistBookingDetailPage } from './pages/TherapistBookingDetailPage';
 import { TherapistBookingsPage } from './pages/TherapistBookingsPage';
 import { TherapistBookingMessagesPage } from './pages/TherapistBookingMessagesPage';
 import { TherapistOnboardingPage } from './pages/TherapistOnboardingPage';
+import { TherapistPricingPage } from './pages/TherapistPricingPage';
 import { TherapistProfilePage } from './pages/TherapistProfilePage';
 import { TherapistRequestsPage } from './pages/TherapistRequestsPage';
 import { TherapistStripeConnectPage } from './pages/TherapistStripeConnectPage';
@@ -180,7 +181,9 @@ function AppRoutes() {
                     <Route path="onboarding" element={<TherapistOnboardingPage />} />
                     <Route path="identity-verification" element={<TherapistIdentityVerificationPage />} />
                     <Route path="stripe-connect" element={<TherapistStripeConnectPage />} />
+                    <Route path="photos" element={<Navigate to="/therapist/profile#profile-photos" replace />} />
                     <Route path="profile" element={<TherapistProfilePage />} />
+                    <Route path="pricing" element={<TherapistPricingPage />} />
                     <Route path="availability" element={<TherapistAvailabilityPage />} />
                     <Route path="requests" element={<TherapistRequestsPage />} />
                     <Route path="bookings" element={<TherapistBookingsPage />} />
@@ -188,8 +191,9 @@ function AppRoutes() {
                     <Route path="bookings/:publicId/messages" element={<TherapistBookingMessagesPage />} />
                     <Route path="travel-requests" element={<TherapistTravelRequestsPage />} />
                     <Route path="balance" element={<TherapistBalancePage />} />
+                    <Route path="payouts" element={<Navigate to="/therapist/balance" replace />} />
                     {therapistPlaceholderRoutes
-                        .filter((route) => !['onboarding', 'identity-verification', 'stripe-connect', 'profile', 'availability', 'requests', 'bookings', 'bookings/:publicId', 'bookings/:publicId/messages', 'travel-requests', 'balance'].includes(route.path))
+                        .filter((route) => !['onboarding', 'identity-verification', 'stripe-connect', 'photos', 'profile', 'pricing', 'availability', 'requests', 'bookings', 'bookings/:publicId', 'bookings/:publicId/messages', 'travel-requests', 'balance', 'payouts'].includes(route.path))
                         .map((route) => (
                         <Route
                             key={route.path}

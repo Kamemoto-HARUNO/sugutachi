@@ -17,6 +17,7 @@ import type {
     StripeConnectedAccountStatus,
     TherapistAvailabilitySlotRecord,
     TherapistBookingSettingRecord,
+    TherapistPricingRuleRecord,
     TherapistReviewRequirement,
     TherapistReviewStatus,
 } from '../lib/types';
@@ -29,19 +30,6 @@ interface SetupStep {
     isComplete: boolean;
     to: string;
     actionLabel: string;
-}
-
-interface TherapistPricingRuleRecord {
-    id: number;
-    therapist_menu_id: string | null;
-    therapist_menu: {
-        public_id: string;
-        name: string;
-    } | null;
-    rule_type: string;
-    adjustment_type: string;
-    adjustment_amount: number;
-    is_active: boolean;
 }
 
 function statusTone(isComplete: boolean): string {
@@ -174,7 +162,7 @@ export function TherapistOnboardingPage() {
                 description: '顔や雰囲気が分かる写真を追加して、写真審査を進めます。',
                 value: photoReviewLabel(reviewStatus?.profile.photo_review_status),
                 isComplete: Boolean(isPhotoReady),
-                to: '/therapist/photos',
+                to: '/therapist/profile#profile-photos',
                 actionLabel: isPhotoReady ? '状態を確認' : '写真を追加',
             },
             {

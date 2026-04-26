@@ -366,6 +366,25 @@ export interface TherapistAvailabilitySlotRecord {
     blocking_booking_count: number;
 }
 
+export interface TherapistPricingRuleRecord {
+    id: number;
+    therapist_menu_id: string | null;
+    therapist_menu: {
+        public_id: string;
+        name: string;
+    } | null;
+    rule_type: string;
+    condition: Record<string, unknown>;
+    adjustment_type: string;
+    adjustment_amount: number;
+    min_price_amount: number | null;
+    max_price_amount: number | null;
+    priority: number;
+    is_active: boolean;
+    created_at: string;
+    updated_at: string;
+}
+
 export interface TherapistBookingRequestMenuSummary {
     public_id: string | null;
     name: string | null;
