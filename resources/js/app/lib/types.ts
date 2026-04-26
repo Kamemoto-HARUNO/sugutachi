@@ -246,6 +246,139 @@ export interface AdminReportRecord {
     created_at: string;
 }
 
+export interface AdminBookingAccountSummary {
+    public_id: string;
+    display_name: string | null;
+    email: string | null;
+    status?: string | null;
+}
+
+export interface AdminBookingTherapistProfileSummary {
+    public_id: string;
+    public_name: string;
+    profile_status?: string | null;
+}
+
+export interface AdminBookingTherapistMenuSummary {
+    public_id: string;
+    name: string;
+    duration_minutes?: number | null;
+    base_price_amount?: number | null;
+}
+
+export interface AdminBookingServiceAddressRecord {
+    public_id: string;
+    label: string | null;
+    place_type: string;
+    prefecture: string | null;
+    city: string | null;
+    postal_code?: string | null;
+    address_line?: string | null;
+    building?: string | null;
+    access_notes?: string | null;
+    lat: number | string;
+    lng: number | string;
+    is_default: boolean;
+}
+
+export interface AdminBookingListRecord {
+    public_id: string;
+    status: string;
+    is_on_demand: boolean;
+    scheduled_start_at: string | null;
+    scheduled_end_at: string | null;
+    duration_minutes: number;
+    cancel_reason_code: string | null;
+    interruption_reason_code: string | null;
+    interrupted_at: string | null;
+    cancel_reason_note: string | null;
+    total_amount: number;
+    therapist_net_amount: number;
+    platform_fee_amount: number;
+    matching_fee_amount: number;
+    user_account: AdminBookingAccountSummary | null;
+    therapist_account: AdminBookingAccountSummary | null;
+    therapist_profile: AdminBookingTherapistProfileSummary | null;
+    therapist_menu: AdminBookingTherapistMenuSummary | null;
+    service_address: AdminBookingServiceAddressRecord | null;
+    canceled_by_account: AdminBookingAccountSummary | null;
+    current_payment_intent_status: string | null;
+    refund_count: number;
+    auto_refund_count: number;
+    report_count: number;
+    interruption_report_count: number;
+    consent_count: number;
+    health_check_count: number;
+    open_dispute_count: number;
+    flagged_message_count: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface AdminBookingConsentRecord {
+    id: number;
+    booking_public_id: string | null;
+    account: AdminBookingAccountSummary | null;
+    consent_type: string;
+    legal_document: {
+        public_id: string | null;
+        document_type: string | null;
+        version: string | null;
+        title: string | null;
+    } | null;
+    consented_at: string | null;
+    created_at: string;
+}
+
+export interface AdminBookingHealthCheckRecord {
+    id: number;
+    booking_public_id: string | null;
+    account: AdminBookingAccountSummary | null;
+    role: string;
+    drinking_status: string | null;
+    has_injury: boolean;
+    has_fever: boolean;
+    contraindications: string[];
+    notes: string | null;
+    checked_at: string | null;
+    created_at: string;
+}
+
+export interface AdminBookingStatusLogRecord {
+    to_status: string;
+    actor: {
+        public_id: string | null;
+        display_name: string | null;
+    } | null;
+    actor_role: string | null;
+    reason_code: string | null;
+    metadata: Record<string, unknown> | null;
+    created_at: string;
+}
+
+export interface AdminBookingDetailRecord extends AdminBookingListRecord {
+    requested_start_at: string | null;
+    request_expires_at: string | null;
+    accepted_at: string | null;
+    confirmed_at: string | null;
+    moving_at: string | null;
+    arrived_at: string | null;
+    started_at: string | null;
+    ended_at: string | null;
+    canceled_at: string | null;
+    user_snapshot: Record<string, unknown> | null;
+    therapist_snapshot: Record<string, unknown> | null;
+    current_quote: BookingQuoteRecord | null;
+    current_payment_intent: PaymentIntentRecord | null;
+    auto_refund_count: number;
+    interruption_report_count: number;
+    refunds: RefundRequestRecord[];
+    reports: ReportRecord[];
+    consents: AdminBookingConsentRecord[];
+    health_checks: AdminBookingHealthCheckRecord[];
+    status_logs: AdminBookingStatusLogRecord[];
+}
+
 export interface ReportListMeta {
     total_count: number;
     open_count: number;

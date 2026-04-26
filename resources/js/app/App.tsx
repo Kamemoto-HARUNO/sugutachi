@@ -28,6 +28,7 @@ import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminAccountsPage } from './pages/AdminAccountsPage';
+import { AdminBookingsPage } from './pages/AdminBookingsPage';
 import { AdminReportsPage } from './pages/AdminReportsPage';
 import { PublicHomePage } from './pages/PublicHomePage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -238,10 +239,12 @@ function AppRoutes() {
                     <Route index element={<AdminDashboardPage />} />
                     <Route path="accounts" element={<AdminAccountsPage />} />
                     <Route path="accounts/:publicId" element={<AdminAccountsPage />} />
+                    <Route path="bookings" element={<AdminBookingsPage />} />
+                    <Route path="bookings/:publicId" element={<AdminBookingsPage />} />
                     <Route path="reports" element={<AdminReportsPage />} />
                     <Route path="reports/:publicId" element={<AdminReportsPage />} />
                     {adminPlaceholderRoutes
-                        .filter((route) => !['accounts', 'accounts/:publicId', 'reports', 'reports/:publicId'].includes(route.path))
+                        .filter((route) => !['accounts', 'accounts/:publicId', 'bookings', 'bookings/:publicId', 'reports', 'reports/:publicId'].includes(route.path))
                         .map((route) => (
                         <Route
                             key={route.path}
