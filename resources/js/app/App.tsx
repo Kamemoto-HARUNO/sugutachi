@@ -32,6 +32,7 @@ import { RoleSelectPage } from './pages/RoleSelectPage';
 import { SectionHomePage } from './pages/SectionHomePage';
 import { TherapistIdentityVerificationPage } from './pages/TherapistIdentityVerificationPage';
 import { TherapistAvailabilityPage } from './pages/TherapistAvailabilityPage';
+import { TherapistBookingsPage } from './pages/TherapistBookingsPage';
 import { TherapistOnboardingPage } from './pages/TherapistOnboardingPage';
 import { TherapistProfilePage } from './pages/TherapistProfilePage';
 import { TherapistRequestsPage } from './pages/TherapistRequestsPage';
@@ -178,8 +179,9 @@ function AppRoutes() {
                     <Route path="profile" element={<TherapistProfilePage />} />
                     <Route path="availability" element={<TherapistAvailabilityPage />} />
                     <Route path="requests" element={<TherapistRequestsPage />} />
+                    <Route path="bookings" element={<TherapistBookingsPage />} />
                     {therapistPlaceholderRoutes
-                        .filter((route) => !['onboarding', 'identity-verification', 'stripe-connect', 'profile', 'availability', 'requests'].includes(route.path))
+                        .filter((route) => !['onboarding', 'identity-verification', 'stripe-connect', 'profile', 'availability', 'requests', 'bookings'].includes(route.path))
                         .map((route) => (
                         <Route
                             key={route.path}
