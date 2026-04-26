@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
+import { BrandMark } from '../components/brand/BrandMark';
 import { getAccountDisplayName, getActiveRoles, formatRoleLabel } from '../lib/account';
 import type { NavItem, RoleName } from '../lib/types';
 import { useAuth } from '../hooks/useAuth';
@@ -31,9 +32,7 @@ export function DashboardLayout({ role, title, description, navItems }: Dashboar
                         <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                             <div className="space-y-4">
                                 <div className="flex flex-wrap items-center gap-3">
-                                    <Link to="/" className="text-sm font-semibold text-slate-300 transition hover:text-white">
-                                        すぐタチ
-                                    </Link>
+                                    <BrandMark inverse compact />
                                     <span className="rounded-full border border-[#e8d5b2]/30 bg-[#e8d5b2]/8 px-3 py-1 text-xs font-semibold tracking-wide text-[#f3dec0]">
                                         {formatRoleLabel(role)}
                                     </span>

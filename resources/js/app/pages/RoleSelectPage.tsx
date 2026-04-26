@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { BrandMark } from '../components/brand/BrandMark';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import {
@@ -355,9 +356,7 @@ export function RoleSelectPage() {
             <section className="grid gap-10 lg:grid-cols-[minmax(0,1.3fr)_360px] lg:items-start">
                 <div className="space-y-6">
                     <div className="flex flex-wrap items-center gap-3 text-sm text-slate-300">
-                        <Link to="/" className="font-semibold text-white transition hover:text-[#f3dec0]">
-                            すぐタチ
-                        </Link>
+                        <BrandMark inverse compact />
                         <span className="text-slate-500">/</span>
                         <span>利用モード管理</span>
                     </div>

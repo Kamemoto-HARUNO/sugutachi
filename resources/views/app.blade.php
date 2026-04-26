@@ -7,8 +7,14 @@
             name="description"
             content="すぐタチ - リラクゼーション / ボディケア / もみほぐしの予約・マッチングサービス"
         >
+        <meta name="theme-color" content="#17202b">
 
         <title>{{ config('service_meta.name', config('app.name', 'すぐタチ')) }}</title>
+
+        <link rel="icon" href="/favicon.ico" sizes="any">
+        <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+        <meta property="og:image" content="/logo-horizontal.png">
+        <meta name="twitter:image" content="/logo-horizontal.png">
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />

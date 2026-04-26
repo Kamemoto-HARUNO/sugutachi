@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { BrandMark } from '../components/brand/BrandMark';
 import { getAccountDisplayName, getRoleHomePath } from '../lib/account';
 import { publicNavItems } from '../lib/navigation';
 import { useAuth } from '../hooks/useAuth';
@@ -22,9 +23,7 @@ export function PublicLayout() {
             <header className="border-b border-white/10">
                 <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
                     <div className="space-y-1">
-                        <Link to="/" className="text-xl font-semibold tracking-tight text-white">
-                            すぐタチ
-                        </Link>
+                        <BrandMark inverse />
                         <p className="text-sm text-slate-300">
                             リラクゼーション / ボディケア / もみほぐしの予約プラットフォーム
                         </p>
