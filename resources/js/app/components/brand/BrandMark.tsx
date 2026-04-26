@@ -12,21 +12,16 @@ export function BrandMark({
     compact = false,
 }: BrandMarkProps) {
     const domainClass = inverse ? 'text-[#d2b179]' : 'text-[#6b7280]';
-    const shellClass = inverse
-        ? 'bg-white/96 shadow-[0_18px_40px_rgba(15,23,42,0.2)] ring-1 ring-white/10'
-        : 'bg-white shadow-[0_18px_40px_rgba(15,23,42,0.08)] ring-1 ring-slate-900/6';
     const logoHeightClass = compact ? 'h-9' : 'h-11';
     const textGapClass = compact ? 'gap-2' : 'gap-3';
 
     return (
         <Link to="/" className={['inline-flex items-center', textGapClass].join(' ')}>
-            <span className={['inline-flex shrink-0 items-center rounded-[18px] px-3 py-2', shellClass].join(' ')}>
-                <img
-                    src="/logo-horizontal.png"
-                    alt="すぐタチ ロゴ"
-                    className={['block w-auto', logoHeightClass].join(' ')}
-                />
-            </span>
+            <img
+                src="/logo-horizontal.png"
+                alt="すぐタチ ロゴ"
+                className={['block h-auto w-auto shrink-0', logoHeightClass].join(' ')}
+            />
 
             {domain ? (
                 <span className={['block font-medium tracking-tight', compact ? 'text-xs' : 'text-sm', domainClass].join(' ')}>
