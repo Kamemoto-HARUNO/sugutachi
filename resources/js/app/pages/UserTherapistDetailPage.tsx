@@ -169,6 +169,21 @@ export function UserTherapistDetailPage() {
 
         return `/user/therapists/${therapistDetail.public_id}/availability${nextQueryString ? `?${nextQueryString}` : ''}`;
     }, [highlightedMenu, scheduledStartAt, searchParams, therapistDetail]);
+    const intendedTravelRequestPath = useMemo(() => {
+        if (!therapistDetail) {
+            return null;
+        }
+
+        const nextParams = new URLSearchParams(searchParams);
+
+        if (selectedAddress?.prefecture) {
+            nextParams.set('prefecture', selectedAddress.prefecture);
+        }
+
+        const nextQueryString = nextParams.toString();
+
+        return `/user/therapists/${therapistDetail.public_id}/travel-request${nextQueryString ? `?${nextQueryString}` : ''}`;
+    }, [searchParams, selectedAddress?.prefecture, therapistDetail]);
     const canUseUserFlows = isAuthenticated && hasRole('user');
     const loginAvailabilityPath = intendedAvailabilityPath
         ? `/login?return_to=${encodeURIComponent(intendedAvailabilityPath)}`
@@ -180,6 +195,20 @@ export function UserTherapistDetailPage() {
         ? `/role-select?add_role=user&return_to=${encodeURIComponent(intendedAvailabilityPath)}`
         : '/role-select?add_role=user&return_to=%2Fuser';
     const availabilityPath = canUseUserFlows ? intendedAvailabilityPath ?? '/user/therapists' : loginAvailabilityPath;
+    const travelRequestLoginPath = intendedTravelRequestPath
+        ? `/login?return_to=${encodeURIComponent(intendedTravelRequestPath)}`
+        : '/login';
+    const travelRequestRegisterPath = intendedTravelRequestPath
+        ? `/register?return_to=${encodeURIComponent(intendedTravelRequestPath)}`
+        : '/register';
+    const travelRequestEnableRolePath = intendedTravelRequestPath
+        ? `/role-select?add_role=user&return_to=${encodeURIComponent(intendedTravelRequestPath)}`
+        : '/role-select?add_role=user&return_to=%2Fuser';
+    const travelRequestAction = canUseUserFlows
+        ? { label: '出張リクエストを送る', to: intendedTravelRequestPath ?? '/user/therapists' }
+        : isAuthenticated
+            ? { label: '利用者モードを追加して出張リクエストを送る', to: travelRequestEnableRolePath }
+            : { label: 'ログインして出張リクエストを送る', to: travelRequestLoginPath };
     const serviceAddressPath = canUseUserFlows
         ? '/user/service-addresses'
         : isAuthenticated
@@ -673,6 +702,20 @@ export function UserTherapistDetailPage() {
                                         >
                                             {secondaryAction.label}
                                         </Link>
+                                        <Link
+                                            to={travelRequestAction.to}
+                                            className="inline-flex w-full items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]"
+                                        >
+                                            {travelRequestAction.label}
+                                        </Link>
+                                        {!canUseUserFlows && !isAuthenticated ? (
+                                            <Link
+                                                to={travelRequestRegisterPath}
+                                                className="inline-flex w-full items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]"
+                                            >
+                                                無料登録してあとで送る
+                                            </Link>
+                                        ) : null}
                                     </div>
                                 </div>
                             </section>

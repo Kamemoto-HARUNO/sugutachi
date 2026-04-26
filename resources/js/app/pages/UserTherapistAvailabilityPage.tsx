@@ -459,6 +459,7 @@ export function UserTherapistAvailabilityPage() {
     const heroTitle = therapistDetail ? `${therapistDetail.public_name} の空き時間` : '空き時間選択';
     const detailPath = therapistDetail ? `/therapists/${therapistDetail.public_id}?${searchParams.toString()}` : '/user/therapists';
     const listPath = `/user/therapists${searchParams.toString() ? `?${searchParams.toString()}` : ''}`;
+    const travelRequestPath = therapistDetail ? `/user/therapists/${therapistDetail.public_id}/travel-request?${searchParams.toString()}` : '/user/therapists';
     const footerDescription = '15分単位の開始候補から予約リクエストを作成できます。リクエスト後は仮押さえになり、承認または期限切れまで与信を保持します。';
 
     return (
@@ -693,6 +694,12 @@ export function UserTherapistAvailabilityPage() {
                                         <p className="mt-2 text-sm leading-7 text-[#68707a]">
                                             別の日付を選ぶか、プロフィールに戻って条件を変えてみてください。セラピストが現在オンデマンド稼働中のときは、直近6時間以内の枠が非表示になります。
                                         </p>
+                                        <Link
+                                            to={travelRequestPath}
+                                            className="mt-5 inline-flex min-h-11 items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
+                                        >
+                                            このエリアで出張リクエストを送る
+                                        </Link>
                                     </div>
                                 )}
                             </section>
@@ -727,6 +734,12 @@ export function UserTherapistAvailabilityPage() {
                                         </p>
                                     </div>
                                 </div>
+                                <Link
+                                    to={travelRequestPath}
+                                    className="mt-6 inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
+                                >
+                                    枠が合わないときは出張リクエストを送る
+                                </Link>
                             </section>
 
                             <section className="rounded-[32px] bg-[#17202b] p-6 text-white shadow-[0_18px_36px_rgba(23,32,43,0.12)]">

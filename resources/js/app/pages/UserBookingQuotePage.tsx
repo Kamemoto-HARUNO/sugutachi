@@ -173,6 +173,16 @@ export function UserBookingQuotePage() {
     const requestPath = `/user/booking-request?${searchParams.toString()}`;
     const availabilityPath = `/user/therapists/${therapistId}/availability?${searchParams.toString()}`;
     const hasPrerequisites = Boolean(selectedAddress && selectedMenu && quote);
+    const paymentParams = new URLSearchParams(searchParams);
+
+    if (quote) {
+        paymentParams.set('quote_id', quote.quote_id);
+        paymentParams.set('quote_total_amount', String(quote.amounts.total_amount));
+        paymentParams.set('quote_expires_at', quote.expires_at ?? '');
+        paymentParams.set('walking_time_range', quote.walking_time_range ?? '');
+    }
+
+    const paymentPath = `/user/booking-request/payment?${paymentParams.toString()}`;
 
     return (
         <div className="mx-auto max-w-6xl space-y-6">
@@ -297,20 +307,25 @@ export function UserBookingQuotePage() {
                             </div>
                         </div>
 
-                        <div className="mt-6 rounded-[22px] bg-[#f8f4ed] px-4 py-4 text-sm leading-7 text-[#68707a]">
-                            カード与信のフロント導線は次に接続します。いまは見積もりまでを実データで確認できる状態です。
-                        </div>
-
                         <div className="mt-6 space-y-3">
-                            <button
-                                type="button"
-                                disabled
-                                className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] opacity-60"
-                            >
-                                {hasPrerequisites ? '次にカード与信をつなぎます' : '内容を見直してください'}
-                            </button>
+                            {hasPrerequisites ? (
+                                <Link
+                                    to={paymentPath}
+                                    className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105"
+                                >
+                                    支払い確認へ進む
+                                </Link>
+                            ) : (
+                                <button
+                                    type="button"
+                                    disabled
+                                    className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] opacity-60"
+                                >
+                                    内容を見直してください
+                                </button>
+                            )}
                             <p className="text-xs leading-6 text-[#7d6852]">
-                                ここまでで、公開プロフィール → 空き時間 → 予約内容 → 見積もり確認までプレビューできます。
+                                見積もり内容を保持したまま、次の画面で予約作成とカード与信の確認へ進めます。
                             </p>
                         </div>
                     </section>

@@ -46,12 +46,14 @@ import { TherapistTravelRequestsPage } from './pages/TherapistTravelRequestsPage
 import { UserBookingDetailPage } from './pages/UserBookingDetailPage';
 import { UserBookingMessagesPage } from './pages/UserBookingMessagesPage';
 import { UserBookingCancelPage } from './pages/UserBookingCancelPage';
+import { UserBookingPaymentPage } from './pages/UserBookingPaymentPage';
 import { UserBookingReviewPage } from './pages/UserBookingReviewPage';
 import { UserBookingsPage } from './pages/UserBookingsPage';
 import { UserBookingQuotePage } from './pages/UserBookingQuotePage';
 import { UserBookingRequestPage } from './pages/UserBookingRequestPage';
 import { UserBookingRefundPage } from './pages/UserBookingRefundPage';
 import { UserBookingReportPage } from './pages/UserBookingReportPage';
+import { UserBookingWaitingPage } from './pages/UserBookingWaitingPage';
 import { UserIdentityVerificationPage } from './pages/UserIdentityVerificationPage';
 import { UserBlocksPage } from './pages/UserBlocksPage';
 import { UserProfilePage } from './pages/UserProfilePage';
@@ -59,6 +61,7 @@ import { UserReportsPage } from './pages/UserReportsPage';
 import { UserServiceAddressesPage } from './pages/UserServiceAddressesPage';
 import { UserTherapistAvailabilityPage } from './pages/UserTherapistAvailabilityPage';
 import { UserTherapistDetailPage } from './pages/UserTherapistDetailPage';
+import { UserTherapistTravelRequestPage } from './pages/UserTherapistTravelRequestPage';
 import { UserTherapistSearchPage } from './pages/UserTherapistSearchPage';
 import { AuthProvider } from './providers/AuthProvider';
 
@@ -130,6 +133,9 @@ function AppRoutes() {
                     <Route path="service-addresses" element={<UserServiceAddressesPage />} />
                     <Route path="booking-request" element={<UserBookingRequestPage />} />
                     <Route path="booking-request/quote" element={<UserBookingQuotePage />} />
+                    <Route path="booking-request/payment" element={<UserBookingPaymentPage />} />
+                    <Route path="booking-request/waiting" element={<UserBookingWaitingPage />} />
+                    <Route path="therapists/:publicId/travel-request" element={<UserTherapistTravelRequestPage />} />
                     {userPlaceholderRoutes
                         .filter(
                             (route) =>
@@ -148,8 +154,11 @@ function AppRoutes() {
                                 && route.path !== 'service-addresses'
                                 && route.path !== 'booking-request'
                                 && route.path !== 'booking-request/quote'
+                                && route.path !== 'booking-request/payment'
+                                && route.path !== 'booking-request/waiting'
                                 && route.path !== 'therapists/:publicId'
-                                && route.path !== 'therapists/:publicId/availability',
+                                && route.path !== 'therapists/:publicId/availability'
+                                && route.path !== 'therapists/:publicId/travel-request'
                         )
                         .map((route) => (
                         <Route
