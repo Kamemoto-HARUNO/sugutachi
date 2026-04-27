@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\AccountBlock;
+use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\Report;
 use App\Models\ServiceAddress;
@@ -19,6 +20,13 @@ class ReportAndBlockApiTest extends TestCase
 
     public function test_booking_participant_can_create_and_view_report(): void
     {
+        $admin = Account::factory()->create(['public_id' => 'acc_admin_report_notice']);
+        $admin->roleAssignments()->create([
+            'role' => 'admin',
+            'status' => 'active',
+            'granted_at' => now(),
+        ]);
+
         [$user, $therapist, $booking] = $this->createReportFixture();
 
         $reportId = $this->withToken($user->createToken('api')->plainTextToken)
@@ -49,6 +57,12 @@ class ReportAndBlockApiTest extends TestCase
         $this->assertDatabaseHas('report_actions', [
             'report_id' => Report::query()->where('public_id', $reportId)->value('id'),
             'action_type' => 'report_created',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $admin->id,
+            'notification_type' => 'report_created',
+            'channel' => 'in_app',
+            'status' => AppNotification::STATUS_SENT,
         ]);
 
         $this->withToken($user->createToken('api')->plainTextToken)

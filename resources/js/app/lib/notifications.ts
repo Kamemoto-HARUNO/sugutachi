@@ -52,6 +52,16 @@ export function formatNotificationTypeLabel(type: string | null | undefined): st
             return '出張リクエスト注意';
         case 'travel_request_restricted':
             return '出張リクエスト制限';
+        case 'identity_verification_submitted':
+            return '本人確認提出';
+        case 'contact_inquiry_received':
+            return '問い合わせ受信';
+        case 'refund_requested':
+            return '返金申請受信';
+        case 'payout_requested':
+            return '出金申請受信';
+        case 'report_created':
+            return '通報受信';
         default:
             return 'アプリ通知';
     }

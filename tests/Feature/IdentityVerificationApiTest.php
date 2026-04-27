@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\AppNotification;
 use App\Models\IdentityVerification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -16,6 +17,13 @@ class IdentityVerificationApiTest extends TestCase
     public function test_account_can_upload_temp_files_and_submit_identity_verification(): void
     {
         Storage::fake('local');
+
+        $admin = Account::factory()->create(['public_id' => 'acc_admin_identity_notice']);
+        $admin->roleAssignments()->create([
+            'role' => 'admin',
+            'status' => 'active',
+            'granted_at' => now(),
+        ]);
 
         $account = Account::factory()->create();
         $token = $account->createToken('api')->plainTextToken;
@@ -69,6 +77,12 @@ class IdentityVerificationApiTest extends TestCase
         $this->assertDatabaseHas('temp_files', [
             'file_id' => $selfieFileId,
             'status' => 'used',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $admin->id,
+            'notification_type' => 'identity_verification_submitted',
+            'channel' => 'in_app',
+            'status' => AppNotification::STATUS_SENT,
         ]);
 
         $this->withToken($token)

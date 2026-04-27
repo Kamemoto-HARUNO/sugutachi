@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\RefundResource;
 use App\Models\Booking;
 use App\Models\Refund;
+use App\Services\Notifications\AdminNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -32,10 +33,10 @@ class RefundRequestController extends Controller
         );
     }
 
-    public function store(Request $request, Booking $booking): JsonResponse
+    public function store(Request $request, Booking $booking, AdminNotificationService $adminNotificationService): JsonResponse
     {
         abort_unless($booking->user_account_id === $request->user()->id, 404);
-        abort_unless(in_array($booking->status, self::REFUNDABLE_BOOKING_STATUSES, true), 409, 'This booking is not refundable yet.');
+        abort_unless(in_array($booking->status, self::REFUNDABLE_BOOKING_STATUSES, true), 409, 'この予約は、まだ返金申請を受け付けられません。');
 
         $validated = $request->validate([
             'reason_code' => ['required', 'string', 'max:100'],
@@ -47,7 +48,7 @@ class RefundRequestController extends Controller
             ->whereIn('status', [Refund::STATUS_REQUESTED, Refund::STATUS_APPROVED])
             ->exists();
 
-        abort_if($hasOpenRefund, 409, 'An open refund request already exists for this booking.');
+        abort_if($hasOpenRefund, 409, 'この予約には、すでに対応中の返金申請があります。');
 
         $booking->load('currentPaymentIntent');
 
@@ -63,6 +64,8 @@ class RefundRequestController extends Controller
                 : null,
             'requested_amount' => $validated['requested_amount'] ?? $booking->total_amount,
         ]);
+
+        $adminNotificationService->notifyRefundRequested($refund->fresh(['booking', 'requestedBy']));
 
         return (new RefundResource($refund->load('booking')))
             ->response()

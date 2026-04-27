@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\IdentityVerificationResource;
 use App\Models\IdentityVerification;
 use App\Models\TempFile;
+use App\Services\Notifications\AdminNotificationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -18,12 +19,12 @@ class IdentityVerificationController extends Controller
 {
     public function store(Request $request): JsonResponse
     {
-        return $this->submit($request);
+        return $this->submit($request, adminNotificationService: app(AdminNotificationService::class));
     }
 
     public function resubmit(Request $request): JsonResponse
     {
-        return $this->submit($request, requiresRejectedLatest: true);
+        return $this->submit($request, requiresRejectedLatest: true, adminNotificationService: app(AdminNotificationService::class));
     }
 
     public function latest(Request $request): IdentityVerificationResource
@@ -36,7 +37,11 @@ class IdentityVerificationController extends Controller
         return new IdentityVerificationResource($verification);
     }
 
-    private function submit(Request $request, bool $requiresRejectedLatest = false): JsonResponse
+    private function submit(
+        Request $request,
+        bool $requiresRejectedLatest = false,
+        ?AdminNotificationService $adminNotificationService = null,
+    ): JsonResponse
     {
         $oldestAllowedBirthdate = now()->subYears(18)->toDateString();
 
@@ -98,6 +103,8 @@ class IdentityVerificationController extends Controller
 
             return $verification;
         });
+
+        $adminNotificationService?->notifyIdentityVerificationSubmitted($verification->fresh('account'));
 
         return (new IdentityVerificationResource($verification))
             ->response()

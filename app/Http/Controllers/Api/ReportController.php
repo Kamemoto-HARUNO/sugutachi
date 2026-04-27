@@ -7,6 +7,7 @@ use App\Http\Resources\ReportResource;
 use App\Models\Account;
 use App\Models\Booking;
 use App\Models\Report;
+use App\Services\Notifications\AdminNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -87,7 +88,7 @@ class ReportController extends Controller
         ]);
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, AdminNotificationService $adminNotificationService): JsonResponse
     {
         $validated = $request->validate([
             'booking_id' => ['nullable', 'string', 'max:36'],
@@ -109,7 +110,7 @@ class ReportController extends Controller
             $this->assertReportTargetBelongsToBooking($booking, $target);
         }
 
-        abort_if($target && $target->id === $request->user()->id, 422, 'You cannot report yourself.');
+        abort_if($target && $target->id === $request->user()->id, 422, '自分自身を通報することはできません。');
 
         $report = Report::create([
             'public_id' => 'rep_'.Str::ulid(),
@@ -135,6 +136,7 @@ class ReportController extends Controller
 
         $report = $report->load(['booking', 'sourceBookingMessage.sender', 'reporter', 'target']);
         $report->setAttribute('include_detail', true);
+        $adminNotificationService->notifyReportCreated($report);
 
         return (new ReportResource($report))
             ->response()
@@ -168,7 +170,7 @@ class ReportController extends Controller
         abort_unless(
             $target->id === $booking->user_account_id || $target->id === $booking->therapist_account_id,
             422,
-            'The target account is not part of this booking.'
+            '指定した相手はこの予約の参加者ではありません。'
         );
     }
 }

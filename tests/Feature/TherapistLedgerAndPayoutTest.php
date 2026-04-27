@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\PayoutRequest;
 use App\Models\ServiceAddress;
@@ -110,6 +111,13 @@ class TherapistLedgerAndPayoutTest extends TestCase
 
     public function test_therapist_can_request_full_available_payout(): void
     {
+        $admin = Account::factory()->create(['public_id' => 'acc_admin_payout_notice']);
+        $admin->roleAssignments()->create([
+            'role' => 'admin',
+            'status' => 'active',
+            'granted_at' => now(),
+        ]);
+
         [, $therapist, $booking, $connectedAccount] = $this->createPayoutFixture();
 
         TherapistLedgerEntry::create([
@@ -143,6 +151,12 @@ class TherapistLedgerAndPayoutTest extends TestCase
             'therapist_account_id' => $therapist->id,
             'booking_id' => $booking->id,
             'status' => TherapistLedgerEntry::STATUS_PAYOUT_REQUESTED,
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $admin->id,
+            'notification_type' => 'payout_requested',
+            'channel' => 'in_app',
+            'status' => AppNotification::STATUS_SENT,
         ]);
     }
 

@@ -89,6 +89,12 @@ class BookingSafetyTest extends TestCase
     public function test_therapist_can_interrupt_booking_and_create_safety_report(): void
     {
         $gatewayState = $this->bindPaymentGateways();
+        $admin = Account::factory()->create(['public_id' => 'acc_admin_interrupt_notice']);
+        $admin->roleAssignments()->create([
+            'role' => 'admin',
+            'status' => 'active',
+            'granted_at' => now(),
+        ]);
 
         [$user, $therapist, $booking, $paymentIntent] = $this->createSafetyBookingFixture(
             status: Booking::STATUS_ARRIVED,
@@ -129,6 +135,12 @@ class BookingSafetyTest extends TestCase
             'notification_type' => 'booking_interrupted',
             'channel' => 'in_app',
             'status' => 'sent',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $admin->id,
+            'notification_type' => 'report_created',
+            'channel' => 'in_app',
+            'status' => AppNotification::STATUS_SENT,
         ]);
         $this->assertDatabaseHas('payment_intents', [
             'id' => $paymentIntent->id,
@@ -259,6 +271,12 @@ class BookingSafetyTest extends TestCase
     public function test_user_can_dispute_pending_no_show_and_void_authorization(): void
     {
         $gatewayState = $this->bindPaymentGateways();
+        $admin = Account::factory()->create(['public_id' => 'acc_admin_no_show_dispute_notice']);
+        $admin->roleAssignments()->create([
+            'role' => 'admin',
+            'status' => 'active',
+            'granted_at' => now(),
+        ]);
 
         [$user, $therapist, $booking, $paymentIntent] = $this->createSafetyBookingFixture(
             status: Booking::STATUS_MOVING,
@@ -299,6 +317,12 @@ class BookingSafetyTest extends TestCase
             'notification_type' => 'booking_no_show_disputed',
             'channel' => 'in_app',
             'status' => 'sent',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $admin->id,
+            'notification_type' => 'report_created',
+            'channel' => 'in_app',
+            'status' => AppNotification::STATUS_SENT,
         ]);
         $this->assertSame([$paymentIntent->stripe_payment_intent_id], $gatewayState->canceledStripeIds);
     }

@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\AppNotification;
 use App\Models\IdentityVerification;
 use App\Models\LegalDocument;
 use App\Models\TherapistMenu;
@@ -218,6 +219,13 @@ class PublicInfoApiTest extends TestCase
 
     public function test_guest_can_submit_contact_inquiry(): void
     {
+        $admin = Account::factory()->create(['public_id' => 'acc_admin_contact_notice']);
+        $admin->roleAssignments()->create([
+            'role' => 'admin',
+            'status' => 'active',
+            'granted_at' => now(),
+        ]);
+
         $this->postJson('/api/contact', [
             'name' => 'ゲスト利用者',
             'email' => 'guest@example.com',
@@ -233,6 +241,12 @@ class PublicInfoApiTest extends TestCase
             'email' => 'guest@example.com',
             'category' => 'service',
             'source' => 'guest',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $admin->id,
+            'notification_type' => 'contact_inquiry_received',
+            'channel' => 'in_app',
+            'status' => AppNotification::STATUS_SENT,
         ]);
     }
 

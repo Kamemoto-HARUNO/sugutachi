@@ -15,6 +15,7 @@ use App\Models\LegalDocument;
 use App\Models\PaymentIntent;
 use App\Models\Report;
 use App\Services\Bookings\BookingCancellationSettlementService;
+use App\Services\Notifications\AdminNotificationService;
 use App\Services\Notifications\BookingNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -141,6 +142,7 @@ class BookingSafetyController extends Controller
         Request $request,
         Booking $booking,
         BookingCancellationSettlementService $settlementService,
+        AdminNotificationService $adminNotificationService,
         BookingNotificationService $bookingNotificationService,
     ): JsonResponse {
         $actor = $this->authorizeParticipant($request, $booking);
@@ -325,6 +327,7 @@ class BookingSafetyController extends Controller
         });
 
         $settlementService->settle($interruptedBooking, $settlement);
+        $adminNotificationService->notifyReportCreated($report);
         $bookingNotificationService->notifyInterrupted(
             $this->loadParticipantBooking($interruptedBooking->fresh()),
             responsibility: $validated['responsibility'],
@@ -447,6 +450,7 @@ class BookingSafetyController extends Controller
         Request $request,
         Booking $booking,
         BookingCancellationSettlementService $settlementService,
+        AdminNotificationService $adminNotificationService,
         BookingNotificationService $bookingNotificationService,
     ): JsonResponse {
         $actor = $this->authorizeParticipant($request, $booking);
@@ -527,6 +531,7 @@ class BookingSafetyController extends Controller
         });
 
         $settlementService->settle($interruptedBooking, $settlement);
+        $adminNotificationService->notifyReportCreated($report);
         $bookingNotificationService->notifyNoShowDisputed($interruptedBooking->refresh());
 
         return response()->json([

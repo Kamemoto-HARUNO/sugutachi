@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\PaymentIntent;
 use App\Models\Refund;
@@ -18,6 +19,13 @@ class RefundRequestTest extends TestCase
 
     public function test_user_can_create_refund_request_for_completed_booking(): void
     {
+        $admin = Account::factory()->create(['public_id' => 'acc_admin_refund_notice']);
+        $admin->roleAssignments()->create([
+            'role' => 'admin',
+            'status' => 'active',
+            'granted_at' => now(),
+        ]);
+
         [$user, , $booking, $paymentIntent] = $this->createRefundFixture(Booking::STATUS_COMPLETED);
 
         $refundId = $this->withToken($user->createToken('api')->plainTextToken)
@@ -41,6 +49,12 @@ class RefundRequestTest extends TestCase
             'status' => Refund::STATUS_REQUESTED,
             'reason_code' => 'service_issue',
             'requested_amount' => 5000,
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $admin->id,
+            'notification_type' => 'refund_requested',
+            'channel' => 'in_app',
+            'status' => AppNotification::STATUS_SENT,
         ]);
     }
 

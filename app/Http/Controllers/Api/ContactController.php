@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ContactInquiryResource;
 use App\Models\ContactInquiry;
+use App\Services\Notifications\AdminNotificationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
@@ -13,7 +14,7 @@ use Illuminate\Validation\ValidationException;
 
 class ContactController extends Controller
 {
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, AdminNotificationService $adminNotificationService): JsonResponse
     {
         $account = $request->user('sanctum');
 
@@ -48,6 +49,8 @@ class ContactController extends Controller
                 : null,
             'user_agent' => Str::limit((string) $request->userAgent(), 500, ''),
         ]);
+
+        $adminNotificationService->notifyContactInquiryReceived($inquiry);
 
         return (new ContactInquiryResource($inquiry))
             ->response()

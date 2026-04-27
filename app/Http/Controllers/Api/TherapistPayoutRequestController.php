@@ -7,6 +7,7 @@ use App\Http\Resources\PayoutRequestResource;
 use App\Models\PayoutRequest;
 use App\Models\StripeConnectedAccount;
 use App\Models\TherapistLedgerEntry;
+use App\Services\Notifications\AdminNotificationService;
 use Carbon\CarbonImmutable;
 use Carbon\CarbonInterface;
 use Illuminate\Http\JsonResponse;
@@ -39,7 +40,7 @@ class TherapistPayoutRequestController extends Controller
         );
     }
 
-    public function store(Request $request): JsonResponse
+    public function store(Request $request, AdminNotificationService $adminNotificationService): JsonResponse
     {
         $account = $request->user();
         $therapistProfile = $account->therapistProfile()->with('stripeConnectedAccount')->first();
@@ -54,7 +55,7 @@ class TherapistPayoutRequestController extends Controller
         ]);
         $requestedAmount = $validated['requested_amount'] ?? $availableAmount;
 
-        abort_unless($requestedAmount > 0, 409, 'No available balance for payout.');
+        abort_unless($requestedAmount > 0, 409, '出金申請できる残高がありません。');
         abort_unless(
             $requestedAmount === $availableAmount,
             422,
@@ -72,7 +73,7 @@ class TherapistPayoutRequestController extends Controller
                 ->lockForUpdate()
                 ->get();
 
-            abort_unless($entries->sum('amount_signed') === $requestedAmount, 409, 'Available balance changed. Please retry.');
+            abort_unless($entries->sum('amount_signed') === $requestedAmount, 409, '出金可能額が更新されました。もう一度やり直してください。');
 
             $payoutRequest = PayoutRequest::create([
                 'public_id' => 'pay_'.Str::ulid(),
@@ -96,6 +97,8 @@ class TherapistPayoutRequestController extends Controller
 
             return $payoutRequest;
         });
+
+        $adminNotificationService->notifyPayoutRequested($payoutRequest->fresh('therapistAccount'));
 
         return (new PayoutRequestResource($payoutRequest))
             ->response()
