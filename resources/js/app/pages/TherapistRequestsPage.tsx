@@ -11,6 +11,7 @@ import { formatDateTime } from '../lib/therapist';
 import type {
     ApiEnvelope,
     BookingDetailRecord,
+    BookingCounterpartyUserProfile,
     TherapistBookingRequestRecord,
 } from '../lib/types';
 
@@ -222,6 +223,106 @@ function openDateTimePicker(input: HTMLInputElement | null) {
     }
 
     input.click();
+}
+
+const ageRangeLabels: Record<string, string> = {
+    '18_24': '18-24歳',
+    '20s': '20代',
+    '30s': '30代',
+    '40s': '40代',
+    '50s': '50代',
+    '60_plus': '60歳以上',
+};
+
+const bodyTypeLabels: Record<string, string> = {
+    slim: '細身',
+    average: '普通',
+    muscular: '筋肉質',
+    chubby: 'ぽっちゃり',
+    large: '大柄',
+    other: 'その他',
+};
+
+const weightRangeLabels: Record<string, string> = {
+    '40_49': '40-49kg',
+    '50_59': '50-59kg',
+    '60_69': '60-69kg',
+    '70_79': '70-79kg',
+    '80_89': '80-89kg',
+    '90_plus': '90kg以上',
+};
+
+const orientationLabels: Record<string, string> = {
+    gay: 'ゲイ',
+    bi: 'バイ',
+    straight: 'ストレート',
+    other: 'その他',
+    no_answer: '回答しない',
+};
+
+const genderIdentityLabels: Record<string, string> = {
+    cis_male: 'シス男性',
+    trans_male: 'トランス男性',
+    other: 'その他',
+    no_answer: '回答しない',
+};
+
+function formatProfileValue(
+    value: string | null | undefined,
+    labels: Record<string, string>,
+): string | null {
+    if (!value) {
+        return null;
+    }
+
+    return labels[value] ?? value;
+}
+
+function formatSharedProfileList(
+    value: string[] | Record<string, string> | null | undefined,
+): string | null {
+    if (!value) {
+        return null;
+    }
+
+    if (Array.isArray(value)) {
+        const normalized = value.map((entry) => entry.trim()).filter(Boolean);
+
+        return normalized.length > 0 ? normalized.join(' / ') : null;
+    }
+
+    const entries = Object.entries(value)
+        .map(([key, entryValue]) => `${key}: ${entryValue}`)
+        .filter(Boolean);
+
+    return entries.length > 0 ? entries.join(' / ') : null;
+}
+
+function buildUserProfileItems(profile: BookingCounterpartyUserProfile | null | undefined) {
+    if (!profile) {
+        return [];
+    }
+
+    return [
+        { label: '年代', value: formatProfileValue(profile.age_range, ageRangeLabels) },
+        { label: '体型', value: formatProfileValue(profile.body_type, bodyTypeLabels) },
+        { label: '身長', value: profile.height_cm != null ? `${profile.height_cm}cm` : null },
+        { label: '体重帯', value: formatProfileValue(profile.weight_range, weightRangeLabels) },
+    ].filter((item): item is { label: string; value: string } => Boolean(item.value));
+}
+
+function buildSharedProfileItems(profile: BookingCounterpartyUserProfile | null | undefined) {
+    if (!profile || !profile.disclose_sensitive_profile_to_therapist) {
+        return [];
+    }
+
+    return [
+        { label: '希望条件', value: formatSharedProfileList(profile.preferences) },
+        { label: 'NG事項', value: formatSharedProfileList(profile.touch_ng) },
+        { label: '健康メモ', value: profile.health_notes },
+        { label: '指向', value: formatProfileValue(profile.sexual_orientation, orientationLabels) },
+        { label: '性自認', value: formatProfileValue(profile.gender_identity, genderIdentityLabels) },
+    ].filter((item): item is { label: string; value: string } => Boolean(item.value));
 }
 
 export function TherapistRequestsPage() {
@@ -445,6 +546,9 @@ export function TherapistRequestsPage() {
         : selectedRequest?.request_expires_in_minutes ?? null;
     const minimumProposalStartAt = formatJstDateTimeLocalValue(new Date(now).toISOString());
     const minimumProposalEndAt = proposedStartAt || minimumProposalStartAt;
+    const counterpartyUserProfile = selectedBooking?.counterparty?.user_profile ?? null;
+    const basicUserProfileItems = buildUserProfileItems(counterpartyUserProfile);
+    const sharedUserProfileItems = buildSharedProfileItems(counterpartyUserProfile);
 
     async function handleAccept() {
         if (!token || !selectedBooking || isAccepting) {
@@ -706,6 +810,59 @@ export function TherapistRequestsPage() {
                                     </p>
                                 </div>
                             </div>
+
+                            <section className="rounded-[24px] border border-white/10 bg-[#17202b] px-5 py-5">
+                                <div className="space-y-2">
+                                    <p className="text-xs font-semibold tracking-wide text-slate-400">依頼者プロフィール</p>
+                                    <h3 className="text-lg font-semibold text-white">承諾前に確認したい利用者情報</h3>
+                                </div>
+
+                                <div className="mt-4 space-y-4 rounded-[20px] border border-white/10 bg-white/5 px-4 py-4">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${counterpartyUserProfile?.identity_verified ? 'bg-emerald-400/15 text-emerald-100' : 'bg-rose-300/15 text-rose-100'}`}>
+                                            本人確認 {counterpartyUserProfile?.identity_verified ? '完了' : '未完了'}
+                                        </span>
+                                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${counterpartyUserProfile?.age_verified ? 'bg-emerald-400/15 text-emerald-100' : 'bg-rose-300/15 text-rose-100'}`}>
+                                            年齢確認 {counterpartyUserProfile?.age_verified ? '完了' : '未完了'}
+                                        </span>
+                                    </div>
+
+                                    {basicUserProfileItems.length > 0 ? (
+                                        <div className="grid gap-4 sm:grid-cols-2">
+                                            {basicUserProfileItems.map((item) => (
+                                                <div key={item.label}>
+                                                    <p className="text-xs font-semibold tracking-wide text-slate-400">{item.label}</p>
+                                                    <p className="mt-1 text-sm font-semibold text-white">{item.value}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm leading-7 text-slate-300">
+                                            利用者プロフィールの基本情報はまだ設定されていません。
+                                        </p>
+                                    )}
+
+                                    {counterpartyUserProfile?.disclose_sensitive_profile_to_therapist ? (
+                                        sharedUserProfileItems.length > 0 ? (
+                                            <div className="space-y-3 border-t border-white/10 pt-4">
+                                                <p className="text-xs font-semibold tracking-wide text-slate-400">共有されている希望条件</p>
+                                                <div className="space-y-3">
+                                                    {sharedUserProfileItems.map((item) => (
+                                                        <div key={item.label}>
+                                                            <p className="text-xs font-semibold tracking-wide text-slate-400">{item.label}</p>
+                                                            <p className="mt-1 text-sm leading-7 text-slate-200">{item.value}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ) : null
+                                    ) : (
+                                        <p className="text-sm leading-7 text-slate-300">
+                                            希望条件や健康メモなどの詳細プロフィールは、この利用者からは共有されていません。
+                                        </p>
+                                    )}
+                                </div>
+                            </section>
 
                             {selectedBooking.request_type === 'scheduled' ? (
                                 <>
