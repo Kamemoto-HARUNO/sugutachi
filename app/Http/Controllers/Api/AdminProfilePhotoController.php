@@ -8,6 +8,9 @@ use App\Http\Controllers\Api\Concerns\ResolvesAdminFilterIds;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\ProfilePhotoResource;
 use App\Models\ProfilePhoto;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Validation\Rule;
@@ -108,6 +111,43 @@ class AdminProfilePhotoController extends Controller
         $this->recordAdminAudit($request, 'profile_photo.reject', $profilePhoto, $before, $this->snapshot($profilePhoto->refresh()));
 
         return new ProfilePhotoResource($profilePhoto->load(['account', 'therapistProfile', 'reviewedBy']));
+    }
+
+    public function destroy(Request $request, ProfilePhoto $profilePhoto)
+    {
+        $admin = $request->user();
+        $this->authorizeAdmin($admin);
+
+        $profilePhoto->loadMissing('therapistProfile');
+        $before = $this->snapshot($profilePhoto);
+
+        rescue(function () use ($profilePhoto): void {
+            Storage::disk('local')->delete(Crypt::decryptString($profilePhoto->storage_key_encrypted));
+        }, report: false);
+
+        DB::transaction(function () use ($profilePhoto): void {
+            $therapistProfile = $profilePhoto->therapistProfile;
+            $profilePhoto->delete();
+
+            if ($therapistProfile) {
+                $hasApproved = $therapistProfile->photos()->where('status', ProfilePhoto::STATUS_APPROVED)->exists();
+                $hasPending = $therapistProfile->photos()->where('status', ProfilePhoto::STATUS_PENDING)->exists();
+                $hasRejected = $therapistProfile->photos()->where('status', ProfilePhoto::STATUS_REJECTED)->exists();
+
+                $therapistProfile->forceFill([
+                    'photo_review_status' => match (true) {
+                        $hasApproved => ProfilePhoto::STATUS_APPROVED,
+                        $hasPending => ProfilePhoto::STATUS_PENDING,
+                        $hasRejected => ProfilePhoto::STATUS_REJECTED,
+                        default => ProfilePhoto::STATUS_PENDING,
+                    },
+                ])->save();
+            }
+        });
+
+        $this->recordAdminAudit($request, 'profile_photo.delete', $profilePhoto, $before, null);
+
+        return response()->json(null, 204);
     }
 
     private function snapshot(ProfilePhoto $profilePhoto): array

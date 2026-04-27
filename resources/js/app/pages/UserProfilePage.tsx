@@ -456,7 +456,7 @@ export function UserProfilePage() {
             key: 'photo',
             label: 'プロフィール写真',
             description: hasReadyPhoto
-                ? '審査待ちまたは承認済みの写真があります。'
+                ? '公開中または確認中の写真があります。'
                 : '共通プロフィール写真を追加して、相手に安心感を伝えます。',
             isComplete: hasReadyPhoto,
             actionLabel: '写真を確認する',
@@ -659,7 +659,7 @@ export function UserProfilePage() {
 
             await loadData();
             setPhotoFile(null);
-            setPhotoSuccess('プロフィール写真を追加しました。審査待ちとして保存されています。');
+            setPhotoSuccess('プロフィール写真を追加しました。すぐにアカウントへ反映されます。');
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -1042,7 +1042,7 @@ export function UserProfilePage() {
                                             <p className="font-semibold text-[#17202b]">{photoFile.name}</p>
                                             <p>{formatFileSize(photoFile.size)}</p>
                                             <p className="text-xs leading-6 text-[#7a7066]">
-                                                追加後は審査待ちになります。顔が見やすく、明るい写真だと通りやすくなります。
+                                                追加した写真はそのままプロフィールに反映されます。顔が見やすく、明るい写真だと印象が伝わりやすくなります。
                                             </p>
                                             <button
                                                 type="button"

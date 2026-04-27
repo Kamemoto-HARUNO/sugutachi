@@ -527,6 +527,7 @@ export interface TherapistProfileRecord {
     training_status: string | null;
     photo_review_status: string;
     is_online: boolean;
+    is_listed: boolean;
     online_since: string | null;
     last_location_updated_at: string | null;
     rating_average: number;
@@ -1282,6 +1283,7 @@ export interface AdminProfilePhotoRecord {
     status: string;
     rejection_reason_code: string | null;
     sort_order: number;
+    url: string | null;
     account?: {
         public_id: string | null;
         display_name: string | null;

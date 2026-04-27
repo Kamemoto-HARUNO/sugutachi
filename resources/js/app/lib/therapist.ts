@@ -3,13 +3,13 @@ import { formatJstDate, formatJstDateTime } from './datetime';
 export function formatProfileStatus(status: string | null | undefined): string {
     switch (status) {
         case 'draft':
-            return '下書き';
+            return '公開準備中';
         case 'pending':
-            return '審査待ち';
+            return '確認中';
         case 'approved':
-            return '承認済み';
+            return '公開可能';
         case 'rejected':
-            return '差し戻し';
+            return '非公開';
         case 'suspended':
             return '停止中';
         default:

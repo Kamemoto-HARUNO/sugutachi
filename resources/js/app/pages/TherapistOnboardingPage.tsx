@@ -48,11 +48,11 @@ function badgeClassName(isComplete: boolean): string {
 function photoReviewLabel(status: string | null | undefined): string {
     switch (status) {
         case 'approved':
-            return '承認済み';
+            return '公開中';
         case 'pending':
-            return '審査待ち';
+            return '確認中';
         case 'rejected':
-            return '差し戻し';
+            return '非公開';
         default:
             return '未提出';
     }
@@ -80,7 +80,6 @@ export function TherapistOnboardingPage() {
     const [pricingRules, setPricingRules] = useState<TherapistPricingRuleRecord[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
-    const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
     usePageTitle('セラピスト準備状況');
     useToastOnMessage(error, 'error');
@@ -157,7 +156,7 @@ export function TherapistOnboardingPage() {
             {
                 key: 'profile',
                 title: 'プロフィールとメニュー',
-                description: '公開名、紹介文、研修状況、提供メニューを整えて審査に備えます。',
+                description: '公開名、紹介文、研修状況、提供メニューを整えて公開条件を満たします。',
                 value: reviewStatus ? `${reviewStatus.active_menu_count}件の有効メニュー / ${formatProfileStatus(reviewStatus.profile.profile_status)}` : '未設定',
                 isComplete: hasProfileBasics,
                 to: '/therapist/profile',
@@ -166,7 +165,7 @@ export function TherapistOnboardingPage() {
             {
                 key: 'photos',
                 title: 'プロフィール写真',
-                description: '顔や雰囲気が分かる写真を追加して、写真審査を進めます。',
+                description: '顔や雰囲気が分かる写真を追加して、そのまま公開プロフィールに反映します。',
                 value: photoReviewLabel(reviewStatus?.profile.photo_review_status),
                 isComplete: Boolean(isPhotoReady),
                 to: '/therapist/profile#profile-photos',
@@ -205,36 +204,9 @@ export function TherapistOnboardingPage() {
     }, [availabilitySlots, bookingSetting?.booking_request_lead_time_minutes, bookingSetting?.can_publish_scheduled_bookings, identityVerification, pricingRules, reviewStatus, stripeStatus]);
 
     const completedStepCount = setupSteps.filter((step) => step.isComplete).length;
-    const canSubmit = reviewStatus?.can_submit ?? false;
     const profileStatus = reviewStatus?.profile.profile_status ?? null;
     const publishedSlotCount = availabilitySlots.filter((slot) => slot.status === 'published').length;
     const activePricingRuleCount = pricingRules.filter((rule) => rule.is_active).length;
-    async function submitReview() {
-        if (!token || !canSubmit) {
-            return;
-        }
-
-        setIsSubmittingReview(true);
-        setError(null);
-
-        try {
-            await apiRequest<ApiEnvelope<unknown>>('/me/therapist-profile/submit-review', {
-                method: 'POST',
-                token,
-            });
-
-            await loadData();
-        } catch (requestError) {
-            const message =
-                requestError instanceof ApiError
-                    ? requestError.message
-                    : '審査提出に失敗しました。';
-
-            setError(message);
-        } finally {
-            setIsSubmittingReview(false);
-        }
-    }
 
     if (isLoading) {
         return <LoadingScreen title="準備状況を確認中" message="本人確認、プロフィール、売上受取設定を読み込んでいます。" />;
@@ -249,7 +221,7 @@ export function TherapistOnboardingPage() {
                         <div className="space-y-2">
                             <h1 className="text-3xl font-semibold text-white">セラピスト準備状況</h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                                必要な設定を順番に埋めれば、このまま公開審査まで進めます。1つのアカウントのまま、利用者モードと行き来して使えます。
+                                必要な設定を順番に埋めれば、条件が揃った時点で公開できるようになります。1つのアカウントのまま、利用者モードと行き来して使えます。
                             </p>
                         </div>
                     </div>
@@ -296,19 +268,12 @@ export function TherapistOnboardingPage() {
                 <article className="rounded-[24px] border border-white/10 bg-white/5 p-6">
                     <div className="flex items-start justify-between gap-3">
                         <div className="space-y-2">
-                            <p className="text-xs font-semibold tracking-wide text-rose-200">審査チェック</p>
-                            <h2 className="text-xl font-semibold text-white">公開審査の条件</h2>
+                            <p className="text-xs font-semibold tracking-wide text-rose-200">公開チェック</p>
+                            <h2 className="text-xl font-semibold text-white">公開に必要な条件</h2>
                         </div>
-                        <button
-                            type="button"
-                            onClick={() => {
-                                void submitReview();
-                            }}
-                            disabled={!canSubmit || isSubmittingReview || profileStatus === 'pending' || profileStatus === 'approved'}
-                            className="inline-flex items-center rounded-full bg-rose-300 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-50"
-                        >
-                            {isSubmittingReview ? '提出中...' : profileStatus === 'pending' ? '審査中です' : profileStatus === 'approved' ? '承認済みです' : '審査へ提出'}
-                        </button>
+                        <span className={badgeClassName(Boolean(reviewStatus?.can_submit))}>
+                            {reviewStatus?.can_submit ? '公開可能' : '未完了'}
+                        </span>
                     </div>
 
                     <div className="mt-5 space-y-3">
@@ -329,8 +294,8 @@ export function TherapistOnboardingPage() {
 
                         <div className="flex items-center justify-between gap-4 rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
                             <div>
-                                <p className="text-sm font-semibold text-white">写真審査</p>
-                                <p className="text-xs text-slate-400">プロフィール写真の提出状態です。</p>
+                                <p className="text-sm font-semibold text-white">プロフィール写真</p>
+                                <p className="text-xs text-slate-400">公開プロフィールに表示する写真の登録状況です。</p>
                             </div>
                             <span className={badgeClassName(reviewStatus?.profile.photo_review_status === 'approved' || reviewStatus?.profile.photo_review_status === 'pending')}>
                                 {photoReviewLabel(reviewStatus?.profile.photo_review_status)}
@@ -367,7 +332,7 @@ export function TherapistOnboardingPage() {
                         <p className="text-sm font-semibold text-white">プロフィール</p>
                         <p className="mt-2 text-sm text-slate-300">{formatProfileStatus(profileStatus)}</p>
                         <p className="mt-2 text-xs text-slate-400">
-                            有効メニュー: {reviewStatus?.active_menu_count ?? 0}件 / 写真審査: {photoReviewLabel(reviewStatus?.profile.photo_review_status)}
+                            有効メニュー: {reviewStatus?.active_menu_count ?? 0}件 / 写真: {photoReviewLabel(reviewStatus?.profile.photo_review_status)}
                         </p>
                     </div>
 

@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\TherapistMenuResource;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
+use App\Services\Therapists\TherapistProfilePublicationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -16,6 +17,10 @@ use Illuminate\Validation\ValidationException;
 
 class TherapistMenuController extends Controller
 {
+    public function __construct(
+        private readonly TherapistProfilePublicationService $publicationService,
+    ) {}
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $profile = $request->user()->therapistProfile()->firstOrFail();
@@ -141,22 +146,7 @@ class TherapistMenuController extends Controller
 
     private function syncProfileAfterMenuMutation(TherapistProfile $profile): void
     {
-        if ($profile->profile_status === TherapistProfile::STATUS_SUSPENDED) {
-            $profile->forceFill([
-                'is_online' => false,
-                'online_since' => null,
-            ])->save();
-
-            return;
-        }
-
-        $profile->forceFill([
-            'profile_status' => TherapistProfile::STATUS_DRAFT,
-            'is_online' => false,
-            'online_since' => null,
-            'approved_at' => null,
-            'approved_by_account_id' => null,
-        ])->save();
+        $this->publicationService->refreshPublicationState($profile);
     }
 
     /**

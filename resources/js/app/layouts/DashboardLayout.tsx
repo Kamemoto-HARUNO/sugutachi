@@ -81,7 +81,7 @@ export function DashboardLayout({ role, title, description, navItems }: Dashboar
                                 </div>
                             </div>
 
-                            <div className="flex flex-wrap items-center gap-3 xl:max-w-[420px] xl:justify-end">
+                            <div className="flex flex-wrap items-center gap-3 xl:ml-4 xl:shrink-0 xl:flex-nowrap xl:justify-end">
                                 <NotificationBellLink />
                                 {role === 'therapist' && therapistPublicId ? (
                                     <Link

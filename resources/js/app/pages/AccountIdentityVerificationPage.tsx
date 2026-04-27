@@ -272,7 +272,7 @@ export function AccountIdentityVerificationPage() {
                         </div>
 
                         <div className="rounded-[20px] border border-white/10 bg-[#111923] px-4 py-4 text-sm leading-7 text-slate-300">
-                            本人確認・年齢確認はアカウント単位で保存されます。セラピストとして活動する場合は、承認後に追加でプロフィール審査と受取設定が必要です。
+                            本人確認・年齢確認はアカウント単位で保存されます。セラピストとして活動する場合は、承認後に追加でプロフィールの必須情報入力と受取設定が必要です。
                         </div>
 
                         <div className="rounded-[20px] border border-white/10 bg-[#111923] px-4 py-4 text-sm leading-7 text-slate-300">

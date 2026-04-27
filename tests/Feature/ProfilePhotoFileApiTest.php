@@ -9,6 +9,7 @@ use App\Models\TherapistProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Facades\URL;
 use Tests\TestCase;
 
 class ProfilePhotoFileApiTest extends TestCase
@@ -73,5 +74,29 @@ class ProfilePhotoFileApiTest extends TestCase
             ->assertOk();
 
         $this->assertSame('public-photo', $response->streamedContent());
+    }
+
+    public function test_signed_photo_url_can_be_fetched_without_authentication(): void
+    {
+        $account = Account::factory()->create(['public_id' => 'acc_signed_photo']);
+        $path = 'profiles/acc_signed_photo/test-signed.webp';
+        Storage::disk('local')->put($path, 'signed-photo');
+
+        $photo = ProfilePhoto::create([
+            'account_id' => $account->id,
+            'usage_type' => 'account_profile',
+            'storage_key_encrypted' => Crypt::encryptString($path),
+            'content_hash' => hash('sha256', 'signed-photo'),
+            'status' => ProfilePhoto::STATUS_APPROVED,
+            'sort_order' => 0,
+        ]);
+
+        $signedUrl = URL::temporarySignedRoute('profile-photos.signed-file', now()->addMinutes(5), [
+            'profilePhoto' => $photo->id,
+        ]);
+
+        $response = $this->get($signedUrl)->assertOk();
+
+        $this->assertSame('signed-photo', $response->streamedContent());
     }
 }

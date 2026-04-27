@@ -73,6 +73,8 @@ Route::get('/public-therapists', [TherapistDiscoveryController::class, 'publicIn
 Route::get('/therapists/{therapistProfile:public_id}', [TherapistDiscoveryController::class, 'show']);
 Route::get('/therapists/{therapistProfile:public_id}/reviews', [ReviewController::class, 'therapistReviews']);
 Route::get('/profile-photos/{profilePhoto}/file', [ProfilePhotoFileController::class, 'showPublic']);
+Route::get('/profile-photos/{profilePhoto}/signed-file', [ProfilePhotoFileController::class, 'showSigned'])
+    ->name('profile-photos.signed-file');
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', [AuthController::class, 'me']);
@@ -124,6 +126,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/admin/profile-photos', [AdminProfilePhotoController::class, 'index']);
     Route::post('/admin/profile-photos/{profilePhoto}/approve', [AdminProfilePhotoController::class, 'approve']);
     Route::post('/admin/profile-photos/{profilePhoto}/reject', [AdminProfilePhotoController::class, 'reject']);
+    Route::delete('/admin/profile-photos/{profilePhoto}', [AdminProfilePhotoController::class, 'destroy']);
     Route::get('/admin/reports', [AdminReportController::class, 'index']);
     Route::get('/admin/reports/{report:public_id}', [AdminReportController::class, 'show']);
     Route::post('/admin/reports/{report:public_id}/actions', [AdminReportController::class, 'action']);
@@ -184,6 +187,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me/therapist-profile/review-status', [TherapistProfileController::class, 'reviewStatus']);
     Route::post('/me/therapist/online', [TherapistProfileController::class, 'goOnline']);
     Route::post('/me/therapist/offline', [TherapistProfileController::class, 'goOffline']);
+    Route::put('/me/therapist/listing', [TherapistProfileController::class, 'updateListing']);
     Route::put('/me/therapist/location', [TherapistProfileController::class, 'updateLocation']);
     Route::get('/me/therapist/scheduled-booking-settings', [TherapistScheduledBookingSettingController::class, 'show']);
     Route::put('/me/therapist/scheduled-booking-settings', [TherapistScheduledBookingSettingController::class, 'upsert']);

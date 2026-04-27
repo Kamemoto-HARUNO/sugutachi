@@ -29,6 +29,7 @@ class TherapistProfileResource extends JsonResource
                 'email' => $this->account?->email,
             ]),
             'is_online' => $this->is_online,
+            'is_listed' => $this->is_listed,
             'online_since' => $this->online_since,
             'last_location_updated_at' => $this->last_location_updated_at,
             'rating_average' => $ratingAverage === null ? null : (float) $ratingAverage,

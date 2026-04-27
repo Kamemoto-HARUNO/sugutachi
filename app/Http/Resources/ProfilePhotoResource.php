@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\URL;
 
 class ProfilePhotoResource extends JsonResource
 {
@@ -16,6 +17,9 @@ class ProfilePhotoResource extends JsonResource
             'status' => $this->status,
             'rejection_reason_code' => $this->rejection_reason_code,
             'sort_order' => $this->sort_order,
+            'url' => URL::temporarySignedRoute('profile-photos.signed-file', now()->addMinutes(30), [
+                'profilePhoto' => $this->id,
+            ]),
             'account' => $this->whenLoaded('account', fn () => [
                 'public_id' => $this->account?->public_id,
                 'display_name' => $this->account?->display_name,

@@ -50,6 +50,17 @@ function statusTone(status: string): string {
     }
 }
 
+function statusLabel(status: string): string {
+    switch (status) {
+        case 'approved':
+            return '公開中';
+        case 'rejected':
+            return '非公開';
+        default:
+            return '確認中';
+    }
+}
+
 function usageTypeLabel(value: string): string {
     switch (value) {
         case 'therapist_profile':
@@ -86,10 +97,9 @@ export function AdminProfilePhotosPage() {
     const [usageTypeInput, setUsageTypeInput] = useState(searchParams.get('usage_type') ?? '');
     const [accountInput, setAccountInput] = useState(searchParams.get('account_id') ?? '');
     const [therapistProfileInput, setTherapistProfileInput] = useState(searchParams.get('therapist_profile_id') ?? '');
-    const [rejectionReason, setRejectionReason] = useState('not_relaxation_appropriate');
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
-    const [isSubmitting, setIsSubmitting] = useState(false);
+    const [isDeletingPhotoId, setIsDeletingPhotoId] = useState<number | null>(null);
 
     const selectedId = searchParams.get('selected');
     const statusFilter = normalizeStatusFilter(searchParams.get('status'));
@@ -99,8 +109,9 @@ export function AdminProfilePhotosPage() {
     const accountId = searchParams.get('account_id')?.trim() ?? '';
     const therapistProfileId = searchParams.get('therapist_profile_id')?.trim() ?? '';
 
-    usePageTitle('写真審査');
+    usePageTitle('写真監視');
     useToastOnMessage(successMessage, 'success');
+    useToastOnMessage(actionError, 'error');
 
     const selectedPhoto = useMemo(
         () => photos.find((photo) => String(photo.id) === selectedId) ?? null,
@@ -154,7 +165,7 @@ export function AdminProfilePhotosPage() {
         } catch (requestError) {
             const message = requestError instanceof ApiError
                 ? requestError.message
-                : '写真審査一覧の取得に失敗しました。';
+                : '写真一覧の取得に失敗しました。';
 
             setPageError(message);
         } finally {
@@ -182,69 +193,37 @@ export function AdminProfilePhotosPage() {
         setSearchParams(params, { replace: true });
     }
 
-    async function handleApprove() {
+    async function handleDeletePhoto() {
         if (!token || !selectedPhoto) {
             return;
         }
 
-        setIsSubmitting(true);
+        setIsDeletingPhotoId(selectedPhoto.id);
         setActionError(null);
         setSuccessMessage(null);
 
         try {
-            const payload = await apiRequest<ApiEnvelope<AdminProfilePhotoRecord>>(`/admin/profile-photos/${selectedPhoto.id}/approve`, {
-                method: 'POST',
+            await apiRequest<null>(`/admin/profile-photos/${selectedPhoto.id}`, {
+                method: 'DELETE',
                 token,
             });
 
-            const updated = unwrapData(payload);
-            setPhotos((current) => current.map((photo) => photo.id === updated.id ? updated : photo));
-            setSuccessMessage('写真を承認しました。');
+            setPhotos((current) => current.filter((photo) => photo.id !== selectedPhoto.id));
+            updateFilters({ selected: null });
+            setSuccessMessage('写真を削除しました。');
         } catch (requestError) {
             const message = requestError instanceof ApiError
                 ? requestError.message
-                : '写真の承認に失敗しました。';
+                : '写真の削除に失敗しました。';
 
             setActionError(message);
         } finally {
-            setIsSubmitting(false);
-        }
-    }
-
-    async function handleReject() {
-        if (!token || !selectedPhoto || !rejectionReason.trim()) {
-            return;
-        }
-
-        setIsSubmitting(true);
-        setActionError(null);
-        setSuccessMessage(null);
-
-        try {
-            const payload = await apiRequest<ApiEnvelope<AdminProfilePhotoRecord>>(`/admin/profile-photos/${selectedPhoto.id}/reject`, {
-                method: 'POST',
-                token,
-                body: {
-                    rejection_reason_code: rejectionReason.trim(),
-                },
-            });
-
-            const updated = unwrapData(payload);
-            setPhotos((current) => current.map((photo) => photo.id === updated.id ? updated : photo));
-            setSuccessMessage('写真を差し戻しました。');
-        } catch (requestError) {
-            const message = requestError instanceof ApiError
-                ? requestError.message
-                : '写真の差し戻しに失敗しました。';
-
-            setActionError(message);
-        } finally {
-            setIsSubmitting(false);
+            setIsDeletingPhotoId(null);
         }
     }
 
     if (isLoading) {
-        return <LoadingScreen title="写真審査を読み込み中" message="プロフィール写真の審査キューを集約しています。" />;
+        return <LoadingScreen title="写真監視を読み込み中" message="プロフィール写真の状況を集約しています。" />;
     }
 
     return (
@@ -252,10 +231,10 @@ export function AdminProfilePhotosPage() {
             <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_16px_34px_rgba(2,6,23,0.14)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">PHOTO REVIEW</p>
-                        <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">写真審査</h2>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">PHOTO MONITORING</p>
+                        <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">写真監視</h2>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                            写真メタデータと紐づくプロフィール状況を確認し、承認または差し戻しを行えます。
+                            ユーザーが公開しているプロフィール写真を確認し、必要に応じて削除できます。
                         </p>
                     </div>
 
@@ -281,9 +260,9 @@ export function AdminProfilePhotosPage() {
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {[
                     { label: '総件数', value: summary.total, hint: '現在の表示対象' },
-                    { label: '審査待ち', value: summary.pending, hint: '優先確認' },
-                    { label: '承認済み', value: summary.approved, hint: '公開可能' },
-                    { label: '差し戻し', value: summary.rejected, hint: '再提出待ち' },
+                    { label: '確認中', value: summary.pending, hint: '旧データを含む' },
+                    { label: '公開中', value: summary.approved, hint: '現在表示中' },
+                    { label: '非公開', value: summary.rejected, hint: '手動で非公開にした写真' },
                 ].map((item) => (
                     <article key={item.label} className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
                         <p className="text-xs font-semibold tracking-wide text-[#d2b179]">{item.label}</p>
@@ -303,9 +282,9 @@ export function AdminProfilePhotosPage() {
                             className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
                         >
                             <option value="all">すべて</option>
-                            <option value="pending">審査待ち</option>
-                            <option value="approved">承認済み</option>
-                            <option value="rejected">差し戻し</option>
+                            <option value="pending">確認中</option>
+                            <option value="approved">公開中</option>
+                            <option value="rejected">非公開</option>
                         </select>
                     </label>
 
@@ -315,7 +294,7 @@ export function AdminProfilePhotosPage() {
                             value={usageTypeInput}
                             onChange={(event) => setUsageTypeInput(event.target.value)}
                             onBlur={() => updateFilters({ usage_type: usageTypeInput.trim() || null, selected: null })}
-                            placeholder="therapist_profile"
+                            placeholder="therapist_profile / account_profile"
                             className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
                         />
                     </label>
@@ -326,7 +305,7 @@ export function AdminProfilePhotosPage() {
                             value={accountInput}
                             onChange={(event) => setAccountInput(event.target.value)}
                             onBlur={() => updateFilters({ account_id: accountInput.trim() || null, selected: null })}
-                            placeholder="acc_xxx"
+                            placeholder="acc_xxx または数値ID"
                             className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
                         />
                     </label>
@@ -337,7 +316,7 @@ export function AdminProfilePhotosPage() {
                             value={therapistProfileInput}
                             onChange={(event) => setTherapistProfileInput(event.target.value)}
                             onBlur={() => updateFilters({ therapist_profile_id: therapistProfileInput.trim() || null, selected: null })}
-                            placeholder="thp_xxx"
+                            placeholder="thp_xxx または数値ID"
                             className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
                         />
                     </label>
@@ -350,7 +329,7 @@ export function AdminProfilePhotosPage() {
                             className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
                         >
                             <option value="created_at">登録日時</option>
-                            <option value="reviewed_at">審査日時</option>
+                            <option value="reviewed_at">更新日時</option>
                             <option value="sort_order">表示順</option>
                         </select>
                     </label>
@@ -390,7 +369,7 @@ export function AdminProfilePhotosPage() {
                                         <div className="flex flex-wrap items-center gap-2">
                                             <h3 className="text-lg font-semibold text-[#17202b]">{displayPhotoName(photo)}</h3>
                                             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(photo.status)}`}>
-                                                {formatProfileStatus(photo.status)}
+                                                {statusLabel(photo.status)}
                                             </span>
                                         </div>
                                         <p className="text-sm text-[#68707a]">{photo.account?.email ?? 'メール未設定'}</p>
@@ -403,7 +382,14 @@ export function AdminProfilePhotosPage() {
                                     </div>
                                 </div>
 
-                                <div className="mt-4 grid gap-3 md:grid-cols-3">
+                                <div className="mt-4 grid gap-3 md:grid-cols-[96px_minmax(0,1fr)_1fr_1fr]">
+                                    <div className="overflow-hidden rounded-[18px] bg-[#f1ece3]">
+                                        {photo.url ? (
+                                            <img src={photo.url} alt="" className="h-24 w-full object-cover" />
+                                        ) : (
+                                            <div className="flex h-24 items-center justify-center text-xs text-[#7d6852]">画像なし</div>
+                                        )}
+                                    </div>
                                     <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3">
                                         <p className="text-xs font-semibold tracking-wide text-[#7d6852]">プロフィール状態</p>
                                         <p className="mt-1 text-sm font-semibold text-[#17202b]">{formatProfileStatus(photo.therapist_profile?.profile_status)}</p>
@@ -413,7 +399,7 @@ export function AdminProfilePhotosPage() {
                                         <p className="mt-1 text-sm font-semibold text-[#17202b]">{photo.sort_order}</p>
                                     </div>
                                     <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3">
-                                        <p className="text-xs font-semibold tracking-wide text-[#7d6852]">審査者</p>
+                                        <p className="text-xs font-semibold tracking-wide text-[#7d6852]">最終確認者</p>
                                         <p className="mt-1 text-sm font-semibold text-[#17202b]">{photo.reviewed_by?.display_name ?? photo.reviewed_by?.public_id ?? '未設定'}</p>
                                     </div>
                                 </div>
@@ -438,17 +424,26 @@ export function AdminProfilePhotosPage() {
                             <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                                 <div className="flex flex-wrap items-start justify-between gap-4">
                                     <div>
-                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">PHOTO DETAIL</p>
+                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">写真詳細</p>
                                         <h3 className="mt-2 text-2xl font-semibold text-[#17202b]">{displayPhotoName(selectedPhoto)}</h3>
                                         <p className="mt-2 text-sm text-[#68707a]">{selectedPhoto.account?.email ?? 'メール未設定'}</p>
                                         <p className="mt-1 text-xs text-[#7d6852]">Photo #{selectedPhoto.id}</p>
                                     </div>
                                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(selectedPhoto.status)}`}>
-                                        {formatProfileStatus(selectedPhoto.status)}
+                                        {statusLabel(selectedPhoto.status)}
                                     </span>
                                 </div>
 
-                                <div className="mt-5 grid gap-3">
+                                <div className="mt-5 grid gap-4">
+                                    <div className="overflow-hidden rounded-[24px] bg-[#f1ece3]">
+                                        {selectedPhoto.url ? (
+                                            <img src={selectedPhoto.url} alt="" className="h-[320px] w-full object-cover" />
+                                        ) : (
+                                            <div className="flex h-[320px] items-center justify-center text-sm text-[#7d6852]">
+                                                画像を表示できません
+                                            </div>
+                                        )}
+                                    </div>
                                     <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3 text-sm text-[#48505a]">
                                         <p className="text-xs font-semibold tracking-wide text-[#7d6852]">写真メタデータ</p>
                                         <p className="mt-1 font-semibold text-[#17202b]">{usageTypeLabel(selectedPhoto.usage_type)}</p>
@@ -463,66 +458,43 @@ export function AdminProfilePhotosPage() {
                                         <p className="mt-1">
                                             プロフィール {formatProfileStatus(selectedPhoto.therapist_profile?.profile_status)}
                                             {' / '}
-                                            写真審査 {formatProfileStatus(selectedPhoto.therapist_profile?.photo_review_status)}
+                                            写真 {statusLabel(selectedPhoto.therapist_profile?.photo_review_status ?? 'pending')}
                                         </p>
                                     </div>
                                     <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3 text-sm text-[#48505a]">
-                                        <p className="text-xs font-semibold tracking-wide text-[#7d6852]">審査ログ</p>
+                                        <p className="text-xs font-semibold tracking-wide text-[#7d6852]">記録</p>
                                         <p className="mt-1 font-semibold text-[#17202b]">{selectedPhoto.reviewed_by?.display_name ?? selectedPhoto.reviewed_by?.public_id ?? '未設定'}</p>
                                         <p className="mt-1">登録日時 {formatDateTime(selectedPhoto.created_at)}</p>
-                                        <p className="mt-1">審査日時 {formatDateTime(selectedPhoto.reviewed_at)}</p>
+                                        <p className="mt-1">最終更新 {formatDateTime(selectedPhoto.reviewed_at)}</p>
                                         <p className="mt-1">理由 {formatRejectionReason(selectedPhoto.rejection_reason_code)}</p>
                                     </div>
                                 </div>
                             </article>
 
                             <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">REVIEW ACTION</p>
-                                {selectedPhoto.status === 'pending' ? (
-                                    <div className="mt-4 space-y-4">
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                void handleApprove();
-                                            }}
-                                            disabled={isSubmitting}
-                                            className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243140] disabled:cursor-not-allowed disabled:opacity-60"
-                                        >
-                                            {isSubmitting ? '処理中...' : '承認する'}
-                                        </button>
-
-                                        <label className="block space-y-2">
-                                            <span className="text-sm font-semibold text-[#17202b]">差し戻し理由コード</span>
-                                            <input
-                                                value={rejectionReason}
-                                                onChange={(event) => setRejectionReason(event.target.value)}
-                                                placeholder="not_relaxation_appropriate"
-                                                className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
-                                            />
-                                        </label>
-
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                void handleReject();
-                                            }}
-                                            disabled={isSubmitting || !rejectionReason.trim()}
-                                            className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#f8f4ed] disabled:cursor-not-allowed disabled:opacity-60"
-                                        >
-                                            {isSubmitting ? '処理中...' : '差し戻す'}
-                                        </button>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">監視アクション</p>
+                                <div className="mt-4 space-y-4">
+                                    <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3 text-sm leading-7 text-[#48505a]">
+                                        ユーザーがアップロードした写真はそのまま公開されます。問題がある写真だけ、ここから削除して公開を止めてください。
                                     </div>
-                                ) : (
-                                    <div className="mt-4 rounded-[18px] bg-[#f8f4ed] px-4 py-3 text-sm text-[#48505a]">
-                                        この写真はすでに審査済みです。画像本体のプレビュー API は未接続のため、現在はメタデータ中心の確認画面です。
-                                    </div>
-                                )}
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            void handleDeletePhoto();
+                                        }}
+                                        disabled={isDeletingPhotoId === selectedPhoto.id}
+                                        className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#f8f4ed] disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        {isDeletingPhotoId === selectedPhoto.id ? '削除中...' : 'この写真を削除'}
+                                    </button>
+                                </div>
                             </article>
                         </section>
                     ) : (
                         <section className="rounded-[28px] bg-white px-6 py-10 text-center shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                             <p className="text-sm leading-7 text-[#68707a]">
-                                一覧から写真を選ぶと、ここに審査詳細が表示されます。
+                                一覧から写真を選ぶと、ここに監視用の詳細が表示されます。
                             </p>
                         </section>
                     )}

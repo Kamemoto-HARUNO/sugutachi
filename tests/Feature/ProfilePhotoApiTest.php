@@ -45,7 +45,7 @@ class ProfilePhotoApiTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('data.usage_type', 'therapist_profile')
-            ->assertJsonPath('data.status', ProfilePhoto::STATUS_PENDING)
+            ->assertJsonPath('data.status', ProfilePhoto::STATUS_APPROVED)
             ->assertJsonPath('data.sort_order', 2)
             ->assertJsonPath('data.therapist_profile.public_id', $profile->public_id)
             ->json('data.id');
@@ -56,7 +56,7 @@ class ProfilePhotoApiTest extends TestCase
             'file_id' => $tempFileId,
             'status' => 'used',
         ]);
-        $this->assertSame(ProfilePhoto::STATUS_PENDING, $profile->fresh()->photo_review_status);
+        $this->assertSame(ProfilePhoto::STATUS_APPROVED, $profile->fresh()->photo_review_status);
         Storage::disk('local')->assertExists(Crypt::decryptString($photo->storage_key_encrypted));
     }
 
@@ -87,7 +87,7 @@ class ProfilePhotoApiTest extends TestCase
             'account_id' => $account->id,
             'usage_type' => 'account_profile',
             'therapist_profile_id' => null,
-            'status' => ProfilePhoto::STATUS_PENDING,
+            'status' => ProfilePhoto::STATUS_APPROVED,
         ]);
     }
 

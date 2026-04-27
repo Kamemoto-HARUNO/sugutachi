@@ -11,6 +11,7 @@ use App\Models\IdentityVerification;
 use App\Models\ProfilePhoto;
 use App\Models\StripeConnectedAccount;
 use App\Models\TherapistProfile;
+use App\Services\Therapists\TherapistProfilePublicationService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Validation\Rule;
@@ -20,6 +21,10 @@ class AdminTherapistProfileController extends Controller
     use AuthorizesAdminRequests;
     use RecordsAdminAuditLogs;
     use ResolvesAdminFilterIds;
+
+    public function __construct(
+        private readonly TherapistProfilePublicationService $publicationService,
+    ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -249,6 +254,7 @@ class AdminTherapistProfileController extends Controller
             'approved_at' => null,
             'approved_by_account_id' => null,
         ])->save();
+        $therapistProfile = $this->publicationService->refreshPublicationState($therapistProfile);
 
         $this->recordAdminAudit($request, 'therapist_profile.restore', $therapistProfile, $before, $this->snapshot($therapistProfile->refresh()));
 

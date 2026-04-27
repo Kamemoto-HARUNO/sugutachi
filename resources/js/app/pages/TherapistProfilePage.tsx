@@ -44,11 +44,11 @@ async function uploadProfilePhotoTempFile(token: string, file: File): Promise<Te
 function photoStatusLabel(status: string): string {
     switch (status) {
         case 'pending':
-            return '審査待ち';
+            return '確認中';
         case 'approved':
-            return '承認済み';
+            return '公開中';
         case 'rejected':
-            return '差し戻し';
+            return '非公開';
         default:
             return status;
     }
@@ -79,7 +79,7 @@ const trainingOptions = [
     { value: 'none', label: '研修情報なし' },
     { value: 'in_progress', label: '研修中' },
     { value: 'completed', label: '研修済み' },
-    { value: 'pending', label: '審査待ち' },
+    { value: 'pending', label: '確認中' },
 ];
 
 function createMenuDraft(menu?: TherapistMenu): MenuDraft {
@@ -128,7 +128,6 @@ export function TherapistProfilePage() {
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
     const [isDeletingPhotoId, setIsDeletingPhotoId] = useState<number | null>(null);
     const [pendingMenuId, setPendingMenuId] = useState<string | null>(null);
-    const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
     usePageTitle('セラピストプロフィール');
     useToastOnMessage(successMessage, 'success');
@@ -191,7 +190,6 @@ export function TherapistProfilePage() {
     }, [loadData]);
 
     const requirementList = reviewStatus?.requirements ?? [];
-    const canSubmit = reviewStatus?.can_submit ?? false;
     const therapistPhotos = useMemo(
         () => (meProfile?.photos ?? []).filter((photo) => photo.usage_type === 'therapist_profile'),
         [meProfile],
@@ -200,8 +198,6 @@ export function TherapistProfilePage() {
         () => therapistPhotos.filter((photo) => photo.status === 'approved' || photo.status === 'pending').length,
         [therapistPhotos],
     );
-    const requiresReapprovalOnEdit = profile?.profile_status === 'approved';
-
     useEffect(() => {
         if (!photoFile) {
             setPhotoPreviewUrl((currentUrl) => {
@@ -290,16 +286,6 @@ export function TherapistProfilePage() {
         }
     }
 
-    function confirmReapprovalBeforeSave(actionLabel: string): boolean {
-        if (!requiresReapprovalOnEdit) {
-            return true;
-        }
-
-        return window.confirm(
-            `承認済みのプロフィールです。\n${actionLabel}を保存すると、いったん公開が止まり、変更内容の再承認が必要になります。\n保存後はプロフィール審査を再提出してください。\nこのまま保存しますか？`,
-        );
-    }
-
     async function handleProfileSave(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
@@ -307,14 +293,9 @@ export function TherapistProfilePage() {
             return;
         }
 
-        if (!confirmReapprovalBeforeSave('プロフィールの変更')) {
-            return;
-        }
-
         setIsSavingProfile(true);
         setError(null);
         setSuccessMessage(null);
-        const wasApproved = requiresReapprovalOnEdit;
 
         try {
             const payload = await apiRequest<ApiEnvelope<TherapistProfileRecord>>('/me/therapist-profile', {
@@ -332,11 +313,7 @@ export function TherapistProfilePage() {
 
             const nextProfile = unwrapData(payload);
             setProfile(nextProfile);
-            await refreshAfterMutation(
-                wasApproved
-                    ? 'プロフィールを保存しました。公開を続けるには、変更内容の再承認が必要です。'
-                    : 'プロフィールを保存しました。',
-            );
+            await refreshAfterMutation('プロフィールを保存しました。');
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -375,7 +352,7 @@ export function TherapistProfilePage() {
             });
 
             setPhotoFile(null);
-            await refreshAfterPhotoMutation('プロフィール写真を追加しました。審査待ちとして保存されています。');
+            await refreshAfterPhotoMutation('プロフィール写真を追加しました。公開プロフィールに反映されます。');
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -423,14 +400,9 @@ export function TherapistProfilePage() {
             return;
         }
 
-        if (!confirmReapprovalBeforeSave('対応内容の変更')) {
-            return;
-        }
-
         setPendingMenuId(draft.public_id);
         setError(null);
         setSuccessMessage(null);
-        const wasApproved = requiresReapprovalOnEdit;
 
         try {
             await apiRequest<ApiEnvelope<TherapistMenu>>(`/me/therapist/menus/${draft.public_id}`, {
@@ -446,11 +418,7 @@ export function TherapistProfilePage() {
                 },
             });
 
-            await refreshAfterMutation(
-                wasApproved
-                    ? '対応内容を更新しました。公開を続けるには、変更内容の再承認が必要です。'
-                    : '対応内容を更新しました。',
-            );
+            await refreshAfterMutation('対応内容を更新しました。');
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -468,14 +436,9 @@ export function TherapistProfilePage() {
             return;
         }
 
-        if (!confirmReapprovalBeforeSave('対応内容の追加')) {
-            return;
-        }
-
         setPendingMenuId('new');
         setError(null);
         setSuccessMessage(null);
-        const wasApproved = requiresReapprovalOnEdit;
 
         try {
             await apiRequest<ApiEnvelope<TherapistMenu>>('/me/therapist/menus', {
@@ -491,11 +454,7 @@ export function TherapistProfilePage() {
             });
 
             setNewMenuDraft(createMenuDraft());
-            await refreshAfterMutation(
-                wasApproved
-                    ? '対応内容を追加しました。公開を続けるには、変更内容の再承認が必要です。'
-                    : '対応内容を追加しました。',
-            );
+            await refreshAfterMutation('対応内容を追加しました。');
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -513,14 +472,9 @@ export function TherapistProfilePage() {
             return;
         }
 
-        if (!confirmReapprovalBeforeSave('対応内容の削除')) {
-            return;
-        }
-
         setPendingMenuId(publicId);
         setError(null);
         setSuccessMessage(null);
-        const wasApproved = requiresReapprovalOnEdit;
 
         try {
             await apiRequest<null>(`/me/therapist/menus/${publicId}`, {
@@ -528,11 +482,7 @@ export function TherapistProfilePage() {
                 token,
             });
 
-            await refreshAfterMutation(
-                wasApproved
-                    ? '対応内容を削除しました。公開を続けるには、変更内容の再承認が必要です。'
-                    : '対応内容を削除しました。',
-            );
+            await refreshAfterMutation('対応内容を削除しました。');
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -542,34 +492,6 @@ export function TherapistProfilePage() {
             setError(message);
         } finally {
             setPendingMenuId(null);
-        }
-    }
-
-    async function submitReview() {
-        if (!token || !canSubmit) {
-            return;
-        }
-
-        setIsSubmittingReview(true);
-        setError(null);
-        setSuccessMessage(null);
-
-        try {
-            await apiRequest<ApiEnvelope<unknown>>('/me/therapist-profile/submit-review', {
-                method: 'POST',
-                token,
-            });
-
-            await refreshAfterMutation('プロフィールを審査へ提出しました。');
-        } catch (requestError) {
-            const message =
-                requestError instanceof ApiError
-                    ? requestError.message
-                    : '審査提出に失敗しました。';
-
-            setError(message);
-        } finally {
-            setIsSubmittingReview(false);
         }
     }
 
@@ -589,7 +511,7 @@ export function TherapistProfilePage() {
                         <p className="text-xs font-semibold tracking-wide text-rose-200">プロフィール</p>
                         <h1 className="text-3xl font-semibold text-white">セラピストプロフィール</h1>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                            公開名、紹介文、研修ステータス、対応内容を整える画面です。承認済みプロフィールを変更すると、いったん公開が止まり、変更内容の再承認が必要になります。
+                            公開名、紹介文、研修ステータス、対応内容を整える画面です。本人確認・年齢確認と必須情報が揃えば、このまま公開準備が整います。
                         </p>
                     </div>
 
@@ -599,7 +521,7 @@ export function TherapistProfilePage() {
                             {formatProfileStatus(profile?.profile_status)}
                         </p>
                         <p className="mt-2 text-xs text-slate-400">
-                            公開中の対応内容 {activeMenuCount}件 / 写真審査 {photoStatusLabel(profile?.photo_review_status ?? 'pending')}
+                            公開中の対応内容 {activeMenuCount}件 / 登録済み写真 {therapistPhotos.length}枚
                         </p>
                     </div>
                 </div>
@@ -623,7 +545,7 @@ export function TherapistProfilePage() {
                         href="#profile-photos"
                         className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
                     >
-                        写真審査へ
+                        写真を管理
                     </a>
                 </div>
                 {profile?.rejected_reason_code ? (
@@ -742,17 +664,12 @@ export function TherapistProfilePage() {
                         {isSavingProfile ? '保存中...' : 'プロフィールを保存する'}
                     </button>
 
-                    {requiresReapprovalOnEdit ? (
-                        <p className="text-sm leading-7 text-amber-100">
-                            承認済みのプロフィールを保存すると、いったん公開が止まり、変更内容の再承認が必要になります。
-                        </p>
-                    ) : null}
                 </form>
 
                 <article className="space-y-4 rounded-[24px] border border-white/10 bg-white/5 p-6">
                     <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">審査準備</p>
-                        <h2 className="text-xl font-semibold text-white">審査提出の準備</h2>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">公開条件</p>
+                        <h2 className="text-xl font-semibold text-white">公開前にそろえること</h2>
                     </div>
 
                     <div className="space-y-3">
@@ -773,19 +690,11 @@ export function TherapistProfilePage() {
                         ))}
                     </div>
 
-                    <button
-                        type="button"
-                        onClick={() => {
-                            void submitReview();
-                        }}
-                        disabled={!canSubmit || isSubmittingReview || profile?.profile_status === 'pending' || profile?.profile_status === 'approved'}
-                        className="inline-flex items-center rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                        {isSubmittingReview ? '提出中...' : profile?.profile_status === 'pending' ? '審査中です' : profile?.profile_status === 'approved' ? '承認済みです' : '審査へ提出する'}
-                    </button>
-
                     <p className="text-sm leading-7 text-slate-300">
-                        本人確認承認と公開中の対応内容が揃うと審査提出できます。写真審査や受取口座設定は公開準備としてこのあと続けて整えます。
+                        本人確認・年齢確認と公開中の対応内容が揃うと、プロフィールは自動で公開可能になります。実際に公開するかどうかは稼働設定で切り替えられます。
+                    </p>
+                    <p className="text-sm leading-7 text-slate-400">
+                        保存のたびに運営承認を待つ必要はありません。不足項目が出たときだけ公開プロフィールから外れます。
                     </p>
                 </article>
             </section>
@@ -796,7 +705,7 @@ export function TherapistProfilePage() {
                         <p className="text-xs font-semibold tracking-wide text-rose-200">写真</p>
                         <h2 className="text-xl font-semibold text-white">プロフィール写真</h2>
                         <p className="text-sm leading-7 text-slate-300">
-                            顔や雰囲気が分かる写真を登録して、公開前の写真審査を進めます。追加後は審査待ちになり、承認済みプロフィールでも再確認の対象になります。
+                            顔や雰囲気が分かる写真を登録します。アップロードした写真はそのまま公開プロフィールに反映され、必要に応じて運営が監視・削除します。
                         </p>
                     </div>
 
@@ -824,7 +733,7 @@ export function TherapistProfilePage() {
                                         <p className="font-semibold text-white">{photoFile.name}</p>
                                         <p>{formatFileSize(photoFile.size)}</p>
                                         <p className="text-xs leading-6 text-slate-400">
-                                            明るくて見やすい写真ほど審査を通しやすく、公開後の安心感にもつながります。
+                                            明るくて見やすい写真ほど、公開後の安心感につながります。
                                         </p>
                                         <button
                                             type="button"
@@ -901,34 +810,34 @@ export function TherapistProfilePage() {
                         </div>
                     ) : (
                         <div className="rounded-[22px] border border-dashed border-white/15 bg-[#111923] px-4 py-5 text-sm leading-7 text-slate-300">
-                            まだセラピスト用のプロフィール写真はありません。まず1枚追加すると、写真審査の準備が進みます。
+                            まだセラピスト用のプロフィール写真はありません。まず1枚追加すると、公開プロフィールの印象が伝わりやすくなります。
                         </div>
                     )}
                 </article>
 
                 <article className="space-y-4 rounded-[24px] border border-white/10 bg-white/5 p-6">
                     <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">写真審査</p>
-                        <h2 className="text-xl font-semibold text-white">写真審査の状況</h2>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">写真</p>
+                        <h2 className="text-xl font-semibold text-white">写真の公開状況</h2>
                     </div>
 
                     <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
-                        <p className="text-sm font-semibold text-white">現在の審査状態</p>
-                        <p className="mt-2 text-sm text-slate-300">{photoStatusLabel(profile?.photo_review_status ?? 'pending')}</p>
+                        <p className="text-sm font-semibold text-white">現在の状態</p>
+                        <p className="mt-2 text-sm text-slate-300">{therapistPhotos.length > 0 ? '写真を公開中' : '写真未登録'}</p>
                     </div>
 
                     <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
                         <p className="text-sm font-semibold text-white">登録済み写真</p>
                         <p className="mt-2 text-sm text-slate-300">{therapistPhotos.length}枚</p>
                         <p className="mt-2 text-xs text-slate-400">
-                            承認済み・審査待ち: {approvedOrPendingPhotoCount}枚
+                            公開中または確認中の写真: {approvedOrPendingPhotoCount}枚
                         </p>
                     </div>
 
                     <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
                         <p className="text-sm font-semibold text-white">公開前の目安</p>
                         <p className="mt-2 text-sm leading-7 text-slate-300">
-                            写真が1枚以上あり、プロフィールと対応内容が整っていると公開準備がかなり進みます。
+                            写真が1枚以上あると、公開プロフィールの雰囲気が伝わりやすくなります。
                         </p>
                     </div>
 
@@ -955,7 +864,7 @@ export function TherapistProfilePage() {
                         <p className="text-xs font-semibold tracking-wide text-rose-200">対応内容</p>
                         <h2 className="text-xl font-semibold text-white">提供内容と時間単価</h2>
                         <p className="text-sm leading-7 text-slate-300">
-                            公開審査には有効な対応内容が最低1件必要です。内容、最短時間、料金を変えると、承認済みプロフィールでもいったん公開が止まり、変更内容の再承認が必要になります。
+                            公開プロフィールには有効な対応内容が最低1件必要です。内容、最短時間、料金を整えると、そのまま公開条件に反映されます。
                         </p>
                     </div>
                 </div>
@@ -1064,7 +973,7 @@ export function TherapistProfilePage() {
                         <div className="space-y-2">
                             <p className="text-sm font-semibold text-white">新しい対応内容を追加</p>
                             <p className="text-sm leading-7 text-slate-300">
-                                対応内容、最短時間、60分料金を決めて、まず1件目の公開内容を作ると審査提出の条件に近づきます。
+                                対応内容、最短時間、60分料金を決めて、まず1件目の公開内容を作ると公開条件が整いやすくなります。
                             </p>
                         </div>
 

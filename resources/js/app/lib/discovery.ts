@@ -56,7 +56,7 @@ const WALKING_TIME_MAX_MINUTES: Record<string, number> = {
 const TRAINING_STATUS_LABELS: Record<string, string> = {
     completed: '研修済み',
     in_progress: '研修中',
-    pending: '審査待ち',
+    pending: '確認中',
 };
 
 export function formatCurrency(amount: number | null | undefined): string {
@@ -181,7 +181,7 @@ export function resolveWalkingTimeMaxMinutes(range: string | null | undefined): 
 
 export function formatTrainingStatus(status: string | null | undefined): string {
     if (!status) {
-        return '掲載審査済み';
+        return '掲載中';
     }
 
     return TRAINING_STATUS_LABELS[status] ?? status;

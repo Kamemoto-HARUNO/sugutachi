@@ -181,7 +181,7 @@ export function TherapistIdentityVerificationPage() {
                         <p className="text-xs font-semibold tracking-wide text-rose-200">本人確認</p>
                         <h1 className="text-3xl font-semibold text-white">本人確認・年齢確認</h1>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                            18歳以上確認と本人確認が完了すると、セラピストプロフィールの審査提出条件を満たせます。書類画像とセルフィーは審査用途に限定して扱います。
+                            18歳以上確認と本人確認が完了すると、セラピストプロフィールの公開条件を満たせます。書類画像とセルフィーは確認用途に限定して扱います。
                         </p>
                     </div>
 

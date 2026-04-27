@@ -21,6 +21,13 @@ class ProfilePhotoFileController extends Controller
         return $this->responseFor($profilePhoto, 'private, max-age=300');
     }
 
+    public function showSigned(Request $request, ProfilePhoto $profilePhoto): StreamedResponse
+    {
+        abort_unless($request->hasValidSignature(), 403);
+
+        return $this->responseFor($profilePhoto, 'private, max-age=300');
+    }
+
     public function showPublic(ProfilePhoto $profilePhoto): StreamedResponse
     {
         $profilePhoto->loadMissing('therapistProfile.account.latestIdentityVerification');

@@ -29,10 +29,14 @@ function onlineStatusLabel(profile: TherapistProfileRecord | null): string {
     }
 
     if (profile.profile_status !== 'approved') {
-        return '審査完了後に公開';
+        return '公開準備中';
     }
 
-    return profile.is_online ? '受付中' : '休止中';
+    if (!profile.is_listed) {
+        return '非公開';
+    }
+
+    return profile.is_online ? '受付中' : '公開中';
 }
 
 function onlineStatusTone(profile: TherapistProfileRecord | null): string {
@@ -42,6 +46,10 @@ function onlineStatusTone(profile: TherapistProfileRecord | null): string {
 
     if (profile.profile_status !== 'approved') {
         return 'bg-[#fff2dd] text-[#8b5a16]';
+    }
+
+    if (!profile.is_listed) {
+        return 'bg-[#f3ece4] text-[#6a5642]';
     }
 
     return profile.is_online
@@ -85,6 +93,7 @@ export function TherapistSettingsPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isUpdatingOnline, setIsUpdatingOnline] = useState(false);
+    const [isUpdatingListing, setIsUpdatingListing] = useState(false);
     const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
     const [markingNotificationId, setMarkingNotificationId] = useState<number | null>(null);
 
@@ -137,8 +146,10 @@ export function TherapistSettingsPage() {
 
     const unreadNotifications = notificationMeta?.unread_count ?? notifications.filter((notification) => !notification.is_read).length;
     const activeStripeRequirements = stripeStatus?.requirements_currently_due ?? [];
-    const canGoOnline = Boolean(profile?.profile_status === 'approved' && !profile.is_online);
+    const canGoOnline = Boolean(profile?.profile_status === 'approved' && profile.is_listed && !profile.is_online);
     const canGoOffline = Boolean(profile?.is_online);
+    const canListProfile = Boolean(profile?.profile_status === 'approved' && !profile.is_listed);
+    const canHideProfile = Boolean(profile?.profile_status === 'approved' && profile.is_listed);
 
     const summary = useMemo(() => ({
         online: onlineStatusLabel(profile),
@@ -146,6 +157,40 @@ export function TherapistSettingsPage() {
         reviewProgress: formatRequirementCount(reviewStatus),
         stripe: formatStripeStatus(stripeStatus?.status),
     }), [profile, reviewStatus, stripeStatus, unreadNotifications]);
+
+    async function updateListingState(isListed: boolean) {
+        if (!token) {
+            return;
+        }
+
+        setIsUpdatingListing(true);
+        setError(null);
+        setSuccessMessage(null);
+
+        try {
+            const payload = await apiRequest<ApiEnvelope<TherapistProfileRecord>>('/me/therapist/listing', {
+                method: 'PUT',
+                token,
+                body: {
+                    is_listed: isListed,
+                },
+            });
+
+            setProfile(unwrapData(payload));
+            setSuccessMessage(isListed
+                ? 'プロフィールを公開しました。'
+                : 'プロフィールを非公開にしました。');
+            await loadData(true);
+        } catch (requestError) {
+            const message = requestError instanceof ApiError
+                ? requestError.message
+                : '公開設定の更新に失敗しました。';
+
+            setError(message);
+        } finally {
+            setIsUpdatingListing(false);
+        }
+    }
 
     async function updateOnlineState(nextState: 'online' | 'offline') {
         if (!token || !profile) {
@@ -269,8 +314,8 @@ export function TherapistSettingsPage() {
                         <div className="space-y-2">
                             <h1 className="text-3xl font-semibold">稼働設定</h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                                オンライン受付の切り替え、現在地の更新、最近の通知確認をまとめた画面です。
-                                出動準備や運営からの連絡をここでひと通り確認できます。
+                                公開・非公開の切り替え、オンライン受付の開始、現在地の更新、最近の通知確認をまとめた画面です。
+                                公開プロフィールの見え方と出動準備をここで調整できます。
                             </p>
                         </div>
                     </div>
@@ -298,9 +343,9 @@ export function TherapistSettingsPage() {
 
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {[
-                    { label: '受付状態', value: summary.online, hint: '現在の稼働状況' },
+                    { label: '公開状態', value: summary.online, hint: '公開と受付の現在地' },
                     { label: '未読通知', value: `${summary.unreadNotifications}件`, hint: 'アプリ内通知の未読数' },
-                    { label: '審査条件', value: summary.reviewProgress, hint: '公開審査の充足数' },
+                    { label: '公開条件', value: summary.reviewProgress, hint: '公開に必要な項目の充足数' },
                     { label: '受取設定', value: summary.stripe, hint: '受取口座の準備状況' },
                 ].map((item) => (
                     <article
@@ -319,20 +364,28 @@ export function TherapistSettingsPage() {
                     <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                             <div>
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">受付の切り替え</p>
-                                <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">オンライン状態</h2>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">公開と受付</p>
+                                <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">公開プロフィールとオンライン状態</h2>
                             </div>
                             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${onlineStatusTone(profile)}`}>
                                 {onlineStatusLabel(profile)}
                             </span>
                         </div>
 
-                        <div className="mt-5 grid gap-4 md:grid-cols-2">
+                        <div className="mt-5 grid gap-4 md:grid-cols-3">
                             <div className="rounded-[24px] bg-[#fffaf3] p-4">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">プロフィール状況</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">公開プロフィール</p>
                                 <p className="mt-2 text-sm font-semibold text-[#17202b]">{formatProfileStatus(profile?.profile_status)}</p>
                                 <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                    審査承認後にオンライン受付を開始できます。承認前は、準備状況ページで不足項目を埋めてください。
+                                    本人確認・年齢確認と必須情報が揃うと公開できます。非公開にすると検索や詳細ページには表示されません。
+                                </p>
+                            </div>
+
+                            <div className="rounded-[24px] bg-[#fffaf3] p-4">
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">公開設定</p>
+                                <p className="mt-2 text-sm font-semibold text-[#17202b]">{profile?.is_listed ? '公開中' : '非公開'}</p>
+                                <p className="mt-2 text-sm leading-7 text-[#68707a]">
+                                    公開中は利用者にプロフィールが表示されます。今すぐ受付を止めても、予定予約の案内は継続できます。
                                 </p>
                             </div>
 
@@ -346,6 +399,26 @@ export function TherapistSettingsPage() {
                         </div>
 
                         <div className="mt-5 flex flex-wrap gap-3">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    void updateListingState(true);
+                                }}
+                                disabled={!canListProfile || isUpdatingListing}
+                                className="inline-flex items-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#223243] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {isUpdatingListing && canListProfile ? '切り替え中...' : 'プロフィールを公開する'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    void updateListingState(false);
+                                }}
+                                disabled={!canHideProfile || isUpdatingListing}
+                                className="inline-flex items-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff6ea] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {isUpdatingListing && canHideProfile ? '切り替え中...' : 'プロフィールを非公開にする'}
+                            </button>
                             <button
                                 type="button"
                                 onClick={() => {
@@ -430,10 +503,10 @@ export function TherapistSettingsPage() {
                             </div>
 
                             <div className="rounded-[24px] bg-[#fffaf3] p-4">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">審査条件</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">公開条件</p>
                                 <p className="mt-2 text-sm font-semibold text-[#17202b]">{formatRequirementCount(reviewStatus)}</p>
                                 <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                    {reviewStatus?.can_submit ? '公開審査へ提出できる状態です。' : 'まだ埋める項目があります。'}
+                                    {reviewStatus?.can_submit ? '必要項目が揃っています。' : 'まだ埋める項目があります。'}
                                 </p>
                                 <Link
                                     to="/therapist/onboarding"

@@ -29,6 +29,7 @@ class TherapistProfile extends Model
     {
         return $query
             ->where('profile_status', self::STATUS_APPROVED)
+            ->where('is_listed', true)
             ->whereHas('menus', fn (Builder $query) => $query->where('is_active', true))
             ->whereHas('account', fn (Builder $query) => $query
                 ->where('status', Account::STATUS_ACTIVE))
@@ -142,6 +143,7 @@ class TherapistProfile extends Model
             'weight_kg' => 'integer',
             'p_size_cm' => 'integer',
             'is_online' => 'boolean',
+            'is_listed' => 'boolean',
             'online_since' => 'datetime',
             'last_location_updated_at' => 'datetime',
             'rating_average' => 'decimal:2',

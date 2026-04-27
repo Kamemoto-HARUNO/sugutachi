@@ -157,11 +157,11 @@ class TherapistProfileReviewTest extends TestCase
         $this->withToken($token)
             ->postJson('/api/me/therapist-profile/submit-review')
             ->assertOk()
-            ->assertJsonPath('data.profile_status', 'pending');
+            ->assertJsonPath('data.profile_status', 'approved');
 
         $this->assertDatabaseHas('therapist_profiles', [
             'account_id' => $therapist->id,
-            'profile_status' => 'pending',
+            'profile_status' => 'approved',
             'is_online' => false,
         ]);
     }
@@ -174,6 +174,14 @@ class TherapistProfileReviewTest extends TestCase
             'role' => 'therapist',
             'status' => 'active',
             'granted_at' => now(),
+        ]);
+
+        IdentityVerification::create([
+            'account_id' => $user->id,
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'is_age_verified' => true,
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now(),
         ]);
 
         IdentityVerification::create([
@@ -242,8 +250,8 @@ class TherapistProfileReviewTest extends TestCase
             'training_status' => 'completed',
         ])
             ->assertOk()
-            ->assertJsonPath('data.profile_status', 'draft')
-            ->assertJsonPath('data.is_online', false);
+            ->assertJsonPath('data.profile_status', 'approved')
+            ->assertJsonPath('data.is_online', true);
 
         Sanctum::actingAs($user);
         $this->postJson('/api/booking-quotes', [
@@ -253,7 +261,7 @@ class TherapistProfileReviewTest extends TestCase
             'duration_minutes' => 60,
             'is_on_demand' => true,
         ])
-            ->assertNotFound();
+            ->assertCreated();
     }
 
     public function test_approved_therapist_can_go_online_and_offline_after_setting_location(): void
@@ -385,23 +393,22 @@ class TherapistProfileReviewTest extends TestCase
         Sanctum::actingAs($admin);
         $this->postJson("/api/admin/therapist-profiles/{$profile->public_id}/restore")
             ->assertOk()
-            ->assertJsonPath('data.profile_status', TherapistProfile::STATUS_DRAFT);
+            ->assertJsonPath('data.profile_status', TherapistProfile::STATUS_APPROVED);
 
         Sanctum::actingAs($therapist);
         $this->getJson('/api/me/therapist-profile/review-status')
             ->assertOk()
             ->assertJsonPath('data.can_submit', true)
-            ->assertJsonPath('data.profile.profile_status', TherapistProfile::STATUS_DRAFT);
+            ->assertJsonPath('data.profile.profile_status', TherapistProfile::STATUS_APPROVED);
 
         $this->postJson('/api/me/therapist-profile/submit-review')
             ->assertOk()
-            ->assertJsonPath('data.profile_status', TherapistProfile::STATUS_PENDING);
+            ->assertJsonPath('data.profile_status', TherapistProfile::STATUS_APPROVED);
 
         $this->assertDatabaseHas('therapist_profiles', [
             'id' => $profile->id,
-            'profile_status' => TherapistProfile::STATUS_PENDING,
+            'profile_status' => TherapistProfile::STATUS_APPROVED,
             'approved_by_account_id' => null,
-            'approved_at' => null,
             'rejected_reason_code' => null,
         ]);
     }

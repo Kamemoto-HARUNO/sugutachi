@@ -4,8 +4,8 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TherapistProfileResource;
-use App\Models\IdentityVerification;
 use App\Models\TherapistProfile;
+use App\Services\Therapists\TherapistProfilePublicationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -14,6 +14,10 @@ use Illuminate\Validation\ValidationException;
 
 class TherapistProfileController extends Controller
 {
+    public function __construct(
+        private readonly TherapistProfilePublicationService $publicationService,
+    ) {}
+
     public function show(Request $request): TherapistProfileResource
     {
         return new TherapistProfileResource(
@@ -30,12 +34,12 @@ class TherapistProfileController extends Controller
             'weight_kg' => ['nullable', 'integer', 'between:30,250'],
             'p_size_cm' => ['nullable', 'integer', 'between:1,50'],
             'training_status' => ['nullable', 'string', 'max:50'],
+            'is_listed' => ['nullable', 'boolean'],
         ]);
 
         $profile = DB::transaction(function () use ($request, $validated): TherapistProfile {
             $account = $request->user();
             $currentProfile = $account->therapistProfile()->first();
-            $nextStatus = $this->statusAfterProfileUpdate($currentProfile);
 
             $account->roleAssignments()->firstOrCreate(
                 ['role' => 'therapist'],
@@ -43,7 +47,7 @@ class TherapistProfileController extends Controller
             );
             $account->forceFill(['last_active_role' => 'therapist'])->save();
 
-            return TherapistProfile::updateOrCreate(
+            $profile = TherapistProfile::updateOrCreate(
                 ['account_id' => $account->id],
                 [
                     'public_id' => $currentProfile?->public_id ?? 'thp_'.Str::ulid(),
@@ -52,20 +56,21 @@ class TherapistProfileController extends Controller
                     'height_cm' => $validated['height_cm'] ?? null,
                     'weight_kg' => $validated['weight_kg'] ?? null,
                     'p_size_cm' => $validated['p_size_cm'] ?? null,
-                    'profile_status' => $nextStatus,
+                    'profile_status' => $currentProfile?->profile_status ?? TherapistProfile::STATUS_DRAFT,
                     'training_status' => $validated['training_status'] ?? 'none',
                     'photo_review_status' => $currentProfile?->photo_review_status ?? 'pending',
-                    'is_online' => false,
-                    'online_since' => null,
-                    'approved_at' => $nextStatus === TherapistProfile::STATUS_SUSPENDED
-                        ? $currentProfile?->approved_at
-                        : null,
-                    'approved_by_account_id' => $nextStatus === TherapistProfile::STATUS_SUSPENDED
-                        ? $currentProfile?->approved_by_account_id
-                        : null,
-                    'rejected_reason_code' => $this->rejectedReasonAfterProfileUpdate($currentProfile, $nextStatus),
+                    'is_listed' => array_key_exists('is_listed', $validated)
+                        ? (bool) $validated['is_listed']
+                        : ($currentProfile?->is_listed ?? true),
+                    'is_online' => $currentProfile?->is_online ?? false,
+                    'online_since' => $currentProfile?->online_since,
+                    'approved_at' => $currentProfile?->approved_at,
+                    'approved_by_account_id' => $currentProfile?->approved_by_account_id,
+                    'rejected_reason_code' => $currentProfile?->rejected_reason_code,
                 ],
             );
+
+            return $this->publicationService->refreshPublicationState($profile);
         });
 
         return (new TherapistProfileResource($profile->load(['menus', 'account.latestIdentityVerification'])))
@@ -83,20 +88,10 @@ class TherapistProfileController extends Controller
         abort_if(
             $profile->profile_status === TherapistProfile::STATUS_SUSPENDED,
             409,
-            'Suspended therapist profiles cannot be submitted for review.'
-        );
-        abort_if(
-            $profile->profile_status === TherapistProfile::STATUS_PENDING,
-            409,
-            'Therapist profile is already pending review.'
-        );
-        abort_if(
-            $profile->profile_status === TherapistProfile::STATUS_APPROVED,
-            409,
-            'Therapist profile is already approved.'
+            '停止中のプロフィールは公開設定を更新できません。'
         );
 
-        $requirements = $this->reviewRequirements($profile);
+        $requirements = $this->publicationService->requirements($profile);
         $errors = [];
 
         foreach ($requirements as $requirement) {
@@ -109,16 +104,9 @@ class TherapistProfileController extends Controller
             throw ValidationException::withMessages($errors);
         }
 
-        $profile->forceFill([
-            'profile_status' => TherapistProfile::STATUS_PENDING,
-            'is_online' => false,
-            'online_since' => null,
-            'approved_at' => null,
-            'approved_by_account_id' => null,
-            'rejected_reason_code' => null,
-        ])->save();
+        $profile = $this->publicationService->refreshPublicationState($profile);
 
-        return new TherapistProfileResource($profile->refresh()->load(['menus', 'account.latestIdentityVerification']));
+        return new TherapistProfileResource($profile->load(['menus', 'account.latestIdentityVerification']));
     }
 
     public function reviewStatus(Request $request): JsonResponse
@@ -128,12 +116,12 @@ class TherapistProfileController extends Controller
             ->with(['menus', 'account.latestIdentityVerification'])
             ->firstOrFail();
 
-        $requirements = $this->reviewRequirements($profile);
+        $requirements = $this->publicationService->requirements($profile);
 
         return response()->json([
             'data' => [
                 'profile' => (new TherapistProfileResource($profile))->resolve($request),
-                'can_submit' => $this->canSubmitForReview($profile, $requirements),
+                'can_submit' => $this->publicationService->isReadyToPublish($profile),
                 'active_menu_count' => $profile->menus->where('is_active', true)->count(),
                 'latest_identity_verification_status' => $profile->account?->latestIdentityVerification?->status,
                 'requirements' => array_map(
@@ -155,12 +143,17 @@ class TherapistProfileController extends Controller
         abort_unless(
             $profile->profile_status === TherapistProfile::STATUS_APPROVED,
             409,
-            'Only approved therapist profiles can go online.'
+            '公開条件を満たしたプロフィールだけオンライン受付を開始できます。'
         );
         abort_unless(
             $profile->location()->where('is_searchable', true)->exists(),
             409,
-            'A searchable location is required before going online.'
+            'オンライン受付を始めるには検索に使える現在地が必要です。'
+        );
+        abort_unless(
+            $profile->is_listed,
+            409,
+            'オンライン受付を始める前にプロフィールを公開してください。'
         );
 
         $profile->forceFill([
@@ -178,6 +171,24 @@ class TherapistProfileController extends Controller
         $profile->forceFill([
             'is_online' => false,
             'online_since' => null,
+        ])->save();
+
+        return new TherapistProfileResource($profile->refresh()->load(['menus', 'account.latestIdentityVerification']));
+    }
+
+    public function updateListing(Request $request): TherapistProfileResource
+    {
+        $validated = $request->validate([
+            'is_listed' => ['required', 'boolean'],
+        ]);
+
+        $profile = $request->user()->therapistProfile()->firstOrFail();
+        $isListed = (bool) $validated['is_listed'];
+
+        $profile->forceFill([
+            'is_listed' => $isListed,
+            'is_online' => $isListed ? $profile->is_online : false,
+            'online_since' => $isListed ? $profile->online_since : null,
         ])->save();
 
         return new TherapistProfileResource($profile->refresh()->load(['menus', 'account.latestIdentityVerification']));
@@ -216,71 +227,5 @@ class TherapistProfileController extends Controller
         ])->save();
 
         return new TherapistProfileResource($profile->refresh()->load(['menus', 'account.latestIdentityVerification']));
-    }
-
-    private function statusAfterProfileUpdate(?TherapistProfile $profile): string
-    {
-        return $profile?->profile_status === TherapistProfile::STATUS_SUSPENDED
-            ? TherapistProfile::STATUS_SUSPENDED
-            : TherapistProfile::STATUS_DRAFT;
-    }
-
-    private function rejectedReasonAfterProfileUpdate(?TherapistProfile $profile, string $nextStatus): ?string
-    {
-        if (! $profile) {
-            return null;
-        }
-
-        if ($nextStatus === TherapistProfile::STATUS_SUSPENDED) {
-            return $profile->rejected_reason_code;
-        }
-
-        if ($profile->profile_status === TherapistProfile::STATUS_REJECTED) {
-            return $profile->rejected_reason_code;
-        }
-
-        return null;
-    }
-
-    private function reviewRequirements(TherapistProfile $profile): array
-    {
-        $activeMenuCount = $profile->menus->where('is_active', true)->count();
-        $identityVerificationStatus = $profile->account?->latestIdentityVerification?->status;
-
-        return [
-            [
-                'key' => 'public_name',
-                'label' => '公開名',
-                'is_satisfied' => filled($profile->public_name),
-                'message' => 'Public name is required.',
-            ],
-            [
-                'key' => 'active_menu',
-                'label' => '提供メニュー',
-                'is_satisfied' => $activeMenuCount > 0,
-                'message' => 'At least one active menu is required before submitting for review.',
-            ],
-            [
-                'key' => 'identity_verification',
-                'label' => '本人確認',
-                'is_satisfied' => $identityVerificationStatus === IdentityVerification::STATUS_APPROVED,
-                'message' => 'Identity verification must be approved before submitting for review.',
-            ],
-        ];
-    }
-
-    private function canSubmitForReview(TherapistProfile $profile, array $requirements): bool
-    {
-        if (! in_array($profile->profile_status, [TherapistProfile::STATUS_DRAFT, TherapistProfile::STATUS_REJECTED], true)) {
-            return false;
-        }
-
-        foreach ($requirements as $requirement) {
-            if (! $requirement['is_satisfied']) {
-                return false;
-            }
-        }
-
-        return true;
     }
 }

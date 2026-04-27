@@ -145,7 +145,7 @@ function roleGuides(): Record<RoleName, RoleGuide> {
                 'レビュー確認、売上確認、出金申請、受取設定',
             ],
             addTitle: 'セラピストマイページを追加',
-            addDescription: 'セラピストとして活動を始めるためのページです。本人確認、プロフィール審査、受取設定へそのまま進めます。',
+            addDescription: 'セラピストとして活動を始めるためのページです。本人確認、プロフィール入力、受取設定へそのまま進めます。',
             accent: {
                 badge: 'border-emerald-300/30 bg-emerald-300/10 text-emerald-100',
                 subtle: 'text-emerald-100/90',
@@ -534,7 +534,7 @@ export function RoleSelectPage() {
 
                         <div className="rounded-[20px] border border-white/10 bg-[#111923] px-4 py-4 text-sm leading-7 text-slate-300">
                             表示名、電話番号、本人確認・年齢確認はアカウント単位で保持します。セラピストとして活動する場合のみ、
-                            追加でプロフィール審査と受取設定が必要です。
+                            追加でプロフィール入力と受取設定が必要です。
                         </div>
                     </div>
                 </aside>
@@ -618,7 +618,7 @@ export function RoleSelectPage() {
 
                                 {role === 'therapist' && therapistSnapshot?.reviewStatus ? (
                                     <p className="text-sm text-slate-400">
-                                        公開中メニュー {therapistSnapshot.reviewStatus.active_menu_count}件 / 写真審査 {formatProfileStatus(therapistSnapshot.reviewStatus.profile.photo_review_status)}
+                                        公開中メニュー {therapistSnapshot.reviewStatus.active_menu_count}件 / 写真 {formatProfileStatus(therapistSnapshot.reviewStatus.profile.photo_review_status)}
                                     </p>
                                 ) : null}
 
@@ -710,7 +710,7 @@ export function RoleSelectPage() {
                     </li>
                     <li className="flex gap-3">
                         <span className="mt-[0.7rem] h-1.5 w-1.5 shrink-0 rounded-full bg-white/55" />
-                        <span>セラピストとして活動する場合だけ、追加でプロフィール審査、写真審査、受取設定が必要です。</span>
+                        <span>セラピストとして活動する場合だけ、追加でプロフィール入力、写真登録、受取設定が必要です。</span>
                     </li>
                     <li className="flex gap-3">
                         <span className="mt-[0.7rem] h-1.5 w-1.5 shrink-0 rounded-full bg-white/55" />

@@ -57,7 +57,7 @@ class ProfilePhotoController extends Controller
                 'usage_type' => $usageType,
                 'storage_key_encrypted' => Crypt::encryptString($targetPath),
                 'content_hash' => hash('sha256', (string) Storage::disk('local')->get($targetPath)),
-                'status' => ProfilePhoto::STATUS_PENDING,
+                'status' => ProfilePhoto::STATUS_APPROVED,
                 'sort_order' => $validated['sort_order']
                     ?? $this->nextSortOrder($account->id, $therapistProfile?->id, $usageType),
             ]);
@@ -149,8 +149,8 @@ class ProfilePhotoController extends Controller
 
         $therapistProfile->forceFill([
             'photo_review_status' => match (true) {
-                $hasPending => ProfilePhoto::STATUS_PENDING,
                 $hasApproved => ProfilePhoto::STATUS_APPROVED,
+                $hasPending => ProfilePhoto::STATUS_PENDING,
                 $hasRejected => ProfilePhoto::STATUS_REJECTED,
                 default => ProfilePhoto::STATUS_PENDING,
             },

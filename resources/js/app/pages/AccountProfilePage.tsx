@@ -42,7 +42,7 @@ function roleActionDescription(role: RoleName): string {
         case 'user':
             return '年齢層、体型、共有したいプロフィール情報を整えます。';
         case 'therapist':
-            return '公開名、紹介文、メニュー、写真審査の準備を進めます。';
+            return '公開名、紹介文、対応内容、写真の準備を進めます。';
         case 'admin':
             return '審査、監視、問い合わせ対応などの運営画面を開きます。';
     }
@@ -559,7 +559,7 @@ export function AccountProfilePage() {
 
                         <div className="rounded-[20px] border border-white/10 bg-[#111923] px-4 py-4 text-sm leading-7 text-slate-300">
                             この画面で管理する情報はアカウント全体で共通です。セラピストとして公開する場合だけ、
-                            別途プロフィール審査、写真審査、受取設定が必要です。
+                            別途プロフィールの必須情報入力、写真の登録、受取設定が必要です。
                         </div>
                     </div>
                 </aside>

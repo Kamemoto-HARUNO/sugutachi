@@ -241,7 +241,7 @@ export function NotificationsPage() {
                 <section className="rounded-[32px] border border-dashed border-[#d9cbb6] bg-white/75 p-8 text-center shadow-[0_16px_35px_rgba(23,32,43,0.04)]">
                     <h2 className="text-lg font-semibold text-[#17202b]">表示できる通知はありません</h2>
                     <p className="mt-3 text-sm leading-7 text-[#5b6879]">
-                        予約の進行、審査結果、返金結果などの通知はここにまとまります。
+                        予約の進行、公開条件の更新、返金結果などの通知はここにまとまります。
                     </p>
                 </section>
             ) : (
