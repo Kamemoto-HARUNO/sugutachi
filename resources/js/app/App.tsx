@@ -48,6 +48,7 @@ import { AdminTravelRequestsPage } from './pages/AdminTravelRequestsPage';
 import { AccountIdentityVerificationPage } from './pages/AccountIdentityVerificationPage';
 import { AccountProfilePage } from './pages/AccountProfilePage';
 import { ContactPage } from './pages/ContactPage';
+import { NotificationsPage } from './pages/NotificationsPage';
 import { PublicHomePage } from './pages/PublicHomePage';
 import { RegisterPage } from './pages/RegisterPage';
 import { RoleSelectPage } from './pages/RoleSelectPage';
@@ -87,6 +88,7 @@ import { UserTherapistDetailPage } from './pages/UserTherapistDetailPage';
 import { UserTherapistTravelRequestPage } from './pages/UserTherapistTravelRequestPage';
 import { UserTherapistSearchPage } from './pages/UserTherapistSearchPage';
 import { AuthProvider } from './providers/AuthProvider';
+import { NotificationProvider } from './providers/NotificationProvider';
 import { ToastProvider } from './providers/ToastProvider';
 
 function AppRoutes() {
@@ -109,6 +111,9 @@ function AppRoutes() {
                     <Route path="/privacy" element={<LegalDocumentPage documentType="privacy" title="プライバシーポリシー" />} />
                     <Route path="/commerce" element={<LegalDocumentPage documentType="commerce" title="特定商取引法に基づく表記" />} />
                     <Route path="/contact" element={<ContactPage />} />
+                    <Route element={<ProtectedRoute isAuthenticated={isAuthenticated} />}>
+                        <Route path="/notifications" element={<NotificationsPage />} />
+                    </Route>
                     <Route element={<GuestOnlyRoute isAuthenticated={isAuthenticated} accountPath={getPostAuthPath(account, activeRole)} />}>
                         <Route path="/login" element={<LoginPage />} />
                         <Route path="/register" element={<RegisterPage />} />
@@ -402,7 +407,9 @@ export function App() {
         <BrowserRouter>
             <ToastProvider>
                 <AuthProvider>
-                    <AppRoutes />
+                    <NotificationProvider>
+                        <AppRoutes />
+                    </NotificationProvider>
                 </AuthProvider>
             </ToastProvider>
         </BrowserRouter>

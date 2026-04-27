@@ -26,6 +26,7 @@ class BookingNotificationService
                 'request_type' => $booking->is_on_demand ? 'on_demand' : 'scheduled',
                 'requested_start_at' => $booking->requested_start_at?->toJSON(),
                 'request_expires_at' => $booking->request_expires_at?->toJSON(),
+                'target_path' => $this->therapistRequestPath($booking),
             ],
         );
     }
@@ -45,6 +46,7 @@ class BookingNotificationService
                 'scheduled_start_at' => $booking->scheduled_start_at?->toJSON(),
                 'buffer_before_minutes' => $booking->buffer_before_minutes,
                 'buffer_after_minutes' => $booking->buffer_after_minutes,
+                'target_path' => $this->userBookingPath($booking),
             ],
         );
 
@@ -70,6 +72,7 @@ class BookingNotificationService
                 'proposed_start_at' => $booking->therapist_adjustment_start_at?->toJSON(),
                 'proposed_end_at' => $booking->therapist_adjustment_end_at?->toJSON(),
                 'proposed_total_amount' => $booking->therapist_adjustment_total_amount,
+                'target_path' => $this->userBookingPath($booking),
             ],
         );
 
@@ -94,6 +97,7 @@ class BookingNotificationService
                 'status' => $booking->status,
                 'scheduled_start_at' => $booking->scheduled_start_at?->toJSON(),
                 'scheduled_end_at' => $booking->scheduled_end_at?->toJSON(),
+                'target_path' => $this->therapistBookingPath($booking),
             ],
         );
 
@@ -117,6 +121,7 @@ class BookingNotificationService
                 'booking_public_id' => $booking->public_id,
                 'status' => $booking->status,
                 'arrival_confirmation_code_generated_at' => $booking->arrival_confirmation_code_generated_at?->toJSON(),
+                'target_path' => $this->userBookingPath($booking),
             ],
         );
 
@@ -139,6 +144,7 @@ class BookingNotificationService
             data: [
                 'booking_public_id' => $booking->public_id,
                 'status' => $booking->status,
+                'target_path' => $this->userBookingPath($booking),
             ],
         );
 
@@ -161,6 +167,7 @@ class BookingNotificationService
             data: [
                 'booking_public_id' => $booking->public_id,
                 'status' => $booking->status,
+                'target_path' => $this->userBookingPath($booking),
             ],
         );
 
@@ -184,6 +191,7 @@ class BookingNotificationService
                 'booking_public_id' => $booking->public_id,
                 'status' => $booking->status,
                 'ended_at' => $booking->ended_at?->toJSON(),
+                'target_path' => $this->userBookingPath($booking),
             ],
         );
 
@@ -210,6 +218,7 @@ class BookingNotificationService
                 'ended_at' => $booking->ended_at?->toJSON(),
                 'actual_duration_minutes' => $booking->actual_duration_minutes,
                 'total_amount' => $booking->total_amount,
+                'target_path' => $this->userBookingPath($booking),
             ],
         );
 
@@ -232,6 +241,7 @@ class BookingNotificationService
             data: [
                 'booking_public_id' => $booking->public_id,
                 'status' => $booking->status,
+                'target_path' => $this->userBookingPath($booking),
             ],
         );
 
@@ -255,6 +265,7 @@ class BookingNotificationService
                 'booking_public_id' => $booking->public_id,
                 'status' => $booking->status,
                 'completed_at' => $booking->completed_at?->toJSON(),
+                'target_path' => $this->userBookingPath($booking),
             ],
         );
 
@@ -267,6 +278,7 @@ class BookingNotificationService
                 'booking_public_id' => $booking->public_id,
                 'status' => $booking->status,
                 'completed_at' => $booking->completed_at?->toJSON(),
+                'target_path' => $this->therapistBookingPath($booking),
             ],
         );
 
@@ -311,6 +323,9 @@ class BookingNotificationService
                 'reason_code' => $reasonCode,
                 'reason_note' => $reasonNote,
                 'canceled_by_role' => $canceledByRole,
+                'target_path' => ($recipientAccountId ?? $this->cancellationRecipientId($booking)) === $booking->therapist_account_id
+                    ? $this->therapistBookingPath($booking)
+                    : $this->userBookingPath($booking),
             ],
         );
     }
@@ -338,6 +353,7 @@ class BookingNotificationService
                 'requested_amount' => $refund->requested_amount,
                 'approved_amount' => $refund->approved_amount,
                 'is_auto' => $refund->reason_code === Refund::REASON_CODE_BOOKING_CANCELLATION_AUTO,
+                'target_path' => $this->userBookingPath($refund->booking),
             ],
         );
     }
@@ -370,6 +386,11 @@ class BookingNotificationService
                 'reason_note' => $reasonNote,
                 'responsibility' => $responsibility,
                 'interrupted_by_role' => $interruptedByRole,
+                'target_path' => ($recipientAccountId ?? ($interruptedByRole === 'user'
+                    ? $booking->therapist_account_id
+                    : $booking->user_account_id)) === $booking->therapist_account_id
+                        ? $this->therapistBookingPath($booking)
+                        : $this->userBookingPath($booking),
             ],
         );
     }
@@ -386,6 +407,21 @@ class BookingNotificationService
             'status' => 'sent',
             'sent_at' => now(),
         ]);
+    }
+
+    private function therapistRequestPath(Booking $booking): string
+    {
+        return "/therapist/requests/{$booking->public_id}";
+    }
+
+    private function therapistBookingPath(Booking $booking): string
+    {
+        return "/therapist/bookings/{$booking->public_id}";
+    }
+
+    private function userBookingPath(Booking $booking): string
+    {
+        return "/user/bookings/{$booking->public_id}";
     }
 
     private function sendEmail(?string $email, string $subject, string $body): void

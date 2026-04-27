@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { BrandMark } from '../components/brand/BrandMark';
+import { NotificationBellLink } from '../components/notifications/NotificationBellLink';
 import { getRoleHomePath } from '../lib/account';
 import { publicNavItems } from '../lib/navigation';
 import { useAuth } from '../hooks/useAuth';
@@ -42,6 +43,7 @@ export function PublicLayout() {
                         <div className="flex flex-wrap items-center gap-3">
                             {isAuthenticated ? (
                                 <>
+                                    <NotificationBellLink />
                                     <Link
                                         to="/role-select"
                                         className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"

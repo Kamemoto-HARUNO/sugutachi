@@ -106,6 +106,43 @@ class NotificationApiTest extends TestCase
             ->assertJsonPath('meta.filters.read_status', 'unread');
     }
 
+    public function test_account_can_mark_all_notifications_as_read(): void
+    {
+        $account = Account::factory()->create(['public_id' => 'acc_notify_all_read']);
+        $token = $account->createToken('api')->plainTextToken;
+
+        AppNotification::create([
+            'account_id' => $account->id,
+            'notification_type' => 'booking_requested',
+            'channel' => 'in_app',
+            'title' => 'Requested',
+            'body' => 'New request arrived.',
+            'status' => 'sent',
+            'sent_at' => now()->subMinutes(2),
+        ]);
+
+        AppNotification::create([
+            'account_id' => $account->id,
+            'notification_type' => 'booking_refunded',
+            'channel' => 'in_app',
+            'title' => 'Refunded',
+            'body' => 'A refund was processed.',
+            'status' => 'sent',
+            'sent_at' => now()->subMinute(),
+        ]);
+
+        $this->withToken($token)
+            ->postJson('/api/notifications/read-all')
+            ->assertOk()
+            ->assertJsonPath('data.updated_count', 2)
+            ->assertJsonPath('data.unread_count', 0);
+
+        $this->assertSame(2, AppNotification::query()
+            ->where('account_id', $account->id)
+            ->whereNotNull('read_at')
+            ->count());
+    }
+
     public function test_account_can_create_update_and_revoke_push_subscription(): void
     {
         $account = Account::factory()->create(['public_id' => 'acc_push']);

@@ -5,10 +5,10 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { formatNotificationTypeLabel } from '../lib/notifications';
 import {
     formatDateTime,
     formatIdentityVerificationStatus,
-    formatNotificationType,
     formatProfileStatus,
     formatStripeRequirementField,
     formatStripeStatus,
@@ -464,9 +464,17 @@ export function TherapistSettingsPage() {
                                 <p className="text-xs font-semibold tracking-wide text-[#d2b179]">通知</p>
                                 <h2 className="mt-2 text-2xl font-semibold text-white">最近の連絡</h2>
                             </div>
-                            <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-200">
-                                未読 {unreadNotifications}件
-                            </span>
+                            <div className="flex flex-wrap items-center gap-3">
+                                <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-200">
+                                    未読 {unreadNotifications}件
+                                </span>
+                                <Link
+                                    to="/notifications"
+                                    className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:bg-white/6"
+                                >
+                                    通知一覧へ
+                                </Link>
+                            </div>
                         </div>
 
                         {notifications.length > 0 ? (
@@ -483,7 +491,7 @@ export function TherapistSettingsPage() {
                                                     }`}>
                                                         {notification.is_read ? '既読' : '未読'}
                                                     </span>
-                                                    <span className="text-xs text-slate-400">{formatNotificationType(notification.notification_type)}</span>
+                                                    <span className="text-xs text-slate-400">{formatNotificationTypeLabel(notification.notification_type)}</span>
                                                 </div>
                                                 <p className="text-sm font-semibold text-white">{notification.title}</p>
                                                 <p className="text-sm leading-7 text-slate-300">{buildNotificationHint(notification)}</p>

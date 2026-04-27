@@ -1,0 +1,321 @@
+import { useCallback, useEffect, useMemo, useState } from 'react';
+import { Link } from 'react-router-dom';
+import { LoadingScreen } from '../components/LoadingScreen';
+import { useAuth } from '../hooks/useAuth';
+import { useNotifications } from '../hooks/useNotifications';
+import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
+import { ApiError, apiRequest } from '../lib/api';
+import { formatJstDateTime } from '../lib/datetime';
+import {
+    buildNotificationPreview,
+    formatNotificationTypeLabel,
+    resolveNotificationPath,
+} from '../lib/notifications';
+import type { ApiEnvelope, AppNotificationRecord, NotificationListMeta } from '../lib/types';
+
+type ReadFilter = 'all' | 'unread';
+
+function filterButtonClass(isActive: boolean): string {
+    return [
+        'rounded-full px-4 py-2 text-sm font-semibold transition',
+        isActive ? 'bg-[#17202b] text-white' : 'bg-[#f4ede3] text-[#516072] hover:bg-[#eadfce]',
+    ].join(' ');
+}
+
+function cardClass(isRead: boolean): string {
+    return [
+        'rounded-[28px] border p-5 transition',
+        isRead
+            ? 'border-[#e6dfd4] bg-white/75'
+            : 'border-[#f0d5cf] bg-white shadow-[0_14px_35px_rgba(23,32,43,0.08)]',
+    ].join(' ');
+}
+
+export function NotificationsPage() {
+    const { account, activeRole, token } = useAuth();
+    const { refreshNotificationSummary } = useNotifications();
+    const [notifications, setNotifications] = useState<AppNotificationRecord[]>([]);
+    const [meta, setMeta] = useState<NotificationListMeta | null>(null);
+    const [readFilter, setReadFilter] = useState<ReadFilter>('all');
+    const [isLoading, setIsLoading] = useState(true);
+    const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
+    const [markingId, setMarkingId] = useState<number | null>(null);
+    const [error, setError] = useState<string | null>(null);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+    usePageTitle('通知一覧');
+    useToastOnMessage(error, 'error');
+    useToastOnMessage(successMessage, 'success');
+
+    const loadNotifications = useCallback(async (refresh = false) => {
+        if (!token) {
+            return;
+        }
+
+        if (refresh) {
+            setIsRefreshing(true);
+        } else {
+            setIsLoading(true);
+        }
+
+        try {
+            const query = readFilter === 'unread'
+                ? '/notifications?limit=100&read_status=unread'
+                : '/notifications?limit=100';
+
+            const payload = await apiRequest<{ data: AppNotificationRecord[]; meta?: NotificationListMeta }>(query, { token });
+
+            setNotifications(payload.data);
+            setMeta(payload.meta ?? null);
+            setError(null);
+        } catch (requestError) {
+            const message = requestError instanceof ApiError
+                ? requestError.message
+                : '通知の取得に失敗しました。';
+
+            setError(message);
+        } finally {
+            setIsLoading(false);
+            setIsRefreshing(false);
+        }
+    }, [readFilter, token]);
+
+    useEffect(() => {
+        void loadNotifications();
+    }, [loadNotifications]);
+
+    const unreadCount = meta?.unread_count ?? notifications.filter((notification) => !notification.is_read).length;
+
+    const pageSummary = useMemo(() => {
+        if (notifications.length === 0) {
+            return '新しい通知はありません。';
+        }
+
+        if (readFilter === 'unread') {
+            return `未読 ${notifications.length}件を表示しています。`;
+        }
+
+        return `未読 ${unreadCount}件を含む最新 ${notifications.length}件を表示しています。`;
+    }, [notifications.length, readFilter, unreadCount]);
+
+    async function markNotificationRead(notification: AppNotificationRecord) {
+        if (!token || notification.is_read) {
+            return;
+        }
+
+        setMarkingId(notification.id);
+
+        try {
+            await apiRequest<ApiEnvelope<AppNotificationRecord>>(`/notifications/${notification.id}/read`, {
+                method: 'POST',
+                token,
+            });
+
+            setNotifications((current) => {
+                const nextItems = current.map((item) => (
+                    item.id === notification.id
+                        ? {
+                            ...item,
+                            is_read: true,
+                            status: 'read',
+                            read_at: new Date().toISOString(),
+                        }
+                        : item
+                ));
+
+                return readFilter === 'unread'
+                    ? nextItems.filter((item) => !item.is_read)
+                    : nextItems;
+            });
+            setMeta((current) => current ? { ...current, unread_count: Math.max(0, current.unread_count - 1) } : current);
+            await refreshNotificationSummary();
+        } catch (requestError) {
+            const message = requestError instanceof ApiError
+                ? requestError.message
+                : '通知の既読更新に失敗しました。';
+
+            setError(message);
+        } finally {
+            setMarkingId(null);
+        }
+    }
+
+    async function markAllRead() {
+        if (!token || unreadCount === 0) {
+            return;
+        }
+
+        setIsMarkingAllRead(true);
+
+        try {
+            await apiRequest<{ data: { updated_count: number; unread_count: number } }>('/notifications/read-all', {
+                method: 'POST',
+                token,
+            });
+
+            setNotifications((current) => readFilter === 'unread'
+                ? []
+                : current.map((item) => ({
+                    ...item,
+                    is_read: true,
+                    status: 'read',
+                    read_at: item.read_at ?? new Date().toISOString(),
+                })));
+            setMeta((current) => current ? { ...current, unread_count: 0 } : current);
+            setSuccessMessage('通知をすべて既読にしました。');
+            await refreshNotificationSummary();
+        } catch (requestError) {
+            const message = requestError instanceof ApiError
+                ? requestError.message
+                : '通知の一括既読に失敗しました。';
+
+            setError(message);
+        } finally {
+            setIsMarkingAllRead(false);
+        }
+    }
+
+    if (isLoading) {
+        return <LoadingScreen title="通知を読み込み中" message="未読件数と最新の通知をまとめています。" />;
+    }
+
+    return (
+        <div className="space-y-6">
+            <section className="rounded-[32px] border border-white/10 bg-[linear-gradient(120deg,rgba(23,32,43,0.96)_0%,rgba(31,45,61,0.94)_100%)] p-6 text-white shadow-[0_26px_60px_rgba(15,23,42,0.22)] sm:p-7">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                    <div className="space-y-3">
+                        <span className="text-xs font-semibold tracking-[0.18em] text-[#e8d5b2]">通知センター</span>
+                        <div className="space-y-2">
+                            <h1 className="text-[2rem] font-semibold leading-[1.4] text-white sm:text-[2.3rem]">通知一覧</h1>
+                            <p className="max-w-3xl text-sm leading-7 text-slate-300">
+                                利用者・セラピスト・運営の役割に関係なく、このアカウントに届いた通知をまとめて確認できます。
+                            </p>
+                        </div>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                        <span className="inline-flex items-center rounded-full border border-white/12 bg-white/8 px-4 py-2 text-sm font-semibold text-slate-100">
+                            未読 {unreadCount}件
+                        </span>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                void loadNotifications(true);
+                            }}
+                            disabled={isRefreshing}
+                            className="rounded-full border border-white/12 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            {isRefreshing ? '更新中...' : '最新に更新'}
+                        </button>
+                        <button
+                            type="button"
+                            onClick={() => {
+                                void markAllRead();
+                            }}
+                            disabled={isMarkingAllRead || unreadCount === 0}
+                            className="rounded-full bg-[#e8d5b2] px-4 py-2 text-sm font-semibold text-[#17202b] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
+                        >
+                            {isMarkingAllRead ? '既読にしています...' : 'すべて既読'}
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section className="rounded-[32px] border border-[#e7dccd] bg-[#f7f2e8] p-5 shadow-[0_18px_40px_rgba(23,32,43,0.06)] sm:p-6">
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="flex flex-wrap gap-2">
+                        <button type="button" onClick={() => setReadFilter('all')} className={filterButtonClass(readFilter === 'all')}>
+                            すべて
+                        </button>
+                        <button type="button" onClick={() => setReadFilter('unread')} className={filterButtonClass(readFilter === 'unread')}>
+                            未読のみ
+                        </button>
+                    </div>
+                    <p className="text-sm text-[#5b6879]">{pageSummary}</p>
+                </div>
+            </section>
+
+            {notifications.length === 0 ? (
+                <section className="rounded-[32px] border border-dashed border-[#d9cbb6] bg-white/75 p-8 text-center shadow-[0_16px_35px_rgba(23,32,43,0.04)]">
+                    <h2 className="text-lg font-semibold text-[#17202b]">表示できる通知はありません</h2>
+                    <p className="mt-3 text-sm leading-7 text-[#5b6879]">
+                        予約の進行、審査結果、返金結果などの通知はここにまとまります。
+                    </p>
+                </section>
+            ) : (
+                <section className="space-y-4">
+                    {notifications.map((notification) => {
+                        const targetPath = resolveNotificationPath(notification, account, activeRole);
+                        const content = (
+                            <div className={cardClass(notification.is_read)}>
+                                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                    <div className="space-y-3">
+                                        <div className="flex flex-wrap items-center gap-2">
+                                            <span className="rounded-full bg-[#17202b] px-3 py-1 text-xs font-semibold text-white">
+                                                {formatNotificationTypeLabel(notification.notification_type)}
+                                            </span>
+                                            {notification.is_read ? (
+                                                <span className="rounded-full bg-[#ebe5db] px-3 py-1 text-xs font-semibold text-[#64748b]">
+                                                    既読
+                                                </span>
+                                            ) : (
+                                                <span className="rounded-full bg-[#fde8e2] px-3 py-1 text-xs font-semibold text-[#b44d3a]">
+                                                    未読
+                                                </span>
+                                            )}
+                                        </div>
+                                        <div className="space-y-2">
+                                            <h2 className="text-lg font-semibold text-[#17202b]">{notification.title}</h2>
+                                            <p className="text-sm leading-7 text-[#516072]">{buildNotificationPreview(notification)}</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-col items-start gap-3 lg:items-end">
+                                        <span className="text-xs font-medium text-[#7b8794]">
+                                            {formatJstDateTime(notification.sent_at ?? notification.created_at, {
+                                                year: 'numeric',
+                                                month: 'numeric',
+                                                day: 'numeric',
+                                                hour: '2-digit',
+                                                minute: '2-digit',
+                                            }) ?? '時刻不明'}
+                                        </span>
+                                        <div className="flex flex-wrap gap-2">
+                                            {!notification.is_read ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        void markNotificationRead(notification);
+                                                    }}
+                                                    disabled={markingId === notification.id}
+                                                    className="rounded-full border border-[#d7ccb9] px-4 py-2 text-sm font-semibold text-[#3c4b5d] transition hover:bg-[#efe5d7] disabled:cursor-not-allowed disabled:opacity-60"
+                                                >
+                                                    {markingId === notification.id ? '既読中...' : '既読にする'}
+                                                </button>
+                                            ) : null}
+                                            {targetPath ? (
+                                                <Link
+                                                    to={targetPath}
+                                                    onClick={() => {
+                                                        void markNotificationRead(notification);
+                                                    }}
+                                                    className="rounded-full bg-[#17202b] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#223248]"
+                                                >
+                                                    詳細を開く
+                                                </Link>
+                                            ) : null}
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        );
+
+                        return <div key={notification.id}>{content}</div>;
+                    })}
+                </section>
+            )}
+        </div>
+    );
+}

@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { BrandMark } from '../components/brand/BrandMark';
+import { NotificationBellLink } from '../components/notifications/NotificationBellLink';
 import { getAccountDisplayName, getActiveRoles, formatRoleLabel } from '../lib/account';
 import type { NavItem, RoleName } from '../lib/types';
 import { useAuth } from '../hooks/useAuth';
@@ -49,6 +50,7 @@ export function DashboardLayout({ role, title, description, navItems }: Dashboar
                             </div>
 
                             <div className="flex flex-wrap items-center gap-3 xl:max-w-[420px] xl:justify-end">
+                                <NotificationBellLink />
                                 {availableRoles.length > 0 ? (
                                     <Link
                                         to="/role-select"

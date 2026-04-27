@@ -103,6 +103,7 @@ class TherapistTravelRequestController extends Controller
                 'data_json' => [
                     'travel_request_id' => $travelRequest->public_id,
                     'therapist_profile_id' => $targetProfile->public_id,
+                    'target_path' => "/therapist/travel-requests/{$travelRequest->public_id}",
                 ],
                 'status' => 'sent',
                 'sent_at' => now(),

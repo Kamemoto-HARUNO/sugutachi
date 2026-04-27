@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\AppNotificationResource;
 use App\Models\AppNotification;
 use Illuminate\Http\Request;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Validation\Rule;
 
@@ -71,5 +72,24 @@ class NotificationController extends Controller
         }
 
         return new AppNotificationResource($notification->refresh());
+    }
+
+    public function readAll(Request $request): JsonResponse
+    {
+        $account = $request->user();
+
+        $updatedCount = $account->appNotifications()
+            ->whereNull('read_at')
+            ->update([
+                'read_at' => now(),
+                'status' => AppNotification::STATUS_READ,
+            ]);
+
+        return response()->json([
+            'data' => [
+                'updated_count' => $updatedCount,
+                'unread_count' => 0,
+            ],
+        ]);
     }
 }

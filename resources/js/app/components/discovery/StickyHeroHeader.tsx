@@ -1,6 +1,8 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BrandMark } from '../brand/BrandMark';
+import { NotificationBellLink } from '../notifications/NotificationBellLink';
+import { useAuth } from '../../hooks/useAuth';
 
 export interface StickyHeroHeaderAction {
     label: string;
@@ -76,6 +78,7 @@ function HeaderBar({
     actions: StickyHeroHeaderAction[];
     sticky?: boolean;
 }) {
+    const { isAuthenticated } = useAuth();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement | null>(null);
 
@@ -116,6 +119,7 @@ function HeaderBar({
             {actions.length > 0 ? (
                 <>
                     <div className="hidden items-center gap-3 md:flex">
+                        {isAuthenticated ? <NotificationBellLink compact className="border-white/15 bg-white/10 hover:bg-white/15" /> : null}
                         {actions.map((action) => (
                             <Link key={`${action.label}-${action.to}`} to={action.to} className={actionClass(action.variant ?? 'primary')}>
                                 {action.label}
@@ -123,7 +127,8 @@ function HeaderBar({
                         ))}
                     </div>
 
-                    <div className="md:hidden">
+                    <div className="flex items-center gap-2 md:hidden">
+                        {isAuthenticated ? <NotificationBellLink compact className="border-white/15 bg-white/10 hover:bg-white/15" /> : null}
                         <MobileMenuButton isOpen={isMenuOpen} onToggle={() => setIsMenuOpen((value) => !value)} />
                     </div>
 
