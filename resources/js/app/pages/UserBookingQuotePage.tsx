@@ -108,7 +108,7 @@ export function UserBookingQuotePage() {
     const [isPreparingCard, setIsPreparingCard] = useState(false);
     const [isCardComplete, setIsCardComplete] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
-    const cardMountRef = useRef<HTMLDivElement | null>(null);
+    const [cardMountNode, setCardMountNode] = useState<HTMLDivElement | null>(null);
     const stripeRef = useRef<StripeInstance | null>(null);
     const elementsRef = useRef<StripeElements | null>(null);
     const cardElementRef = useRef<StripeCardElement | null>(null);
@@ -223,7 +223,7 @@ export function UserBookingQuotePage() {
     }, [availabilitySlotId, bookingId, durationMinutes, requestedStartAt, serviceAddressId, therapistId, therapistMenuId, token]);
 
     useEffect(() => {
-        if (!stripePublishableKey || !cardMountRef.current) {
+        if (!stripePublishableKey || !cardMountNode || isLoading) {
             return;
         }
 
@@ -235,7 +235,7 @@ export function UserBookingQuotePage() {
 
         void createStripeInstance(stripePublishableKey)
             .then((stripe) => {
-                if (!isMounted || !cardMountRef.current) {
+                if (!isMounted || !cardMountNode) {
                     return;
                 }
 
@@ -266,7 +266,7 @@ export function UserBookingQuotePage() {
                     setCardError(event.error?.message ?? null);
                 });
 
-                cardElement.mount(cardMountRef.current);
+                cardElement.mount(cardMountNode);
                 stripeRef.current = stripe;
                 elementsRef.current = elements;
                 cardElementRef.current = cardElement;
@@ -290,8 +290,9 @@ export function UserBookingQuotePage() {
             }
             elementsRef.current = null;
             stripeRef.current = null;
+            setIsCardComplete(false);
         };
-    }, [stripePublishableKey]);
+    }, [cardMountNode, isLoading, stripePublishableKey]);
 
     if (!token) {
         return <Navigate to="/login" replace />;
@@ -499,7 +500,7 @@ export function UserBookingQuotePage() {
                                     {isPreparingCard ? (
                                         <p className="text-sm text-[#68707a]">カード入力欄を準備しています...</p>
                                     ) : (
-                                        <div ref={cardMountRef} />
+                                        <div ref={setCardMountNode} />
                                     )}
                                 </div>
 

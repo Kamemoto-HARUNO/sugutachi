@@ -62,16 +62,30 @@ function loadStripeScript(): Promise<void> {
             const existingScript = document.querySelector<HTMLScriptElement>(`script[src="${STRIPE_JS_URL}"]`);
 
             if (existingScript) {
+                if (window.Stripe || existingScript.dataset.loaded === 'true') {
+                    resolve();
+                    return;
+                }
+
                 existingScript.addEventListener('load', () => resolve(), { once: true });
-                existingScript.addEventListener('error', () => reject(new Error('Stripe.js を読み込めませんでした。')), { once: true });
+                existingScript.addEventListener('error', () => {
+                    stripeScriptPromise = null;
+                    reject(new Error('Stripe.js を読み込めませんでした。'));
+                }, { once: true });
                 return;
             }
 
             const script = document.createElement('script');
             script.src = STRIPE_JS_URL;
             script.async = true;
-            script.onload = () => resolve();
-            script.onerror = () => reject(new Error('Stripe.js を読み込めませんでした。'));
+            script.onload = () => {
+                script.dataset.loaded = 'true';
+                resolve();
+            };
+            script.onerror = () => {
+                stripeScriptPromise = null;
+                reject(new Error('Stripe.js を読み込めませんでした。'));
+            };
             document.head.appendChild(script);
         });
     }
