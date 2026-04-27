@@ -29,7 +29,7 @@ class BookingSettlementCalculator
             return 0;
         }
 
-        $roundedQuarterHours = (int) ceil($diffInSeconds / (self::BILLING_STEP_MINUTES * 60));
+        $roundedQuarterHours = (int) floor($diffInSeconds / (self::BILLING_STEP_MINUTES * 60));
 
         return max(self::MINIMUM_BILLABLE_MINUTES, $roundedQuarterHours * self::BILLING_STEP_MINUTES);
     }

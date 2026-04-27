@@ -933,7 +933,7 @@ export function TherapistBookingDetailPage() {
                                         {booking.status === 'therapist_completed' ? '施術時間を見直す' : '施術完了を記録する'}
                                     </p>
                                     <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                        開始時刻と終了時刻から15分単位で切り上げて最終金額を計算します。延長は予約時間に対して最大60分までです。
+                                        開始時刻と終了時刻から15分単位で切り捨てて最終金額を計算します。延長は予約時間に対して最大60分までです。
                                     </p>
 
                                     <div className="mt-4 grid gap-3">

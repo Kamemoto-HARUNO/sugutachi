@@ -252,10 +252,10 @@ class BookingStatusFlowTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('data.status', Booking::STATUS_THERAPIST_COMPLETED)
-            ->assertJsonPath('data.actual_duration_minutes', 45)
-            ->assertJsonPath('data.total_amount', 9300)
-            ->assertJsonPath('data.therapist_net_amount', 8100)
-            ->assertJsonPath('data.platform_fee_amount', 900);
+            ->assertJsonPath('data.actual_duration_minutes', 30)
+            ->assertJsonPath('data.total_amount', 6300)
+            ->assertJsonPath('data.therapist_net_amount', 5400)
+            ->assertJsonPath('data.platform_fee_amount', 600);
 
         $this->withToken($therapistToken)
             ->patchJson("/api/bookings/{$booking->public_id}/completion-window", [
@@ -263,10 +263,10 @@ class BookingStatusFlowTest extends TestCase
                 'ended_at' => '2030-01-06T11:33',
             ])
             ->assertOk()
-            ->assertJsonPath('data.actual_duration_minutes', 90)
-            ->assertJsonPath('data.total_amount', 18300)
-            ->assertJsonPath('data.therapist_net_amount', 16200)
-            ->assertJsonPath('data.platform_fee_amount', 1800);
+            ->assertJsonPath('data.actual_duration_minutes', 75)
+            ->assertJsonPath('data.total_amount', 15300)
+            ->assertJsonPath('data.therapist_net_amount', 13500)
+            ->assertJsonPath('data.platform_fee_amount', 1500);
 
         Sanctum::actingAs($user);
 
@@ -281,7 +281,7 @@ class BookingStatusFlowTest extends TestCase
 
         $this->assertSame([[
             'stripe_payment_intent_id' => 'pi_'.$booking->public_id,
-            'amount_to_capture' => 18300,
+            'amount_to_capture' => 15300,
             'application_fee_amount' => null,
             'transfer_amount' => null,
         ]], $gatewayState->captures);
@@ -336,13 +336,13 @@ class BookingStatusFlowTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('data.status', Booking::STATUS_THERAPIST_COMPLETED)
-            ->assertJsonPath('data.actual_duration_minutes', 90)
+            ->assertJsonPath('data.actual_duration_minutes', 75)
             ->assertJsonPath('data.total_amount', 12300)
             ->assertJsonPath('data.therapist_net_amount', 10800)
             ->assertJsonPath('data.platform_fee_amount', 1200)
             ->assertJsonPath('data.matching_fee_amount', 300)
-            ->assertJsonPath('data.settlement_total_amount', 18300)
-            ->assertJsonPath('data.uncaptured_extension_amount', 6000);
+            ->assertJsonPath('data.settlement_total_amount', 15300)
+            ->assertJsonPath('data.uncaptured_extension_amount', 3000);
 
         Sanctum::actingAs($user);
 
@@ -350,8 +350,8 @@ class BookingStatusFlowTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.status', Booking::STATUS_COMPLETED)
             ->assertJsonPath('data.total_amount', 12300)
-            ->assertJsonPath('data.settlement_total_amount', 18300)
-            ->assertJsonPath('data.uncaptured_extension_amount', 6000);
+            ->assertJsonPath('data.settlement_total_amount', 15300)
+            ->assertJsonPath('data.uncaptured_extension_amount', 3000);
 
         $this->assertSame([[
             'stripe_payment_intent_id' => 'pi_'.$booking->public_id,
@@ -380,10 +380,10 @@ class BookingStatusFlowTest extends TestCase
             'arrived_at' => $this->jstUtc('2030-01-06 10:00:00'),
             'started_at' => $this->jstUtc('2030-01-06 10:15:00'),
             'ended_at' => $this->jstUtc('2030-01-06 11:33:00'),
-            'actual_duration_minutes' => 90,
-            'total_amount' => 18300,
-            'therapist_net_amount' => 16200,
-            'platform_fee_amount' => 1800,
+            'actual_duration_minutes' => 75,
+            'total_amount' => 15300,
+            'therapist_net_amount' => 13500,
+            'platform_fee_amount' => 1500,
             'matching_fee_amount' => 300,
             'service_completion_reported_at' => $this->jstUtc('2030-01-06 11:33:00'),
         ])->save();
@@ -397,8 +397,8 @@ class BookingStatusFlowTest extends TestCase
             ->assertJsonPath('data.therapist_net_amount', 10800)
             ->assertJsonPath('data.platform_fee_amount', 1200)
             ->assertJsonPath('data.matching_fee_amount', 300)
-            ->assertJsonPath('data.settlement_total_amount', 18300)
-            ->assertJsonPath('data.uncaptured_extension_amount', 6000);
+            ->assertJsonPath('data.settlement_total_amount', 15300)
+            ->assertJsonPath('data.uncaptured_extension_amount', 3000);
 
         $this->assertSame([[
             'stripe_payment_intent_id' => 'pi_'.$booking->public_id,
