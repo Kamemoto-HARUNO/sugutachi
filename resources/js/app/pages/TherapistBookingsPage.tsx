@@ -623,20 +623,18 @@ export function TherapistBookingsPage() {
                                                             ? (booking.pending_adjustment_proposal ? '提案内容を確認' : '依頼内容を確認')
                                                             : '詳細を見る'}
                                                 </Link>
-                                                <Link
-                                                    to={booking.pending_no_show_report?.reported_by_role === 'therapist'
-                                                        ? `/therapist/bookings/${booking.public_id}`
-                                                        : booking.status === 'requested'
-                                                        ? `/therapist/requests/${booking.public_id}`
-                                                        : `/therapist/bookings/${booking.public_id}/messages`}
-                                                    className="inline-flex w-full items-center justify-center rounded-full border border-[#d6c3a6] px-4 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#efe5d7]"
-                                                >
-                                                    {booking.pending_no_show_report?.reported_by_role === 'therapist'
-                                                        ? '返答状況を見る'
-                                                        : booking.status === 'requested'
-                                                        ? (booking.pending_adjustment_proposal ? '利用者確認待ちへ' : '承諾・辞退へ')
-                                                        : 'メッセージへ'}
-                                                </Link>
+                                                {(booking.status !== 'requested' || booking.pending_no_show_report?.reported_by_role === 'therapist') ? (
+                                                    <Link
+                                                        to={booking.pending_no_show_report?.reported_by_role === 'therapist'
+                                                            ? `/therapist/bookings/${booking.public_id}`
+                                                            : `/therapist/bookings/${booking.public_id}/messages`}
+                                                        className="inline-flex w-full items-center justify-center rounded-full border border-[#d6c3a6] px-4 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#efe5d7]"
+                                                    >
+                                                        {booking.pending_no_show_report?.reported_by_role === 'therapist'
+                                                            ? '返答状況を見る'
+                                                            : 'メッセージへ'}
+                                                    </Link>
+                                                ) : null}
                                             </div>
                                         </div>
                                     </div>

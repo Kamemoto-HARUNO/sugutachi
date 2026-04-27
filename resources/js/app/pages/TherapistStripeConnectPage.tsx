@@ -73,7 +73,7 @@ export function TherapistStripeConnectPage() {
 
     async function createAccount() {
         if (!token) {
-            return;
+            return null;
         }
 
         setIsCreatingAccount(true);
@@ -85,7 +85,10 @@ export function TherapistStripeConnectPage() {
                 token,
             });
 
-            setStripeStatus(unwrapData(payload));
+            const nextStatus = unwrapData(payload);
+            setStripeStatus(nextStatus);
+
+            return nextStatus;
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -93,6 +96,8 @@ export function TherapistStripeConnectPage() {
                     : 'Stripe Connect アカウントの作成に失敗しました。';
 
             setError(message);
+
+            return null;
         } finally {
             setIsCreatingAccount(false);
         }
@@ -126,7 +131,7 @@ export function TherapistStripeConnectPage() {
     }
 
     async function launchOnboarding() {
-        if (!token || !stripeStatus?.has_account) {
+        if (!token) {
             return;
         }
 
@@ -134,6 +139,18 @@ export function TherapistStripeConnectPage() {
         setError(null);
 
         try {
+            let nextStatus = stripeStatus;
+
+            if (!nextStatus?.has_account) {
+                nextStatus = await createAccount();
+            }
+
+            if (!nextStatus?.has_account) {
+                setIsLaunching(false);
+
+                return;
+            }
+
             const payload = await apiRequest<ApiEnvelope<StripeAccountLink>>('/me/stripe-connect/account-link', {
                 method: 'POST',
                 token,
@@ -209,12 +226,12 @@ export function TherapistStripeConnectPage() {
                             <button
                                 type="button"
                                 onClick={() => {
-                                    void createAccount();
+                                    void launchOnboarding();
                                 }}
-                                disabled={isCreatingAccount}
+                                disabled={isCreatingAccount || isLaunching}
                                 className="inline-flex items-center rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                {isCreatingAccount ? '作成中...' : '受取設定を始める'}
+                                {(isCreatingAccount || isLaunching) ? '移動中...' : '受取設定を始める'}
                             </button>
                         </div>
                     ) : (

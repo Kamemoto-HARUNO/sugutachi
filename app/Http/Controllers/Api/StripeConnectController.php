@@ -68,8 +68,8 @@ class StripeConnectController extends Controller
         $connectedAccount = $this->connectedAccountFor($request);
         $accountLink = $gateway->createAccountLink(
             stripeAccountId: $connectedAccount->stripe_account_id,
-            refreshUrl: config('services.stripe.connect_refresh_url'),
-            returnUrl: config('services.stripe.connect_return_url'),
+            refreshUrl: $this->connectRefreshUrl($request),
+            returnUrl: $this->connectReturnUrl($request),
         );
 
         return new StripeAccountLinkResource((object) [
@@ -113,5 +113,52 @@ class StripeConnectController extends Controller
         abort_unless($connectedAccount, 409, 'Stripe Connected Account is missing.');
 
         return $connectedAccount;
+    }
+
+    private function connectReturnUrl(Request $request): string
+    {
+        return $this->resolveConnectUrl(
+            $request,
+            (string) config('services.stripe.connect_return_url'),
+            '/therapist/stripe-connect',
+        );
+    }
+
+    private function connectRefreshUrl(Request $request): string
+    {
+        return $this->resolveConnectUrl(
+            $request,
+            (string) config('services.stripe.connect_refresh_url'),
+            '/therapist/stripe-connect',
+        );
+    }
+
+    private function resolveConnectUrl(Request $request, string $configuredUrl, string $fallbackPath): string
+    {
+        $configuredUrl = trim($configuredUrl);
+
+        if ($configuredUrl !== '') {
+            if (filter_var($configuredUrl, FILTER_VALIDATE_URL)) {
+                return $configuredUrl;
+            }
+
+            if (str_starts_with($configuredUrl, '/')) {
+                return rtrim($request->getSchemeAndHttpHost(), '/') . $configuredUrl;
+            }
+
+            if (preg_match('/^[a-z0-9.-]+(?::\d+)?(?:\\/.*)?$/i', $configuredUrl) === 1) {
+                [$host, $path] = array_pad(explode('/', $configuredUrl, 2), 2, '');
+
+                if (strcasecmp($host, 'localhost') === 0) {
+                    $path = $path !== '' ? '/' . ltrim($path, '/') : $fallbackPath;
+
+                    return rtrim($request->getSchemeAndHttpHost(), '/') . $path;
+                }
+
+                return $request->getScheme() . '://' . ltrim($configuredUrl, '/');
+            }
+        }
+
+        return rtrim($request->getSchemeAndHttpHost(), '/') . $fallbackPath;
     }
 }
