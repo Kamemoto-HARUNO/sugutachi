@@ -41,6 +41,8 @@ class BookingQuoteController extends Controller
             ? CarbonImmutable::parse($validated['requested_start_at'])
             : null;
 
+        $scheduledBookingPolicy->assertUserCanBook($request->user());
+
         if (! $isOnDemand) {
             if (! $requestedStartAt) {
                 throw ValidationException::withMessages([

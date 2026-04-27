@@ -15,6 +15,7 @@ import { formatCurrency, getServiceAddressLabel } from '../lib/discovery';
 import type {
     ApiEnvelope,
     BookingConsentRecord,
+    BookingCounterpartyUserProfile,
     BookingDetailRecord,
     BookingHealthCheckRecord,
     BookingRefundRecord,
@@ -36,6 +37,48 @@ const cancelReasonOptions = [
     { value: 'emergency', label: '急な事情' },
     { value: 'other', label: 'その他' },
 ];
+
+const ageRangeLabels: Record<string, string> = {
+    '18_24': '18-24歳',
+    '20s': '20代',
+    '30s': '30代',
+    '40s': '40代',
+    '50s': '50代',
+    '60_plus': '60歳以上',
+};
+
+const bodyTypeLabels: Record<string, string> = {
+    slim: '細身',
+    average: '普通',
+    muscular: '筋肉質',
+    chubby: 'ぽっちゃり',
+    large: '大柄',
+    other: 'その他',
+};
+
+const weightRangeLabels: Record<string, string> = {
+    '40_49': '40-49kg',
+    '50_59': '50-59kg',
+    '60_69': '60-69kg',
+    '70_79': '70-79kg',
+    '80_89': '80-89kg',
+    '90_plus': '90kg以上',
+};
+
+const orientationLabels: Record<string, string> = {
+    gay: 'ゲイ',
+    bi: 'バイ',
+    straight: 'ストレート',
+    other: 'その他',
+    no_answer: '回答しない',
+};
+
+const genderIdentityLabels: Record<string, string> = {
+    cis_male: 'シス男性',
+    trans_male: 'トランス男性',
+    other: 'その他',
+    no_answer: '回答しない',
+};
 
 function statusLabel(
     booking: Pick<BookingDetailRecord, 'status' | 'pending_no_show_report'>,
@@ -253,6 +296,64 @@ function formatDateTime(value: string | null): string {
 
 function formatBooleanLabel(value: boolean): string {
     return value ? 'あり' : 'なし';
+}
+
+function formatProfileValue(
+    value: string | null | undefined,
+    labels: Record<string, string>,
+): string | null {
+    if (!value) {
+        return null;
+    }
+
+    return labels[value] ?? value;
+}
+
+function formatSharedProfileList(
+    value: string[] | Record<string, string> | null | undefined,
+): string | null {
+    if (!value) {
+        return null;
+    }
+
+    if (Array.isArray(value)) {
+        const normalized = value.map((entry) => entry.trim()).filter(Boolean);
+
+        return normalized.length > 0 ? normalized.join(' / ') : null;
+    }
+
+    const entries = Object.entries(value)
+        .map(([key, entryValue]) => `${key}: ${entryValue}`)
+        .filter(Boolean);
+
+    return entries.length > 0 ? entries.join(' / ') : null;
+}
+
+function buildUserProfileItems(profile: BookingCounterpartyUserProfile | null | undefined) {
+    if (!profile) {
+        return [];
+    }
+
+    return [
+        { label: '年代', value: formatProfileValue(profile.age_range, ageRangeLabels) },
+        { label: '体型', value: formatProfileValue(profile.body_type, bodyTypeLabels) },
+        { label: '身長', value: profile.height_cm != null ? `${profile.height_cm}cm` : null },
+        { label: '体重帯', value: formatProfileValue(profile.weight_range, weightRangeLabels) },
+    ].filter((item): item is { label: string; value: string } => Boolean(item.value));
+}
+
+function buildSharedProfileItems(profile: BookingCounterpartyUserProfile | null | undefined) {
+    if (!profile || !profile.disclose_sensitive_profile_to_therapist) {
+        return [];
+    }
+
+    return [
+        { label: '希望条件', value: formatSharedProfileList(profile.preferences) },
+        { label: 'NG事項', value: formatSharedProfileList(profile.touch_ng) },
+        { label: '健康メモ', value: profile.health_notes },
+        { label: '指向', value: formatProfileValue(profile.sexual_orientation, orientationLabels) },
+        { label: '性自認', value: formatProfileValue(profile.gender_identity, genderIdentityLabels) },
+    ].filter((item): item is { label: string; value: string } => Boolean(item.value));
 }
 
 function buildPrimaryTime(booking: BookingDetailRecord): string {
@@ -761,6 +862,10 @@ export function TherapistBookingDetailPage() {
         );
     }
 
+    const counterpartyUserProfile = booking.counterparty?.user_profile ?? null;
+    const basicUserProfileItems = buildUserProfileItems(counterpartyUserProfile);
+    const sharedUserProfileItems = buildSharedProfileItems(counterpartyUserProfile);
+
     return (
         <div className="space-y-6">
             <section className="rounded-[32px] bg-[linear-gradient(117deg,#17202b_0%,#243447_52%,#2b4158_100%)] p-7 text-white shadow-[0_24px_60px_rgba(15,23,42,0.22)]">
@@ -1110,6 +1215,54 @@ export function TherapistBookingDetailPage() {
                                 <p className="mt-1 font-semibold text-[#17202b]">
                                     {booking.counterparty?.display_name ?? '確認中'}
                                 </p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold text-[#7d6852]">利用者プロフィール</p>
+                                <div className="mt-2 space-y-3 rounded-[20px] bg-[#f8f4ed] px-4 py-4">
+                                    <div className="flex flex-wrap items-center gap-2">
+                                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${counterpartyUserProfile?.identity_verified ? 'bg-[#e4f3e8] text-[#2f7047]' : 'bg-[#f7e7e3] text-[#8c4738]'}`}>
+                                            本人確認 {counterpartyUserProfile?.identity_verified ? '完了' : '未完了'}
+                                        </span>
+                                        <span className={`rounded-full px-3 py-1 text-xs font-semibold ${counterpartyUserProfile?.age_verified ? 'bg-[#e4f3e8] text-[#2f7047]' : 'bg-[#f7e7e3] text-[#8c4738]'}`}>
+                                            年齢確認 {counterpartyUserProfile?.age_verified ? '完了' : '未完了'}
+                                        </span>
+                                    </div>
+
+                                    {basicUserProfileItems.length > 0 ? (
+                                        <div className="grid gap-3 sm:grid-cols-2">
+                                            {basicUserProfileItems.map((item) => (
+                                                <div key={item.label}>
+                                                    <p className="text-xs font-semibold text-[#7d6852]">{item.label}</p>
+                                                    <p className="mt-1 font-semibold text-[#17202b]">{item.value}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : (
+                                        <p className="text-sm leading-7 text-[#48505a]">
+                                            利用者プロフィールの基本情報はまだ設定されていません。
+                                        </p>
+                                    )}
+
+                                    {counterpartyUserProfile?.disclose_sensitive_profile_to_therapist ? (
+                                        sharedUserProfileItems.length > 0 ? (
+                                            <div className="space-y-3 border-t border-[#e7dccb] pt-3">
+                                                <p className="text-xs font-semibold text-[#7d6852]">共有されている希望条件</p>
+                                                <div className="space-y-2">
+                                                    {sharedUserProfileItems.map((item) => (
+                                                        <div key={item.label}>
+                                                            <p className="text-xs font-semibold text-[#7d6852]">{item.label}</p>
+                                                            <p className="mt-1 text-sm leading-7 text-[#48505a]">{item.value}</p>
+                                                        </div>
+                                                    ))}
+                                                </div>
+                                            </div>
+                                        ) : null
+                                    ) : (
+                                        <p className="text-sm leading-7 text-[#48505a]">
+                                            希望条件や健康メモなどの詳細プロフィールは、この利用者からは共有されていません。
+                                        </p>
+                                    )}
+                                </div>
                             </div>
                             <div>
                                 <p className="text-xs font-semibold text-[#7d6852]">待ち合わせ場所</p>

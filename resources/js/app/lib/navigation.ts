@@ -10,7 +10,6 @@ export const publicNavItems: NavItem[] = [
 
 export const userNavItems: NavItem[] = [
     { label: 'マイページ', to: '/user', exact: true },
-    { label: '探す', to: '/user/therapists' },
     { label: '予約', to: '/user/bookings' },
     { label: 'プロフィール', to: '/user/profile' },
     { label: '住所', to: '/user/service-addresses' },

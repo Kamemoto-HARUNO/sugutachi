@@ -3,7 +3,7 @@ import { Link } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
-import { formatRoleLabel, getActiveRoles } from '../lib/account';
+import { formatRoleLabel, getActiveRoles, roleBadgeClass } from '../lib/account';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatJstDateTime } from '../lib/datetime';
 import { formatRejectionReason } from '../lib/therapist';
@@ -262,6 +262,42 @@ function formatFileSize(sizeBytes: number): string {
     return `${(sizeBytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
+function toDisplayPhoneNumber(value: string | null): string {
+    if (!value) {
+        return '';
+    }
+
+    const digits = value.replace(/\D/g, '');
+
+    if (value.startsWith('+81') && digits.startsWith('81')) {
+        return `0${digits.slice(2)}`;
+    }
+
+    return digits;
+}
+
+function toDomesticDigits(value: string): string {
+    return value.replace(/\D/g, '').slice(0, 11);
+}
+
+function isDomesticPhoneNumber(value: string): boolean {
+    return /^0\d{9,10}$/.test(value);
+}
+
+function toE164PhoneNumber(value: string): string | null {
+    const digits = toDomesticDigits(value);
+
+    if (digits === '') {
+        return null;
+    }
+
+    if (!isDomesticPhoneNumber(digits)) {
+        return null;
+    }
+
+    return `+81${digits.slice(1)}`;
+}
+
 function formatPlaceType(placeType: ServiceAddress['place_type']): string {
     switch (placeType) {
         case 'home':
@@ -399,7 +435,7 @@ export function UserProfilePage() {
             setUserProfile(nextUserProfile);
             setServiceAddresses(nextServiceAddresses);
             setDisplayName(nextMeProfile.display_name ?? '');
-            setPhoneE164(nextMeProfile.phone_e164 ?? '');
+            setPhoneE164(toDisplayPhoneNumber(nextMeProfile.phone_e164));
             setUserForm(buildUserProfileForm(nextUserProfile));
             setPageError(null);
         } catch (requestError) {
@@ -437,8 +473,9 @@ export function UserProfilePage() {
             label: '本人確認・年齢確認',
             description: meProfile?.latest_identity_verification?.status === 'rejected'
                 ? '差し戻しがあるため、再提出して承認待ちへ戻します。'
-                : '予約前の安全確認として提出しておきます。',
-            isComplete: meProfile?.latest_identity_verification?.status === 'approved',
+                : '未成年の利用防止とトラブル時の対応のため、予約前に必ず完了してください。',
+            isComplete: meProfile?.latest_identity_verification?.status === 'approved'
+                && meProfile?.latest_identity_verification?.is_age_verified === true,
             actionLabel: meProfile?.latest_identity_verification?.status === 'approved' ? '状況を見る' : '提出する',
             actionTo: '/user/identity-verification',
         },
@@ -550,19 +587,26 @@ export function UserProfilePage() {
         setPageError(null);
 
         try {
+            const normalizedPhone = toE164PhoneNumber(phoneE164);
+
+            if (phoneE164.trim() !== '' && !normalizedPhone) {
+                setCommonError('電話番号は 08012345678 のように、先頭の 0 を含む数字だけで入力してください。');
+                return;
+            }
+
             const payload = await apiRequest<ApiEnvelope<MeProfileRecord>>('/me/profile', {
                 method: 'PATCH',
                 token,
                 body: {
                     display_name: displayName.trim() || null,
-                    phone_e164: phoneE164.trim() || null,
+                    phone_e164: normalizedPhone,
                 },
             });
 
             const nextProfile = unwrapData(payload);
             setMeProfile(nextProfile);
             setDisplayName(nextProfile.display_name ?? '');
-            setPhoneE164(nextProfile.phone_e164 ?? '');
+            setPhoneE164(toDisplayPhoneNumber(nextProfile.phone_e164));
             setCommonSuccess('共通プロフィールを更新しました。');
             await refreshAccount();
         } catch (requestError) {
@@ -703,10 +747,10 @@ export function UserProfilePage() {
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                     <div className="space-y-3">
                         <div className="flex flex-wrap items-center gap-2">
-                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${profileStatusTone(userProfile?.profile_status ?? null)}`}>
+                            <span className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${profileStatusTone(userProfile?.profile_status ?? null)}`}>
                                 {profileStatusLabel(userProfile?.profile_status ?? null)}
                             </span>
-                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${verificationTone(meProfile?.latest_identity_verification?.status)}`}>
+                            <span className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${verificationTone(meProfile?.latest_identity_verification?.status)}`}>
                                 本人確認 {verificationLabel(meProfile?.latest_identity_verification?.status)}
                             </span>
                         </div>
@@ -716,6 +760,11 @@ export function UserProfilePage() {
                                 共通アカウント情報と、見積もりやマッチングで使う利用者プロフィールをまとめて管理します。
                                 センシティブ項目の開示設定もここで調整できます。
                             </p>
+                            {!(meProfile?.latest_identity_verification?.status === 'approved' && meProfile.latest_identity_verification.is_age_verified) ? (
+                                <p className="max-w-3xl text-sm leading-7 text-[#f3dec0]">
+                                    予約リクエストを送るには、本人確認・年齢確認の承認が必要です。まずは本人確認を完了してください。
+                                </p>
+                            ) : null}
                         </div>
                     </div>
 
@@ -749,7 +798,7 @@ export function UserProfilePage() {
                         className="space-y-5 rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]"
                     >
                         <div className="space-y-2">
-                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">ACCOUNT</p>
+                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">共通アカウント情報</p>
                             <h2 className="text-2xl font-semibold text-[#17202b]">共通アカウント情報</h2>
                         </div>
 
@@ -768,11 +817,14 @@ export function UserProfilePage() {
                                 <span className="text-sm font-semibold text-[#17202b]">電話番号</span>
                                 <input
                                     value={phoneE164}
-                                    onChange={(event) => setPhoneE164(event.target.value)}
+                                    onChange={(event) => setPhoneE164(toDomesticDigits(event.target.value))}
+                                    inputMode="numeric"
+                                    pattern="[0-9]*"
+                                    maxLength={11}
                                     className="w-full rounded-[18px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#c6a16a]"
-                                    placeholder="+819012345678"
+                                    placeholder="08012345678"
                                 />
-                                <p className="text-xs text-[#7a7066]">変更すると電話認証状態は未確認に戻ります。</p>
+                                <p className="text-xs text-[#7a7066]">ハイフンなしの数字だけで入力してください。変更すると電話認証状態は未確認に戻ります。</p>
                             </label>
                         </div>
 
@@ -791,7 +843,7 @@ export function UserProfilePage() {
                                 <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">有効ロール</p>
                                 <div className="mt-2 flex flex-wrap gap-2">
                                     {activeRoles.map((role) => (
-                                        <span key={role} className="rounded-full bg-white px-3 py-1 text-xs font-semibold text-[#17202b]">
+                                        <span key={role} className={roleBadgeClass(role, false)}>
                                             {formatRoleLabel(role)}
                                         </span>
                                     ))}
@@ -831,7 +883,7 @@ export function UserProfilePage() {
                         className="space-y-5 rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]"
                     >
                         <div className="space-y-2">
-                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">USER PROFILE</p>
+                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">利用者プロフィール</p>
                             <h2 className="text-2xl font-semibold text-[#17202b]">利用者プロフィール</h2>
                             <p className="text-sm leading-7 text-[#68707a]">
                                 動的料金やセラピストへの開示設定で使う項目です。必須項目がそろうとプロフィールは入力完了になります。
@@ -929,7 +981,7 @@ export function UserProfilePage() {
                                     onChange={(event) => updateUserForm('preferencesText', event.target.value)}
                                     rows={5}
                                     className="w-full rounded-[20px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 text-sm leading-7 text-[#17202b] outline-none transition focus:border-[#c6a16a]"
-                                    placeholder={'pressure: normal\natmosphere: quiet'}
+                                    placeholder={'力加減: ふつう\n雰囲気: 静かめ'}
                                 />
                                 <p className="text-xs text-[#7a7066]">1行ごとに `項目: 値` で入力します。単語だけの行も保存できます。</p>
                             </label>
@@ -941,7 +993,7 @@ export function UserProfilePage() {
                                     onChange={(event) => updateUserForm('touchNgText', event.target.value)}
                                     rows={5}
                                     className="w-full rounded-[20px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 text-sm leading-7 text-[#17202b] outline-none transition focus:border-[#c6a16a]"
-                                    placeholder={'face\nneck'}
+                                    placeholder={'顔\n首まわり'}
                                 />
                                 <p className="text-xs text-[#7a7066]">改行かカンマ区切りで入力できます。</p>
                             </label>
@@ -998,7 +1050,7 @@ export function UserProfilePage() {
 
                     <section className="space-y-5 rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                         <div className="space-y-2">
-                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">PHOTOS</p>
+                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">プロフィール写真</p>
                             <h2 className="text-2xl font-semibold text-[#17202b]">プロフィール写真</h2>
                         </div>
                         <form onSubmit={handlePhotoUpload} className="space-y-4 rounded-[22px] border border-[#ebe2d3] bg-[#fffcf7] p-4">
@@ -1072,7 +1124,7 @@ export function UserProfilePage() {
 
                 <aside className="space-y-5">
                     <section className="rounded-[28px] bg-[#fffcf7] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.1)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">READY CHECK</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">準備状況</p>
                         <div className="mt-4 space-y-3">
                             {profileSetupItems.map((item) => (
                                 <div key={item.key} className="rounded-[20px] border border-[#ebe2d3] bg-white px-4 py-4">
@@ -1082,7 +1134,7 @@ export function UserProfilePage() {
                                             <p className="text-xs leading-6 text-[#6f6459]">{item.description}</p>
                                         </div>
                                         <span
-                                            className={`rounded-full px-3 py-1 text-xs font-semibold ${
+                                            className={`whitespace-nowrap rounded-full px-3 py-1 text-xs font-semibold ${
                                                 item.isComplete
                                                     ? 'bg-[#e9f4ea] text-[#24553a]'
                                                     : 'bg-[#fff2dd] text-[#8b5a16]'
@@ -1104,7 +1156,7 @@ export function UserProfilePage() {
                     </section>
 
                     <section className="rounded-[28px] bg-[#fffcf7] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.1)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">PROFILE STATUS</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">登録状況</p>
                         <div className="mt-4 space-y-4 text-sm text-[#48505a]">
                             <div>
                                 <p className="text-xs font-semibold text-[#7d6852]">利用者プロフィール</p>

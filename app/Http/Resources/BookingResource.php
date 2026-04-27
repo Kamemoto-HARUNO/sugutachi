@@ -155,10 +155,47 @@ class BookingResource extends JsonResource
                 'display_name' => $this->userAccount->display_name,
                 'account_status' => $this->userAccount->status,
                 'therapist_profile_public_id' => null,
+                'user_profile' => $this->counterpartyUserProfile(),
             ];
         }
 
         return null;
+    }
+
+    private function counterpartyUserProfile(): ?array
+    {
+        if (! $this->relationLoaded('userAccount') || ! $this->userAccount || ! $this->userAccount->relationLoaded('userProfile')) {
+            return null;
+        }
+
+        $profile = $this->userAccount->userProfile;
+
+        if (! $profile) {
+            return null;
+        }
+
+        $canDiscloseSensitiveProfile = $profile->disclose_sensitive_profile_to_therapist;
+        $latestIdentityVerification = $this->userAccount->relationLoaded('latestIdentityVerification')
+            ? $this->userAccount->latestIdentityVerification
+            : null;
+
+        return [
+            'profile_status' => $profile->profile_status,
+            'identity_verified' => $latestIdentityVerification?->status === 'approved',
+            'age_verified' => (bool) $latestIdentityVerification?->is_age_verified,
+            'age_range' => $profile->age_range,
+            'body_type' => $profile->body_type,
+            'height_cm' => $profile->height_cm,
+            'weight_range' => $profile->weight_range,
+            'disclose_sensitive_profile_to_therapist' => $canDiscloseSensitiveProfile,
+            'preferences' => $canDiscloseSensitiveProfile ? $profile->preferences_json : null,
+            'touch_ng' => $canDiscloseSensitiveProfile ? $profile->touch_ng_json : null,
+            'health_notes' => $canDiscloseSensitiveProfile && $profile->health_notes_encrypted
+                ? rescue(fn () => Crypt::decryptString($profile->health_notes_encrypted), null, false)
+                : null,
+            'sexual_orientation' => $canDiscloseSensitiveProfile ? $profile->sexual_orientation : null,
+            'gender_identity' => $canDiscloseSensitiveProfile ? $profile->gender_identity : null,
+        ];
     }
 
     private function canceledByRole(): ?string

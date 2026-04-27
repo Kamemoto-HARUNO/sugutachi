@@ -77,6 +77,31 @@ class UserProfileApiTest extends TestCase
         ]);
     }
 
+    public function test_account_can_update_common_profile_with_domestic_phone_number(): void
+    {
+        $account = Account::factory()->create([
+            'public_id' => 'acc_common_profile_domestic',
+            'display_name' => 'Domestic User',
+            'last_active_role' => 'user',
+        ]);
+        $token = $account->createToken('api')->plainTextToken;
+
+        $this->withToken($token)
+            ->patchJson('/api/me/profile', [
+                'display_name' => 'Domestic User Updated',
+                'phone_e164' => '08012345678',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.display_name', 'Domestic User Updated')
+            ->assertJsonPath('data.phone_e164', '+818012345678');
+
+        $this->assertDatabaseHas('accounts', [
+            'id' => $account->id,
+            'display_name' => 'Domestic User Updated',
+            'phone_e164' => '+818012345678',
+        ]);
+    }
+
     public function test_account_can_create_update_and_read_user_profile(): void
     {
         $account = Account::factory()->create([

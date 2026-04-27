@@ -173,7 +173,23 @@ class BookingPaymentFlowTest extends TestCase
             ->assertJsonValidationErrors(['duration_minutes']);
     }
 
-    private function createBookableFixture(): array
+    public function test_quote_requires_user_identity_and_age_verification(): void
+    {
+        [, , $userToken, $therapistProfileId, $therapistMenuId, $serviceAddressId] = $this->createBookableFixture(userVerified: false);
+
+        $this->withToken($userToken)
+            ->postJson('/api/booking-quotes', [
+                'therapist_profile_id' => $therapistProfileId,
+                'therapist_menu_id' => $therapistMenuId,
+                'service_address_id' => $serviceAddressId,
+                'duration_minutes' => 60,
+                'is_on_demand' => true,
+            ])
+            ->assertStatus(422)
+            ->assertJsonPath('message', '予約リクエストを送るには、本人確認・年齢確認の承認を完了してください。');
+    }
+
+    private function createBookableFixture(bool $userVerified = true): array
     {
         $user = Account::factory()->create(['public_id' => 'acc_user_flow']);
         $therapist = Account::factory()->create(['public_id' => 'acc_therapist_flow']);
@@ -183,6 +199,16 @@ class BookingPaymentFlowTest extends TestCase
             'status' => 'active',
             'granted_at' => now(),
         ]);
+
+        if ($userVerified) {
+            IdentityVerification::create([
+                'account_id' => $user->id,
+                'status' => IdentityVerification::STATUS_APPROVED,
+                'is_age_verified' => true,
+                'submitted_at' => now()->subDay(),
+                'reviewed_at' => now(),
+            ]);
+        }
 
         IdentityVerification::create([
             'account_id' => $therapist->id,

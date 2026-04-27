@@ -131,6 +131,8 @@ class BookingController extends Controller
             ->where('public_id', data_get($quoteSnapshot->input_snapshot_json, 'service_address_id'))
             ->firstOrFail();
 
+        $scheduledBookingPolicy->assertUserCanBook($request->user());
+
         $booking = DB::transaction(function () use (
             $availabilityCalculator,
             $request,
@@ -249,6 +251,8 @@ class BookingController extends Controller
             'currentPaymentIntent',
             'canceledBy',
             'userAccount',
+            'userAccount.userProfile',
+            'userAccount.latestIdentityVerification',
             'therapistAccount',
             'therapistProfile',
             'therapistMenu',

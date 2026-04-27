@@ -867,6 +867,23 @@ export interface BookingCounterparty {
     display_name: string | null;
     account_status: string | null;
     therapist_profile_public_id: string | null;
+    user_profile?: BookingCounterpartyUserProfile | null;
+}
+
+export interface BookingCounterpartyUserProfile {
+    profile_status: string | null;
+    identity_verified: boolean;
+    age_verified: boolean;
+    age_range: string | null;
+    body_type: string | null;
+    height_cm: number | null;
+    weight_range: string | null;
+    disclose_sensitive_profile_to_therapist: boolean;
+    preferences: Record<string, string> | string[] | null;
+    touch_ng: string[] | Record<string, string> | null;
+    health_notes: string | null;
+    sexual_orientation: string | null;
+    gender_identity: string | null;
 }
 
 export interface BookingTherapistProfileSummary {

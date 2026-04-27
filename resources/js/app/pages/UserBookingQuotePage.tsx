@@ -85,7 +85,7 @@ function friendlyCardError(error: unknown): string {
 }
 
 export function UserBookingQuotePage() {
-    const { token } = useAuth();
+    const { account, token } = useAuth();
     const navigate = useNavigate();
     const { showError } = useToast();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -147,6 +147,10 @@ export function UserBookingQuotePage() {
         pendingScheduledRequest?.scheduled_start_at ?? pendingScheduledRequest?.requested_start_at ?? null,
     );
     const pendingScheduledRequestPath = pendingScheduledRequest ? `/user/bookings/${pendingScheduledRequest.public_id}` : '/user/bookings';
+    const isUserVerificationReady = Boolean(
+        account?.latest_identity_verification?.status === 'approved'
+        && account.latest_identity_verification.is_age_verified,
+    );
 
     useEffect(() => {
         let isMounted = true;
@@ -189,7 +193,7 @@ export function UserBookingQuotePage() {
                     return;
                 }
 
-                if (nextDetail.pending_scheduled_request) {
+                if (nextDetail.pending_scheduled_request || !isUserVerificationReady) {
                     setBooking(null);
                     setQuote(null);
                     return;
@@ -238,7 +242,7 @@ export function UserBookingQuotePage() {
         return () => {
             isMounted = false;
         };
-    }, [availabilitySlotId, bookingId, durationMinutes, requestedStartAt, serviceAddressId, therapistId, therapistMenuId, token]);
+    }, [availabilitySlotId, bookingId, durationMinutes, isUserVerificationReady, requestedStartAt, serviceAddressId, therapistId, therapistMenuId, token]);
 
     useEffect(() => {
         if (!stripePublishableKey || !cardMountNode || isLoading) {
@@ -377,8 +381,46 @@ export function UserBookingQuotePage() {
         );
     }
 
+    if (!bookingId && !isUserVerificationReady) {
+        return (
+            <div className="space-y-6">
+                <section className="rounded-[32px] bg-[linear-gradient(117deg,#17202b_0%,#243447_52%,#2b4158_100%)] p-7 text-white shadow-[0_24px_60px_rgba(15,23,42,0.22)]">
+                    <div className="space-y-3">
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">STEP 1</p>
+                        <h1 className="text-3xl font-semibold">予約前に本人確認・年齢確認を完了してください</h1>
+                        <p className="max-w-3xl text-sm leading-7 text-slate-300">
+                            未成年の利用防止とトラブル時の対応のため、見積もり確認やカード入力へ進む前に、利用者側の本人確認・年齢確認の承認が必要です。
+                        </p>
+                    </div>
+                </section>
+
+                <div className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                        <Link
+                            to="/user/identity-verification"
+                            className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243140]"
+                        >
+                            本人確認・年齢確認へ進む
+                        </Link>
+                        <Link
+                            to={availabilityPath}
+                            className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
+                        >
+                            空き時間へ戻る
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        );
+    }
+
     async function handleSubmitRequest() {
         if (!token || !quote) {
+            return;
+        }
+
+        if (!isUserVerificationReady) {
+            showError('予約リクエストを送るには、本人確認・年齢確認の承認を完了してください。');
             return;
         }
 

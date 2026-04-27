@@ -272,7 +272,7 @@ function getWindowHeightPercent(startAt: string, endAt: string): number {
 
 export function UserTherapistAvailabilityPage() {
     const { publicId } = useParams();
-    const { token } = useAuth();
+    const { account, token } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
     const [serviceMeta, setServiceMeta] = useState<ServiceMeta | null>(null);
     const [serviceAddresses, setServiceAddresses] = useState<ServiceAddress[]>([]);
@@ -661,6 +661,10 @@ export function UserTherapistAvailabilityPage() {
     const selectedDurationIsValid = durationOptions.some((option) => option.value === displayedDuration);
     const selectedStartIsValid = startOptions.some((option) => option.value === requestedStartAt);
     const pendingScheduledRequest = availability?.pending_scheduled_request ?? therapistDetail?.pending_scheduled_request ?? null;
+    const isUserVerificationReady = Boolean(
+        account?.latest_identity_verification?.status === 'approved'
+        && account.latest_identity_verification.is_age_verified,
+    );
     const pendingScheduledRequestPath = pendingScheduledRequest ? `/user/bookings/${pendingScheduledRequest.public_id}` : '/user/bookings';
     const pendingScheduledRequestLabel = formatDateTimeLabel(
         pendingScheduledRequest?.scheduled_start_at ?? pendingScheduledRequest?.requested_start_at ?? null,
@@ -1063,6 +1067,29 @@ export function UserTherapistAvailabilityPage() {
                                 className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243140]"
                             >
                                 {getPendingScheduledRequestActionLabel(pendingScheduledRequest)}
+                            </Link>
+                        </div>
+                    </section>
+                ) : null}
+
+                {!pendingScheduledRequest && !isUserVerificationReady ? (
+                    <section className="rounded-[28px] border border-[#e7d5b3] bg-[#fff8ec] p-5 shadow-[0_10px_24px_rgba(23,32,43,0.06)] md:p-6">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                            <div className="space-y-2">
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予約前の確認が必要です</p>
+                                <h2 className="text-xl font-semibold text-[#17202b]">
+                                    本人確認・年齢確認の承認が終わるまで予約リクエストは送れません
+                                </h2>
+                                <p className="text-sm leading-7 text-[#6f5a38]">
+                                    カレンダーの確認はできますが、見積もり確認とカード入力へ進む前に、利用者側の本人確認を完了してください。
+                                </p>
+                            </div>
+
+                            <Link
+                                to="/user/identity-verification"
+                                className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243140]"
+                            >
+                                本人確認へ進む
                             </Link>
                         </div>
                     </section>
@@ -1487,12 +1514,19 @@ export function UserTherapistAvailabilityPage() {
                                             </div>
                                         </div>
 
-                                        {requestPath ? (
+                                        {requestPath && isUserVerificationReady ? (
                                             <Link
                                                 to={requestPath}
                                                 className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-bold text-[#1a2430] transition hover:brightness-105"
                                             >
                                                 この内容で見積もりを確認
+                                            </Link>
+                                        ) : !isUserVerificationReady ? (
+                                            <Link
+                                                to="/user/identity-verification"
+                                                className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-bold text-[#1a2430] transition hover:brightness-105"
+                                            >
+                                                本人確認・年齢確認を完了する
                                             </Link>
                                         ) : null}
                                     </div>

@@ -106,7 +106,7 @@ interface PhotoDragState {
 
 export function UserTherapistDetailPage() {
     const { publicId } = useParams();
-    const { hasRole, isAuthenticated, token } = useAuth();
+    const { account, hasRole, isAuthenticated, token } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
     const [serviceAddresses, setServiceAddresses] = useState<ServiceAddress[]>([]);
     const [therapistDetail, setTherapistDetail] = useState<TherapistDetail | null>(null);
@@ -167,6 +167,10 @@ export function UserTherapistDetailPage() {
         return `/user/therapists/${therapistDetail.public_id}/travel-request${nextQueryString ? `?${nextQueryString}` : ''}`;
     }, [searchParams, selectedAddress?.prefecture, therapistDetail]);
     const canUseUserFlows = isAuthenticated && hasRole('user');
+    const isUserVerificationReady = Boolean(
+        account?.latest_identity_verification?.status === 'approved'
+        && account.latest_identity_verification.is_age_verified,
+    );
     const pendingScheduledRequest = therapistDetail?.pending_scheduled_request ?? null;
     const pendingScheduledRequestPath = pendingScheduledRequest ? `/user/bookings/${pendingScheduledRequest.public_id}` : '/user/bookings';
     const loginAvailabilityPath = intendedAvailabilityPath
@@ -199,15 +203,17 @@ export function UserTherapistDetailPage() {
             ? '/role-select?add_role=user&return_to=%2Fuser%2Fservice-addresses'
             : '/register';
     const primaryAction = canUseUserFlows
-        ? {
-            label: pendingScheduledRequest
-                ? getPendingScheduledRequestActionLabel(pendingScheduledRequest)
-                : '空き時間を見る',
-            to: pendingScheduledRequest ? pendingScheduledRequestPath : availabilityPath,
-        }
+        ? !isUserVerificationReady
+            ? { label: '本人確認・年齢確認を完了する', to: '/user/identity-verification' }
+            : {
+                label: pendingScheduledRequest
+                    ? getPendingScheduledRequestActionLabel(pendingScheduledRequest)
+                    : '空き時間を見る',
+                to: pendingScheduledRequest ? pendingScheduledRequestPath : availabilityPath,
+            }
         : isAuthenticated
             ? { label: '利用者モードを追加して空き時間を見る', to: enableUserRolePath }
-        : { label: 'ログインして空き時間を見る', to: loginAvailabilityPath };
+            : { label: 'ログインして空き時間を見る', to: loginAvailabilityPath };
     const secondaryAction = canUseUserFlows
         ? { label: '一覧へ戻る', to: listPath, variant: 'secondary' as const }
         : isAuthenticated
@@ -857,6 +863,17 @@ export function UserTherapistDetailPage() {
                                     </div>
 
                                     <div className="space-y-3">
+                                        {canUseUserFlows && !isUserVerificationReady ? (
+                                            <div className="rounded-[20px] border border-[#e7d5b3] bg-[#fff8ec] p-4 text-sm leading-7 text-[#6f5a38]">
+                                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予約前の確認が必要です</p>
+                                                <p className="mt-2 font-semibold text-[#17202b]">
+                                                    本人確認・年齢確認の承認が終わるまで、予約リクエストは送れません。
+                                                </p>
+                                                <p className="mt-2 text-xs text-[#7d6852]">
+                                                    未成年の利用防止とトラブル時の対応のため、利用者側も本人確認が必須です。
+                                                </p>
+                                            </div>
+                                        ) : null}
                                         {pendingScheduledRequest ? (
                                             <div className="rounded-[20px] border border-[#e7d5b3] bg-[#fff8ec] p-4 text-sm leading-7 text-[#6f5a38]">
                                                 <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">

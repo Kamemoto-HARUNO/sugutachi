@@ -4,6 +4,7 @@ namespace App\Services\Bookings;
 
 use App\Models\Account;
 use App\Models\Booking;
+use App\Models\IdentityVerification;
 use App\Models\TherapistBookingSetting;
 use Carbon\CarbonImmutable;
 use Illuminate\Validation\ValidationException;
@@ -79,6 +80,8 @@ class ScheduledBookingPolicy
         int $therapistProfileId,
         CarbonImmutable $requestedStartAt,
     ): void {
+        $this->assertUserCanBook($user);
+
         if ($this->hasActiveOnDemandBooking($therapistProfileId) && $requestedStartAt->lt(CarbonImmutable::now()->addHours(6))) {
             abort(409, 'このセラピストは今すぐ予約に対応中のため、6時間以内の予約リクエストは送れません。');
         }
@@ -106,6 +109,21 @@ class ScheduledBookingPolicy
             $pendingRequestCount >= 2,
             409,
             '承認待ちの予約リクエストは2件までです。'
+        );
+    }
+
+    public function assertUserCanBook(Account $user): void
+    {
+        $latestIdentityVerification = $user->relationLoaded('latestIdentityVerification')
+            ? $user->latestIdentityVerification
+            : $user->latestIdentityVerification()->first();
+
+        abort_if(
+            ! $latestIdentityVerification
+            || $latestIdentityVerification->status !== IdentityVerification::STATUS_APPROVED
+            || ! $latestIdentityVerification->is_age_verified,
+            422,
+            '予約リクエストを送るには、本人確認・年齢確認の承認を完了してください。'
         );
     }
 

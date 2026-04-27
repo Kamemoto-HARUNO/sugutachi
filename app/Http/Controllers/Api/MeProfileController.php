@@ -4,7 +4,9 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\MeProfileResource;
+use App\Models\Account;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 
 class MeProfileController extends Controller
 {
@@ -20,7 +22,7 @@ class MeProfileController extends Controller
         $account = $request->user();
         $validated = $request->validate([
             'display_name' => ['sometimes', 'nullable', 'string', 'max:80'],
-            'phone_e164' => ['sometimes', 'nullable', 'string', 'max:32', 'regex:/^\+[1-9]\d{7,14}$/', 'unique:accounts,phone_e164,'.$account->id],
+            'phone_e164' => ['sometimes', 'nullable', 'string', 'max:32', 'regex:/^(\+[1-9]\d{7,14}|0\d{9,10})$/'],
         ]);
 
         $attributes = [];
@@ -30,9 +32,24 @@ class MeProfileController extends Controller
         }
 
         if (array_key_exists('phone_e164', $validated)) {
-            $attributes['phone_e164'] = $validated['phone_e164'];
+            $normalizedPhone = $this->normalizePhoneNumber($validated['phone_e164']);
 
-            if ($validated['phone_e164'] !== $account->phone_e164) {
+            if ($normalizedPhone !== null) {
+                $duplicatePhoneExists = Account::query()
+                    ->where('phone_e164', $normalizedPhone)
+                    ->whereKeyNot($account->id)
+                    ->exists();
+
+                if ($duplicatePhoneExists) {
+                    throw ValidationException::withMessages([
+                        'phone_e164' => ['その電話番号はすでに使われています。'],
+                    ]);
+                }
+            }
+
+            $attributes['phone_e164'] = $normalizedPhone;
+
+            if ($normalizedPhone !== $account->phone_e164) {
                 $attributes['phone_verified_at'] = null;
             }
         }
@@ -44,5 +61,28 @@ class MeProfileController extends Controller
         return new MeProfileResource(
             $account->fresh(['roleAssignments', 'latestIdentityVerification', 'profilePhotos.therapistProfile'])
         );
+    }
+
+    private function normalizePhoneNumber(?string $value): ?string
+    {
+        if ($value === null || trim($value) === '') {
+            return null;
+        }
+
+        $trimmed = trim($value);
+
+        if (str_starts_with($trimmed, '+')) {
+            return $trimmed;
+        }
+
+        $digits = preg_replace('/\D+/', '', $trimmed) ?? '';
+
+        if (preg_match('/^0\d{9,10}$/', $digits) !== 1) {
+            throw ValidationException::withMessages([
+                'phone_e164' => ['電話番号は 08012345678 のように、先頭の 0 を含む数字だけで入力してください。'],
+            ]);
+        }
+
+        return '+81'.substr($digits, 1);
     }
 }

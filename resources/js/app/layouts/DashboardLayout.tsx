@@ -1,7 +1,8 @@
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { NavLink, Outlet } from 'react-router-dom';
+import { RoleModeSwitcher } from '../components/account/RoleModeSwitcher';
 import { BrandMark } from '../components/brand/BrandMark';
 import { NotificationBellLink } from '../components/notifications/NotificationBellLink';
-import { getAccountDisplayName, getActiveRoles, formatRoleLabel } from '../lib/account';
+import { getAccountDisplayName } from '../lib/account';
 import type { NavItem, RoleName } from '../lib/types';
 import { useAuth } from '../hooks/useAuth';
 
@@ -21,9 +22,8 @@ function navLinkClass(isActive: boolean): string {
     ].join(' ');
 }
 
-export function DashboardLayout({ role, title, description, navItems }: DashboardLayoutProps) {
+export function DashboardLayout({ title, description, navItems }: DashboardLayoutProps) {
     const { account, logout } = useAuth();
-    const availableRoles = getActiveRoles(account);
 
     return (
         <div className="min-h-screen">
@@ -34,9 +34,7 @@ export function DashboardLayout({ role, title, description, navItems }: Dashboar
                             <div className="space-y-4">
                                 <div className="flex flex-wrap items-center gap-3">
                                     <BrandMark inverse compact />
-                                    <span className="rounded-full border border-[#e8d5b2]/30 bg-[#e8d5b2]/8 px-3 py-1 text-xs font-semibold tracking-wide text-[#f3dec0]">
-                                        {formatRoleLabel(role)}
-                                    </span>
+                                    <RoleModeSwitcher />
                                 </div>
 
                                 <div className="space-y-3">
@@ -51,14 +49,6 @@ export function DashboardLayout({ role, title, description, navItems }: Dashboar
 
                             <div className="flex flex-wrap items-center gap-3 xl:max-w-[420px] xl:justify-end">
                                 <NotificationBellLink />
-                                {availableRoles.length > 0 ? (
-                                    <Link
-                                        to="/role-select"
-                                        className="inline-flex min-h-11 items-center rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/6"
-                                    >
-                                        モード管理
-                                    </Link>
-                                ) : null}
                                 <span className="inline-flex min-h-11 items-center rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-100">
                                     {getAccountDisplayName(account)}
                                 </span>

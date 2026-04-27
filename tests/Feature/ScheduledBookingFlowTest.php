@@ -196,6 +196,14 @@ class ScheduledBookingFlowTest extends TestCase
     {
         $user = Account::factory()->create(['public_id' => "acc_sched_user_{$suffix}"]);
 
+        IdentityVerification::create([
+            'account_id' => $user->id,
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'is_age_verified' => true,
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now(),
+        ]);
+
         $serviceAddress = ServiceAddress::create([
             'public_id' => "addr_sched_{$suffix}",
             'account_id' => $user->id,

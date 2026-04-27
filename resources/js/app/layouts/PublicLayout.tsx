@@ -1,4 +1,5 @@
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
+import { RoleModeSwitcher } from '../components/account/RoleModeSwitcher';
 import { BrandMark } from '../components/brand/BrandMark';
 import { NotificationBellLink } from '../components/notifications/NotificationBellLink';
 import { getRoleHomePath } from '../lib/account';
@@ -44,12 +45,7 @@ export function PublicLayout() {
                             {isAuthenticated ? (
                                 <>
                                     <NotificationBellLink />
-                                    <Link
-                                        to="/role-select"
-                                        className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
-                                    >
-                                        モード管理
-                                    </Link>
+                                    <RoleModeSwitcher />
                                     <Link
                                         to={myPagePath}
                                         className="rounded-full border border-rose-300/40 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-300/10"

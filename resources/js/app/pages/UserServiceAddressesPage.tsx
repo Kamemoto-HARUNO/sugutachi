@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
+import { LocationMapPicker } from '../components/location/LocationMapPicker';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
@@ -76,7 +77,6 @@ export function UserServiceAddressesPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isSaving, setIsSaving] = useState(false);
     const [pendingAddressId, setPendingAddressId] = useState<string | null>(null);
-    const [isLocating, setIsLocating] = useState(false);
 
     usePageTitle('待ち合わせ場所');
     useToastOnMessage(successMessage, 'success');
@@ -86,6 +86,7 @@ export function UserServiceAddressesPage() {
         () => addresses.find((address) => address.public_id === draft.public_id) ?? null,
         [addresses, draft.public_id],
     );
+    const hasSelectedCoordinates = draft.lat.trim() !== '' && draft.lng.trim() !== '';
 
     const loadAddresses = useCallback(async () => {
         if (!token) {
@@ -266,36 +267,6 @@ export function UserServiceAddressesPage() {
         }
     }
 
-    function handleUseCurrentLocation() {
-        if (!navigator.geolocation) {
-            setError('このブラウザでは現在地取得を利用できません。');
-            return;
-        }
-
-        setIsLocating(true);
-        setError(null);
-
-        navigator.geolocation.getCurrentPosition(
-            (position) => {
-                setDraft((current) => ({
-                    ...current,
-                    lat: position.coords.latitude.toFixed(6),
-                    lng: position.coords.longitude.toFixed(6),
-                }));
-                setSuccessMessage('現在地から座標を入力しました。住所欄もあわせて確認してください。');
-                setIsLocating(false);
-            },
-            () => {
-                setError('現在地の取得に失敗しました。緯度・経度を手動で入力してください。');
-                setIsLocating(false);
-            },
-            {
-                enableHighAccuracy: true,
-                timeout: 10000,
-            },
-        );
-    }
-
     if (isLoading) {
         return <LoadingScreen title="待ち合わせ場所を読み込み中" message="登録済みの住所とデフォルト設定を確認しています。" />;
     }
@@ -305,7 +276,7 @@ export function UserServiceAddressesPage() {
             <section className="rounded-[32px] bg-[linear-gradient(117deg,#17202b_0%,#243447_52%,#2b4158_100%)] p-7 text-white shadow-[0_24px_60px_rgba(15,23,42,0.22)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">SERVICE ADDRESSES</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">待ち合わせ場所</p>
                         <div className="space-y-2">
                             <h1 className="text-3xl font-semibold">来てほしい場所を管理</h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300">
@@ -343,7 +314,7 @@ export function UserServiceAddressesPage() {
                 <section className="space-y-4">
                     <div className="flex items-center justify-between">
                         <div>
-                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">REGISTERED</p>
+                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">登録済み住所</p>
                             <h2 className="mt-2 text-2xl font-semibold text-white">登録済みの待ち合わせ場所</h2>
                         </div>
                         <span className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300">
@@ -452,7 +423,7 @@ export function UserServiceAddressesPage() {
                 <section className="rounded-[32px] bg-[#fffdf8] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)] md:p-7">
                     <div className="space-y-2">
                         <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">
-                            {draft.public_id ? 'EDIT ADDRESS' : 'NEW ADDRESS'}
+                            {draft.public_id ? '住所を編集' : '新しい住所を追加'}
                         </p>
                         <h2 className="text-2xl font-semibold text-[#17202b]">
                             {draft.public_id ? '待ち合わせ場所を編集' : '新しい待ち合わせ場所を追加'}
@@ -581,56 +552,36 @@ export function UserServiceAddressesPage() {
                         </div>
 
                         <div className="rounded-[24px] bg-[#f8f4ed] p-5">
-                            <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
-                                <div className="space-y-2">
-                                    <p className="text-sm font-semibold text-[#17202b]">座標設定</p>
-                                    <p className="text-sm leading-7 text-[#68707a]">
-                                        徒歩目安の計算に使うため、緯度・経度も保存します。現在地から入れるか、手動で編集できます。
-                                    </p>
-                                </div>
-                                <button
-                                    type="button"
-                                    onClick={handleUseCurrentLocation}
-                                    disabled={isLocating}
-                                    className="inline-flex items-center rounded-full border border-[#d9c9ae] px-4 py-2 text-sm font-semibold text-[#17202b] transition hover:bg-white disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                    {isLocating ? '取得中...' : '現在地から入力'}
-                                </button>
+                            <div className="space-y-2">
+                                <p className="text-sm font-semibold text-[#17202b]">地図で位置を設定</p>
+                                <p className="text-sm leading-7 text-[#68707a]">
+                                    徒歩目安の計算に使うため、位置情報も保存します。地図を押してピンを置くか、地名・住所検索から設定してください。
+                                </p>
                             </div>
 
-                            <div className="mt-4 grid gap-4 md:grid-cols-2">
-                                <div className="space-y-2">
-                                    <label htmlFor="lat" className="text-sm font-semibold text-[#17202b]">緯度</label>
-                                    <input
-                                        id="lat"
-                                        type="number"
-                                        step="0.000001"
-                                        value={draft.lat}
-                                        onChange={(event) => {
-                                            setDraft((current) => ({ ...current, lat: event.target.value }));
-                                        }}
-                                        className="w-full rounded-[18px] border border-[#e4d7c2] bg-white px-4 py-3 text-sm outline-none transition focus:border-[#c6a16a]"
-                                        placeholder="35.690921"
-                                        required
-                                    />
-                                </div>
-
-                                <div className="space-y-2">
-                                    <label htmlFor="lng" className="text-sm font-semibold text-[#17202b]">経度</label>
-                                    <input
-                                        id="lng"
-                                        type="number"
-                                        step="0.000001"
-                                        value={draft.lng}
-                                        onChange={(event) => {
-                                            setDraft((current) => ({ ...current, lng: event.target.value }));
-                                        }}
-                                        className="w-full rounded-[18px] border border-[#e4d7c2] bg-white px-4 py-3 text-sm outline-none transition focus:border-[#c6a16a]"
-                                        placeholder="139.700258"
-                                        required
-                                    />
-                                </div>
+                            <div className="mt-4">
+                                <LocationMapPicker
+                                    label="待ち合わせ場所"
+                                    latValue={draft.lat}
+                                    lngValue={draft.lng}
+                                    fallbackLatValue={selectedAddress?.lat != null ? String(selectedAddress.lat) : undefined}
+                                    fallbackLngValue={selectedAddress?.lng != null ? String(selectedAddress.lng) : undefined}
+                                    onLatChange={(value) => {
+                                        setDraft((current) => ({ ...current, lat: value }));
+                                    }}
+                                    onLngChange={(value) => {
+                                        setDraft((current) => ({ ...current, lng: value }));
+                                    }}
+                                    searchToken={token}
+                                    disabled={isSaving}
+                                />
                             </div>
+
+                            <p className="mt-3 text-xs leading-6 text-[#7a7066]">
+                                {hasSelectedCoordinates
+                                    ? `保存する位置: 緯度 ${draft.lat} / 経度 ${draft.lng}`
+                                    : '保存前に、検索または地図タップで位置を設定してください。'}
+                            </p>
                         </div>
 
                         {!draft.public_id ? (
@@ -662,7 +613,7 @@ export function UserServiceAddressesPage() {
                         <div className="flex flex-wrap gap-3">
                             <button
                                 type="submit"
-                                disabled={isSaving}
+                                disabled={isSaving || !hasSelectedCoordinates}
                                 className="inline-flex items-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
                             >
                                 {isSaving ? '保存中...' : draft.public_id ? '更新する' : '追加する'}
