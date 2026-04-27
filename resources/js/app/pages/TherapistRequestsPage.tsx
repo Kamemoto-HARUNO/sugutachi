@@ -232,6 +232,10 @@ export function TherapistRequestsPage() {
     );
 
     useEffect(() => {
+        if (isLoading) {
+            return;
+        }
+
         if (filteredRequests.length === 0) {
             setSelectedRequestId(null);
 
@@ -262,7 +266,7 @@ export function TherapistRequestsPage() {
         if (!selectedRequestId || !filteredRequests.some((request) => request.public_id === selectedRequestId)) {
             setSelectedRequestId(filteredRequests[0].public_id);
         }
-    }, [filteredRequests, location.search, navigate, publicId, selectedRequestId]);
+    }, [filteredRequests, isLoading, location.search, navigate, publicId, selectedRequestId]);
 
     useEffect(() => {
         let isMounted = true;
