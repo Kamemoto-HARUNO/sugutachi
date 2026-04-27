@@ -599,6 +599,7 @@ export function TherapistBookingsPage() {
                                                     to={booking.status === 'requested'
                                                         ? `/therapist/requests/${booking.public_id}`
                                                         : `/therapist/bookings/${booking.public_id}`}
+                                                    reloadDocument={booking.status === 'requested'}
                                                     className="inline-flex w-full items-center justify-center rounded-full bg-[#17202b] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#243447]"
                                                 >
                                                     {booking.status === 'requested' ? '依頼内容を確認' : '詳細を見る'}
@@ -607,6 +608,7 @@ export function TherapistBookingsPage() {
                                                     to={booking.status === 'requested'
                                                         ? `/therapist/requests/${booking.public_id}`
                                                         : `/therapist/bookings/${booking.public_id}/messages`}
+                                                    reloadDocument={booking.status === 'requested'}
                                                     className="inline-flex w-full items-center justify-center rounded-full border border-[#d6c3a6] px-4 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#efe5d7]"
                                                 >
                                                     {booking.status === 'requested' ? '承諾・辞退へ' : 'メッセージへ'}

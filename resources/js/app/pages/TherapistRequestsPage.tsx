@@ -126,6 +126,16 @@ function buildRequestDetailPath(publicId: string, search: string): string {
     return search ? `/therapist/requests/${publicId}${search}` : `/therapist/requests/${publicId}`;
 }
 
+function buildRequestListPath(search: string): string {
+    const params = new URLSearchParams(search);
+    params.set('group', 'requested');
+    params.delete('request_type');
+
+    const query = params.toString();
+
+    return query ? `/therapist/bookings?${query}` : '/therapist/bookings?group=requested';
+}
+
 function filterRequests(
     requests: TherapistBookingRequestRecord[],
     requestType: RequestTypeFilter,
@@ -226,7 +236,7 @@ export function TherapistRequestsPage() {
             setSelectedRequestId(null);
 
             if (publicId) {
-                navigate('/therapist/requests', { replace: true });
+                navigate(buildRequestListPath(location.search), { replace: true });
             }
 
             return;
@@ -367,7 +377,7 @@ export function TherapistRequestsPage() {
 
             if (publicId === currentId) {
                 navigate(
-                    nextSelectedId ? buildRequestDetailPath(nextSelectedId, location.search) : '/therapist/requests',
+                    nextSelectedId ? buildRequestDetailPath(nextSelectedId, location.search) : buildRequestListPath(location.search),
                     { replace: true },
                 );
             }
@@ -415,7 +425,7 @@ export function TherapistRequestsPage() {
 
             if (publicId === currentId) {
                 navigate(
-                    nextSelectedId ? buildRequestDetailPath(nextSelectedId, location.search) : '/therapist/requests',
+                    nextSelectedId ? buildRequestDetailPath(nextSelectedId, location.search) : buildRequestListPath(location.search),
                     { replace: true },
                 );
             }
