@@ -71,6 +71,39 @@ class BookingMessageTest extends TestCase
             ->assertJsonPath('meta.filters.read_status', 'unread');
     }
 
+    public function test_counterparty_typing_indicator_is_visible_and_cleared_after_send(): void
+    {
+        [$user, $therapist, $booking] = $this->createMessageFixture();
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/messages/typing", [
+                'is_typing' => true,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.booking_public_id', $booking->public_id)
+            ->assertJsonPath('data.is_typing', true);
+
+        $typingResponse = $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->getJson("/api/bookings/{$booking->public_id}/messages")
+            ->assertOk()
+            ->assertJsonPath('meta.counterparty_typing', true);
+
+        $this->assertNotNull($typingResponse->json('meta.counterparty_typing_updated_at'));
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/messages", [
+                'body' => 'そろそろ到着します。',
+            ])
+            ->assertCreated();
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->getJson("/api/bookings/{$booking->public_id}/messages")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('meta.counterparty_typing', false)
+            ->assertJsonPath('data.0.body', 'そろそろ到着します。');
+    }
+
     public function test_message_rejects_contact_exchange(): void
     {
         [$user, , $booking] = $this->createMessageFixture();

@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
@@ -164,26 +164,30 @@ export function TherapistBookingMessagesPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isSending, setIsSending] = useState(false);
+    const isTypingRef = useRef(false);
 
     usePageTitle(
         booking
             ? `${booking.counterparty?.display_name ?? meta?.counterparty?.display_name ?? '予約'}とのメッセージ`
             : '予約メッセージ',
     );
+    useToastOnMessage(successMessage, 'success');
 
-    const loadData = useCallback(async (nextIsRefresh = false) => {
+    const loadData = useCallback(async (options: { refresh?: boolean; silent?: boolean; preserveSuccess?: boolean } = {}) => {
         if (!token || !publicId) {
             setIsLoading(false);
             return;
         }
 
-        if (nextIsRefresh) {
+        if (options.refresh && !options.silent) {
             setIsRefreshing(true);
-        } else {
+        } else if (!options.silent) {
             setIsLoading(true);
         }
 
-        setSuccessMessage(null);
+        if (!options.preserveSuccess) {
+            setSuccessMessage(null);
+        }
 
         try {
             const query = readFilter === 'all' ? '' : `?read_status=${readFilter}`;
@@ -217,6 +221,73 @@ export function TherapistBookingMessagesPage() {
         void loadData();
     }, [loadData]);
 
+    useEffect(() => {
+        if (!token || !publicId) {
+            return;
+        }
+
+        const intervalId = window.setInterval(() => {
+            if (document.visibilityState !== 'visible') {
+                return;
+            }
+
+            void loadData({ refresh: true, silent: true, preserveSuccess: true });
+        }, 4000);
+
+        return () => {
+            window.clearInterval(intervalId);
+        };
+    }, [loadData, publicId, token]);
+
+    const syncTypingState = useCallback(async (isTyping: boolean) => {
+        if (!token || !publicId) {
+            return;
+        }
+
+        try {
+            await apiRequest<ApiEnvelope<{ booking_public_id: string; is_typing: boolean }>>(`/bookings/${publicId}/messages/typing`, {
+                method: 'POST',
+                token,
+                body: {
+                    is_typing: isTyping,
+                },
+            });
+        } catch {
+            // Typing indicators are best-effort only.
+        }
+    }, [publicId, token]);
+
+    useEffect(() => {
+        const hasDraft = draft.trim().length > 0;
+
+        if (!hasDraft) {
+            if (isTypingRef.current) {
+                isTypingRef.current = false;
+                void syncTypingState(false);
+            }
+            return;
+        }
+
+        if (!isTypingRef.current) {
+            isTypingRef.current = true;
+            void syncTypingState(true);
+        }
+
+        const intervalId = window.setInterval(() => {
+            void syncTypingState(true);
+        }, 3000);
+
+        return () => {
+            window.clearInterval(intervalId);
+        };
+    }, [draft, syncTypingState]);
+
+    useEffect(() => () => {
+        if (isTypingRef.current) {
+            void syncTypingState(false);
+        }
+    }, [syncTypingState]);
+
     const counterpartyName = booking?.counterparty?.display_name
         ?? meta?.counterparty?.display_name
         ?? '利用者を確認中';
@@ -239,7 +310,7 @@ export function TherapistBookingMessagesPage() {
         setSuccessMessage(null);
 
         try {
-            await apiRequest<ApiEnvelope<BookingMessageRecord>>(`/bookings/${publicId}/messages`, {
+            const payload = await apiRequest<ApiEnvelope<BookingMessageRecord>>(`/bookings/${publicId}/messages`, {
                 method: 'POST',
                 token,
                 body: {
@@ -247,9 +318,14 @@ export function TherapistBookingMessagesPage() {
                 },
             });
 
+            const createdMessage = unwrapData(payload);
+            setMessages((current) => current.some((message) => message.id === createdMessage.id)
+                ? current
+                : [...current, createdMessage]);
             setDraft('');
+            isTypingRef.current = false;
             setSuccessMessage('メッセージを送信しました。');
-            await loadData(true);
+            await loadData({ refresh: true, silent: true, preserveSuccess: true });
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -277,7 +353,7 @@ export function TherapistBookingMessagesPage() {
                 token,
             });
 
-            await loadData(true);
+            await loadData({ refresh: true, silent: true, preserveSuccess: true });
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -327,6 +403,11 @@ export function TherapistBookingMessagesPage() {
                             <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
                                 受信未読 {meta?.unread_count ?? unreadIncomingCount}件
                             </span>
+                            {meta?.counterparty_typing ? (
+                                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
+                                    {counterpartyName}が入力中...
+                                </span>
+                            ) : null}
                         </div>
                         <div className="space-y-2">
                             <h1 className="text-3xl font-semibold">{counterpartyName}とのメッセージ</h1>
@@ -342,7 +423,7 @@ export function TherapistBookingMessagesPage() {
                         <button
                             type="button"
                             onClick={() => {
-                                void loadData(true);
+                                void loadData({ refresh: true });
                             }}
                             disabled={isRefreshing}
                             className="inline-flex items-center rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-60"
@@ -372,6 +453,9 @@ export function TherapistBookingMessagesPage() {
                         <div>
                             <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">やりとり</p>
                             <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">やりとり一覧</h2>
+                            {meta?.counterparty_typing ? (
+                                <p className="mt-2 text-sm text-[#68707a]">{counterpartyName}がメッセージを入力しています。</p>
+                            ) : null}
                         </div>
 
                         <div className="flex flex-wrap gap-2">

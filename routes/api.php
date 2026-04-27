@@ -226,6 +226,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/bookings/{booking:public_id}/refund-requests', [RefundRequestController::class, 'store']);
     Route::get('/bookings/{booking:public_id}/messages', [BookingMessageController::class, 'index']);
     Route::post('/bookings/{booking:public_id}/messages', [BookingMessageController::class, 'store']);
+    Route::post('/bookings/{booking:public_id}/messages/typing', [BookingMessageController::class, 'typing']);
     Route::post('/bookings/{booking:public_id}/messages/{message}/read', [BookingMessageController::class, 'read']);
     Route::post('/bookings/{booking:public_id}/reviews', [ReviewController::class, 'store']);
     Route::get('/refund-requests/{refund:public_id}', [RefundRequestController::class, 'show']);

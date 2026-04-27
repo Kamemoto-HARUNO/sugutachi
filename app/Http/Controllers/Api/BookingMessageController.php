@@ -7,6 +7,7 @@ use App\Http\Resources\BookingMessageResource;
 use App\Models\Account;
 use App\Models\Booking;
 use App\Models\BookingMessage;
+use App\Services\Bookings\BookingMessageTypingService;
 use App\Support\ContactExchangeDetector;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -17,7 +18,11 @@ use Laravel\Sanctum\PersonalAccessToken;
 
 class BookingMessageController extends Controller
 {
-    public function index(Request $request, Booking $booking): AnonymousResourceCollection
+    public function index(
+        Request $request,
+        Booking $booking,
+        BookingMessageTypingService $bookingMessageTypingService,
+    ): AnonymousResourceCollection
     {
         $actor = $this->authenticatedActor($request);
         $this->authorizeParticipant($booking, $actor);
@@ -42,12 +47,15 @@ class BookingMessageController extends Controller
             ->whereNull('read_at')
             ->where('sender_account_id', '!=', $actor->id)
             ->count();
+        $counterpartyTyping = $bookingMessageTypingService->counterpartyTypingMeta($booking, $actor);
 
         return BookingMessageResource::collection($messages)->additional([
             'meta' => [
                 'booking_public_id' => $booking->public_id,
                 'booking_status' => $booking->status,
                 'unread_count' => $unreadCount,
+                'counterparty_typing' => $counterpartyTyping['is_typing'],
+                'counterparty_typing_updated_at' => $counterpartyTyping['updated_at'],
                 'counterparty' => $this->counterparty($booking, $actor),
                 'filters' => [
                     'read_status' => $validated['read_status'] ?? null,
@@ -56,7 +64,12 @@ class BookingMessageController extends Controller
         ]);
     }
 
-    public function store(Request $request, Booking $booking, ContactExchangeDetector $detector): JsonResponse
+    public function store(
+        Request $request,
+        Booking $booking,
+        ContactExchangeDetector $detector,
+        BookingMessageTypingService $bookingMessageTypingService,
+    ): JsonResponse
     {
         $actor = $this->authenticatedActor($request);
         $this->authorizeParticipant($booking, $actor);
@@ -80,11 +93,39 @@ class BookingMessageController extends Controller
             'sent_at' => now(),
         ]);
 
+        $bookingMessageTypingService->clearTyping($booking, $actor);
         $message->setAttribute('viewer_account_id', $actor->id);
 
         return (new BookingMessageResource($message->load(['booking', 'sender'])))
             ->response()
             ->setStatusCode(201);
+    }
+
+    public function typing(
+        Request $request,
+        Booking $booking,
+        BookingMessageTypingService $bookingMessageTypingService,
+    ): JsonResponse
+    {
+        $actor = $this->authenticatedActor($request);
+        $this->authorizeParticipant($booking, $actor);
+
+        $validated = $request->validate([
+            'is_typing' => ['required', 'boolean'],
+        ]);
+
+        if ($validated['is_typing']) {
+            $bookingMessageTypingService->markTyping($booking, $actor);
+        } else {
+            $bookingMessageTypingService->clearTyping($booking, $actor);
+        }
+
+        return response()->json([
+            'data' => [
+                'booking_public_id' => $booking->public_id,
+                'is_typing' => (bool) $validated['is_typing'],
+            ],
+        ]);
     }
 
     public function read(Request $request, Booking $booking, BookingMessage $message): BookingMessageResource

@@ -1069,6 +1069,8 @@ export interface BookingMessagesMeta {
     booking_public_id: string;
     booking_status: string;
     unread_count: number;
+    counterparty_typing: boolean;
+    counterparty_typing_updated_at: string | null;
     counterparty: BookingCounterparty | null;
     filters: {
         read_status: 'read' | 'unread' | null;
