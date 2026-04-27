@@ -13,6 +13,7 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withSchedule(function (Schedule $schedule): void {
+        $schedule->command('ledger:release-available')->everyFifteenMinutes();
         $schedule->command('bookings:expire-pending-requests')->everyMinute();
         $schedule->command('bookings:follow-up-completion-confirmations')->everyFifteenMinutes();
     })

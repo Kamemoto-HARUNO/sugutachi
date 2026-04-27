@@ -139,7 +139,7 @@ class StripeConnectApiTest extends TestCase
         $this->assertSame('https://sugutachi.com/therapist/stripe-connect/return', $gateway->lastReturnUrl);
     }
 
-    public function test_account_link_urls_are_normalized_when_configured_without_scheme(): void
+    public function test_account_link_urls_are_normalized_when_configured_for_localhost(): void
     {
         [$therapist, $token] = $this->createTherapistFixture();
 
@@ -151,8 +151,8 @@ class StripeConnectApiTest extends TestCase
             'status' => StripeConnectedAccount::STATUS_REQUIREMENTS_DUE,
         ]);
 
-        config()->set('services.stripe.connect_return_url', 'localhost/therapist/stripe-connect');
-        config()->set('services.stripe.connect_refresh_url', 'localhost/therapist/stripe-connect');
+        config()->set('services.stripe.connect_return_url', 'http://localhost/therapist/stripe-connect');
+        config()->set('services.stripe.connect_refresh_url', 'http://localhost/therapist/stripe-connect');
 
         $gateway = new FakeConnectGateway;
         $this->app->instance(ConnectGateway::class, $gateway);
@@ -162,8 +162,8 @@ class StripeConnectApiTest extends TestCase
             ->postJson('/api/me/stripe-connect/account-link')
             ->assertOk();
 
-        $this->assertSame('http://localhost/therapist/stripe-connect', $gateway->lastRefreshUrl);
-        $this->assertSame('http://localhost/therapist/stripe-connect', $gateway->lastReturnUrl);
+        $this->assertSame('http://127.0.0.1/therapist/stripe-connect', $gateway->lastRefreshUrl);
+        $this->assertSame('http://127.0.0.1/therapist/stripe-connect', $gateway->lastReturnUrl);
     }
 
     public function test_therapist_can_refresh_connected_account_state(): void

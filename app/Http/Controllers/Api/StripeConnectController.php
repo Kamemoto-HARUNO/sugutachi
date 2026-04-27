@@ -139,11 +139,21 @@ class StripeConnectController extends Controller
 
         if ($configuredUrl !== '') {
             if (filter_var($configuredUrl, FILTER_VALIDATE_URL)) {
+                $parsed = parse_url($configuredUrl);
+                $host = strtolower((string) ($parsed['host'] ?? ''));
+                $path = (string) ($parsed['path'] ?? $fallbackPath);
+                $query = isset($parsed['query']) ? '?'.$parsed['query'] : '';
+                $fragment = isset($parsed['fragment']) ? '#'.$parsed['fragment'] : '';
+
+                if ($this->isLocalOnlyHost($host)) {
+                    return $this->localRedirectBaseUrl($request) . ($path !== '' ? $path : $fallbackPath) . $query . $fragment;
+                }
+
                 return $configuredUrl;
             }
 
             if (str_starts_with($configuredUrl, '/')) {
-                return rtrim($request->getSchemeAndHttpHost(), '/') . $configuredUrl;
+                return $this->localRedirectBaseUrl($request) . $configuredUrl;
             }
 
             if (preg_match('/^[a-z0-9.-]+(?::\d+)?(?:\\/.*)?$/i', $configuredUrl) === 1) {
@@ -159,6 +169,27 @@ class StripeConnectController extends Controller
             }
         }
 
-        return rtrim($request->getSchemeAndHttpHost(), '/') . $fallbackPath;
+        return $this->localRedirectBaseUrl($request) . $fallbackPath;
+    }
+
+    private function isLocalOnlyHost(string $host): bool
+    {
+        if ($host === '' || $host === 'localhost') {
+            return true;
+        }
+
+        if (filter_var($host, FILTER_VALIDATE_IP) !== false) {
+            return true;
+        }
+
+        return ! str_contains($host, '.');
+    }
+
+    private function localRedirectBaseUrl(Request $request): string
+    {
+        $port = $request->getPort();
+        $portSuffix = $port && ! in_array($port, [80, 443], true) ? ':'.$port : '';
+
+        return $request->getScheme().'://127.0.0.1'.$portSuffix;
     }
 }

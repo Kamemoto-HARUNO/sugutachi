@@ -13,6 +13,8 @@ class StripeConnectGateway implements ConnectGateway
 {
     public function createAccount(Account $account): array
     {
+        $businessProfileUrl = $this->businessProfileUrl();
+
         $stripeAccount = $this->client()->accounts->create(array_filter([
             'type' => 'express',
             'country' => config('services.stripe.connect_country', 'JP'),
@@ -29,8 +31,8 @@ class StripeConnectGateway implements ConnectGateway
                     ],
                 ],
             ],
-            'business_profile' => filled(config('app.url'))
-                ? ['url' => rtrim((string) config('app.url'), '/')]
+            'business_profile' => filled($businessProfileUrl)
+                ? ['url' => $businessProfileUrl]
                 : null,
             'metadata' => [
                 'account_id' => (string) $account->id,
@@ -74,5 +76,22 @@ class StripeConnectGateway implements ConnectGateway
         }
 
         return new StripeClient($secret);
+    }
+
+    private function businessProfileUrl(): ?string
+    {
+        $appUrl = trim((string) config('app.url'));
+
+        if ($appUrl === '' || filter_var($appUrl, FILTER_VALIDATE_URL) === false) {
+            return null;
+        }
+
+        $host = strtolower((string) parse_url($appUrl, PHP_URL_HOST));
+
+        if ($host === '' || $host === 'localhost' || filter_var($host, FILTER_VALIDATE_IP) !== false || ! str_contains($host, '.')) {
+            return null;
+        }
+
+        return rtrim($appUrl, '/');
     }
 }
