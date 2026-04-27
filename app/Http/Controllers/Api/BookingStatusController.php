@@ -6,10 +6,12 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\BookingResource;
 use App\Models\Booking;
 use App\Services\Bookings\BookingCompletionService;
+use App\Services\Bookings\BookingSettlementService;
 use App\Services\Bookings\BookingStatusTransitionService;
 use App\Services\Bookings\ScheduledBookingPolicy;
 use App\Services\Notifications\BookingNotificationService;
 use App\Services\Payments\BookingPaymentIntentCancellationService;
+use Carbon\CarbonImmutable;
 use Illuminate\Http\Request;
 use Illuminate\Validation\ValidationException;
 
@@ -201,25 +203,66 @@ class BookingStatusController extends Controller
     public function complete(
         Request $request,
         Booking $booking,
+        BookingSettlementService $bookingSettlementService,
         BookingStatusTransitionService $transition,
         BookingNotificationService $bookingNotificationService,
     ): BookingResource
     {
         $this->authorizeTherapist($request, $booking);
 
+        $validated = $request->validate([
+            'started_at' => ['required', 'date'],
+            'ended_at' => ['required', 'date'],
+        ]);
+
+        $reportedAt = CarbonImmutable::now();
+        $startedAt = CarbonImmutable::parse($validated['started_at']);
+        $endedAt = CarbonImmutable::parse($validated['ended_at']);
+        $attributes = $bookingSettlementService->buildCompletionAttributes(
+            booking: $booking,
+            startedAt: $startedAt,
+            endedAt: $endedAt,
+            reportedAt: $reportedAt,
+        );
+
         $booking = $transition->transition(
             booking: $booking,
             actor: $request->user(),
             actorRole: 'therapist',
-            allowedFromStatuses: [Booking::STATUS_IN_PROGRESS],
+            allowedFromStatuses: [Booking::STATUS_ARRIVED, Booking::STATUS_IN_PROGRESS],
             toStatus: Booking::STATUS_THERAPIST_COMPLETED,
             reasonCode: 'therapist_completed',
-            attributes: [
-                'ended_at' => now(),
-            ],
+            attributes: $attributes,
         );
 
         $bookingNotificationService->notifyTherapistCompleted($booking->loadMissing(['userAccount', 'therapistProfile']));
+
+        return new BookingResource($booking->load('currentQuote'));
+    }
+
+    public function updateCompletionWindow(
+        Request $request,
+        Booking $booking,
+        BookingSettlementService $bookingSettlementService,
+        BookingNotificationService $bookingNotificationService,
+    ): BookingResource
+    {
+        $this->authorizeTherapist($request, $booking);
+
+        abort_unless($booking->status === Booking::STATUS_THERAPIST_COMPLETED, 409, 'Completion timing can only be updated while waiting for user confirmation.');
+
+        $validated = $request->validate([
+            'started_at' => ['required', 'date'],
+            'ended_at' => ['required', 'date'],
+        ]);
+
+        $booking = $bookingSettlementService->updateTherapistCompletedWindow(
+            booking: $booking,
+            startedAt: CarbonImmutable::parse($validated['started_at']),
+            endedAt: CarbonImmutable::parse($validated['ended_at']),
+        );
+
+        $bookingNotificationService->notifyCompletionWindowUpdated($booking->loadMissing(['userAccount', 'therapistProfile']));
 
         return new BookingResource($booking->load('currentQuote'));
     }

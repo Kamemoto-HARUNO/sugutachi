@@ -145,6 +145,32 @@ class BookingNotificationService
         );
     }
 
+    public function notifyCompletionWindowUpdated(Booking $booking): void
+    {
+        $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);
+
+        $this->create(
+            accountId: $booking->user_account_id,
+            type: 'booking_completion_window_updated',
+            title: '施術時間が更新されました',
+            body: 'セラピストが開始時刻または終了時刻を更新しました。最終金額をご確認ください。',
+            data: [
+                'booking_public_id' => $booking->public_id,
+                'status' => $booking->status,
+                'started_at' => $booking->started_at?->toJSON(),
+                'ended_at' => $booking->ended_at?->toJSON(),
+                'actual_duration_minutes' => $booking->actual_duration_minutes,
+                'total_amount' => $booking->total_amount,
+            ],
+        );
+
+        $this->sendEmail(
+            email: $booking->userAccount?->email,
+            subject: '施術時間が更新されました',
+            body: 'セラピストが施術時間を更新しました。アプリから開始時刻、終了時刻、最終金額をご確認ください。'
+        );
+    }
+
     public function notifyCompletionReminder(Booking $booking): void
     {
         $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);

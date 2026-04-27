@@ -235,5 +235,6 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/bookings/{booking:public_id}/arrived', [BookingStatusController::class, 'arrived']);
     Route::post('/bookings/{booking:public_id}/start', [BookingStatusController::class, 'start']);
     Route::post('/bookings/{booking:public_id}/complete', [BookingStatusController::class, 'complete']);
+    Route::patch('/bookings/{booking:public_id}/completion-window', [BookingStatusController::class, 'updateCompletionWindow']);
     Route::post('/bookings/{booking:public_id}/user-complete-confirmation', [BookingStatusController::class, 'userCompleteConfirmation']);
 });

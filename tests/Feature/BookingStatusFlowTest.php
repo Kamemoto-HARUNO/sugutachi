@@ -18,6 +18,7 @@ use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
 class BookingStatusFlowTest extends TestCase
@@ -88,8 +89,13 @@ class BookingStatusFlowTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.status', Booking::STATUS_IN_PROGRESS);
 
+        $this->travelTo(CarbonImmutable::now()->addMinutes(20));
+
         $this->withToken($therapistToken)
-            ->postJson("/api/bookings/{$booking->public_id}/complete")
+            ->postJson("/api/bookings/{$booking->public_id}/complete", [
+                'started_at' => now()->subMinutes(15)->format('Y-m-d\TH:i'),
+                'ended_at' => now()->format('Y-m-d\TH:i'),
+            ])
             ->assertOk()
             ->assertJsonPath('data.status', Booking::STATUS_THERAPIST_COMPLETED)
             ->assertJsonPath('data.ended_at', fn ($value) => filled($value));
@@ -197,6 +203,110 @@ class BookingStatusFlowTest extends TestCase
             'id' => $booking->id,
             'status' => Booking::STATUS_COMPLETED,
         ]);
+    }
+
+    public function test_therapist_can_complete_and_adjust_service_window_before_user_completion(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2030-01-06 10:00:00'));
+
+        $gatewayState = (object) ['canceledStripeIds' => [], 'captures' => []];
+        $this->bindPaymentIntentGateway($gatewayState);
+
+        [$user, $therapist, $booking] = $this->createRequestedBooking(withPaymentIntent: true);
+
+        $therapistToken = $therapist->createToken('api')->plainTextToken;
+
+        $this->withToken($therapistToken)
+            ->postJson("/api/bookings/{$booking->public_id}/accept")
+            ->assertOk();
+
+        $this->withToken($therapistToken)
+            ->postJson("/api/bookings/{$booking->public_id}/moving")
+            ->assertOk();
+
+        $arrivalCode = $booking->refresh()->arrival_confirmation_code;
+
+        $this->withToken($therapistToken)
+            ->postJson("/api/bookings/{$booking->public_id}/arrived", [
+                'arrival_confirmation_code' => $arrivalCode,
+            ])
+            ->assertOk();
+
+        $this->travelTo(CarbonImmutable::parse('2030-01-06 11:40:00'));
+
+        $this->withToken($therapistToken)
+            ->postJson("/api/bookings/{$booking->public_id}/complete", [
+                'started_at' => '2030-01-06T10:05',
+                'ended_at' => '2030-01-06T10:49',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', Booking::STATUS_THERAPIST_COMPLETED)
+            ->assertJsonPath('data.actual_duration_minutes', 45)
+            ->assertJsonPath('data.total_amount', 9300)
+            ->assertJsonPath('data.therapist_net_amount', 8100)
+            ->assertJsonPath('data.platform_fee_amount', 900);
+
+        $this->withToken($therapistToken)
+            ->patchJson("/api/bookings/{$booking->public_id}/completion-window", [
+                'started_at' => '2030-01-06T10:15',
+                'ended_at' => '2030-01-06T11:33',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.actual_duration_minutes', 90)
+            ->assertJsonPath('data.total_amount', 18300)
+            ->assertJsonPath('data.therapist_net_amount', 16200)
+            ->assertJsonPath('data.platform_fee_amount', 1800);
+
+        Sanctum::actingAs($user);
+
+        $this->getJson("/api/bookings/{$booking->public_id}")
+            ->assertOk()
+            ->assertJsonPath('data.status', Booking::STATUS_THERAPIST_COMPLETED)
+            ->assertJsonPath('data.counterparty.role', 'therapist');
+
+        $this->postJson("/api/bookings/{$booking->public_id}/user-complete-confirmation")
+            ->assertOk()
+            ->assertJsonPath('data.status', Booking::STATUS_COMPLETED);
+
+        $this->assertSame([[
+            'stripe_payment_intent_id' => 'pi_'.$booking->public_id,
+            'amount_to_capture' => 18300,
+            'application_fee_amount' => null,
+            'transfer_amount' => null,
+        ]], $gatewayState->captures);
+
+        $this->assertDatabaseHas('payment_intents', [
+            'booking_id' => $booking->id,
+            'status' => PaymentIntent::STRIPE_STATUS_SUCCEEDED,
+            'amount' => 24300,
+            'application_fee_amount' => 2700,
+            'transfer_amount' => 21600,
+        ]);
+    }
+
+    public function test_therapist_cannot_set_completion_end_after_recorded_completion_time(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2030-01-06 12:00:00'));
+
+        [$user, $therapist, $booking] = $this->createRequestedBooking();
+        $therapistToken = $therapist->createToken('api')->plainTextToken;
+
+        $booking->forceFill([
+            'status' => Booking::STATUS_THERAPIST_COMPLETED,
+            'arrived_at' => CarbonImmutable::parse('2030-01-06 10:00:00'),
+            'started_at' => CarbonImmutable::parse('2030-01-06 10:15:00'),
+            'ended_at' => CarbonImmutable::parse('2030-01-06 11:00:00'),
+            'service_completion_reported_at' => CarbonImmutable::parse('2030-01-06 11:00:00'),
+            'actual_duration_minutes' => 45,
+        ])->save();
+
+        $this->withToken($therapistToken)
+            ->patchJson("/api/bookings/{$booking->public_id}/completion-window", [
+                'started_at' => '2030-01-06T10:15',
+                'ended_at' => '2030-01-06T11:30',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['ended_at']);
     }
 
     public function test_scheduled_accept_requires_buffers(): void
@@ -342,6 +452,38 @@ class BookingStatusFlowTest extends TestCase
             'matching_fee_amount' => 300,
         ]);
 
+        $quote = BookingQuote::create([
+            'public_id' => 'quote_'.$booking->public_id,
+            'booking_id' => $booking->id,
+            'therapist_profile_id' => $therapistProfile->id,
+            'therapist_menu_id' => $menu->id,
+            'duration_minutes' => 60,
+            'base_amount' => 12000,
+            'travel_fee_amount' => 0,
+            'night_fee_amount' => 0,
+            'demand_fee_amount' => 0,
+            'profile_adjustment_amount' => 0,
+            'matching_fee_amount' => 300,
+            'platform_fee_amount' => 1200,
+            'total_amount' => 12300,
+            'therapist_gross_amount' => 12000,
+            'therapist_net_amount' => 10800,
+            'calculation_version' => 'test',
+            'input_snapshot_json' => [
+                'service_address_id' => $address->public_id,
+                'therapist_profile_id' => $therapistProfile->public_id,
+                'therapist_menu_id' => $menu->public_id,
+                'duration_minutes' => 60,
+                'is_on_demand' => true,
+            ],
+            'applied_rules_json' => [],
+            'expires_at' => now()->addMinutes(30),
+        ]);
+
+        $booking->update([
+            'current_quote_id' => $quote->id,
+        ]);
+
         $paymentIntent = $withPaymentIntent
             ? PaymentIntent::create([
                 'booking_id' => $booking->id,
@@ -350,9 +492,9 @@ class BookingStatusFlowTest extends TestCase
                 'status' => PaymentIntent::STRIPE_STATUS_REQUIRES_CAPTURE,
                 'capture_method' => 'manual',
                 'currency' => 'jpy',
-                'amount' => 12300,
-                'application_fee_amount' => 1500,
-                'transfer_amount' => 10800,
+                'amount' => 24300,
+                'application_fee_amount' => 2700,
+                'transfer_amount' => 21600,
                 'is_current' => true,
                 'authorized_at' => now()->subMinute(),
             ])
@@ -466,8 +608,20 @@ class BookingStatusFlowTest extends TestCase
                 );
             }
 
-            public function capture(PaymentIntent $paymentIntent): string
+            public function capture(
+                PaymentIntent $paymentIntent,
+                ?int $amountToCapture = null,
+                ?int $applicationFeeAmount = null,
+                ?int $transferAmount = null,
+            ): string
             {
+                $this->gatewayState->captures[] = [
+                    'stripe_payment_intent_id' => $paymentIntent->stripe_payment_intent_id,
+                    'amount_to_capture' => $amountToCapture,
+                    'application_fee_amount' => $applicationFeeAmount,
+                    'transfer_amount' => $transferAmount,
+                ];
+
                 return PaymentIntent::STRIPE_STATUS_SUCCEEDED;
             }
 

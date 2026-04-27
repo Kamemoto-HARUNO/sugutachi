@@ -55,7 +55,12 @@ class StripePaymentIntentGateway implements PaymentIntentGateway
         );
     }
 
-    public function capture(PaymentIntent $paymentIntent): string
+    public function capture(
+        PaymentIntent $paymentIntent,
+        ?int $amountToCapture = null,
+        ?int $applicationFeeAmount = null,
+        ?int $transferAmount = null,
+    ): string
     {
         $secret = config('services.stripe.secret');
 
@@ -63,9 +68,25 @@ class StripePaymentIntentGateway implements PaymentIntentGateway
             throw new RuntimeException('Stripe secret key is not configured.');
         }
 
+        $payload = [];
+
+        if ($amountToCapture !== null) {
+            $payload['amount_to_capture'] = $amountToCapture;
+        }
+
+        if ($applicationFeeAmount !== null) {
+            $payload['application_fee_amount'] = $applicationFeeAmount;
+        }
+
+        if ($transferAmount !== null) {
+            $payload['transfer_data'] = [
+                'amount' => $transferAmount,
+            ];
+        }
+
         $intent = (new StripeClient($secret))
             ->paymentIntents
-            ->capture($paymentIntent->stripe_payment_intent_id);
+            ->capture($paymentIntent->stripe_payment_intent_id, $payload);
 
         return (string) $intent->status;
     }

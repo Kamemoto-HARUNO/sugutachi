@@ -286,7 +286,12 @@ class BookingSafetyTest extends TestCase
                 );
             }
 
-            public function capture(PaymentIntent $paymentIntent): string
+            public function capture(
+                PaymentIntent $paymentIntent,
+                ?int $amountToCapture = null,
+                ?int $applicationFeeAmount = null,
+                ?int $transferAmount = null,
+            ): string
             {
                 $this->gatewayState->capturedStripeIds[] = $paymentIntent->stripe_payment_intent_id;
 

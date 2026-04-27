@@ -302,6 +302,7 @@ export interface AdminBookingListRecord {
     scheduled_start_at: string | null;
     scheduled_end_at: string | null;
     duration_minutes: number;
+    actual_duration_minutes?: number | null;
     cancel_reason_code: string | null;
     interruption_reason_code: string | null;
     interrupted_at: string | null;
@@ -878,6 +879,7 @@ export interface BookingListRecord {
     scheduled_start_at: string | null;
     scheduled_end_at: string | null;
     duration_minutes: number;
+    actual_duration_minutes?: number | null;
     buffer_before_minutes: number;
     buffer_after_minutes: number;
     request_expires_at: string | null;
@@ -889,6 +891,7 @@ export interface BookingListRecord {
     arrival_confirmation_code_generated_at?: string | null;
     started_at: string | null;
     ended_at: string | null;
+    service_completion_reported_at?: string | null;
     completed_at?: string | null;
     canceled_at: string | null;
     interrupted_at: string | null;

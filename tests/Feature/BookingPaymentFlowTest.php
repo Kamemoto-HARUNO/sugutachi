@@ -37,7 +37,12 @@ class BookingPaymentFlowTest extends TestCase
                 );
             }
 
-            public function capture(PaymentIntent $paymentIntent): string
+            public function capture(
+                PaymentIntent $paymentIntent,
+                ?int $amountToCapture = null,
+                ?int $applicationFeeAmount = null,
+                ?int $transferAmount = null,
+            ): string
             {
                 return PaymentIntent::STRIPE_STATUS_SUCCEEDED;
             }
@@ -81,7 +86,9 @@ class BookingPaymentFlowTest extends TestCase
             ->assertCreated()
             ->assertJsonPath('data.stripe_payment_intent_id', 'pi_test_'.$bookingId)
             ->assertJsonPath('data.client_secret', 'pi_test_secret_'.$bookingId)
-            ->assertJsonPath('data.amount', 12300)
+            ->assertJsonPath('data.amount', 24300)
+            ->assertJsonPath('data.application_fee_amount', 0)
+            ->assertJsonPath('data.transfer_amount', 0)
             ->assertJsonPath('data.capture_method', 'manual');
 
         $this->assertDatabaseHas('bookings', [
@@ -92,7 +99,9 @@ class BookingPaymentFlowTest extends TestCase
 
         $this->assertDatabaseHas('payment_intents', [
             'stripe_payment_intent_id' => 'pi_test_'.$bookingId,
-            'amount' => 12300,
+            'amount' => 24300,
+            'application_fee_amount' => 0,
+            'transfer_amount' => 0,
             'is_current' => true,
         ]);
     }

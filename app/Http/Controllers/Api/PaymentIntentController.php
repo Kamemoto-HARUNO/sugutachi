@@ -7,13 +7,19 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\PaymentIntentResource;
 use App\Models\Booking;
 use App\Models\PaymentIntent;
+use App\Services\Bookings\BookingSettlementCalculator;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 
 class PaymentIntentController extends Controller
 {
-    public function store(Request $request, Booking $booking, PaymentIntentGateway $gateway): JsonResponse
+    public function store(
+        Request $request,
+        Booking $booking,
+        PaymentIntentGateway $gateway,
+        BookingSettlementCalculator $bookingSettlementCalculator,
+    ): JsonResponse
     {
         abort_unless($booking->user_account_id === $request->user()->id, 404);
         abort_unless(
@@ -27,10 +33,26 @@ class PaymentIntentController extends Controller
 
         abort_unless($quote, 409, 'Current quote is missing.');
 
-        $connectedAccount = $booking->therapistProfile->stripeConnectedAccount;
-        $createdIntent = $gateway->create($booking, $quote, $connectedAccount);
+        $authorizationAmounts = $bookingSettlementCalculator->calculateAuthorizationAmounts($quote);
+        $authorizationQuote = clone $quote;
+        $authorizationQuote->forceFill([
+            'duration_minutes' => $authorizationAmounts['authorization_duration_minutes'],
+            'base_amount' => $authorizationAmounts['base_amount'],
+            'travel_fee_amount' => $authorizationAmounts['travel_fee_amount'],
+            'night_fee_amount' => $authorizationAmounts['night_fee_amount'],
+            'demand_fee_amount' => $authorizationAmounts['demand_fee_amount'],
+            'profile_adjustment_amount' => $authorizationAmounts['profile_adjustment_amount'],
+            'matching_fee_amount' => $authorizationAmounts['matching_fee_amount'],
+            'platform_fee_amount' => $authorizationAmounts['platform_fee_amount'],
+            'total_amount' => $authorizationAmounts['total_amount'],
+            'therapist_gross_amount' => $authorizationAmounts['therapist_gross_amount'],
+            'therapist_net_amount' => $authorizationAmounts['therapist_net_amount'],
+        ]);
 
-        $paymentIntent = DB::transaction(function () use ($booking, $quote, $connectedAccount, $createdIntent): PaymentIntent {
+        $connectedAccount = $booking->therapistProfile->stripeConnectedAccount;
+        $createdIntent = $gateway->create($booking, $authorizationQuote, $connectedAccount);
+
+        $paymentIntent = DB::transaction(function () use ($booking, $quote, $authorizationQuote, $connectedAccount, $createdIntent): PaymentIntent {
             $booking->paymentIntents()->update(['is_current' => false]);
 
             return PaymentIntent::create([
@@ -41,17 +63,18 @@ class PaymentIntentController extends Controller
                 'status' => $createdIntent->status,
                 'capture_method' => 'manual',
                 'currency' => config('services.stripe.currency', 'jpy'),
-                'amount' => $quote->total_amount,
+                'amount' => $authorizationQuote->total_amount,
                 'application_fee_amount' => $connectedAccount?->canReceiveStripeTransfers()
-                    ? $quote->platform_fee_amount + $quote->matching_fee_amount
+                    ? $authorizationQuote->platform_fee_amount + $authorizationQuote->matching_fee_amount
                     : 0,
                 'transfer_amount' => $connectedAccount?->canReceiveStripeTransfers()
-                    ? $quote->therapist_net_amount
+                    ? $authorizationQuote->therapist_net_amount
                     : 0,
                 'is_current' => true,
                 'metadata_json' => [
                     'booking_public_id' => $booking->public_id,
                     'quote_public_id' => $quote->public_id,
+                    'authorization_duration_minutes' => $authorizationQuote->duration_minutes,
                 ],
             ]);
         });

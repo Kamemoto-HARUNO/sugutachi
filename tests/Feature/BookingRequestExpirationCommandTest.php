@@ -43,7 +43,12 @@ class BookingRequestExpirationCommandTest extends TestCase
                 );
             }
 
-            public function capture(PaymentIntent $paymentIntent): string
+            public function capture(
+                PaymentIntent $paymentIntent,
+                ?int $amountToCapture = null,
+                ?int $applicationFeeAmount = null,
+                ?int $transferAmount = null,
+            ): string
             {
                 return PaymentIntent::STRIPE_STATUS_SUCCEEDED;
             }

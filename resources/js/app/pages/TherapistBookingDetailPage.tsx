@@ -293,11 +293,34 @@ function nextStageAction(booking: BookingDetailRecord): { label: string; path: s
             return { label: '到着を記録', path: 'arrived' };
         case 'arrived':
             return { label: '施術開始を記録', path: 'start' };
-        case 'in_progress':
-            return { label: '施術完了を記録', path: 'complete' };
         default:
             return null;
     }
+}
+
+function canManageCompletionWindow(status: string): boolean {
+    return ['arrived', 'in_progress', 'therapist_completed'].includes(status);
+}
+
+function completionActionLabel(status: string): string {
+    return status === 'therapist_completed' ? '施術時間を更新する' : '施術完了を記録';
+}
+
+function formatDateTimeLocalValue(value: string | null): string {
+    if (!value) {
+        return '';
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return '';
+    }
+
+    const offsetMinutes = date.getTimezoneOffset();
+    const localDate = new Date(date.getTime() - offsetMinutes * 60_000);
+
+    return localDate.toISOString().slice(0, 16);
 }
 
 function canTherapistCancel(status: string): boolean {
@@ -328,7 +351,10 @@ export function TherapistBookingDetailPage() {
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmittingStage, setIsSubmittingStage] = useState(false);
+    const [isSubmittingCompletionWindow, setIsSubmittingCompletionWindow] = useState(false);
     const [arrivalConfirmationCode, setArrivalConfirmationCode] = useState('');
+    const [completionStartedAtInput, setCompletionStartedAtInput] = useState('');
+    const [completionEndedAtInput, setCompletionEndedAtInput] = useState('');
     const [isLoadingCancelPreview, setIsLoadingCancelPreview] = useState(false);
     const [isCanceling, setIsCanceling] = useState(false);
 
@@ -426,6 +452,35 @@ export function TherapistBookingDetailPage() {
 
     const timeline = useMemo(() => (booking ? buildTimeline(booking) : []), [booking]);
     const nextAction = booking ? nextStageAction(booking) : null;
+    const canEditCompletionWindow = booking ? canManageCompletionWindow(booking.status) : false;
+
+    useEffect(() => {
+        if (!booking || !canManageCompletionWindow(booking.status)) {
+            return;
+        }
+
+        const upperBound = booking.service_completion_reported_at
+            ?? booking.ended_at
+            ?? new Date().toISOString();
+
+        setCompletionStartedAtInput(formatDateTimeLocalValue(
+            booking.started_at
+            ?? booking.arrived_at
+            ?? booking.scheduled_start_at
+            ?? upperBound,
+        ));
+        setCompletionEndedAtInput(formatDateTimeLocalValue(
+            booking.ended_at ?? upperBound,
+        ));
+    }, [
+        booking?.public_id,
+        booking?.status,
+        booking?.started_at,
+        booking?.ended_at,
+        booking?.arrived_at,
+        booking?.scheduled_start_at,
+        booking?.service_completion_reported_at,
+    ]);
 
     async function reloadAfterMutation(message: string) {
         await loadBooking();
@@ -469,6 +524,56 @@ export function TherapistBookingDetailPage() {
             setError(message);
         } finally {
             setIsSubmittingStage(false);
+        }
+    }
+
+    async function handleCompletionWindowSubmit() {
+        if (!token || !booking || !canManageCompletionWindow(booking.status) || isSubmittingCompletionWindow) {
+            return;
+        }
+
+        if (completionStartedAtInput.trim().length === 0 || completionEndedAtInput.trim().length === 0) {
+            setError('開始時刻と終了時刻を入力してください。');
+            return;
+        }
+
+        setIsSubmittingCompletionWindow(true);
+        setError(null);
+        setSuccessMessage(null);
+
+        try {
+            if (booking.status === 'therapist_completed') {
+                await apiRequest<ApiEnvelope<BookingDetailRecord>>(`/bookings/${booking.public_id}/completion-window`, {
+                    method: 'PATCH',
+                    token,
+                    body: {
+                        started_at: completionStartedAtInput,
+                        ended_at: completionEndedAtInput,
+                    },
+                });
+
+                await reloadAfterMutation('施術時間を更新しました。利用者へ最新の金額を通知しています。');
+            } else {
+                await apiRequest<ApiEnvelope<BookingDetailRecord>>(`/bookings/${booking.public_id}/complete`, {
+                    method: 'POST',
+                    token,
+                    body: {
+                        started_at: completionStartedAtInput,
+                        ended_at: completionEndedAtInput,
+                    },
+                });
+
+                await reloadAfterMutation('施術完了を記録しました。利用者の確認待ちになります。');
+            }
+        } catch (requestError) {
+            const message =
+                requestError instanceof ApiError
+                    ? requestError.message
+                    : '施術時間の更新に失敗しました。';
+
+            setError(message);
+        } finally {
+            setIsSubmittingCompletionWindow(false);
         }
     }
 
@@ -727,7 +832,7 @@ export function TherapistBookingDetailPage() {
 
                 <aside className="space-y-5">
                     <section className="rounded-[28px] bg-[#fffcf7] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.1)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">次のおすすめ</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">進行アクション</p>
                         <div className="mt-4 space-y-4">
                             {nextAction ? (
                                 <>
@@ -773,6 +878,57 @@ export function TherapistBookingDetailPage() {
                                     </p>
                                 </div>
                             )}
+
+                            {canEditCompletionWindow ? (
+                                <div className="rounded-[22px] bg-[#f8f4ed] px-4 py-4">
+                                    <p className="text-sm font-semibold text-[#17202b]">
+                                        {booking.status === 'therapist_completed' ? '施術時間を見直す' : '施術完了を記録する'}
+                                    </p>
+                                    <p className="mt-2 text-sm leading-7 text-[#68707a]">
+                                        開始時刻と終了時刻から15分単位で切り上げて最終金額を計算します。延長は予約時間に対して最大60分までです。
+                                    </p>
+
+                                    <div className="mt-4 grid gap-3">
+                                        <label className="space-y-2">
+                                            <span className="text-xs font-semibold tracking-wide text-[#7d6852]">開始時刻</span>
+                                            <input
+                                                type="datetime-local"
+                                                value={completionStartedAtInput}
+                                                onChange={(event) => setCompletionStartedAtInput(event.target.value)}
+                                                className="w-full rounded-[16px] border border-[#e4d7c2] bg-white px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#c6a16a]"
+                                            />
+                                        </label>
+                                        <label className="space-y-2">
+                                            <span className="text-xs font-semibold tracking-wide text-[#7d6852]">終了時刻</span>
+                                            <input
+                                                type="datetime-local"
+                                                value={completionEndedAtInput}
+                                                onChange={(event) => setCompletionEndedAtInput(event.target.value)}
+                                                className="w-full rounded-[16px] border border-[#e4d7c2] bg-white px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#c6a16a]"
+                                            />
+                                        </label>
+                                    </div>
+
+                                    <p className="mt-3 text-xs leading-6 text-[#7d6852]">
+                                        開始時刻は到着時刻より前にできません。終了時刻は、最初に施術終了を記録した時刻より後にはできません。
+                                    </p>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            void handleCompletionWindowSubmit();
+                                        }}
+                                        disabled={
+                                            isSubmittingCompletionWindow
+                                            || completionStartedAtInput.trim().length === 0
+                                            || completionEndedAtInput.trim().length === 0
+                                        }
+                                        className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243447] disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        {isSubmittingCompletionWindow ? '更新中...' : completionActionLabel(booking.status)}
+                                    </button>
+                                </div>
+                            ) : null}
                         </div>
                     </section>
 
