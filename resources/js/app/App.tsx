@@ -8,6 +8,7 @@ import {
     useLocation,
     useParams,
 } from 'react-router-dom';
+import { ActiveUserBookingDock } from './components/booking';
 import { LoadingScreen } from './components/LoadingScreen';
 import { PlaceholderScreen } from './components/PlaceholderScreen';
 import { useAuth } from './hooks/useAuth';
@@ -96,29 +97,30 @@ function AppRoutes() {
     }
 
     return (
-        <Routes>
-            <Route path="/" element={<PublicHomePage />} />
-            <Route path="/therapists/:publicId" element={<UserTherapistDetailPage />} />
-            <Route path="/user/therapists/:publicId" element={<LegacyUserTherapistDetailRedirect />} />
+        <>
+            <Routes>
+                <Route path="/" element={<PublicHomePage />} />
+                <Route path="/therapists/:publicId" element={<UserTherapistDetailPage />} />
+                <Route path="/user/therapists/:publicId" element={<LegacyUserTherapistDetailRedirect />} />
 
-            <Route element={<PublicLayout />}>
-                <Route path="/help" element={<HelpPage />} />
-                <Route path="/terms" element={<LegalDocumentPage documentType="terms" title="利用規約" />} />
-                <Route path="/privacy" element={<LegalDocumentPage documentType="privacy" title="プライバシーポリシー" />} />
-                <Route path="/commerce" element={<LegalDocumentPage documentType="commerce" title="特定商取引法に基づく表記" />} />
-                <Route path="/contact" element={<ContactPage />} />
-                <Route element={<GuestOnlyRoute isAuthenticated={isAuthenticated} accountPath={getPostAuthPath(account, activeRole)} />}>
-                    <Route path="/login" element={<LoginPage />} />
-                    <Route path="/register" element={<RegisterPage />} />
-                    <Route path="/admin/login" element={<LoginPage targetRole="admin" />} />
+                <Route element={<PublicLayout />}>
+                    <Route path="/help" element={<HelpPage />} />
+                    <Route path="/terms" element={<LegalDocumentPage documentType="terms" title="利用規約" />} />
+                    <Route path="/privacy" element={<LegalDocumentPage documentType="privacy" title="プライバシーポリシー" />} />
+                    <Route path="/commerce" element={<LegalDocumentPage documentType="commerce" title="特定商取引法に基づく表記" />} />
+                    <Route path="/contact" element={<ContactPage />} />
+                    <Route element={<GuestOnlyRoute isAuthenticated={isAuthenticated} accountPath={getPostAuthPath(account, activeRole)} />}>
+                        <Route path="/login" element={<LoginPage />} />
+                        <Route path="/register" element={<RegisterPage />} />
+                        <Route path="/admin/login" element={<LoginPage targetRole="admin" />} />
+                    </Route>
                 </Route>
-            </Route>
 
-            <Route element={<ProtectedRoute isAuthenticated={isAuthenticated} />}>
-                <Route path="/role-select" element={<RoleSelectPage />} />
-                <Route path="/identity-verification" element={<AccountIdentityVerificationPage />} />
-                <Route path="/profile" element={<AccountProfilePage />} />
-            </Route>
+                <Route element={<ProtectedRoute isAuthenticated={isAuthenticated} />}>
+                    <Route path="/role-select" element={<RoleSelectPage />} />
+                    <Route path="/identity-verification" element={<AccountIdentityVerificationPage />} />
+                    <Route path="/profile" element={<AccountProfilePage />} />
+                </Route>
 
             <Route element={<RoleRoute role="user" hasRole={hasRole} isAuthenticated={isAuthenticated} activeRole={activeRole} selectRole={selectRole} />}>
                 <Route path="/user/therapists" element={<UserTherapistSearchPage />} />
@@ -321,8 +323,10 @@ function AppRoutes() {
                 </Route>
             </Route>
 
-            <Route path="*" element={<NotFoundPage />} />
-        </Routes>
+                <Route path="*" element={<NotFoundPage />} />
+            </Routes>
+            <ActiveUserBookingDock />
+        </>
     );
 }
 

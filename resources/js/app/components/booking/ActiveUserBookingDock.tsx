@@ -196,8 +196,7 @@ export function ActiveUserBookingDock() {
                     <div className="mb-3 space-y-3 rounded-[28px] border border-[#17202b]/10 bg-[#fffdf8] p-4 shadow-[0_22px_45px_rgba(23,32,43,0.22)]">
                         <div className="flex items-center justify-between gap-3">
                             <div>
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">USER BOOKING</p>
-                                <p className="mt-1 text-sm font-semibold text-[#17202b]">{summary}</p>
+                                <p className="text-sm font-semibold text-[#17202b]">{summary}</p>
                             </div>
                             <button
                                 type="button"
@@ -244,10 +243,7 @@ export function ActiveUserBookingDock() {
                     }}
                     className="flex w-full items-center justify-between rounded-full border border-[#17202b]/10 bg-[#fffdf8] px-4 py-3 text-left shadow-[0_18px_36px_rgba(23,32,43,0.18)]"
                 >
-                    <div className="min-w-0">
-                        <p className="text-[11px] font-semibold tracking-wide text-[#9a7a49]">USER BOOKING</p>
-                        <p className="truncate text-sm font-semibold text-[#17202b]">{summary}</p>
-                    </div>
+                    <p className="min-w-0 truncate text-sm font-semibold text-[#17202b]">{summary}</p>
                     <span className="inline-flex min-w-[3rem] justify-center rounded-full bg-[#17202b] px-3 py-1 text-xs font-semibold text-white">
                         {isExpanded ? '閉じる' : '開く'}
                     </span>
@@ -255,35 +251,66 @@ export function ActiveUserBookingDock() {
             </section>
 
             <aside className="fixed bottom-6 left-6 z-[110] hidden w-[min(22rem,calc(100vw-3rem))] md:block">
-                <div className="space-y-3 rounded-[30px] border border-[#17202b]/10 bg-[#fffdf8] p-4 shadow-[0_24px_48px_rgba(23,32,43,0.22)]">
-                    <div className="space-y-1">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">USER BOOKING</p>
-                        <p className="text-sm font-semibold text-[#17202b]">{summary}</p>
-                        <p className="text-xs leading-6 text-[#68707a]">どの画面からでも、利用者予約の状態をここから確認できます。</p>
-                    </div>
-
-                    {bookings.map((booking) => (
-                        <article key={booking.public_id} className="rounded-[24px] border border-[#efe4d3] bg-white px-4 py-4">
-                            <div className="flex items-start justify-between gap-3">
-                                <div className="min-w-0">
-                                    <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
-                                        {statusLabel(booking.status)}
-                                    </span>
-                                    <p className="mt-3 truncate text-sm font-semibold text-[#17202b]">
-                                        {booking.counterparty?.display_name ?? 'セラピスト'}
-                                    </p>
-                                    <p className="mt-1 text-xs leading-6 text-[#68707a]">{primaryTimeLabel(booking)}</p>
-                                </div>
-                                <Link
-                                    to={bookingActionPath(booking)}
-                                    className="inline-flex shrink-0 items-center rounded-full bg-[#17202b] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#243140]"
-                                >
-                                    {bookingActionLabel(booking.status)}
-                                </Link>
+                {isExpanded ? (
+                    <div className="space-y-3 rounded-[30px] border border-[#17202b]/10 bg-[#fffdf8] p-4 shadow-[0_24px_48px_rgba(23,32,43,0.22)]">
+                        <div className="flex items-start justify-between gap-3">
+                            <div className="space-y-1">
+                                <p className="text-sm font-semibold text-[#17202b]">{summary}</p>
+                                <p className="text-xs leading-6 text-[#68707a]">どの画面からでも、利用者予約の状態をここから確認できます。</p>
                             </div>
-                        </article>
-                    ))}
-                </div>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsExpanded(false);
+                                }}
+                                className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-full border border-[#d8c9b2] text-sm font-semibold text-[#48505a]"
+                                aria-label="予約状況を閉じる"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        {bookings.map((booking) => (
+                            <article key={booking.public_id} className="rounded-[24px] border border-[#efe4d3] bg-white px-4 py-4">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div className="min-w-0">
+                                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
+                                            {statusLabel(booking.status)}
+                                        </span>
+                                        <p className="mt-3 truncate text-sm font-semibold text-[#17202b]">
+                                            {booking.counterparty?.display_name ?? 'セラピスト'}
+                                        </p>
+                                        <p className="mt-1 text-xs leading-6 text-[#68707a]">{primaryTimeLabel(booking)}</p>
+                                    </div>
+                                    <Link
+                                        to={bookingActionPath(booking)}
+                                        className="inline-flex shrink-0 items-center rounded-full bg-[#17202b] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#243140]"
+                                    >
+                                        {bookingActionLabel(booking.status)}
+                                    </Link>
+                                </div>
+                            </article>
+                        ))}
+                    </div>
+                ) : (
+                    <button
+                        type="button"
+                        onClick={() => {
+                            setIsExpanded(true);
+                        }}
+                        className="flex w-full items-center justify-between rounded-[24px] border border-[#17202b]/10 bg-[#fffdf8] px-4 py-4 text-left shadow-[0_20px_40px_rgba(23,32,43,0.2)]"
+                    >
+                        <div className="min-w-0">
+                            <p className="truncate text-sm font-semibold text-[#17202b]">{summary}</p>
+                            <p className="mt-1 text-xs leading-6 text-[#68707a]">
+                                {bookings[0] ? `${statusLabel(bookings[0].status)} / ${bookingActionLabel(bookings[0].status)}` : '予約を確認'}
+                            </p>
+                        </div>
+                        <span className="inline-flex shrink-0 items-center rounded-full bg-[#17202b] px-4 py-2 text-xs font-semibold text-white">
+                            開く
+                        </span>
+                    </button>
+                )}
             </aside>
         </>
     );
