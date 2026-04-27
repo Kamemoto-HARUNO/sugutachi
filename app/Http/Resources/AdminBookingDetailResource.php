@@ -42,6 +42,11 @@ class AdminBookingDetailResource extends JsonResource
             'therapist_net_amount' => $this->therapist_net_amount,
             'platform_fee_amount' => $this->platform_fee_amount,
             'matching_fee_amount' => $this->matching_fee_amount,
+            'settlement_total_amount' => $this->settlement_total_amount,
+            'settlement_therapist_net_amount' => $this->settlement_therapist_net_amount,
+            'settlement_platform_fee_amount' => $this->settlement_platform_fee_amount,
+            'settlement_matching_fee_amount' => $this->settlement_matching_fee_amount,
+            'uncaptured_extension_amount' => $this->uncaptured_extension_amount,
             'user_account' => $this->whenLoaded('userAccount', fn () => $this->userAccount ? [
                 'public_id' => $this->userAccount->public_id,
                 'display_name' => $this->userAccount->display_name,

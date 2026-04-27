@@ -902,6 +902,11 @@ export interface BookingListRecord {
     therapist_net_amount: number;
     platform_fee_amount: number;
     matching_fee_amount: number;
+    settlement_total_amount?: number | null;
+    settlement_therapist_net_amount?: number | null;
+    settlement_platform_fee_amount?: number | null;
+    settlement_matching_fee_amount?: number | null;
+    uncaptured_extension_amount?: number | null;
     counterparty: BookingCounterparty | null;
     therapist_profile: BookingTherapistProfileSummary | null;
     therapist_menu: BookingTherapistMenuSummary | null;

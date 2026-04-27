@@ -95,15 +95,21 @@ class BookingSettlementService
         }
 
         $amounts = $this->calculator->calculateForBooking($booking, $roundedDurationMinutes);
+        $chargeableAmounts = $this->calculator->applyAuthorizationCap($booking, $amounts);
 
         return [
             'started_at' => $startedAt,
             'ended_at' => $endedAt,
             'actual_duration_minutes' => $roundedDurationMinutes,
-            'total_amount' => $amounts['total_amount'],
-            'therapist_net_amount' => $amounts['therapist_net_amount'],
-            'platform_fee_amount' => $amounts['platform_fee_amount'],
-            'matching_fee_amount' => $amounts['matching_fee_amount'],
+            'total_amount' => $chargeableAmounts['total_amount'],
+            'therapist_net_amount' => $chargeableAmounts['therapist_net_amount'],
+            'platform_fee_amount' => $chargeableAmounts['platform_fee_amount'],
+            'matching_fee_amount' => $chargeableAmounts['matching_fee_amount'],
+            'settlement_total_amount' => $chargeableAmounts['settlement_total_amount'],
+            'settlement_therapist_net_amount' => $chargeableAmounts['settlement_therapist_net_amount'],
+            'settlement_platform_fee_amount' => $chargeableAmounts['settlement_platform_fee_amount'],
+            'settlement_matching_fee_amount' => $chargeableAmounts['settlement_matching_fee_amount'],
+            'uncaptured_extension_amount' => $chargeableAmounts['uncaptured_extension_amount'],
         ];
     }
 }

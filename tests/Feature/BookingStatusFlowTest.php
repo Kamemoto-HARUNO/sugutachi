@@ -295,6 +295,119 @@ class BookingStatusFlowTest extends TestCase
         ]);
     }
 
+    public function test_legacy_authorization_caps_extended_booking_amounts(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2030-01-06 01:00:00'));
+
+        $gatewayState = (object) ['canceledStripeIds' => [], 'captures' => []];
+        $this->bindPaymentIntentGateway($gatewayState);
+
+        [$user, $therapist, $booking, $paymentIntent] = $this->createRequestedBooking(withPaymentIntent: true);
+        $paymentIntent->forceFill([
+            'amount' => 12300,
+            'application_fee_amount' => 0,
+            'transfer_amount' => 0,
+        ])->save();
+
+        $therapistToken = $therapist->createToken('api')->plainTextToken;
+
+        $this->withToken($therapistToken)
+            ->postJson("/api/bookings/{$booking->public_id}/accept")
+            ->assertOk();
+
+        $this->withToken($therapistToken)
+            ->postJson("/api/bookings/{$booking->public_id}/moving")
+            ->assertOk();
+
+        $arrivalCode = $booking->refresh()->arrival_confirmation_code;
+
+        $this->withToken($therapistToken)
+            ->postJson("/api/bookings/{$booking->public_id}/arrived", [
+                'arrival_confirmation_code' => $arrivalCode,
+            ])
+            ->assertOk();
+
+        $this->travelTo(CarbonImmutable::parse('2030-01-06 02:40:00'));
+
+        $this->withToken($therapistToken)
+            ->postJson("/api/bookings/{$booking->public_id}/complete", [
+                'started_at' => '2030-01-06T10:15',
+                'ended_at' => '2030-01-06T11:33',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', Booking::STATUS_THERAPIST_COMPLETED)
+            ->assertJsonPath('data.actual_duration_minutes', 90)
+            ->assertJsonPath('data.total_amount', 12300)
+            ->assertJsonPath('data.therapist_net_amount', 10800)
+            ->assertJsonPath('data.platform_fee_amount', 1200)
+            ->assertJsonPath('data.matching_fee_amount', 300)
+            ->assertJsonPath('data.settlement_total_amount', 18300)
+            ->assertJsonPath('data.uncaptured_extension_amount', 6000);
+
+        Sanctum::actingAs($user);
+
+        $this->postJson("/api/bookings/{$booking->public_id}/user-complete-confirmation")
+            ->assertOk()
+            ->assertJsonPath('data.status', Booking::STATUS_COMPLETED)
+            ->assertJsonPath('data.total_amount', 12300)
+            ->assertJsonPath('data.settlement_total_amount', 18300)
+            ->assertJsonPath('data.uncaptured_extension_amount', 6000);
+
+        $this->assertSame([[
+            'stripe_payment_intent_id' => 'pi_'.$booking->public_id,
+            'amount_to_capture' => 12300,
+            'application_fee_amount' => null,
+            'transfer_amount' => null,
+        ]], $gatewayState->captures);
+    }
+
+    public function test_user_completion_caps_legacy_therapist_completed_booking_created_before_new_flow(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2030-01-06 03:00:00'));
+
+        $gatewayState = (object) ['canceledStripeIds' => [], 'captures' => []];
+        $this->bindPaymentIntentGateway($gatewayState);
+
+        [$user, , $booking, $paymentIntent] = $this->createRequestedBooking(withPaymentIntent: true);
+        $paymentIntent->forceFill([
+            'amount' => 12300,
+            'application_fee_amount' => 0,
+            'transfer_amount' => 0,
+        ])->save();
+
+        $booking->forceFill([
+            'status' => Booking::STATUS_THERAPIST_COMPLETED,
+            'arrived_at' => $this->jstUtc('2030-01-06 10:00:00'),
+            'started_at' => $this->jstUtc('2030-01-06 10:15:00'),
+            'ended_at' => $this->jstUtc('2030-01-06 11:33:00'),
+            'actual_duration_minutes' => 90,
+            'total_amount' => 18300,
+            'therapist_net_amount' => 16200,
+            'platform_fee_amount' => 1800,
+            'matching_fee_amount' => 300,
+            'service_completion_reported_at' => $this->jstUtc('2030-01-06 11:33:00'),
+        ])->save();
+
+        Sanctum::actingAs($user);
+
+        $this->postJson("/api/bookings/{$booking->public_id}/user-complete-confirmation")
+            ->assertOk()
+            ->assertJsonPath('data.status', Booking::STATUS_COMPLETED)
+            ->assertJsonPath('data.total_amount', 12300)
+            ->assertJsonPath('data.therapist_net_amount', 10800)
+            ->assertJsonPath('data.platform_fee_amount', 1200)
+            ->assertJsonPath('data.matching_fee_amount', 300)
+            ->assertJsonPath('data.settlement_total_amount', 18300)
+            ->assertJsonPath('data.uncaptured_extension_amount', 6000);
+
+        $this->assertSame([[
+            'stripe_payment_intent_id' => 'pi_'.$booking->public_id,
+            'amount_to_capture' => 12300,
+            'application_fee_amount' => null,
+            'transfer_amount' => null,
+        ]], $gatewayState->captures);
+    }
+
     public function test_therapist_cannot_set_completion_end_after_recorded_completion_time(): void
     {
         $this->travelTo(CarbonImmutable::parse('2030-01-06 03:00:00'));

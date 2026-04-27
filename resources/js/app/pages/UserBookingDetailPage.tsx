@@ -71,19 +71,6 @@ function statusTone(status: string): string {
     }
 }
 
-function paymentStatusLabel(value: string | null | undefined): string {
-    switch (value) {
-        case 'requires_capture':
-            return '与信確保済み';
-        case 'succeeded':
-            return '決済完了';
-        case 'canceled':
-            return '与信取消';
-        default:
-            return '未作成';
-    }
-}
-
 function therapistRewardAmount(booking: Pick<BookingDetailRecord, 'total_amount' | 'matching_fee_amount'>): number {
     return Math.max(0, booking.total_amount - booking.matching_fee_amount);
 }
@@ -101,6 +88,18 @@ function therapistRewardFormulaLabel(
     const durationLabel = booking.actual_duration_minutes != null ? `実働${minutes}分` : `予約${minutes}分`;
 
     return `時間単価${formatCurrency(hourlyRateAmount)} × ${durationLabel}`;
+}
+
+function legacyAuthorizationNotice(
+    booking: Pick<BookingDetailRecord, 'uncaptured_extension_amount'>,
+): string | null {
+    const uncapturedAmount = booking.uncaptured_extension_amount ?? 0;
+
+    if (uncapturedAmount <= 0) {
+        return null;
+    }
+
+    return `旧仕様の予約のため、延長ぶん ${formatCurrency(uncapturedAmount)} は今回の与信上限を超えるため請求していません。`;
 }
 
 function refundStatusLabel(status: string): string {
@@ -444,6 +443,9 @@ export function UserBookingDetailPage() {
                                                 <span>セラピスト謝礼</span>
                                                 {therapistRewardFormulaLabel(booking) ? (
                                                     <p className="mt-1 text-xs text-[#68707a]">（{therapistRewardFormulaLabel(booking)}）</p>
+                                                ) : null}
+                                                {legacyAuthorizationNotice(booking) ? (
+                                                    <p className="mt-1 text-xs text-[#9a4b35]">{legacyAuthorizationNotice(booking)}</p>
                                                 ) : null}
                                             </div>
                                             <span className="font-semibold text-[#17202b]">{formatCurrency(therapistRewardAmount(booking))}</span>

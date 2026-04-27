@@ -84,4 +84,100 @@ class BookingSettlementCalculator
 
         return $this->calculateFromQuote($booking->currentQuote, $durationMinutes);
     }
+
+    public function applyAuthorizationCap(Booking $booking, array $settlementAmounts): array
+    {
+        $booking->loadMissing(['currentQuote', 'currentPaymentIntent']);
+
+        $settlementTotalAmount = (int) $settlementAmounts['total_amount'];
+        $authorizedAmount = (int) ($booking->currentPaymentIntent?->amount ?? 0);
+
+        $baseAttributes = [
+            'settlement_total_amount' => $settlementTotalAmount,
+            'settlement_therapist_net_amount' => (int) $settlementAmounts['therapist_net_amount'],
+            'settlement_platform_fee_amount' => (int) $settlementAmounts['platform_fee_amount'],
+            'settlement_matching_fee_amount' => (int) $settlementAmounts['matching_fee_amount'],
+            'uncaptured_extension_amount' => 0,
+            'total_amount' => $settlementTotalAmount,
+            'therapist_net_amount' => (int) $settlementAmounts['therapist_net_amount'],
+            'platform_fee_amount' => (int) $settlementAmounts['platform_fee_amount'],
+            'matching_fee_amount' => (int) $settlementAmounts['matching_fee_amount'],
+        ];
+
+        if ($authorizedAmount <= 0 || $settlementTotalAmount <= $authorizedAmount) {
+            return $baseAttributes;
+        }
+
+        $chargeableAmounts = $this->legacyChargeableAmounts(
+            booking: $booking,
+            authorizedAmount: $authorizedAmount,
+            settlementAmounts: $settlementAmounts,
+        );
+
+        return [
+            ...$baseAttributes,
+            ...$chargeableAmounts,
+            'uncaptured_extension_amount' => max(0, $settlementTotalAmount - $authorizedAmount),
+        ];
+    }
+
+    private function legacyChargeableAmounts(
+        Booking $booking,
+        int $authorizedAmount,
+        array $settlementAmounts,
+    ): array {
+        $quote = $booking->currentQuote;
+
+        if ($quote && (int) $quote->total_amount === $authorizedAmount) {
+            return [
+                'total_amount' => $authorizedAmount,
+                'therapist_net_amount' => (int) $quote->therapist_net_amount,
+                'platform_fee_amount' => (int) $quote->platform_fee_amount,
+                'matching_fee_amount' => (int) $quote->matching_fee_amount,
+            ];
+        }
+
+        $applicationFeeAmount = (int) ($booking->currentPaymentIntent?->application_fee_amount ?? 0);
+        $transferAmount = (int) ($booking->currentPaymentIntent?->transfer_amount ?? 0);
+
+        if ($applicationFeeAmount + $transferAmount === $authorizedAmount && ($applicationFeeAmount > 0 || $transferAmount > 0)) {
+            $matchingFeeAmount = min(
+                (int) ($quote?->matching_fee_amount ?? $settlementAmounts['matching_fee_amount']),
+                $applicationFeeAmount,
+            );
+
+            return [
+                'total_amount' => $authorizedAmount,
+                'therapist_net_amount' => $transferAmount,
+                'platform_fee_amount' => max(0, $applicationFeeAmount - $matchingFeeAmount),
+                'matching_fee_amount' => $matchingFeeAmount,
+            ];
+        }
+
+        $matchingFeeAmount = min((int) $settlementAmounts['matching_fee_amount'], $authorizedAmount);
+        $remainingGrossAmount = max(0, $authorizedAmount - $matchingFeeAmount);
+        $settlementGrossAmount = max(
+            0,
+            (int) $settlementAmounts['therapist_net_amount'] + (int) $settlementAmounts['platform_fee_amount'],
+        );
+
+        if ($settlementGrossAmount === 0) {
+            return [
+                'total_amount' => $authorizedAmount,
+                'therapist_net_amount' => $remainingGrossAmount,
+                'platform_fee_amount' => 0,
+                'matching_fee_amount' => $matchingFeeAmount,
+            ];
+        }
+
+        $platformFeeRatio = (int) $settlementAmounts['platform_fee_amount'] / $settlementGrossAmount;
+        $platformFeeAmount = min($remainingGrossAmount, (int) round($remainingGrossAmount * $platformFeeRatio));
+
+        return [
+            'total_amount' => $authorizedAmount,
+            'therapist_net_amount' => max(0, $remainingGrossAmount - $platformFeeAmount),
+            'platform_fee_amount' => $platformFeeAmount,
+            'matching_fee_amount' => $matchingFeeAmount,
+        ];
+    }
 }
