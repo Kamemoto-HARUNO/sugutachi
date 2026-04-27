@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { BrandMark } from '../components/brand/BrandMark';
+import { ActiveUserBookingDock } from '../components/booking';
 import { getAccountDisplayName, getActiveRoles, formatRoleLabel } from '../lib/account';
 import type { NavItem, RoleName } from '../lib/types';
 import { useAuth } from '../hooks/useAuth';
@@ -88,6 +89,8 @@ export function DashboardLayout({ role, title, description, navItems }: Dashboar
                     <Outlet />
                 </main>
             </div>
+
+            <ActiveUserBookingDock />
         </div>
     );
 }

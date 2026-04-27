@@ -1,5 +1,6 @@
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { BrandMark } from '../components/brand/BrandMark';
+import { ActiveUserBookingDock } from '../components/booking';
 import { getRoleHomePath } from '../lib/account';
 import { publicNavItems } from '../lib/navigation';
 import { useAuth } from '../hooks/useAuth';
@@ -88,6 +89,8 @@ export function PublicLayout() {
             <main className="mx-auto w-full max-w-7xl px-6 py-10">
                 <Outlet />
             </main>
+
+            <ActiveUserBookingDock />
         </div>
     );
 }
