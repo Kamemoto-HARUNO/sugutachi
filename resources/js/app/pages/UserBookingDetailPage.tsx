@@ -88,6 +88,21 @@ function therapistRewardAmount(booking: Pick<BookingDetailRecord, 'total_amount'
     return Math.max(0, booking.total_amount - booking.matching_fee_amount);
 }
 
+function therapistRewardFormulaLabel(
+    booking: Pick<BookingDetailRecord, 'actual_duration_minutes' | 'duration_minutes' | 'therapist_menu'>,
+): string | null {
+    const hourlyRateAmount = booking.therapist_menu?.hourly_rate_amount;
+
+    if (hourlyRateAmount == null) {
+        return null;
+    }
+
+    const minutes = booking.actual_duration_minutes ?? booking.duration_minutes;
+    const durationLabel = booking.actual_duration_minutes != null ? `実働${minutes}分` : `予約${minutes}分`;
+
+    return `時間単価${formatCurrency(hourlyRateAmount)} × ${durationLabel}`;
+}
+
 function refundStatusLabel(status: string): string {
     switch (status) {
         case 'requested':
@@ -446,7 +461,12 @@ export function UserBookingDetailPage() {
                                     </div>
                                     <div className="space-y-2 text-sm text-[#48505a]">
                                         <div className="flex items-center justify-between gap-4">
-                                            <span>セラピスト謝礼</span>
+                                            <div>
+                                                <span>セラピスト謝礼</span>
+                                                {therapistRewardFormulaLabel(booking) ? (
+                                                    <p className="mt-1 text-xs text-[#68707a]">（{therapistRewardFormulaLabel(booking)}）</p>
+                                                ) : null}
+                                            </div>
                                             <span className="font-semibold text-[#17202b]">{formatCurrency(therapistRewardAmount(booking))}</span>
                                         </div>
                                         <div className="flex items-center justify-between gap-4">
