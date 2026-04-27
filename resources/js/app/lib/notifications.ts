@@ -1,5 +1,7 @@
 import type { Account, AppNotificationRecord, RoleName } from './types';
 
+export type NotificationAudienceRole = RoleName | 'shared';
+
 function readStringValue(value: unknown): string | null {
     return typeof value === 'string' && value.length > 0 ? value : null;
 }
@@ -52,6 +54,99 @@ export function formatNotificationTypeLabel(type: string | null | undefined): st
             return '出張リクエスト制限';
         default:
             return 'アプリ通知';
+    }
+}
+
+export function resolveNotificationRole(notification: AppNotificationRecord): NotificationAudienceRole {
+    const explicitRole = readStringValue(notification.data?.['target_role']) ?? notification.target_role ?? null;
+
+    if (explicitRole === 'user' || explicitRole === 'therapist' || explicitRole === 'admin') {
+        return explicitRole;
+    }
+
+    const targetPath = readStringValue(notification.data?.['target_path']);
+
+    if (targetPath?.startsWith('/user')) {
+        return 'user';
+    }
+
+    if (targetPath?.startsWith('/therapist')) {
+        return 'therapist';
+    }
+
+    if (targetPath?.startsWith('/admin')) {
+        return 'admin';
+    }
+
+    switch (notification.notification_type) {
+        case 'booking_requested':
+        case 'booking_adjustment_accepted':
+        case 'booking_no_show_confirmed':
+        case 'booking_no_show_disputed':
+        case 'travel_request_received':
+            return 'therapist';
+        case 'booking_accepted':
+        case 'booking_adjustment_proposed':
+        case 'booking_no_show_reported':
+        case 'booking_moving':
+        case 'booking_arrived':
+        case 'booking_started':
+        case 'booking_therapist_completed':
+        case 'booking_completion_window_updated':
+        case 'booking_completion_reminder':
+        case 'booking_refunded':
+        case 'travel_request_warning':
+        case 'travel_request_restricted':
+            return 'user';
+        default:
+            return 'shared';
+    }
+}
+
+export function formatNotificationRoleLabel(role: NotificationAudienceRole): string {
+    switch (role) {
+        case 'user':
+            return '利用者';
+        case 'therapist':
+            return 'セラピスト';
+        case 'admin':
+            return '運営';
+        default:
+            return '共通';
+    }
+}
+
+export function notificationRoleBadgeClass(role: NotificationAudienceRole): string {
+    switch (role) {
+        case 'user':
+            return 'border border-[#d6b35a] bg-[#f3dec0] text-[#17202b]';
+        case 'therapist':
+            return 'border border-[#4aa36d] bg-[#dff1e5] text-[#1f5e3b]';
+        case 'admin':
+            return 'border border-[#5c8ed9] bg-[#dfeeff] text-[#244f87]';
+        default:
+            return 'border border-[#d7d5cf] bg-[#f1eee8] text-[#516072]';
+    }
+}
+
+export function notificationRoleCardClass(role: NotificationAudienceRole, isRead: boolean): string {
+    switch (role) {
+        case 'user':
+            return isRead
+                ? 'border-[#eadfca] bg-[#fffaf0]'
+                : 'border-[#e4c98f] bg-[#fff7e7] shadow-[0_14px_35px_rgba(210,177,121,0.16)]';
+        case 'therapist':
+            return isRead
+                ? 'border-[#d9e8df] bg-[#f6fbf8]'
+                : 'border-[#95d0aa] bg-[#eef8f1] shadow-[0_14px_35px_rgba(74,163,109,0.14)]';
+        case 'admin':
+            return isRead
+                ? 'border-[#dde5f0] bg-[#f6f9fe]'
+                : 'border-[#a9c4eb] bg-[#edf5ff] shadow-[0_14px_35px_rgba(92,142,217,0.14)]';
+        default:
+            return isRead
+                ? 'border-[#e6dfd4] bg-white/75'
+                : 'border-[#f0d5cf] bg-white shadow-[0_14px_35px_rgba(23,32,43,0.08)]';
     }
 }
 

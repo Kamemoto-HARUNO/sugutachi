@@ -14,6 +14,7 @@ class PublicTherapistDetailResource extends JsonResource
             'public_id' => data_get($this->resource, 'public_id'),
             'public_name' => data_get($this->resource, 'public_name'),
             'bio' => data_get($this->resource, 'bio'),
+            'is_self_view' => (bool) data_get($this->resource, 'is_self_view', false),
             'age' => data_get($this->resource, 'age'),
             'height_cm' => data_get($this->resource, 'height_cm'),
             'weight_kg' => data_get($this->resource, 'weight_kg'),

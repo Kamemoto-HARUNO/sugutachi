@@ -193,7 +193,8 @@ class TherapistDiscoveryApiTest extends TestCase
             ->getJson("/api/therapists/{$nearbyProfile->public_id}")
             ->assertOk()
             ->assertJsonPath('data.public_id', $nearbyProfile->public_id)
-            ->assertJsonPath('data.public_name', $nearbyProfile->public_name);
+            ->assertJsonPath('data.public_name', $nearbyProfile->public_name)
+            ->assertJsonPath('data.is_self_view', true);
     }
 
     public function test_therapist_can_view_own_public_reviews_while_authenticated(): void

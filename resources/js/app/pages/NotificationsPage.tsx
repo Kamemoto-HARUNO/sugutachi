@@ -10,25 +10,25 @@ import { formatJstDateTime } from '../lib/datetime';
 import {
     buildNotificationPreview,
     formatNotificationTypeLabel,
+    formatNotificationRoleLabel,
+    notificationRoleBadgeClass,
+    notificationRoleCardClass,
+    resolveNotificationRole,
     resolveNotificationPath,
 } from '../lib/notifications';
 import type { ApiEnvelope, AppNotificationRecord, NotificationListMeta } from '../lib/types';
 
 type ReadFilter = 'all' | 'unread';
+type RoleFilter = 'all' | 'user' | 'therapist' | 'admin';
 
-function filterButtonClass(isActive: boolean): string {
+function filterButtonClass(isActive: boolean, tone: 'dark' | 'role' = 'dark'): string {
     return [
         'rounded-full px-4 py-2 text-sm font-semibold transition',
-        isActive ? 'bg-[#17202b] text-white' : 'bg-[#f4ede3] text-[#516072] hover:bg-[#eadfce]',
-    ].join(' ');
-}
-
-function cardClass(isRead: boolean): string {
-    return [
-        'rounded-[28px] border p-5 transition',
-        isRead
-            ? 'border-[#e6dfd4] bg-white/75'
-            : 'border-[#f0d5cf] bg-white shadow-[0_14px_35px_rgba(23,32,43,0.08)]',
+        isActive
+            ? tone === 'role'
+                ? 'bg-[#d2b179] text-[#17202b]'
+                : 'bg-[#17202b] text-white'
+            : 'bg-[#f4ede3] text-[#516072] hover:bg-[#eadfce]',
     ].join(' ');
 }
 
@@ -38,6 +38,7 @@ export function NotificationsPage() {
     const [notifications, setNotifications] = useState<AppNotificationRecord[]>([]);
     const [meta, setMeta] = useState<NotificationListMeta | null>(null);
     const [readFilter, setReadFilter] = useState<ReadFilter>('all');
+    const [roleFilter, setRoleFilter] = useState<RoleFilter>('all');
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isMarkingAllRead, setIsMarkingAllRead] = useState(false);
@@ -88,17 +89,31 @@ export function NotificationsPage() {
 
     const unreadCount = meta?.unread_count ?? notifications.filter((notification) => !notification.is_read).length;
 
+    const visibleNotifications = useMemo(() => (
+        notifications.filter((notification) => (
+            roleFilter === 'all' || resolveNotificationRole(notification) === roleFilter
+        ))
+    ), [notifications, roleFilter]);
+
     const pageSummary = useMemo(() => {
         if (notifications.length === 0) {
-            return '新しい通知はありません。';
+            return readFilter === 'unread' ? '未読の通知はありません。' : '新しい通知はありません。';
+        }
+
+        const roleSummary = roleFilter === 'all'
+            ? ''
+            : `${formatNotificationRoleLabel(roleFilter)}向けの`;
+
+        if (visibleNotifications.length === 0) {
+            return `${roleSummary}通知は見つかりませんでした。`;
         }
 
         if (readFilter === 'unread') {
-            return `未読 ${notifications.length}件を表示しています。`;
+            return `${roleSummary}未読 ${visibleNotifications.length}件を表示しています。`;
         }
 
-        return `未読 ${unreadCount}件を含む最新 ${notifications.length}件を表示しています。`;
-    }, [notifications.length, readFilter, unreadCount]);
+        return `${roleSummary}未読 ${unreadCount}件を含む最新 ${visibleNotifications.length}件を表示しています。`;
+    }, [notifications.length, readFilter, roleFilter, unreadCount, visibleNotifications.length]);
 
     async function markNotificationRead(notification: AppNotificationRecord) {
         if (!token || notification.is_read) {
@@ -224,35 +239,61 @@ export function NotificationsPage() {
             </section>
 
             <section className="rounded-[32px] border border-[#e7dccd] bg-[#f7f2e8] p-5 shadow-[0_18px_40px_rgba(23,32,43,0.06)] sm:p-6">
-                <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                    <div className="flex flex-wrap gap-2">
-                        <button type="button" onClick={() => setReadFilter('all')} className={filterButtonClass(readFilter === 'all')}>
-                            すべて
-                        </button>
-                        <button type="button" onClick={() => setReadFilter('unread')} className={filterButtonClass(readFilter === 'unread')}>
-                            未読のみ
-                        </button>
+                <div className="flex flex-col gap-4">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="flex flex-col gap-3">
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-xs font-semibold tracking-[0.14em] text-[#8f7a58]">表示条件</span>
+                                <button type="button" onClick={() => setReadFilter('all')} className={filterButtonClass(readFilter === 'all')}>
+                                    すべて
+                                </button>
+                                <button type="button" onClick={() => setReadFilter('unread')} className={filterButtonClass(readFilter === 'unread')}>
+                                    未読のみ
+                                </button>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-xs font-semibold tracking-[0.14em] text-[#8f7a58]">対象ロール</span>
+                                <button type="button" onClick={() => setRoleFilter('all')} className={filterButtonClass(roleFilter === 'all', 'role')}>
+                                    すべて
+                                </button>
+                                <button type="button" onClick={() => setRoleFilter('user')} className={filterButtonClass(roleFilter === 'user', 'role')}>
+                                    利用者
+                                </button>
+                                <button type="button" onClick={() => setRoleFilter('therapist')} className={filterButtonClass(roleFilter === 'therapist', 'role')}>
+                                    セラピスト
+                                </button>
+                                <button type="button" onClick={() => setRoleFilter('admin')} className={filterButtonClass(roleFilter === 'admin', 'role')}>
+                                    運営
+                                </button>
+                            </div>
+                        </div>
+                        <p className="text-sm text-[#5b6879]">{pageSummary}</p>
                     </div>
-                    <p className="text-sm text-[#5b6879]">{pageSummary}</p>
                 </div>
             </section>
 
-            {notifications.length === 0 ? (
+            {visibleNotifications.length === 0 ? (
                 <section className="rounded-[32px] border border-dashed border-[#d9cbb6] bg-white/75 p-8 text-center shadow-[0_16px_35px_rgba(23,32,43,0.04)]">
                     <h2 className="text-lg font-semibold text-[#17202b]">表示できる通知はありません</h2>
                     <p className="mt-3 text-sm leading-7 text-[#5b6879]">
-                        予約の進行、公開条件の更新、返金結果などの通知はここにまとまります。
+                        {notifications.length === 0
+                            ? '予約の進行、公開条件の更新、返金結果などの通知はここにまとまります。'
+                            : '現在の絞り込み条件に一致する通知はありません。'}
                     </p>
                 </section>
             ) : (
                 <section className="space-y-4">
-                    {notifications.map((notification) => {
+                    {visibleNotifications.map((notification) => {
                         const targetPath = resolveNotificationPath(notification, account, activeRole);
+                        const notificationRole = resolveNotificationRole(notification);
                         const content = (
-                            <div className={cardClass(notification.is_read)}>
+                            <div className={['rounded-[28px] border p-5 transition', notificationRoleCardClass(notificationRole, notification.is_read)].join(' ')}>
                                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                     <div className="space-y-3">
                                         <div className="flex flex-wrap items-center gap-2">
+                                            <span className={['rounded-full px-3 py-1 text-xs font-semibold', notificationRoleBadgeClass(notificationRole)].join(' ')}>
+                                                {formatNotificationRoleLabel(notificationRole)}
+                                            </span>
                                             <span className="rounded-full bg-[#17202b] px-3 py-1 text-xs font-semibold text-white">
                                                 {formatNotificationTypeLabel(notification.notification_type)}
                                             </span>

@@ -44,6 +44,7 @@ class NotificationApiTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $notification->id)
             ->assertJsonPath('data.0.data.booking_id', 'book_notify')
+            ->assertJsonPath('data.0.target_role', 'therapist')
             ->assertJsonPath('data.0.is_read', false)
             ->assertJsonPath('meta.unread_count', 1);
 

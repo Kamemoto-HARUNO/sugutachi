@@ -87,6 +87,10 @@ function buildReviewMeta(review: ReviewSummary): string {
     return labels.length > 0 ? labels.join(' / ') : '総合評価を反映しています。';
 }
 
+function disabledActionClass(): string {
+    return 'inline-flex w-full cursor-not-allowed items-center justify-center rounded-full border border-[#ded4c5] bg-[#f4efe6] px-5 py-3 text-sm font-semibold text-[#97a0aa] opacity-80';
+}
+
 function wrapPhotoIndex(index: number, count: number): number {
     if (count <= 0) {
         return 0;
@@ -399,6 +403,7 @@ export function UserTherapistDetailPage() {
         therapistDetail.age != null ? String(therapistDetail.age) : null,
         therapistDetail.p_size_cm != null ? `P${therapistDetail.p_size_cm}` : null,
     ].filter((value): value is string => value !== null).join(' / ') : '';
+    const isSelfPreview = therapistDetail?.is_self_view ?? false;
     const photoCount = therapistDetail?.photos.length ?? 0;
     const wrappedActivePhotoIndex = wrapPhotoIndex(activePhotoIndex, photoCount);
     const mainPhoto = therapistDetail?.photos[wrappedActivePhotoIndex] ?? null;
@@ -566,7 +571,7 @@ export function UserTherapistDetailPage() {
         <div className="min-h-screen bg-[#f6f1e7] text-[#17202b]">
             <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-16 px-6 py-10 md:px-10 md:py-14 xl:gap-[60px] xl:px-0">
                 <section className="rounded-[32px] bg-[linear-gradient(107deg,#17202b_3.49%,#1d2a39_53.96%,#27364a_93.62%)] px-6 py-5 shadow-[0_24px_60px_rgba(23,32,43,0.16)] md:px-8">
-                    <StickyHeroHeader actions={[primaryAction, secondaryAction]} />
+                    <StickyHeroHeader actions={isSelfPreview ? [secondaryAction] : [primaryAction, secondaryAction]} />
                 </section>
 
                 {therapistDetail ? (
@@ -863,7 +868,18 @@ export function UserTherapistDetailPage() {
                                     </div>
 
                                     <div className="space-y-3">
-                                        {canUseUserFlows && !isUserVerificationReady ? (
+                                        {isSelfPreview ? (
+                                            <div className="rounded-[20px] border border-[#d8ccb9] bg-[#f7f1e7] p-4 text-sm leading-7 text-[#5d6774]">
+                                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">自分のページを確認中です</p>
+                                                <p className="mt-2 font-semibold text-[#17202b]">
+                                                    自分のページのため予約は行えません。
+                                                </p>
+                                                <p className="mt-2 text-xs text-[#68707a]">
+                                                    公開プロフィールの見え方を確認できます。予約や出張リクエストは利用者側の画面からのみ行えます。
+                                                </p>
+                                            </div>
+                                        ) : null}
+                                        {!isSelfPreview && canUseUserFlows && !isUserVerificationReady ? (
                                             <div className="rounded-[20px] border border-[#e7d5b3] bg-[#fff8ec] p-4 text-sm leading-7 text-[#6f5a38]">
                                                 <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予約前の確認が必要です</p>
                                                 <p className="mt-2 font-semibold text-[#17202b]">
@@ -874,7 +890,7 @@ export function UserTherapistDetailPage() {
                                                 </p>
                                             </div>
                                         ) : null}
-                                        {pendingScheduledRequest ? (
+                                        {!isSelfPreview && pendingScheduledRequest ? (
                                             <div className="rounded-[20px] border border-[#e7d5b3] bg-[#fff8ec] p-4 text-sm leading-7 text-[#6f5a38]">
                                                 <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">
                                                     {pendingScheduledRequest.status === 'payment_authorizing' ? '送信中の予約リクエスト' : '承認待ちの予約リクエスト'}
@@ -889,29 +905,45 @@ export function UserTherapistDetailPage() {
                                                 ) : null}
                                             </div>
                                         ) : null}
-                                        <Link
-                                            to={primaryAction.to}
-                                            className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-bold text-[#1a2430] transition hover:brightness-105"
-                                        >
-                                            {primaryAction.label}
-                                        </Link>
-                                        <Link
-                                            to={travelRequestAction.to}
-                                            className="inline-flex w-full items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]"
-                                        >
-                                            {travelRequestAction.label}
-                                        </Link>
-                                        <p className="text-xs leading-6 text-[#68707a]">
-                                            空き枠が合わないときは、希望エリアや希望日時を添えて出張リクエストを送れます。
-                                        </p>
-                                        {!canUseUserFlows && !isAuthenticated ? (
-                                            <Link
-                                                to={travelRequestRegisterPath}
-                                                className="inline-flex w-full items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]"
-                                            >
-                                                無料登録してあとで送る
-                                            </Link>
-                                        ) : null}
+                                        {isSelfPreview ? (
+                                            <>
+                                                <span className={disabledActionClass()}>
+                                                    空き時間を見る
+                                                </span>
+                                                <span className={disabledActionClass()}>
+                                                    出張リクエストを送る
+                                                </span>
+                                                <p className="text-xs leading-6 text-[#68707a]">
+                                                    このプレビューでは予約や出張リクエストは送信できません。
+                                                </p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <Link
+                                                    to={primaryAction.to}
+                                                    className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-bold text-[#1a2430] transition hover:brightness-105"
+                                                >
+                                                    {primaryAction.label}
+                                                </Link>
+                                                <Link
+                                                    to={travelRequestAction.to}
+                                                    className="inline-flex w-full items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]"
+                                                >
+                                                    {travelRequestAction.label}
+                                                </Link>
+                                                <p className="text-xs leading-6 text-[#68707a]">
+                                                    空き枠が合わないときは、希望エリアや希望日時を添えて出張リクエストを送れます。
+                                                </p>
+                                                {!canUseUserFlows && !isAuthenticated ? (
+                                                    <Link
+                                                        to={travelRequestRegisterPath}
+                                                        className="inline-flex w-full items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]"
+                                                    >
+                                                        無料登録してあとで送る
+                                                    </Link>
+                                                ) : null}
+                                            </>
+                                        )}
                                         <Link
                                             to={listPath}
                                             className="inline-flex w-full items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]"

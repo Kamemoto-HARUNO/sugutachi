@@ -415,6 +415,7 @@ class TherapistDiscoveryController extends Controller
             'public_id' => $profile->public_id,
             'public_name' => $profile->public_name,
             'bio' => $profile->bio,
+            'is_self_view' => $viewer?->id === $profile->account_id,
             'age' => $identityVerification?->resolvedAge(),
             'height_cm' => $profile->height_cm === null ? null : (int) $profile->height_cm,
             'weight_kg' => $profile->weight_kg === null ? null : (int) $profile->weight_kg,

@@ -499,6 +499,7 @@ export interface TherapistDetail {
     public_id: string;
     public_name: string;
     bio: string | null;
+    is_self_view: boolean;
     age: number | null;
     height_cm: number | null;
     weight_kg: number | null;
@@ -1109,6 +1110,7 @@ export interface AppNotificationRecord {
     title: string;
     body: string;
     data: Record<string, unknown> | null;
+    target_role?: RoleName | 'shared' | null;
     status: string;
     is_read: boolean;
     sent_at: string | null;
