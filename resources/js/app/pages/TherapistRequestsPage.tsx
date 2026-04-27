@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
@@ -205,6 +205,25 @@ function adjustmentDescription(booking: BookingDetailRecord): string {
     return 'このままでは難しい場合だけ、開始時間と終了時間を調整して利用者へ提案できます。利用者が確認OKを押すまで予約は確定しません。';
 }
 
+function openDateTimePicker(input: HTMLInputElement | null) {
+    if (!input) {
+        return;
+    }
+
+    input.focus();
+
+    if (typeof input.showPicker === 'function') {
+        try {
+            input.showPicker();
+            return;
+        } catch {
+            // Fall back to the native click behavior when showPicker is unavailable.
+        }
+    }
+
+    input.click();
+}
+
 export function TherapistRequestsPage() {
     const { token } = useAuth();
     const { publicId } = useParams<{ publicId: string }>();
@@ -217,6 +236,7 @@ export function TherapistRequestsPage() {
     const [bufferAfterMinutes, setBufferAfterMinutes] = useState('30');
     const [proposedStartAt, setProposedStartAt] = useState('');
     const [proposedEndAt, setProposedEndAt] = useState('');
+    const [isAdjustmentFormOpen, setIsAdjustmentFormOpen] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -226,6 +246,8 @@ export function TherapistRequestsPage() {
     const [isRejecting, setIsRejecting] = useState(false);
     const [isSubmittingAdjustment, setIsSubmittingAdjustment] = useState(false);
     const [now, setNow] = useState(Date.now());
+    const proposedStartAtRef = useRef<HTMLInputElement | null>(null);
+    const proposedEndAtRef = useRef<HTMLInputElement | null>(null);
 
     usePageTitle('予約依頼一覧');
     useToastOnMessage(error, 'error');
@@ -365,6 +387,7 @@ export function TherapistRequestsPage() {
                     pendingAdjustment?.scheduled_end_at
                     ?? nextBooking.scheduled_end_at,
                 ));
+                setIsAdjustmentFormOpen(false);
                 setError(null);
             } catch (requestError) {
                 if (!isMounted) {
@@ -420,6 +443,8 @@ export function TherapistRequestsPage() {
     const selectedRemainingMinutes = selectedRemainingSeconds != null
         ? Math.max(0, Math.ceil(selectedRemainingSeconds / 60))
         : selectedRequest?.request_expires_in_minutes ?? null;
+    const minimumProposalStartAt = formatJstDateTimeLocalValue(new Date(now).toISOString());
+    const minimumProposalEndAt = proposedStartAt || minimumProposalStartAt;
 
     async function handleAccept() {
         if (!token || !selectedBooking || isAccepting) {
@@ -492,6 +517,7 @@ export function TherapistRequestsPage() {
 
             const nextBooking = unwrapData(payload);
             setSelectedBooking(nextBooking);
+            setIsAdjustmentFormOpen(false);
             setSuccessMessage('利用者へ時間変更の提案を送りました。利用者が確認すると、この条件で予約が確定します。');
         } catch (requestError) {
             const message =
@@ -723,77 +749,155 @@ export function TherapistRequestsPage() {
                                             </p>
                                         </div>
 
-                                        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                                            <label className="space-y-2">
-                                                <span className="text-sm font-semibold text-[#17202b]">開始時間</span>
-                                                <input
-                                                    type="datetime-local"
-                                                    step={900}
-                                                    value={proposedStartAt}
-                                                    onChange={(event) => {
-                                                        setProposedStartAt(event.target.value);
-                                                    }}
-                                                    className="w-full rounded-2xl border border-[#d8c39b] bg-white px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b38a44]"
-                                                />
-                                            </label>
-                                            <label className="space-y-2">
-                                                <span className="text-sm font-semibold text-[#17202b]">終了時間</span>
-                                                <input
-                                                    type="datetime-local"
-                                                    step={900}
-                                                    value={proposedEndAt}
-                                                    onChange={(event) => {
-                                                        setProposedEndAt(event.target.value);
-                                                    }}
-                                                    className="w-full rounded-2xl border border-[#d8c39b] bg-white px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b38a44]"
-                                                />
-                                            </label>
-                                            <label className="space-y-2">
-                                                <span className="text-sm font-semibold text-[#17202b]">前のバッファ（分）</span>
-                                                <input
-                                                    type="number"
-                                                    min={0}
-                                                    max={360}
-                                                    step={5}
-                                                    value={bufferBeforeMinutes}
-                                                    onChange={(event) => {
-                                                        setBufferBeforeMinutes(event.target.value);
-                                                    }}
-                                                    className="w-full rounded-2xl border border-[#d8c39b] bg-white px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b38a44]"
-                                                />
-                                            </label>
-                                            <label className="space-y-2">
-                                                <span className="text-sm font-semibold text-[#17202b]">後のバッファ（分）</span>
-                                                <input
-                                                    type="number"
-                                                    min={0}
-                                                    max={360}
-                                                    step={5}
-                                                    value={bufferAfterMinutes}
-                                                    onChange={(event) => {
-                                                        setBufferAfterMinutes(event.target.value);
-                                                    }}
-                                                    className="w-full rounded-2xl border border-[#d8c39b] bg-white px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b38a44]"
-                                                />
-                                            </label>
-                                        </div>
-
-                                        <div className="mt-5 flex flex-wrap gap-3">
+                                        {!isAdjustmentFormOpen ? (
                                             <button
                                                 type="button"
                                                 onClick={() => {
-                                                    void handleSubmitAdjustment();
+                                                    setIsAdjustmentFormOpen(true);
                                                 }}
-                                                disabled={isSubmittingAdjustment || isAccepting || isRejecting || (selectedRemainingSeconds != null && selectedRemainingSeconds <= 0)}
-                                                className="inline-flex items-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243140] disabled:cursor-not-allowed disabled:opacity-60"
+                                                disabled={isAccepting || isRejecting || (selectedRemainingSeconds != null && selectedRemainingSeconds <= 0)}
+                                                className="mt-5 inline-flex items-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243140] disabled:cursor-not-allowed disabled:opacity-60"
                                             >
-                                                {isSubmittingAdjustment
-                                                    ? '提案を送信中...'
-                                                    : selectedBooking.pending_adjustment_proposal
-                                                        ? '提案内容を更新する'
-                                                        : 'この条件で利用者へ提案する'}
+                                                {selectedBooking.pending_adjustment_proposal ? '提案内容を修正する' : '希望時間を変更して提案'}
                                             </button>
-                                        </div>
+                                        ) : (
+                                            <>
+                                                <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                                                    <label className="space-y-2">
+                                                        <span className="text-sm font-semibold text-[#17202b]">開始時間</span>
+                                                        <div className="relative">
+                                                            <input
+                                                                ref={proposedStartAtRef}
+                                                                type="datetime-local"
+                                                                step={900}
+                                                                min={minimumProposalStartAt}
+                                                                max={proposedEndAt || undefined}
+                                                                value={proposedStartAt}
+                                                                onChange={(event) => {
+                                                                    setProposedStartAt(event.target.value);
+                                                                }}
+                                                                className="w-full rounded-2xl border border-[#d8c39b] bg-white px-4 py-3 pr-12 text-sm text-[#17202b] outline-none transition focus:border-[#b38a44]"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => openDateTimePicker(proposedStartAtRef.current)}
+                                                                className="absolute inset-y-0 right-3 inline-flex items-center justify-center text-[#7d6852] transition hover:text-[#17202b]"
+                                                                aria-label="開始時間の日時ピッカーを開く"
+                                                            >
+                                                                <svg
+                                                                    aria-hidden="true"
+                                                                    viewBox="0 0 24 24"
+                                                                    className="h-5 w-5"
+                                                                    fill="none"
+                                                                    stroke="currentColor"
+                                                                    strokeWidth="1.8"
+                                                                    strokeLinecap="round"
+                                                                    strokeLinejoin="round"
+                                                                >
+                                                                    <path d="M8 2v4" />
+                                                                    <path d="M16 2v4" />
+                                                                    <rect x="3" y="5" width="18" height="16" rx="3" />
+                                                                    <path d="M3 10h18" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    </label>
+                                                    <label className="space-y-2">
+                                                        <span className="text-sm font-semibold text-[#17202b]">終了時間</span>
+                                                        <div className="relative">
+                                                            <input
+                                                                ref={proposedEndAtRef}
+                                                                type="datetime-local"
+                                                                step={900}
+                                                                min={minimumProposalEndAt}
+                                                                value={proposedEndAt}
+                                                                onChange={(event) => {
+                                                                    setProposedEndAt(event.target.value);
+                                                                }}
+                                                                className="w-full rounded-2xl border border-[#d8c39b] bg-white px-4 py-3 pr-12 text-sm text-[#17202b] outline-none transition focus:border-[#b38a44]"
+                                                            />
+                                                            <button
+                                                                type="button"
+                                                                onClick={() => openDateTimePicker(proposedEndAtRef.current)}
+                                                                className="absolute inset-y-0 right-3 inline-flex items-center justify-center text-[#7d6852] transition hover:text-[#17202b]"
+                                                                aria-label="終了時間の日時ピッカーを開く"
+                                                            >
+                                                                <svg
+                                                                    aria-hidden="true"
+                                                                    viewBox="0 0 24 24"
+                                                                    className="h-5 w-5"
+                                                                    fill="none"
+                                                                    stroke="currentColor"
+                                                                    strokeWidth="1.8"
+                                                                    strokeLinecap="round"
+                                                                    strokeLinejoin="round"
+                                                                >
+                                                                    <path d="M8 2v4" />
+                                                                    <path d="M16 2v4" />
+                                                                    <rect x="3" y="5" width="18" height="16" rx="3" />
+                                                                    <path d="M3 10h18" />
+                                                                </svg>
+                                                            </button>
+                                                        </div>
+                                                    </label>
+                                                    <label className="space-y-2">
+                                                        <span className="text-sm font-semibold text-[#17202b]">前のバッファ（分）</span>
+                                                        <input
+                                                            type="number"
+                                                            min={0}
+                                                            max={360}
+                                                            step={5}
+                                                            value={bufferBeforeMinutes}
+                                                            onChange={(event) => {
+                                                                setBufferBeforeMinutes(event.target.value);
+                                                            }}
+                                                            className="w-full rounded-2xl border border-[#d8c39b] bg-white px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b38a44]"
+                                                        />
+                                                    </label>
+                                                    <label className="space-y-2">
+                                                        <span className="text-sm font-semibold text-[#17202b]">後のバッファ（分）</span>
+                                                        <input
+                                                            type="number"
+                                                            min={0}
+                                                            max={360}
+                                                            step={5}
+                                                            value={bufferAfterMinutes}
+                                                            onChange={(event) => {
+                                                                setBufferAfterMinutes(event.target.value);
+                                                            }}
+                                                            className="w-full rounded-2xl border border-[#d8c39b] bg-white px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b38a44]"
+                                                        />
+                                                    </label>
+                                                </div>
+
+                                                <div className="mt-5 flex flex-wrap gap-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            void handleSubmitAdjustment();
+                                                        }}
+                                                        disabled={isSubmittingAdjustment || isAccepting || isRejecting || (selectedRemainingSeconds != null && selectedRemainingSeconds <= 0)}
+                                                        className="inline-flex items-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243140] disabled:cursor-not-allowed disabled:opacity-60"
+                                                    >
+                                                        {isSubmittingAdjustment
+                                                            ? '提案を送信中...'
+                                                            : selectedBooking.pending_adjustment_proposal
+                                                                ? '提案内容を更新する'
+                                                                : 'この条件で利用者へ提案する'}
+                                                    </button>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setIsAdjustmentFormOpen(false);
+                                                        }}
+                                                        disabled={isSubmittingAdjustment}
+                                                        className="inline-flex items-center rounded-full border border-[#d8c39b] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-white/60 disabled:cursor-not-allowed disabled:opacity-60"
+                                                    >
+                                                        閉じる
+                                                    </button>
+                                                </div>
+                                            </>
+                                        )}
                                     </section>
                                 </>
                             ) : (
