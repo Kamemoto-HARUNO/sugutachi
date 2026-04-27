@@ -74,6 +74,12 @@ class BookingQuoteController extends Controller
             ->where('is_active', true)
             ->firstOrFail();
 
+        if (! $menu->supportsDuration($validated['duration_minutes'])) {
+            throw ValidationException::withMessages([
+                'duration_minutes' => ['The requested duration is shorter than the minimum duration for this menu.'],
+            ]);
+        }
+
         $serviceAddress = ServiceAddress::query()
             ->where('public_id', $validated['service_address_id'])
             ->where('account_id', $request->user()->id)
@@ -95,10 +101,12 @@ class BookingQuoteController extends Controller
                 menu: $menu,
                 serviceAddress: $serviceAddress,
                 date: $requestedStartAt->startOfDay(),
+                requestedDurationMinutes: $validated['duration_minutes'],
             );
 
             $matchingWindow = collect($availability['windows'])
                 ->first(fn (array $window): bool => $window['availability_slot_id'] === $slot->public_id
+                    && ($window['is_bookable'] ?? true)
                     && CarbonImmutable::instance($window['start_at'])->lte($requestedStartAt)
                     && CarbonImmutable::instance($window['end_at'])->gte($requestedStartAt->addMinutes($validated['duration_minutes'])));
 

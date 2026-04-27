@@ -34,6 +34,9 @@ class ServiceMetaController extends Controller
                     'payment_methods' => config('service_meta.booking.payment_methods', ['card']),
                     'walking_time_estimation' => config('service_meta.booking.walking_time_estimation', []),
                 ],
+                'payment' => [
+                    'stripe_publishable_key' => config('services.stripe.publishable_key'),
+                ],
                 'commerce_notice' => [
                     'operator_name' => config('service_meta.commerce.operator_name'),
                     'representative_name' => config('service_meta.commerce.representative_name'),

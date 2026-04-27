@@ -3,6 +3,10 @@ import { buildEstimatedPriceLabel, formatTrainingStatus, formatWalkingTimeRange 
 
 interface TherapistDiscoveryCardProps {
     name: string;
+    age?: number | null;
+    heightCm?: number | null;
+    weightKg?: number | null;
+    pSizeCm?: number | null;
     ratingAverage: number;
     reviewCount: number;
     walkingTimeRange: string | null | undefined;
@@ -10,7 +14,6 @@ interface TherapistDiscoveryCardProps {
     durationMinutes?: number | null;
     trainingStatus?: string | null;
     therapistCancellationCount?: number;
-    bioExcerpt?: string | null;
     tags?: string[];
     photoUrl?: string | null;
     to?: string;
@@ -21,21 +24,40 @@ function buildMetaLine(reviewCount: number, ratingAverage: number): string {
     return `★${ratingAverage.toFixed(1)}（${reviewCount}件）`;
 }
 
+function buildProfileLine({
+    heightCm,
+    weightKg,
+    age,
+    pSizeCm,
+}: Pick<TherapistDiscoveryCardProps, 'heightCm' | 'weightKg' | 'age' | 'pSizeCm'>): string | null {
+    const values = [
+        heightCm != null ? String(heightCm) : null,
+        weightKg != null ? String(weightKg) : null,
+        age != null ? String(age) : null,
+        pSizeCm != null ? `P${pSizeCm}` : null,
+    ].filter((value): value is string => value !== null);
+
+    return values.length > 0 ? values.join(' / ') : null;
+}
+
 function CardBody({
     name,
+    age,
+    heightCm,
+    weightKg,
+    pSizeCm,
     ratingAverage,
     reviewCount,
     walkingTimeRange,
     estimatedTotalAmount,
     durationMinutes,
     trainingStatus,
-    therapistCancellationCount,
-    bioExcerpt,
     tags,
     photoUrl,
     footerHint,
 }: Omit<TherapistDiscoveryCardProps, 'to'>) {
     const resolvedTags = tags && tags.length > 0 ? tags : [];
+    const profileLine = buildProfileLine({ heightCm, weightKg, age, pSizeCm });
 
     return (
         <div className="flex h-full flex-col">
@@ -60,6 +82,11 @@ function CardBody({
                                 </span>
                             ) : null}
                         </div>
+                        {profileLine ? (
+                            <p className="text-sm font-medium tracking-wide text-[#68707a]">
+                                {profileLine}
+                            </p>
+                        ) : null}
 
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#68707a]">
                             <span>{buildMetaLine(reviewCount, ratingAverage)}</span>
@@ -71,12 +98,6 @@ function CardBody({
                         <p className="text-xl font-bold text-[#17202b]">
                             {buildEstimatedPriceLabel(durationMinutes, estimatedTotalAmount)}
                         </p>
-
-                        {therapistCancellationCount != null ? (
-                            <p className="text-xs text-[#7d6852]">
-                                セラピスト都合キャンセル {therapistCancellationCount}回
-                            </p>
-                        ) : null}
                     </div>
 
                     {resolvedTags.length > 0 ? (
@@ -87,8 +108,6 @@ function CardBody({
                                 </span>
                             ))}
                         </div>
-                    ) : bioExcerpt ? (
-                        <p className="line-clamp-2 text-sm leading-6 text-[#48505a]">{bioExcerpt}</p>
                     ) : null}
                 </div>
             </div>

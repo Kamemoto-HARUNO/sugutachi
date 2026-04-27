@@ -3,6 +3,7 @@ import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-do
 import { BrandMark } from '../components/brand/BrandMark';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { getPostAuthPath, inferRoleFromPath, sanitizeAppPath } from '../lib/account';
 import { ApiError, apiRequest, getFieldError, unwrapData } from '../lib/api';
 import type { ApiEnvelope, LegalDocumentSummary } from '../lib/types';
@@ -46,6 +47,7 @@ export function RegisterPage() {
     const loginPath = returnTo ? `/login?return_to=${encodeURIComponent(returnTo)}` : '/login';
 
     usePageTitle('会員登録');
+    useToastOnMessage(error, 'error');
 
     useEffect(() => {
         let isMounted = true;
@@ -154,7 +156,7 @@ export function RegisterPage() {
                             </div>
 
                             <div className="space-y-3">
-                                <h1 className="max-w-[9ch] text-[2.35rem] font-semibold leading-[1.18] md:text-[3rem]">
+                                <h1 className="max-w-[9ch] text-[2.35rem] font-semibold leading-[1.4] md:text-[3rem]">
                                     まずは会員登録から
                                 </h1>
                                 <p className="max-w-2xl text-sm leading-7 text-[#d8d3ca] md:text-base md:leading-8">
@@ -322,11 +324,6 @@ export function RegisterPage() {
                                 </div>
                             </div>
 
-                            {error ? (
-                                <div className="rounded-[18px] border border-[#f1d4b5] bg-[#fff4e8] px-4 py-3 text-sm text-[#9a4b35]">
-                                    {error}
-                                </div>
-                            ) : null}
 
                             <button
                                 type="submit"

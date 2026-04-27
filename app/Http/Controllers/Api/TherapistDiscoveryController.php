@@ -20,8 +20,6 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
-use Illuminate\Support\Facades\Crypt;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -40,6 +38,7 @@ class TherapistDiscoveryController extends Controller
         $profiles = TherapistProfile::query()
             ->visibleTo($viewer)
             ->with([
+                'account.latestIdentityVerification',
                 'photos' => fn ($query) => $query
                     ->where('status', ProfilePhoto::STATUS_APPROVED)
                     ->orderBy('sort_order')
@@ -53,12 +52,18 @@ class TherapistDiscoveryController extends Controller
             ->get();
 
         $results = $profiles->map(function (TherapistProfile $profile): array {
+            $identityVerification = $profile->account?->latestIdentityVerification;
+
             return [
                 'public_id' => $profile->public_id,
                 'public_name' => $profile->public_name,
                 'bio_excerpt' => filled($profile->bio)
                     ? Str::limit($profile->bio, 80, '...')
                     : null,
+                'age' => $identityVerification?->resolvedAge(),
+                'height_cm' => $profile->height_cm === null ? null : (int) $profile->height_cm,
+                'weight_kg' => $profile->weight_kg === null ? null : (int) $profile->weight_kg,
+                'p_size_cm' => $profile->p_size_cm === null ? null : (int) $profile->p_size_cm,
                 'training_status' => $profile->training_status,
                 'rating_average' => (float) $profile->rating_average,
                 'review_count' => $profile->review_count,
@@ -81,6 +86,10 @@ class TherapistDiscoveryController extends Controller
             'service_address_id' => ['required', 'string', 'max:36'],
             'therapist_menu_id' => ['required', 'string', 'max:36'],
             'date' => ['required', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'available_dates_from' => ['nullable', 'date_format:Y-m-d', 'after_or_equal:today'],
+            'calendar_days' => ['nullable', 'integer', 'min:1', 'max:14'],
+            'menu_duration_minutes' => ['nullable', 'integer', 'min:30', 'max:240'],
+            'duration_minutes' => ['nullable', 'integer', 'min:30', 'max:240'],
         ]);
 
         $profile = TherapistProfile::query()
@@ -100,12 +109,24 @@ class TherapistDiscoveryController extends Controller
             ->where('account_id', $request->user()->id)
             ->firstOrFail();
 
+        $selectedDate = CarbonImmutable::createFromFormat('Y-m-d', $validated['date']);
+        $availableDatesStartDate = CarbonImmutable::createFromFormat(
+            'Y-m-d',
+            $validated['available_dates_from'] ?? $validated['date'],
+        );
+        $requestedDurationMinutes = (int) ($validated['menu_duration_minutes']
+            ?? $validated['duration_minutes']
+            ?? $menu->minimum_duration_minutes);
+
         return new PublicTherapistAvailabilityResource(
-            $calculator->calculate(
+            $calculator->calculateWithAvailableDates(
                 profile: $profile,
                 menu: $menu,
                 serviceAddress: $serviceAddress,
-                date: CarbonImmutable::createFromFormat('Y-m-d', $validated['date']),
+                date: $selectedDate,
+                availableDatesStartDate: $availableDatesStartDate,
+                requestedDurationMinutes: $requestedDurationMinutes,
+                availableDatesDays: (int) ($validated['calendar_days'] ?? 14),
             )
         );
     }
@@ -118,6 +139,7 @@ class TherapistDiscoveryController extends Controller
             ? TherapistProfile::query()
                 ->scheduledDiscoverableTo($viewer)
                 ->with([
+                    'account.latestIdentityVerification',
                     'location',
                     'menus' => fn ($query) => $query
                         ->where('is_active', true)
@@ -184,6 +206,7 @@ class TherapistDiscoveryController extends Controller
         return TherapistProfile::query()
             ->discoverableTo($viewer)
             ->with([
+                'account.latestIdentityVerification',
                 'location',
                 'menus' => fn ($query) => $query
                     ->where('is_active', true)
@@ -202,6 +225,7 @@ class TherapistDiscoveryController extends Controller
         return TherapistProfile::query()
             ->visibleTo($viewer)
             ->with([
+                'account.latestIdentityVerification',
                 'location',
                 'menus' => fn ($query) => $query
                     ->where('is_active', true)
@@ -245,12 +269,18 @@ class TherapistDiscoveryController extends Controller
                     return null;
                 }
 
+                $identityVerification = $profile->account?->latestIdentityVerification;
+
                 return [
                     'public_id' => $profile->public_id,
                     'public_name' => $profile->public_name,
                     'bio_excerpt' => filled($profile->bio)
                         ? Str::limit($profile->bio, 80, '...')
                         : null,
+                    'age' => $identityVerification?->resolvedAge(),
+                    'height_cm' => $profile->height_cm === null ? null : (int) $profile->height_cm,
+                    'weight_kg' => $profile->weight_kg === null ? null : (int) $profile->weight_kg,
+                    'p_size_cm' => $profile->p_size_cm === null ? null : (int) $profile->p_size_cm,
                     'training_status' => $profile->training_status,
                     'rating_average' => (float) $profile->rating_average,
                     'review_count' => $profile->review_count,
@@ -300,6 +330,7 @@ class TherapistDiscoveryController extends Controller
         ?string $requestedStartAt,
         bool $isOnDemand,
     ): array {
+        $identityVerification = $profile->account?->latestIdentityVerification;
         $menuEstimates = $profile->menus
             ->map(function (TherapistMenu $menu) use (
                 $profile,
@@ -310,13 +341,14 @@ class TherapistDiscoveryController extends Controller
                 $isOnDemand,
             ): array {
                 $estimate = $serviceAddress
-                    ? $calculator->calculate(
+                    ? $this->estimateForMenuDuration(
                         therapistProfile: $profile,
                         menu: $menu,
                         serviceAddress: $serviceAddress,
-                        durationMinutes: $requestedDurationMinutes ?? $menu->duration_minutes,
-                        isOnDemand: $isOnDemand,
+                        calculator: $calculator,
+                        requestedDurationMinutes: $requestedDurationMinutes,
                         requestedStartAt: $requestedStartAt,
+                        isOnDemand: $isOnDemand,
                     )
                     : null;
 
@@ -325,7 +357,10 @@ class TherapistDiscoveryController extends Controller
                     'name' => $menu->name,
                     'description' => $menu->description,
                     'duration_minutes' => $menu->duration_minutes,
+                    'minimum_duration_minutes' => $menu->minimum_duration_minutes,
+                    'duration_step_minutes' => $menu->duration_step_minutes,
                     'base_price_amount' => $menu->base_price_amount,
+                    'hourly_rate_amount' => $menu->hourly_rate_amount,
                     'estimated_total_amount' => $estimate['total_amount'] ?? null,
                 ];
             })
@@ -346,6 +381,10 @@ class TherapistDiscoveryController extends Controller
             'public_id' => $profile->public_id,
             'public_name' => $profile->public_name,
             'bio' => $profile->bio,
+            'age' => $identityVerification?->resolvedAge(),
+            'height_cm' => $profile->height_cm === null ? null : (int) $profile->height_cm,
+            'weight_kg' => $profile->weight_kg === null ? null : (int) $profile->weight_kg,
+            'p_size_cm' => $profile->p_size_cm === null ? null : (int) $profile->p_size_cm,
             'training_status' => $profile->training_status,
             'rating_average' => (float) $profile->rating_average,
             'review_count' => $profile->review_count,
@@ -374,18 +413,45 @@ class TherapistDiscoveryController extends Controller
                 $requestedDurationMinutes,
                 $requestedStartAt,
                 $isOnDemand,
-            ): array {
-                return $calculator->calculate(
+            ): ?array {
+                return $this->estimateForMenuDuration(
                     therapistProfile: $profile,
                     menu: $menu,
                     serviceAddress: $serviceAddress,
-                    durationMinutes: $requestedDurationMinutes ?? $menu->duration_minutes,
-                    isOnDemand: $isOnDemand,
+                    calculator: $calculator,
+                    requestedDurationMinutes: $requestedDurationMinutes,
                     requestedStartAt: $requestedStartAt,
+                    isOnDemand: $isOnDemand,
                 );
             })
+            ->filter()
             ->sortBy('total_amount')
             ->first();
+    }
+
+    private function estimateForMenuDuration(
+        TherapistProfile $therapistProfile,
+        TherapistMenu $menu,
+        ServiceAddress $serviceAddress,
+        BookingQuoteCalculator $calculator,
+        ?int $requestedDurationMinutes,
+        ?string $requestedStartAt,
+        bool $isOnDemand,
+    ): ?array {
+        $durationMinutes = $requestedDurationMinutes ?? $menu->minimum_duration_minutes;
+
+        if (! $menu->supportsDuration($durationMinutes)) {
+            return null;
+        }
+
+        return $calculator->calculate(
+            therapistProfile: $therapistProfile,
+            menu: $menu,
+            serviceAddress: $serviceAddress,
+            durationMinutes: $durationMinutes,
+            isOnDemand: $isOnDemand,
+            requestedStartAt: $requestedStartAt,
+        );
     }
 
     private function publicPhotos(Collection $photos): array
@@ -393,14 +459,7 @@ class TherapistDiscoveryController extends Controller
         return $photos
             ->map(fn (ProfilePhoto $photo): array => [
                 'sort_order' => $photo->sort_order,
-                'url' => rescue(
-                    fn () => Storage::disk('local')->temporaryUrl(
-                        Crypt::decryptString($photo->storage_key_encrypted),
-                        now()->addMinutes(30),
-                    ),
-                    null,
-                    report: false,
-                ),
+                'url' => "/api/profile-photos/{$photo->id}/file",
             ])
             ->values()
             ->all();

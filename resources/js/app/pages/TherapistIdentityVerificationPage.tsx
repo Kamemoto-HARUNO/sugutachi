@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import {
     formatDate,
@@ -53,6 +54,8 @@ export function TherapistIdentityVerificationPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     usePageTitle('本人確認・年齢確認');
+    useToastOnMessage(successMessage, 'success');
+    useToastOnMessage(error, 'error');
 
     const loadLatestVerification = useCallback(async () => {
         if (!token) {
@@ -175,7 +178,7 @@ export function TherapistIdentityVerificationPage() {
             <section className="space-y-4 rounded-[28px] border border-white/10 bg-white/5 p-6 md:p-8">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">IDENTITY</p>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">本人確認</p>
                         <h1 className="text-3xl font-semibold text-white">本人確認・年齢確認</h1>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
                             18歳以上確認と本人確認が完了すると、セラピストプロフィールの審査提出条件を満たせます。書類画像とセルフィーは審査用途に限定して扱います。
@@ -183,7 +186,7 @@ export function TherapistIdentityVerificationPage() {
                     </div>
 
                     <div className="rounded-2xl border border-white/10 bg-[#111923] px-5 py-4 text-sm text-slate-200">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">CURRENT STATUS</p>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">現在の状態</p>
                         <p className="mt-2 text-2xl font-semibold text-white">
                             {formatIdentityVerificationStatus(latestVerification?.status)}
                         </p>
@@ -209,7 +212,7 @@ export function TherapistIdentityVerificationPage() {
             <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
                 <article className="rounded-[24px] border border-white/10 bg-white/5 p-6">
                     <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">SUBMISSION</p>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">提出内容</p>
                         <h2 className="text-xl font-semibold text-white">
                             {latestVerification?.status === 'rejected' ? '差し戻し後の再提出' : '本人確認を提出する'}
                         </h2>
@@ -218,17 +221,7 @@ export function TherapistIdentityVerificationPage() {
                         </p>
                     </div>
 
-                    {error ? (
-                        <div className="mt-5 rounded-2xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-                            {error}
-                        </div>
-                    ) : null}
 
-                    {successMessage ? (
-                        <div className="mt-5 rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
-                            {successMessage}
-                        </div>
-                    ) : null}
 
                     {!allowsSubmission ? (
                         <div className="mt-5 rounded-2xl border border-white/10 bg-[#111923] px-4 py-3 text-sm leading-7 text-slate-300">
@@ -335,7 +328,7 @@ export function TherapistIdentityVerificationPage() {
 
                 <article className="space-y-4 rounded-[24px] border border-white/10 bg-white/5 p-6">
                     <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">LATEST RECORD</p>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">最新申請</p>
                         <h2 className="text-xl font-semibold text-white">直近の提出状況</h2>
                     </div>
 

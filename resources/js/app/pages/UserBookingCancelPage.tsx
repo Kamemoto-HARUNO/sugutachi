@@ -3,6 +3,7 @@ import { Link, useNavigate, useParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatCurrency, getServiceAddressLabel } from '../lib/discovery';
 import { formatDateTime } from '../lib/therapist';
@@ -36,7 +37,7 @@ function bookingStatusLabel(status: string): string {
         case 'in_progress':
             return '施術中';
         case 'therapist_completed':
-            return '利用者確認待ち';
+            return 'あなたの完了確認待ち';
         case 'completed':
             return '完了';
         case 'rejected':
@@ -97,6 +98,7 @@ export function UserBookingCancelPage() {
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     usePageTitle('予約キャンセル');
+    useToastOnMessage(successMessage, 'success');
 
     const loadPage = useCallback(async () => {
         if (!token || !publicId) {
@@ -253,7 +255,7 @@ export function UserBookingCancelPage() {
                                 <p className="mt-2 text-sm font-semibold text-[#17202b]">{formatDateTime(startAt)}</p>
                             </div>
                             <div className="rounded-[20px] bg-[#f8f4ed] px-4 py-4">
-                                <p className="text-xs font-semibold tracking-wide text-[#7d6852]">施術場所</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#7d6852]">待ち合わせ場所</p>
                                 <p className="mt-2 text-sm font-semibold text-[#17202b]">
                                     {booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
                                 </p>
@@ -327,11 +329,6 @@ export function UserBookingCancelPage() {
                             </div>
                         ) : null}
 
-                        {successMessage ? (
-                            <div className="mt-5 rounded-[20px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-[#24553a]">
-                                {successMessage}
-                            </div>
-                        ) : null}
 
                         <div className="mt-6 flex flex-wrap gap-3">
                             <button

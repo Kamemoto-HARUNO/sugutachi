@@ -4,8 +4,6 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
-use Illuminate\Support\Facades\Crypt;
-use Illuminate\Support\Facades\Storage;
 
 class SelfProfilePhotoResource extends JsonResource
 {
@@ -17,14 +15,7 @@ class SelfProfilePhotoResource extends JsonResource
             'status' => $this->status,
             'rejection_reason_code' => $this->rejection_reason_code,
             'sort_order' => $this->sort_order,
-            'url' => rescue(
-                fn () => Storage::disk('local')->temporaryUrl(
-                    Crypt::decryptString($this->storage_key_encrypted),
-                    now()->addMinutes(30),
-                ),
-                null,
-                report: false,
-            ),
+            'url' => "/api/me/profile/photos/{$this->id}/file",
             'therapist_profile' => $this->whenLoaded('therapistProfile', fn () => [
                 'public_id' => $this->therapistProfile?->public_id,
                 'public_name' => $this->therapistProfile?->public_name,

@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import {
     formatDateTime,
@@ -111,6 +112,7 @@ export function AdminAccountsPage() {
     const query = searchParams.get('q')?.trim() ?? '';
 
     usePageTitle('アカウント管理');
+    useToastOnMessage(successMessage, 'success');
 
     const selectedListAccount = useMemo(
         () => accounts.find((account) => account.public_id === publicId) ?? null,
@@ -502,11 +504,6 @@ export function AdminAccountsPage() {
                 </section>
 
                 <aside className="space-y-5">
-                    {successMessage ? (
-                        <section className="rounded-[24px] border border-emerald-300 bg-emerald-50 px-5 py-4 text-sm text-emerald-900">
-                            {successMessage}
-                        </section>
-                    ) : null}
                     {actionError ? (
                         <section className="rounded-[24px] border border-[#f1d4b5] bg-[#fff4e8] px-5 py-4 text-sm text-[#9a4b35]">
                             {actionError}

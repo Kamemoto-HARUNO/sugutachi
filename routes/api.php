@@ -29,11 +29,13 @@ use App\Http\Controllers\Api\ContactController;
 use App\Http\Controllers\Api\HelpFaqController;
 use App\Http\Controllers\Api\IdentityVerificationController;
 use App\Http\Controllers\Api\LegalDocumentController;
+use App\Http\Controllers\Api\LocationSearchController;
 use App\Http\Controllers\Api\MeProfileController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PaymentIntentController;
 use App\Http\Controllers\Api\PaymentSyncController;
 use App\Http\Controllers\Api\ProfilePhotoController;
+use App\Http\Controllers\Api\ProfilePhotoFileController;
 use App\Http\Controllers\Api\PushSubscriptionController;
 use App\Http\Controllers\Api\RefundRequestController;
 use App\Http\Controllers\Api\ReportController;
@@ -70,6 +72,7 @@ Route::post('/contact', [ContactController::class, 'store']);
 Route::get('/public-therapists', [TherapistDiscoveryController::class, 'publicIndex']);
 Route::get('/therapists/{therapistProfile:public_id}', [TherapistDiscoveryController::class, 'show']);
 Route::get('/therapists/{therapistProfile:public_id}/reviews', [ReviewController::class, 'therapistReviews']);
+Route::get('/profile-photos/{profilePhoto}/file', [ProfilePhotoFileController::class, 'showPublic']);
 
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', [AuthController::class, 'me']);
@@ -80,6 +83,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::patch('/me/profile', [MeProfileController::class, 'update']);
     Route::post('/me/profile/photos', [ProfilePhotoController::class, 'store']);
     Route::delete('/me/profile/photos/{profilePhoto}', [ProfilePhotoController::class, 'destroy']);
+    Route::get('/me/profile/photos/{profilePhoto}/file', [ProfilePhotoFileController::class, 'showOwned']);
     Route::get('/me/user-profile', [UserProfileController::class, 'show']);
     Route::put('/me/user-profile', [UserProfileController::class, 'upsert']);
     Route::patch('/me/user-profile/sensitive-disclosure', [UserProfileController::class, 'updateSensitiveDisclosure']);
@@ -169,6 +173,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::patch('/me/service-addresses/{serviceAddress:public_id}', [ServiceAddressController::class, 'update']);
     Route::post('/me/service-addresses/{serviceAddress:public_id}/default', [ServiceAddressController::class, 'setDefault']);
     Route::delete('/me/service-addresses/{serviceAddress:public_id}', [ServiceAddressController::class, 'destroy']);
+    Route::get('/me/location-search', [LocationSearchController::class, 'index']);
 
     Route::get('/me/therapist-profile', [TherapistProfileController::class, 'show']);
     Route::put('/me/therapist-profile', [TherapistProfileController::class, 'upsert']);

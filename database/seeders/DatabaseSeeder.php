@@ -22,6 +22,7 @@ class DatabaseSeeder extends Seeder
         $this->defaultLegalDocumentService->ensurePublished(['terms', 'privacy', 'commerce']);
 
         if (app()->environment('local')) {
+            $this->call(AdminSeeder::class);
             $this->call(LocalPreviewSeeder::class);
         }
     }

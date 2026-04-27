@@ -53,15 +53,31 @@ class PublicTherapistAvailabilityApiTest extends TestCase
             ->assertJsonPath('data.walking_time_range', 'within_15_min')
             ->assertJsonPath('data.estimated_total_amount_range.min', 12300)
             ->assertJsonPath('data.estimated_total_amount_range.max', 13300)
+            ->assertJsonCount(1, 'data.available_dates')
+            ->assertJsonPath('data.available_dates.0.date', '2030-01-05')
+            ->assertJsonPath('data.available_dates.0.earliest_start_at', $defaultSlot->start_at->toJSON())
+            ->assertJsonPath('data.available_dates.0.latest_end_at', $customSlot->end_at->toJSON())
+            ->assertJsonPath('data.available_dates.0.window_count', 2)
+            ->assertJsonPath('data.available_dates.0.bookable_window_count', 2)
+            ->assertJsonPath('data.available_dates.0.is_bookable', true)
+            ->assertJsonPath('data.available_dates.0.unavailable_reason', null)
             ->assertJsonCount(2, 'data.windows')
             ->assertJsonPath('data.windows.0.availability_slot_id', $defaultSlot->public_id)
+            ->assertJsonPath('data.windows.0.slot_start_at', $defaultSlot->start_at->toJSON())
+            ->assertJsonPath('data.windows.0.slot_end_at', $defaultSlot->end_at->toJSON())
             ->assertJsonPath('data.windows.0.start_at', $defaultSlot->start_at->toJSON())
             ->assertJsonPath('data.windows.0.end_at', $defaultSlot->end_at->toJSON())
             ->assertJsonPath('data.windows.0.dispatch_area_label', '天神周辺')
+            ->assertJsonPath('data.windows.0.is_bookable', true)
+            ->assertJsonPath('data.windows.0.unavailable_reason', null)
             ->assertJsonPath('data.windows.1.availability_slot_id', $customSlot->public_id)
+            ->assertJsonPath('data.windows.1.slot_start_at', $customSlot->start_at->toJSON())
+            ->assertJsonPath('data.windows.1.slot_end_at', $customSlot->end_at->toJSON())
             ->assertJsonPath('data.windows.1.start_at', $customSlot->start_at->toJSON())
             ->assertJsonPath('data.windows.1.end_at', $customSlot->end_at->toJSON())
-            ->assertJsonPath('data.windows.1.dispatch_area_label', '博多駅周辺');
+            ->assertJsonPath('data.windows.1.dispatch_area_label', '博多駅周辺')
+            ->assertJsonPath('data.windows.1.is_bookable', true)
+            ->assertJsonPath('data.windows.1.unavailable_reason', null);
     }
 
     public function test_public_availability_excludes_hidden_outside_area_and_conflicted_time(): void
@@ -128,14 +144,33 @@ class PublicTherapistAvailabilityApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.estimated_total_amount_range.min', 12300)
             ->assertJsonPath('data.estimated_total_amount_range.max', 12300)
-            ->assertJsonCount(2, 'data.windows')
+            ->assertJsonCount(1, 'data.available_dates')
+            ->assertJsonPath('data.available_dates.0.date', '2030-01-05')
+            ->assertJsonPath('data.available_dates.0.earliest_start_at', CarbonImmutable::parse('2030-01-05 14:00:00')->toJSON())
+            ->assertJsonPath('data.available_dates.0.latest_end_at', CarbonImmutable::parse('2030-01-05 22:00:00')->toJSON())
+            ->assertJsonPath('data.available_dates.0.window_count', 3)
+            ->assertJsonPath('data.available_dates.0.bookable_window_count', 2)
+            ->assertJsonPath('data.available_dates.0.is_bookable', true)
+            ->assertJsonPath('data.available_dates.0.unavailable_reason', null)
+            ->assertJsonCount(3, 'data.windows')
             ->assertJsonPath('data.windows.0.availability_slot_id', $publishedSlot->public_id)
+            ->assertJsonPath('data.windows.0.slot_start_at', $publishedSlot->start_at->toJSON())
+            ->assertJsonPath('data.windows.0.slot_end_at', $publishedSlot->end_at->toJSON())
             ->assertJsonPath('data.windows.0.start_at', CarbonImmutable::parse('2030-01-05 14:00:00')->toJSON())
             ->assertJsonPath('data.windows.0.end_at', CarbonImmutable::parse('2030-01-05 15:00:00')->toJSON())
             ->assertJsonPath('data.windows.0.booking_deadline_at', CarbonImmutable::parse('2030-01-05 13:00:00')->toJSON())
+            ->assertJsonPath('data.windows.0.is_bookable', true)
             ->assertJsonPath('data.windows.1.availability_slot_id', $publishedSlot->public_id)
+            ->assertJsonPath('data.windows.1.slot_start_at', $publishedSlot->start_at->toJSON())
+            ->assertJsonPath('data.windows.1.slot_end_at', $publishedSlot->end_at->toJSON())
             ->assertJsonPath('data.windows.1.start_at', CarbonImmutable::parse('2030-01-05 16:00:00')->toJSON())
-            ->assertJsonPath('data.windows.1.end_at', CarbonImmutable::parse('2030-01-05 18:00:00')->toJSON());
+            ->assertJsonPath('data.windows.1.end_at', CarbonImmutable::parse('2030-01-05 18:00:00')->toJSON())
+            ->assertJsonPath('data.windows.1.is_bookable', true)
+            ->assertJsonPath('data.windows.2.availability_slot_id', 'slot_public_outside')
+            ->assertJsonPath('data.windows.2.start_at', CarbonImmutable::parse('2030-01-05 20:00:00')->toJSON())
+            ->assertJsonPath('data.windows.2.end_at', CarbonImmutable::parse('2030-01-05 22:00:00')->toJSON())
+            ->assertJsonPath('data.windows.2.is_bookable', false)
+            ->assertJsonPath('data.windows.2.unavailable_reason', 'outside_service_area');
     }
 
     public function test_public_availability_respects_active_on_demand_block_window(): void
@@ -175,11 +210,133 @@ class PublicTherapistAvailabilityApiTest extends TestCase
         $this->withToken($user->createToken('api')->plainTextToken)
             ->getJson("/api/therapists/{$profile->public_id}/availability?service_address_id={$serviceAddress->public_id}&therapist_menu_id={$menu->public_id}&date=2030-01-05")
             ->assertOk()
+            ->assertJsonCount(1, 'data.available_dates')
+            ->assertJsonPath('data.available_dates.0.date', '2030-01-05')
+            ->assertJsonPath('data.available_dates.0.earliest_start_at', CarbonImmutable::parse('2030-01-05 16:30:00')->toJSON())
+            ->assertJsonPath('data.available_dates.0.latest_end_at', CarbonImmutable::parse('2030-01-05 18:00:00')->toJSON())
+            ->assertJsonPath('data.available_dates.0.window_count', 1)
+            ->assertJsonPath('data.available_dates.0.bookable_window_count', 1)
+            ->assertJsonPath('data.available_dates.0.is_bookable', true)
             ->assertJsonCount(1, 'data.windows')
             ->assertJsonPath('data.windows.0.availability_slot_id', 'slot_public_blocked')
+            ->assertJsonPath('data.windows.0.slot_start_at', CarbonImmutable::parse('2030-01-05 11:00:00')->toJSON())
+            ->assertJsonPath('data.windows.0.slot_end_at', CarbonImmutable::parse('2030-01-05 18:00:00')->toJSON())
             ->assertJsonPath('data.windows.0.start_at', CarbonImmutable::parse('2030-01-05 16:30:00')->toJSON())
             ->assertJsonPath('data.windows.0.end_at', CarbonImmutable::parse('2030-01-05 18:00:00')->toJSON())
-            ->assertJsonPath('data.windows.0.booking_deadline_at', CarbonImmutable::parse('2030-01-05 15:30:00')->toJSON());
+            ->assertJsonPath('data.windows.0.booking_deadline_at', CarbonImmutable::parse('2030-01-05 15:30:00')->toJSON())
+            ->assertJsonPath('data.windows.0.is_bookable', true);
+    }
+
+    public function test_public_availability_returns_only_days_with_bookable_windows_in_requested_range(): void
+    {
+        [$user, $serviceAddress, $profile, $menu] = $this->createAvailabilityFixture();
+
+        TherapistAvailabilitySlot::create([
+            'public_id' => 'slot_public_range_one',
+            'therapist_profile_id' => $profile->id,
+            'start_at' => CarbonImmutable::parse('2030-01-05 14:00:00'),
+            'end_at' => CarbonImmutable::parse('2030-01-05 18:00:00'),
+            'status' => TherapistAvailabilitySlot::STATUS_PUBLISHED,
+            'dispatch_base_type' => TherapistAvailabilitySlot::DISPATCH_BASE_TYPE_DEFAULT,
+            'dispatch_area_label' => '天神周辺',
+        ]);
+
+        TherapistAvailabilitySlot::create([
+            'public_id' => 'slot_public_range_two',
+            'therapist_profile_id' => $profile->id,
+            'start_at' => CarbonImmutable::parse('2030-01-07 19:00:00'),
+            'end_at' => CarbonImmutable::parse('2030-01-07 22:00:00'),
+            'status' => TherapistAvailabilitySlot::STATUS_PUBLISHED,
+            'dispatch_base_type' => TherapistAvailabilitySlot::DISPATCH_BASE_TYPE_DEFAULT,
+            'dispatch_area_label' => '博多駅周辺',
+        ]);
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->getJson("/api/therapists/{$profile->public_id}/availability?service_address_id={$serviceAddress->public_id}&therapist_menu_id={$menu->public_id}&date=2030-01-05&available_dates_from=2030-01-05")
+            ->assertOk()
+            ->assertJsonCount(2, 'data.available_dates')
+            ->assertJsonPath('data.available_dates.0.date', '2030-01-05')
+            ->assertJsonPath('data.available_dates.0.earliest_start_at', CarbonImmutable::parse('2030-01-05 14:00:00')->toJSON())
+            ->assertJsonPath('data.available_dates.0.latest_end_at', CarbonImmutable::parse('2030-01-05 18:00:00')->toJSON())
+            ->assertJsonPath('data.available_dates.0.is_bookable', true)
+            ->assertJsonPath('data.available_dates.1.date', '2030-01-07')
+            ->assertJsonPath('data.available_dates.1.earliest_start_at', CarbonImmutable::parse('2030-01-07 19:00:00')->toJSON())
+            ->assertJsonPath('data.available_dates.1.latest_end_at', CarbonImmutable::parse('2030-01-07 22:00:00')->toJSON())
+            ->assertJsonPath('data.available_dates.1.is_bookable', true);
+    }
+
+    public function test_public_availability_returns_calendar_dates_for_requested_week(): void
+    {
+        [$user, $serviceAddress, $profile, $menu] = $this->createAvailabilityFixture();
+
+        TherapistAvailabilitySlot::create([
+            'public_id' => 'slot_public_week_one',
+            'therapist_profile_id' => $profile->id,
+            'start_at' => CarbonImmutable::parse('2030-01-05 14:00:00'),
+            'end_at' => CarbonImmutable::parse('2030-01-05 18:00:00'),
+            'status' => TherapistAvailabilitySlot::STATUS_PUBLISHED,
+            'dispatch_base_type' => TherapistAvailabilitySlot::DISPATCH_BASE_TYPE_DEFAULT,
+            'dispatch_area_label' => '天神周辺',
+        ]);
+
+        TherapistAvailabilitySlot::create([
+            'public_id' => 'slot_public_week_two',
+            'therapist_profile_id' => $profile->id,
+            'start_at' => CarbonImmutable::parse('2030-01-07 19:00:00'),
+            'end_at' => CarbonImmutable::parse('2030-01-07 22:00:00'),
+            'status' => TherapistAvailabilitySlot::STATUS_PUBLISHED,
+            'dispatch_base_type' => TherapistAvailabilitySlot::DISPATCH_BASE_TYPE_DEFAULT,
+            'dispatch_area_label' => '博多駅周辺',
+        ]);
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->getJson("/api/therapists/{$profile->public_id}/availability?service_address_id={$serviceAddress->public_id}&therapist_menu_id={$menu->public_id}&date=2030-01-05&available_dates_from=2030-01-05&calendar_days=7")
+            ->assertOk()
+            ->assertJsonCount(7, 'data.calendar_dates')
+            ->assertJsonPath('data.calendar_dates.0.date', '2030-01-05')
+            ->assertJsonPath('data.calendar_dates.0.window_count', 1)
+            ->assertJsonPath('data.calendar_dates.0.bookable_window_count', 1)
+            ->assertJsonPath('data.calendar_dates.0.windows.0.dispatch_area_label', '天神周辺')
+            ->assertJsonPath('data.calendar_dates.1.date', '2030-01-06')
+            ->assertJsonPath('data.calendar_dates.1.window_count', 0)
+            ->assertJsonPath('data.calendar_dates.1.windows', [])
+            ->assertJsonPath('data.calendar_dates.2.date', '2030-01-07')
+            ->assertJsonPath('data.calendar_dates.2.window_count', 1)
+            ->assertJsonPath('data.calendar_dates.2.windows.0.dispatch_area_label', '博多駅周辺');
+    }
+
+    public function test_public_availability_shows_outside_area_slots_as_unbookable(): void
+    {
+        [$user, $serviceAddress, $profile, $menu] = $this->createAvailabilityFixture();
+
+        TherapistAvailabilitySlot::create([
+            'public_id' => 'slot_public_far_only',
+            'therapist_profile_id' => $profile->id,
+            'start_at' => CarbonImmutable::parse('2030-01-06 20:00:00'),
+            'end_at' => CarbonImmutable::parse('2030-01-06 22:00:00'),
+            'status' => TherapistAvailabilitySlot::STATUS_PUBLISHED,
+            'dispatch_base_type' => TherapistAvailabilitySlot::DISPATCH_BASE_TYPE_CUSTOM,
+            'dispatch_area_label' => '遠方エリア',
+            'custom_dispatch_base_label' => 'Outside',
+            'custom_dispatch_base_lat' => '34.5000000',
+            'custom_dispatch_base_lng' => '135.5000000',
+        ]);
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->getJson("/api/therapists/{$profile->public_id}/availability?service_address_id={$serviceAddress->public_id}&therapist_menu_id={$menu->public_id}&date=2030-01-06&available_dates_from=2030-01-06")
+            ->assertOk()
+            ->assertJsonPath('data.walking_time_range', null)
+            ->assertJsonPath('data.estimated_total_amount_range', null)
+            ->assertJsonCount(1, 'data.available_dates')
+            ->assertJsonPath('data.available_dates.0.date', '2030-01-06')
+            ->assertJsonPath('data.available_dates.0.window_count', 1)
+            ->assertJsonPath('data.available_dates.0.bookable_window_count', 0)
+            ->assertJsonPath('data.available_dates.0.is_bookable', false)
+            ->assertJsonPath('data.available_dates.0.unavailable_reason', 'outside_service_area')
+            ->assertJsonCount(1, 'data.windows')
+            ->assertJsonPath('data.windows.0.availability_slot_id', 'slot_public_far_only')
+            ->assertJsonPath('data.windows.0.is_bookable', false)
+            ->assertJsonPath('data.windows.0.unavailable_reason', 'outside_service_area');
     }
 
     private function createAvailabilityFixture(): array

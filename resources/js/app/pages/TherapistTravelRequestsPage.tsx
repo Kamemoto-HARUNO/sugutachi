@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link, useSearchParams } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatDateTime } from '../lib/therapist';
 import type { ApiEnvelope, TherapistTravelRequestRecord } from '../lib/types';
@@ -75,8 +76,15 @@ function filterRequests(
     });
 }
 
+function buildTravelRequestDetailPath(publicId: string, search: string): string {
+    return search ? `/therapist/travel-requests/${publicId}${search}` : `/therapist/travel-requests/${publicId}`;
+}
+
 export function TherapistTravelRequestsPage() {
     const { token } = useAuth();
+    const { publicId } = useParams<{ publicId: string }>();
+    const location = useLocation();
+    const navigate = useNavigate();
     const [searchParams, setSearchParams] = useSearchParams();
     const [requests, setRequests] = useState<TherapistTravelRequestRecord[]>([]);
     const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
@@ -91,6 +99,8 @@ export function TherapistTravelRequestsPage() {
     const query = normalizeQuery(searchParams.get('q'));
 
     usePageTitle('出張リクエスト一覧');
+    useToastOnMessage(error, 'error');
+    useToastOnMessage(successMessage, 'success');
 
     async function loadRequests(nextIsRefresh = false) {
         if (!token) {
@@ -112,8 +122,10 @@ export function TherapistTravelRequestsPage() {
             setRequests(nextRequests);
             setError(null);
             setSelectedRequestId((current) => {
-                if (current && nextRequests.some((request) => request.public_id === current)) {
-                    return current;
+                const preferredId = publicId ?? current;
+
+                if (preferredId && nextRequests.some((request) => request.public_id === preferredId)) {
+                    return preferredId;
                 }
 
                 return nextRequests[0]?.public_id ?? null;
@@ -143,13 +155,35 @@ export function TherapistTravelRequestsPage() {
     useEffect(() => {
         if (filteredRequests.length === 0) {
             setSelectedRequestId(null);
+
+            if (publicId) {
+                navigate(location.search ? `/therapist/travel-requests${location.search}` : '/therapist/travel-requests', { replace: true });
+            }
+
+            return;
+        }
+
+        if (publicId) {
+            const matchedRequest = filteredRequests.find((request) => request.public_id === publicId);
+
+            if (matchedRequest) {
+                if (selectedRequestId !== matchedRequest.public_id) {
+                    setSelectedRequestId(matchedRequest.public_id);
+                }
+
+                return;
+            }
+
+            const fallbackId = filteredRequests[0].public_id;
+            setSelectedRequestId(fallbackId);
+            navigate(buildTravelRequestDetailPath(fallbackId, location.search), { replace: true });
             return;
         }
 
         if (!selectedRequestId || !filteredRequests.some((request) => request.public_id === selectedRequestId)) {
             setSelectedRequestId(filteredRequests[0].public_id);
         }
-    }, [filteredRequests, selectedRequestId]);
+    }, [filteredRequests, location.search, navigate, publicId, selectedRequestId]);
 
     const summary = useMemo(() => ({
         total: requests.length,
@@ -242,7 +276,7 @@ export function TherapistTravelRequestsPage() {
             <section className="rounded-[32px] bg-[linear-gradient(117deg,#17202b_0%,#243447_52%,#2b4158_100%)] p-7 text-white shadow-[0_24px_60px_rgba(15,23,42,0.22)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">TRAVEL REQUESTS</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">出張需要</p>
                         <div className="space-y-2">
                             <h1 className="text-3xl font-semibold">出張リクエスト一覧</h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300">
@@ -295,7 +329,7 @@ export function TherapistTravelRequestsPage() {
                 <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
                     <div className="space-y-4">
                         <div>
-                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">FILTERS</p>
+                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">絞り込み</p>
                             <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">表示条件</h2>
                         </div>
 
@@ -370,18 +404,6 @@ export function TherapistTravelRequestsPage() {
                 </div>
             </section>
 
-            {error ? (
-                <section className="rounded-[24px] border border-[#f1d4b5] bg-[#fff4e8] px-5 py-4 text-sm text-[#9a4b35]">
-                    {error}
-                </section>
-            ) : null}
-
-            {successMessage ? (
-                <section className="rounded-[24px] border border-emerald-300/30 bg-emerald-300/10 px-5 py-4 text-sm text-emerald-100">
-                    {successMessage}
-                </section>
-            ) : null}
-
             <section className="grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(360px,0.88fr)]">
                 <div className="space-y-4">
                     {filteredRequests.length > 0 ? (
@@ -389,9 +411,9 @@ export function TherapistTravelRequestsPage() {
                             const isSelected = request.public_id === selectedRequestId;
 
                             return (
-                                <button
+                                <Link
                                     key={request.public_id}
-                                    type="button"
+                                    to={buildTravelRequestDetailPath(request.public_id, location.search)}
                                     onClick={() => {
                                         setSelectedRequestId(request.public_id);
                                         setSuccessMessage(null);
@@ -427,7 +449,7 @@ export function TherapistTravelRequestsPage() {
                                     <p className={`mt-4 line-clamp-3 text-sm leading-7 ${isSelected ? 'text-[#475569]' : 'text-slate-300'}`}>
                                         {request.message ?? '本文を表示できませんでした。'}
                                     </p>
-                                </button>
+                                </Link>
                             );
                         })
                     ) : (
@@ -478,7 +500,7 @@ export function TherapistTravelRequestsPage() {
                                 </div>
 
                                 <div className="rounded-2xl border border-white/10 bg-[#17202b] px-4 py-3 text-right">
-                                    <p className="text-xs font-semibold tracking-wide text-slate-400">REQUEST ID</p>
+                                    <p className="text-xs font-semibold tracking-wide text-slate-400">受信番号</p>
                                     <p className="mt-2 font-mono text-xs text-white">{selectedRequest.public_id}</p>
                                 </div>
                             </div>

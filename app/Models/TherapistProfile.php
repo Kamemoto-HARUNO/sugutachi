@@ -138,6 +138,9 @@ class TherapistProfile extends Model
     protected function casts(): array
     {
         return [
+            'height_cm' => 'integer',
+            'weight_kg' => 'integer',
+            'p_size_cm' => 'integer',
             'is_online' => 'boolean',
             'online_since' => 'datetime',
             'last_location_updated_at' => 'datetime',

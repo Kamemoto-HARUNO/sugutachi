@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { getServiceAddressLabel } from '../lib/discovery';
 import type {
@@ -41,7 +42,7 @@ function statusLabel(status: string): string {
         case 'in_progress':
             return '施術中';
         case 'therapist_completed':
-            return '利用者確認待ち';
+            return '利用者の完了確認待ち';
         case 'completed':
             return '完了';
         case 'rejected':
@@ -364,17 +365,12 @@ export function TherapistBookingMessagesPage() {
                 </section>
             ) : null}
 
-            {successMessage ? (
-                <section className="rounded-[24px] border border-[#cfe5d5] bg-[#edf8f0] px-5 py-4 text-sm text-[#24553a]">
-                    {successMessage}
-                </section>
-            ) : null}
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
                 <section className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                     <div className="flex flex-col gap-4 border-b border-[#efe5d7] pb-5 md:flex-row md:items-end md:justify-between">
                         <div>
-                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">THREAD</p>
+                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">メッセージ履歴</p>
                             <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">やり取り一覧</h2>
                         </div>
 
@@ -462,7 +458,7 @@ export function TherapistBookingMessagesPage() {
                             <div className="rounded-[24px] border border-dashed border-[#e4d7c2] bg-[#fffaf3] px-5 py-8 text-center">
                                 <p className="text-sm font-semibold text-[#17202b]">メッセージはまだありません。</p>
                                 <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                    施術場所や待ち合わせ方法の確認が必要なら、ここから最初の連絡を送れます。
+                                    待ち合わせ場所や待ち合わせ方法の確認が必要なら、ここから最初の連絡を送れます。
                                 </p>
                             </div>
                         )}
@@ -491,7 +487,7 @@ export function TherapistBookingMessagesPage() {
 
                         <div className="flex flex-wrap items-center justify-between gap-3">
                             <p className="text-xs leading-6 text-[#68707a]">
-                                連絡先交換につながる文言は送れません。待ち合わせ・施術場所・タイミング確認に絞って使います。
+                                連絡先交換につながる文言は送れません。待ち合わせ・待ち合わせ場所・タイミング確認に絞って使います。
                             </p>
                             <button
                                 type="submit"
@@ -506,7 +502,7 @@ export function TherapistBookingMessagesPage() {
 
                 <aside className="space-y-5">
                     <section className="rounded-[28px] bg-[#fffcf7] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.1)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">CONTEXT</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予約情報</p>
                         <div className="mt-4 space-y-4 text-sm text-[#48505a]">
                             <div>
                                 <p className="text-xs font-semibold text-[#7d6852]">予約状況</p>
@@ -525,7 +521,7 @@ export function TherapistBookingMessagesPage() {
                                 <p className="mt-1 font-semibold text-[#17202b]">{buildPrimaryTime(booking)}</p>
                             </div>
                             <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">施術場所</p>
+                                <p className="text-xs font-semibold text-[#7d6852]">待ち合わせ場所</p>
                                 <p className="mt-1 font-semibold text-[#17202b]">
                                     {booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
                                 </p>

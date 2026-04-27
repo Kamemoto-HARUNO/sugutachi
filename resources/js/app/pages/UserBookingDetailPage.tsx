@@ -1,8 +1,9 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatCurrency, getServiceAddressLabel } from '../lib/discovery';
 import type {
@@ -28,7 +29,7 @@ function statusLabel(status: string): string {
         case 'in_progress':
             return '施術中';
         case 'therapist_completed':
-            return '完了確認待ち';
+            return 'あなたの完了確認待ち';
         case 'completed':
             return '完了';
         case 'rejected':
@@ -70,10 +71,6 @@ function statusTone(status: string): string {
     }
 }
 
-function requestTypeLabel(value: BookingDetailRecord['request_type']): string {
-    return value === 'scheduled' ? '予定予約' : '今すぐ';
-}
-
 function paymentStatusLabel(value: string | null | undefined): string {
     switch (value) {
         case 'requires_capture':
@@ -85,6 +82,10 @@ function paymentStatusLabel(value: string | null | undefined): string {
         default:
             return '未作成';
     }
+}
+
+function therapistRewardAmount(booking: Pick<BookingDetailRecord, 'total_amount' | 'matching_fee_amount'>): number {
+    return Math.max(0, booking.total_amount - booking.matching_fee_amount);
 }
 
 function refundStatusLabel(status: string): string {
@@ -147,6 +148,7 @@ function buildTimeline(booking: BookingDetailRecord): Array<{ key: string; label
         { key: 'arrived', label: '到着', value: booking.arrived_at, isActive: Boolean(booking.arrived_at) },
         { key: 'started', label: '施術開始', value: booking.started_at, isActive: Boolean(booking.started_at) },
         { key: 'ended', label: '施術終了', value: booking.ended_at, isActive: Boolean(booking.ended_at) },
+        { key: 'completed', label: '完了', value: booking.completed_at ?? null, isActive: Boolean(booking.completed_at) },
     ];
 }
 
@@ -187,31 +189,33 @@ export function UserBookingDetailPage() {
     const { token } = useAuth();
     const [booking, setBooking] = useState<BookingDetailRecord | null>(null);
     const [error, setError] = useState<string | null>(null);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
+    const [isConfirmingCompletion, setIsConfirmingCompletion] = useState(false);
 
     usePageTitle(booking ? `${booking.therapist_profile?.public_name ?? '予約'}の詳細` : '予約詳細');
+    useToastOnMessage(error, 'error');
+    useToastOnMessage(successMessage, 'success');
+
+    const loadBooking = useCallback(async () => {
+        if (!token || !publicId) {
+            setIsLoading(false);
+            return;
+        }
+
+        const payload = await apiRequest<ApiEnvelope<BookingDetailRecord>>(`/bookings/${publicId}`, {
+            token,
+        });
+
+        setBooking(unwrapData(payload));
+        setError(null);
+    }, [publicId, token]);
 
     useEffect(() => {
         let isMounted = true;
 
-        async function loadBooking() {
-            if (!token || !publicId) {
-                setIsLoading(false);
-                return;
-            }
-
-            try {
-                const payload = await apiRequest<ApiEnvelope<BookingDetailRecord>>(`/bookings/${publicId}`, {
-                    token,
-                });
-
-                if (!isMounted) {
-                    return;
-                }
-
-                setBooking(unwrapData(payload));
-                setError(null);
-            } catch (requestError) {
+        void loadBooking()
+            .catch((requestError: unknown) => {
                 if (!isMounted) {
                     return;
                 }
@@ -222,21 +226,47 @@ export function UserBookingDetailPage() {
                         : '予約詳細の取得に失敗しました。';
 
                 setError(message);
-            } finally {
+            })
+            .finally(() => {
                 if (isMounted) {
                     setIsLoading(false);
                 }
-            }
-        }
-
-        void loadBooking();
+            });
 
         return () => {
             isMounted = false;
         };
-    }, [publicId, token]);
+    }, [loadBooking]);
 
     const timeline = useMemo(() => (booking ? buildTimeline(booking) : []), [booking]);
+
+    async function handleCompleteConfirmation() {
+        if (!token || !booking || booking.status !== 'therapist_completed' || isConfirmingCompletion) {
+            return;
+        }
+
+        setIsConfirmingCompletion(true);
+        setError(null);
+        setSuccessMessage(null);
+
+        try {
+            await apiRequest<ApiEnvelope<BookingDetailRecord>>(`/bookings/${booking.public_id}/user-complete-confirmation`, {
+                method: 'POST',
+                token,
+            });
+            await loadBooking();
+            setSuccessMessage('施術完了を確認しました。予約は完了になりました。');
+        } catch (requestError) {
+            const message =
+                requestError instanceof ApiError
+                    ? requestError.message
+                    : '完了確認の更新に失敗しました。';
+
+            setError(message);
+        } finally {
+            setIsConfirmingCompletion(false);
+        }
+    }
 
     if (isLoading) {
         return <LoadingScreen title="予約詳細を読み込み中" message="決済状態、返金、同意記録、安全確認をまとめています。" />;
@@ -267,9 +297,6 @@ export function UserBookingDetailPage() {
                             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
                                 {statusLabel(booking.status)}
                             </span>
-                            <span className="rounded-full bg-[#f5efe4] px-3 py-1 text-xs font-semibold text-[#48505a]">
-                                {requestTypeLabel(booking.request_type)}
-                            </span>
                         </div>
                         <div className="space-y-2">
                             <h1 className="text-3xl font-semibold">
@@ -295,7 +322,7 @@ export function UserBookingDetailPage() {
                                 to={`/user/bookings/${booking.public_id}/review`}
                                 className="inline-flex items-center rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8"
                             >
-                                レビューを書く
+                                {booking.status === 'therapist_completed' ? 'レビューを書いて完了する' : 'レビューを書く'}
                             </Link>
                         ) : null}
                         <Link
@@ -308,11 +335,6 @@ export function UserBookingDetailPage() {
                 </div>
             </section>
 
-            {error ? (
-                <section className="rounded-[24px] border border-[#f1d4b5] bg-[#fff4e8] px-5 py-4 text-sm text-[#9a4b35]">
-                    {error}
-                </section>
-            ) : null}
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(340px,0.78fr)]">
                 <section className="space-y-5">
@@ -322,7 +344,7 @@ export function UserBookingDetailPage() {
                                 <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">BOOKING SUMMARY</p>
                                 <h2 className="text-2xl font-semibold text-[#17202b]">{buildPrimaryTime(booking)}</h2>
                                 <p className="text-sm leading-7 text-[#68707a]">
-                                    施術場所: {booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
+                                    待ち合わせ場所: {booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
                                 </p>
                             </div>
 
@@ -354,6 +376,47 @@ export function UserBookingDetailPage() {
                         </div>
                     </article>
 
+                    {booking.status === 'therapist_completed' ? (
+                        <article className="rounded-[28px] border border-[#ead8b8] bg-[#fff9ef] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.08)]">
+                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">FINAL CONFIRMATION</p>
+                            <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">施術完了の確認</h2>
+                            <p className="mt-2 text-sm leading-7 text-[#68707a]">
+                                セラピストが施術完了を報告しています。問題がなければ、レビュー送信または完了確認でこの予約を完了にできます。
+                            </p>
+                            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                                <Link
+                                    to={`/user/bookings/${booking.public_id}/review`}
+                                    className="inline-flex items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105"
+                                >
+                                    レビューを書いて完了する
+                                </Link>
+                                <button
+                                    type="button"
+                                    onClick={() => void handleCompleteConfirmation()}
+                                    disabled={isConfirmingCompletion}
+                                    className="inline-flex items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee] disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {isConfirmingCompletion ? '確認中...' : 'レビューせずに完了を確認する'}
+                                </button>
+                            </div>
+                        </article>
+                    ) : null}
+
+                    {booking.status === 'moving' && booking.arrival_confirmation_code ? (
+                        <article className="rounded-[28px] border border-[#cfdff8] bg-[#f6f9ff] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.08)]">
+                            <p className="text-xs font-semibold tracking-wide text-[#5472a0]">ARRIVAL CODE</p>
+                            <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">到着確認コード</h2>
+                            <p className="mt-2 text-sm leading-7 text-[#68707a]">
+                                セラピストが到着したら、この4桁コードを伝えてください。コードが一致すると到着ステータスに進みます。
+                            </p>
+                            <div className="mt-5 inline-flex rounded-[24px] bg-white px-6 py-4 shadow-[0_12px_24px_rgba(48,82,122,0.12)]">
+                                <span className="text-4xl font-semibold tracking-[0.4em] text-[#17202b]">
+                                    {booking.arrival_confirmation_code}
+                                </span>
+                            </div>
+                        </article>
+                    ) : null}
+
                     <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                         <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">TIMELINE</p>
                         <div className="mt-5 grid gap-4">
@@ -374,18 +437,22 @@ export function UserBookingDetailPage() {
                         <div className="mt-5 grid gap-4 md:grid-cols-2">
                             <div className="rounded-[22px] bg-[#f8f4ed] p-4">
                                 <p className="text-sm font-semibold text-[#17202b]">決済</p>
-                                <div className="mt-3 space-y-2 text-sm text-[#48505a]">
-                                    <div className="flex items-center justify-between gap-4">
-                                        <span>支払い予定額</span>
-                                        <span className="font-semibold text-[#17202b]">{formatCurrency(booking.total_amount)}</span>
+                                <div className="mt-3 space-y-3">
+                                    <div className="rounded-[18px] bg-white/70 px-4 py-3">
+                                        <p className="text-xs font-semibold tracking-wide text-[#7d6852]">支払い予定額</p>
+                                        <p className="mt-2 text-lg font-semibold text-[#17202b]">
+                                            {formatCurrency(booking.total_amount)}
+                                        </p>
                                     </div>
-                                    <div className="flex items-center justify-between gap-4">
-                                        <span>マッチング手数料</span>
-                                        <span className="font-semibold text-[#17202b]">{formatCurrency(booking.matching_fee_amount)}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-4">
-                                        <span>プラットフォーム料</span>
-                                        <span className="font-semibold text-[#17202b]">{formatCurrency(booking.platform_fee_amount)}</span>
+                                    <div className="space-y-2 text-sm text-[#48505a]">
+                                        <div className="flex items-center justify-between gap-4">
+                                            <span>セラピスト謝礼</span>
+                                            <span className="font-semibold text-[#17202b]">{formatCurrency(therapistRewardAmount(booking))}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-4">
+                                            <span>マッチング手数料</span>
+                                            <span className="font-semibold text-[#17202b]">{formatCurrency(booking.matching_fee_amount)}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -476,7 +543,7 @@ export function UserBookingDetailPage() {
                                 </p>
                             </div>
                             <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">施術場所</p>
+                                <p className="text-xs font-semibold text-[#7d6852]">待ち合わせ場所</p>
                                 <p className="mt-1 font-semibold text-[#17202b]">
                                     {booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
                                 </p>
@@ -519,8 +586,18 @@ export function UserBookingDetailPage() {
                                     to={`/user/bookings/${booking.public_id}/review`}
                                     className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
                                 >
-                                    レビューを書く
+                                    {booking.status === 'therapist_completed' ? 'レビューを書いて完了する' : 'レビューを書く'}
                                 </Link>
+                            ) : null}
+                            {booking.status === 'therapist_completed' ? (
+                                <button
+                                    type="button"
+                                    onClick={() => void handleCompleteConfirmation()}
+                                    disabled={isConfirmingCompletion}
+                                    className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee] disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {isConfirmingCompletion ? '確認中...' : 'レビューせずに完了を確認する'}
+                                </button>
                             ) : null}
                             <Link
                                 to={`/user/bookings/${booking.public_id}/messages`}

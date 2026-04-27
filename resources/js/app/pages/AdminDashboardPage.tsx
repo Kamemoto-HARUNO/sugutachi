@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import type {
     AdminDashboardNavigationTarget,
@@ -53,6 +54,7 @@ export function AdminDashboardPage() {
     const [isRefreshing, setIsRefreshing] = useState(false);
 
     usePageTitle('運営ダッシュボード');
+    useToastOnMessage(error, 'error');
 
     const loadDashboard = useCallback(async (refresh = false) => {
         if (!token) {
@@ -326,11 +328,6 @@ export function AdminDashboardPage() {
                 </div>
             </section>
 
-            {error ? (
-                <section className="rounded-[24px] border border-[#f1d4b5] bg-[#fff4e8] px-5 py-4 text-sm text-[#9a4b35]">
-                    {error}
-                </section>
-            ) : null}
 
             {dashboard ? (
                 <>

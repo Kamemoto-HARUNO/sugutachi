@@ -3,6 +3,7 @@ import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { getServiceAddressLabel } from '../lib/discovery';
 import type {
@@ -41,7 +42,7 @@ function statusLabel(status: string): string {
         case 'in_progress':
             return '施術中';
         case 'therapist_completed':
-            return '完了確認待ち';
+            return 'あなたの完了確認待ち';
         case 'completed':
             return '完了';
         case 'rejected':
@@ -346,11 +347,6 @@ export function UserBookingMessagesPage() {
                 </section>
             ) : null}
 
-            {successMessage ? (
-                <section className="rounded-[24px] border border-[#cfe5d5] bg-[#edf8f0] px-5 py-4 text-sm text-[#24553a]">
-                    {successMessage}
-                </section>
-            ) : null}
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
                 <section className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
@@ -496,7 +492,7 @@ export function UserBookingMessagesPage() {
                                 <p className="mt-1 font-semibold text-[#17202b]">{buildPrimaryTime(booking)}</p>
                             </div>
                             <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">施術場所</p>
+                                <p className="text-xs font-semibold text-[#7d6852]">待ち合わせ場所</p>
                                 <p className="mt-1 font-semibold text-[#17202b]">
                                     {booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
                                 </p>

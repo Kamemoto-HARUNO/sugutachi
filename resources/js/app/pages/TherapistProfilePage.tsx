@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatProfileStatus, formatRejectionReason } from '../lib/therapist';
 import type {
@@ -19,8 +20,8 @@ interface MenuDraft {
     public_id: string | null;
     name: string;
     description: string;
-    duration_minutes: number;
-    base_price_amount: number;
+    minimum_duration_minutes: number;
+    hourly_rate_amount: number;
     is_active: boolean;
     sort_order: number;
 }
@@ -85,11 +86,21 @@ function createMenuDraft(menu?: TherapistMenu): MenuDraft {
         public_id: menu?.public_id ?? null,
         name: menu?.name ?? '',
         description: menu?.description ?? '',
-        duration_minutes: menu?.duration_minutes ?? 60,
-        base_price_amount: menu?.base_price_amount ?? 12000,
+        minimum_duration_minutes: menu?.minimum_duration_minutes ?? menu?.duration_minutes ?? 60,
+        hourly_rate_amount: menu?.hourly_rate_amount ?? 12000,
         is_active: menu?.is_active ?? true,
         sort_order: menu?.sort_order ?? 0,
     };
+}
+
+function toOptionalNumber(value: string): number | null {
+    if (!value.trim()) {
+        return null;
+    }
+
+    const parsed = Number(value);
+
+    return Number.isFinite(parsed) ? parsed : null;
 }
 
 export function TherapistProfilePage() {
@@ -99,6 +110,9 @@ export function TherapistProfilePage() {
     const [reviewStatus, setReviewStatus] = useState<TherapistReviewStatus | null>(null);
     const [publicName, setPublicName] = useState('');
     const [bio, setBio] = useState('');
+    const [heightCm, setHeightCm] = useState('');
+    const [weightKg, setWeightKg] = useState('');
+    const [pSizeCm, setPSizeCm] = useState('');
     const [trainingStatus, setTrainingStatus] = useState('none');
     const [menuDrafts, setMenuDrafts] = useState<MenuDraft[]>([]);
     const [newMenuDraft, setNewMenuDraft] = useState<MenuDraft>(createMenuDraft());
@@ -116,6 +130,10 @@ export function TherapistProfilePage() {
     const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
     usePageTitle('セラピストプロフィール');
+    useToastOnMessage(successMessage, 'success');
+    useToastOnMessage(error, 'error');
+    useToastOnMessage(photoSuccessMessage, 'success');
+    useToastOnMessage(photoError, 'error');
 
     const loadData = useCallback(async () => {
         if (!token) {
@@ -137,6 +155,9 @@ export function TherapistProfilePage() {
         setReviewStatus(nextReviewStatus);
         setPublicName(nextProfile.public_name ?? '');
         setBio(nextProfile.bio ?? '');
+        setHeightCm(nextProfile.height_cm != null ? String(nextProfile.height_cm) : '');
+        setWeightKg(nextProfile.weight_kg != null ? String(nextProfile.weight_kg) : '');
+        setPSizeCm(nextProfile.p_size_cm != null ? String(nextProfile.p_size_cm) : '');
         setTrainingStatus(nextProfile.training_status ?? 'none');
         setMenuDrafts(nextProfile.menus.map((menu) => createMenuDraft(menu)));
     }, [token]);
@@ -178,6 +199,7 @@ export function TherapistProfilePage() {
         () => therapistPhotos.filter((photo) => photo.status === 'approved' || photo.status === 'pending').length,
         [therapistPhotos],
     );
+    const requiresReapprovalOnEdit = profile?.profile_status === 'approved';
 
     useEffect(() => {
         if (!photoFile) {
@@ -267,6 +289,16 @@ export function TherapistProfilePage() {
         }
     }
 
+    function confirmReapprovalBeforeSave(actionLabel: string): boolean {
+        if (!requiresReapprovalOnEdit) {
+            return true;
+        }
+
+        return window.confirm(
+            `承認済みのプロフィールです。\n${actionLabel}を保存すると、いったん公開が止まり、変更内容の再承認が必要になります。\n保存後はプロフィール審査を再提出してください。\nこのまま保存しますか？`,
+        );
+    }
+
     async function handleProfileSave(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
@@ -274,9 +306,14 @@ export function TherapistProfilePage() {
             return;
         }
 
+        if (!confirmReapprovalBeforeSave('プロフィールの変更')) {
+            return;
+        }
+
         setIsSavingProfile(true);
         setError(null);
         setSuccessMessage(null);
+        const wasApproved = requiresReapprovalOnEdit;
 
         try {
             const payload = await apiRequest<ApiEnvelope<TherapistProfileRecord>>('/me/therapist-profile', {
@@ -285,13 +322,20 @@ export function TherapistProfilePage() {
                 body: {
                     public_name: publicName,
                     bio,
+                    height_cm: toOptionalNumber(heightCm),
+                    weight_kg: toOptionalNumber(weightKg),
+                    p_size_cm: toOptionalNumber(pSizeCm),
                     training_status: trainingStatus,
                 },
             });
 
             const nextProfile = unwrapData(payload);
             setProfile(nextProfile);
-            await refreshAfterMutation('プロフィールを保存しました。');
+            await refreshAfterMutation(
+                wasApproved
+                    ? 'プロフィールを保存しました。公開を続けるには、変更内容の再承認が必要です。'
+                    : 'プロフィールを保存しました。',
+            );
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -378,9 +422,14 @@ export function TherapistProfilePage() {
             return;
         }
 
+        if (!confirmReapprovalBeforeSave('対応内容の変更')) {
+            return;
+        }
+
         setPendingMenuId(draft.public_id);
         setError(null);
         setSuccessMessage(null);
+        const wasApproved = requiresReapprovalOnEdit;
 
         try {
             await apiRequest<ApiEnvelope<TherapistMenu>>(`/me/therapist/menus/${draft.public_id}`, {
@@ -389,19 +438,23 @@ export function TherapistProfilePage() {
                 body: {
                     name: draft.name,
                     description: draft.description || null,
-                    duration_minutes: draft.duration_minutes,
-                    base_price_amount: draft.base_price_amount,
+                    minimum_duration_minutes: draft.minimum_duration_minutes,
+                    hourly_rate_amount: draft.hourly_rate_amount,
                     is_active: draft.is_active,
                     sort_order: draft.sort_order,
                 },
             });
 
-            await refreshAfterMutation('メニューを更新しました。');
+            await refreshAfterMutation(
+                wasApproved
+                    ? '対応内容を更新しました。公開を続けるには、変更内容の再承認が必要です。'
+                    : '対応内容を更新しました。',
+            );
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
                     ? requestError.message
-                    : 'メニューの更新に失敗しました。';
+                    : '対応内容の更新に失敗しました。';
 
             setError(message);
         } finally {
@@ -414,9 +467,14 @@ export function TherapistProfilePage() {
             return;
         }
 
+        if (!confirmReapprovalBeforeSave('対応内容の追加')) {
+            return;
+        }
+
         setPendingMenuId('new');
         setError(null);
         setSuccessMessage(null);
+        const wasApproved = requiresReapprovalOnEdit;
 
         try {
             await apiRequest<ApiEnvelope<TherapistMenu>>('/me/therapist/menus', {
@@ -425,19 +483,23 @@ export function TherapistProfilePage() {
                 body: {
                     name: newMenuDraft.name,
                     description: newMenuDraft.description || null,
-                    duration_minutes: newMenuDraft.duration_minutes,
-                    base_price_amount: newMenuDraft.base_price_amount,
+                    minimum_duration_minutes: newMenuDraft.minimum_duration_minutes,
+                    hourly_rate_amount: newMenuDraft.hourly_rate_amount,
                     sort_order: newMenuDraft.sort_order,
                 },
             });
 
             setNewMenuDraft(createMenuDraft());
-            await refreshAfterMutation('メニューを追加しました。');
+            await refreshAfterMutation(
+                wasApproved
+                    ? '対応内容を追加しました。公開を続けるには、変更内容の再承認が必要です。'
+                    : '対応内容を追加しました。',
+            );
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
                     ? requestError.message
-                    : 'メニューの追加に失敗しました。';
+                    : '対応内容の追加に失敗しました。';
 
             setError(message);
         } finally {
@@ -450,9 +512,14 @@ export function TherapistProfilePage() {
             return;
         }
 
+        if (!confirmReapprovalBeforeSave('対応内容の削除')) {
+            return;
+        }
+
         setPendingMenuId(publicId);
         setError(null);
         setSuccessMessage(null);
+        const wasApproved = requiresReapprovalOnEdit;
 
         try {
             await apiRequest<null>(`/me/therapist/menus/${publicId}`, {
@@ -460,12 +527,16 @@ export function TherapistProfilePage() {
                 token,
             });
 
-            await refreshAfterMutation('メニューを削除しました。');
+            await refreshAfterMutation(
+                wasApproved
+                    ? '対応内容を削除しました。公開を続けるには、変更内容の再承認が必要です。'
+                    : '対応内容を削除しました。',
+            );
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
                     ? requestError.message
-                    : 'メニューの削除に失敗しました。';
+                    : '対応内容の削除に失敗しました。';
 
             setError(message);
         } finally {
@@ -506,7 +577,7 @@ export function TherapistProfilePage() {
     }, [menuDrafts]);
 
     if (isLoading) {
-        return <LoadingScreen title="プロフィールを読み込み中" message="公開プロフィールとメニュー情報を準備しています。" />;
+        return <LoadingScreen title="プロフィールを読み込み中" message="公開プロフィールと対応内容を準備しています。" />;
     }
 
     return (
@@ -514,20 +585,20 @@ export function TherapistProfilePage() {
             <section className="space-y-4 rounded-[28px] border border-white/10 bg-white/5 p-6 md:p-8">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">PROFILE</p>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">プロフィール</p>
                         <h1 className="text-3xl font-semibold text-white">セラピストプロフィール</h1>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                            公開名、紹介文、研修ステータス、メニューを整える画面です。承認済みプロフィールを変更すると、再確認のため下書きに戻ります。
+                            公開名、紹介文、研修ステータス、対応内容を整える画面です。承認済みプロフィールを変更すると、いったん公開が止まり、変更内容の再承認が必要になります。
                         </p>
                     </div>
 
                     <div className="rounded-2xl border border-white/10 bg-[#111923] px-5 py-4 text-sm text-slate-200">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">PROFILE STATUS</p>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">公開状況</p>
                         <p className="mt-2 text-2xl font-semibold text-white">
                             {formatProfileStatus(profile?.profile_status)}
                         </p>
                         <p className="mt-2 text-xs text-slate-400">
-                            有効メニュー {activeMenuCount}件 / 写真審査 {photoStatusLabel(profile?.photo_review_status ?? 'pending')}
+                            公開中の対応内容 {activeMenuCount}件 / 写真審査 {photoStatusLabel(profile?.photo_review_status ?? 'pending')}
                         </p>
                     </div>
                 </div>
@@ -546,31 +617,6 @@ export function TherapistProfilePage() {
                         写真審査へ
                     </a>
                 </div>
-
-                {error ? (
-                    <div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-                        {error}
-                    </div>
-                ) : null}
-
-                {successMessage ? (
-                    <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
-                        {successMessage}
-                    </div>
-                ) : null}
-
-                {photoError ? (
-                    <div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-                        {photoError}
-                    </div>
-                ) : null}
-
-                {photoSuccessMessage ? (
-                    <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
-                        {photoSuccessMessage}
-                    </div>
-                ) : null}
-
                 {profile?.rejected_reason_code ? (
                     <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm leading-7 text-amber-100">
                         差し戻し理由: {formatRejectionReason(profile.rejected_reason_code)}
@@ -581,7 +627,7 @@ export function TherapistProfilePage() {
             <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
                 <form onSubmit={handleProfileSave} className="space-y-5 rounded-[24px] border border-white/10 bg-white/5 p-6">
                     <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">BASIC INFO</p>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">基本情報</p>
                         <h2 className="text-xl font-semibold text-white">公開プロフィール</h2>
                     </div>
 
@@ -595,6 +641,63 @@ export function TherapistProfilePage() {
                             required
                         />
                     </label>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <label className="space-y-2">
+                            <span className="text-sm font-semibold text-white">年齢</span>
+                            <input
+                                value={profile?.age != null ? `${profile.age}歳` : ''}
+                                readOnly
+                                disabled
+                                className="w-full rounded-[18px] border border-white/10 bg-[#0c141d] px-4 py-3 text-sm text-slate-300 outline-none"
+                                placeholder="本人確認後に自動表示"
+                            />
+                            <p className="text-xs leading-6 text-slate-400">
+                                本人確認で提出した生年月日から自動で計算されます。ここでは変更できません。
+                            </p>
+                        </label>
+
+                        <label className="space-y-2">
+                            <span className="text-sm font-semibold text-white">身長（cm）</span>
+                            <input
+                                type="number"
+                                min={100}
+                                max={250}
+                                value={heightCm}
+                                onChange={(event) => setHeightCm(event.target.value)}
+                                className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                placeholder="175"
+                            />
+                        </label>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <label className="space-y-2">
+                            <span className="text-sm font-semibold text-white">体重（kg）</span>
+                            <input
+                                type="number"
+                                min={30}
+                                max={250}
+                                value={weightKg}
+                                onChange={(event) => setWeightKg(event.target.value)}
+                                className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                placeholder="68"
+                            />
+                        </label>
+
+                        <label className="space-y-2">
+                            <span className="text-sm font-semibold text-white">Pサイズ（cm）</span>
+                            <input
+                                type="number"
+                                min={1}
+                                max={50}
+                                value={pSizeCm}
+                                onChange={(event) => setPSizeCm(event.target.value)}
+                                className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                placeholder="15"
+                            />
+                        </label>
+                    </div>
 
                     <label className="space-y-2">
                         <span className="text-sm font-semibold text-white">自己紹介</span>
@@ -629,11 +732,17 @@ export function TherapistProfilePage() {
                     >
                         {isSavingProfile ? '保存中...' : 'プロフィールを保存する'}
                     </button>
+
+                    {requiresReapprovalOnEdit ? (
+                        <p className="text-sm leading-7 text-amber-100">
+                            承認済みのプロフィールを保存すると、いったん公開が止まり、変更内容の再承認が必要になります。
+                        </p>
+                    ) : null}
                 </form>
 
                 <article className="space-y-4 rounded-[24px] border border-white/10 bg-white/5 p-6">
                     <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">REVIEW READINESS</p>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">審査準備</p>
                         <h2 className="text-xl font-semibold text-white">審査提出の準備</h2>
                     </div>
 
@@ -667,7 +776,7 @@ export function TherapistProfilePage() {
                     </button>
 
                     <p className="text-sm leading-7 text-slate-300">
-                        本人確認承認と有効メニューが揃うと審査提出できます。写真審査や Stripe Connect は公開準備としてこのあと続けて整えます。
+                        本人確認承認と公開中の対応内容が揃うと審査提出できます。写真審査や Stripe Connect は公開準備としてこのあと続けて整えます。
                     </p>
                 </article>
             </section>
@@ -675,7 +784,7 @@ export function TherapistProfilePage() {
             <section id="profile-photos" className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
                 <article className="space-y-5 rounded-[24px] border border-white/10 bg-white/5 p-6">
                     <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">PHOTOS</p>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">写真</p>
                         <h2 className="text-xl font-semibold text-white">プロフィール写真</h2>
                         <p className="text-sm leading-7 text-slate-300">
                             顔や雰囲気が分かる写真を登録して、公開前の写真審査を進めます。追加後は審査待ちになり、承認済みプロフィールでも再確認の対象になります。
@@ -785,7 +894,7 @@ export function TherapistProfilePage() {
 
                 <article className="space-y-4 rounded-[24px] border border-white/10 bg-white/5 p-6">
                     <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">PHOTO STATUS</p>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">写真審査</p>
                         <h2 className="text-xl font-semibold text-white">写真審査の状況</h2>
                     </div>
 
@@ -805,7 +914,7 @@ export function TherapistProfilePage() {
                     <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
                         <p className="text-sm font-semibold text-white">公開前の目安</p>
                         <p className="mt-2 text-sm leading-7 text-slate-300">
-                            写真が1枚以上あり、プロフィールとメニューが整っていると公開準備がかなり進みます。
+                            写真が1枚以上あり、プロフィールと対応内容が整っていると公開準備がかなり進みます。
                         </p>
                     </div>
 
@@ -829,10 +938,10 @@ export function TherapistProfilePage() {
             <section className="space-y-5 rounded-[24px] border border-white/10 bg-white/5 p-6">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                     <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">MENUS</p>
-                        <h2 className="text-xl font-semibold text-white">提供メニュー</h2>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">対応内容</p>
+                        <h2 className="text-xl font-semibold text-white">提供内容と時間単価</h2>
                         <p className="text-sm leading-7 text-slate-300">
-                            公開審査には有効メニューが最低1件必要です。内容や料金を変えると、承認済みプロフィールでも再確認のため下書きに戻ります。
+                            公開審査には有効な対応内容が最低1件必要です。内容、最短時間、料金を変えると、承認済みプロフィールでもいったん公開が止まり、変更内容の再承認が必要になります。
                         </p>
                     </div>
                 </div>
@@ -842,7 +951,7 @@ export function TherapistProfilePage() {
                         <article key={draft.public_id ?? 'draft'} className="rounded-[22px] border border-white/10 bg-[#111923] p-5">
                             <div className="grid gap-4 md:grid-cols-2">
                                 <label className="space-y-2">
-                                    <span className="text-sm font-semibold text-white">メニュー名</span>
+                                    <span className="text-sm font-semibold text-white">対応内容名</span>
                                     <input
                                         value={draft.name}
                                         onChange={(event) => updateMenuDraft(draft.public_id, { name: event.target.value })}
@@ -850,14 +959,14 @@ export function TherapistProfilePage() {
                                     />
                                 </label>
                                 <label className="space-y-2">
-                                    <span className="text-sm font-semibold text-white">所要時間（分）</span>
+                                    <span className="text-sm font-semibold text-white">最短時間（分）</span>
                                     <input
                                         type="number"
                                         min={30}
                                         max={240}
                                         step={15}
-                                        value={draft.duration_minutes}
-                                        onChange={(event) => updateMenuDraft(draft.public_id, { duration_minutes: Number(event.target.value) })}
+                                        value={draft.minimum_duration_minutes}
+                                        onChange={(event) => updateMenuDraft(draft.public_id, { minimum_duration_minutes: Number(event.target.value) })}
                                         className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
                                     />
                                 </label>
@@ -873,14 +982,14 @@ export function TherapistProfilePage() {
                                     />
                                 </label>
                                 <label className="space-y-2">
-                                    <span className="text-sm font-semibold text-white">基本料金（円）</span>
+                                    <span className="text-sm font-semibold text-white">60分料金（円）</span>
                                     <input
                                         type="number"
                                         min={1000}
                                         max={300000}
                                         step={500}
-                                        value={draft.base_price_amount}
-                                        onChange={(event) => updateMenuDraft(draft.public_id, { base_price_amount: Number(event.target.value) })}
+                                        value={draft.hourly_rate_amount}
+                                        onChange={(event) => updateMenuDraft(draft.public_id, { hourly_rate_amount: Number(event.target.value) })}
                                         className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
                                     />
                                 </label>
@@ -916,7 +1025,7 @@ export function TherapistProfilePage() {
                                     disabled={pendingMenuId === draft.public_id}
                                     className="inline-flex items-center rounded-full bg-rose-300 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
-                                    {pendingMenuId === draft.public_id ? '保存中...' : 'このメニューを保存'}
+                                    {pendingMenuId === draft.public_id ? '保存中...' : 'この内容を保存'}
                                 </button>
 
                                 <button
@@ -939,31 +1048,31 @@ export function TherapistProfilePage() {
                 <article className="rounded-[22px] border border-dashed border-white/15 bg-[#111923] p-5">
                     <div className="space-y-4">
                         <div className="space-y-2">
-                            <p className="text-sm font-semibold text-white">新しいメニューを追加</p>
+                            <p className="text-sm font-semibold text-white">新しい対応内容を追加</p>
                             <p className="text-sm leading-7 text-slate-300">
-                                時間と基本料金を決めて、まず1件目の有効メニューを作ると審査提出の条件に近づきます。
+                                対応内容、最短時間、60分料金を決めて、まず1件目の公開内容を作ると審査提出の条件に近づきます。
                             </p>
                         </div>
 
                         <div className="grid gap-4 md:grid-cols-2">
                             <label className="space-y-2">
-                                <span className="text-sm font-semibold text-white">メニュー名</span>
+                                <span className="text-sm font-semibold text-white">対応内容名</span>
                                 <input
                                     value={newMenuDraft.name}
                                     onChange={(event) => setNewMenuDraft((current) => ({ ...current, name: event.target.value }))}
                                     className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                    placeholder="例: ボディケア 60分"
+                                    placeholder="例: リラクゼーション / デート / ご飯"
                                 />
                             </label>
                             <label className="space-y-2">
-                                <span className="text-sm font-semibold text-white">所要時間（分）</span>
+                                <span className="text-sm font-semibold text-white">最短時間（分）</span>
                                 <input
                                     type="number"
                                     min={30}
                                     max={240}
                                     step={15}
-                                    value={newMenuDraft.duration_minutes}
-                                    onChange={(event) => setNewMenuDraft((current) => ({ ...current, duration_minutes: Number(event.target.value) }))}
+                                    value={newMenuDraft.minimum_duration_minutes}
+                                    onChange={(event) => setNewMenuDraft((current) => ({ ...current, minimum_duration_minutes: Number(event.target.value) }))}
                                     className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
                                 />
                             </label>
@@ -976,18 +1085,18 @@ export function TherapistProfilePage() {
                                     value={newMenuDraft.description}
                                     onChange={(event) => setNewMenuDraft((current) => ({ ...current, description: event.target.value }))}
                                     className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                    placeholder="例: もみほぐし中心 / ゆったり会話OK"
+                                    placeholder="例: もみほぐし中心 / ゆったり会話OK / 食事のみも可"
                                 />
                             </label>
                             <label className="space-y-2">
-                                <span className="text-sm font-semibold text-white">基本料金（円）</span>
+                                <span className="text-sm font-semibold text-white">60分料金（円）</span>
                                 <input
                                     type="number"
                                     min={1000}
                                     max={300000}
                                     step={500}
-                                    value={newMenuDraft.base_price_amount}
-                                    onChange={(event) => setNewMenuDraft((current) => ({ ...current, base_price_amount: Number(event.target.value) }))}
+                                    value={newMenuDraft.hourly_rate_amount}
+                                    onChange={(event) => setNewMenuDraft((current) => ({ ...current, hourly_rate_amount: Number(event.target.value) }))}
                                     className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
                                 />
                             </label>
@@ -1012,7 +1121,7 @@ export function TherapistProfilePage() {
                             disabled={pendingMenuId === 'new'}
                             className="inline-flex items-center rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                            {pendingMenuId === 'new' ? '追加中...' : 'メニューを追加する'}
+                            {pendingMenuId === 'new' ? '追加中...' : '対応内容を追加する'}
                         </button>
                     </div>
                 </article>

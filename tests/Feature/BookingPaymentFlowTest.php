@@ -139,6 +139,31 @@ class BookingPaymentFlowTest extends TestCase
         ]);
     }
 
+    public function test_quote_rejects_duration_shorter_than_menu_minimum(): void
+    {
+        [, , $userToken, $therapistProfileId, $therapistMenuId, $serviceAddressId] = $this->createBookableFixture();
+
+        $menu = TherapistMenu::query()
+            ->where('public_id', $therapistMenuId)
+            ->firstOrFail();
+
+        $menu->forceFill([
+            'duration_minutes' => 90,
+            'base_price_amount' => 18000,
+        ])->save();
+
+        $this->withToken($userToken)
+            ->postJson('/api/booking-quotes', [
+                'therapist_profile_id' => $therapistProfileId,
+                'therapist_menu_id' => $therapistMenuId,
+                'service_address_id' => $serviceAddressId,
+                'duration_minutes' => 60,
+                'is_on_demand' => true,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['duration_minutes']);
+    }
+
     private function createBookableFixture(): array
     {
         $user = Account::factory()->create(['public_id' => 'acc_user_flow']);

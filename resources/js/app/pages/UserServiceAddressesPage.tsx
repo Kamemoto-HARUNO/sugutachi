@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { getServiceAddressLabel } from '../lib/discovery';
 import type { ApiEnvelope, ServiceAddress } from '../lib/types';
@@ -49,7 +50,7 @@ function createDraft(address?: ServiceAddress | null): AddressDraft {
 }
 
 function formatPlaceType(placeType: PlaceType): string {
-    return placeTypeOptions.find((option) => option.value === placeType)?.label ?? '施術場所';
+    return placeTypeOptions.find((option) => option.value === placeType)?.label ?? '待ち合わせ場所';
 }
 
 function buildAddressLine(address: ServiceAddress): string {
@@ -86,7 +87,9 @@ export function UserServiceAddressesPage() {
     const [pendingAddressId, setPendingAddressId] = useState<string | null>(null);
     const [isLocating, setIsLocating] = useState(false);
 
-    usePageTitle('施術場所');
+    usePageTitle('待ち合わせ場所');
+    useToastOnMessage(successMessage, 'success');
+    useToastOnMessage(error, 'error');
 
     const selectedAddress = useMemo(
         () => addresses.find((address) => address.public_id === draft.public_id) ?? null,
@@ -128,7 +131,7 @@ export function UserServiceAddressesPage() {
                 const message =
                     requestError instanceof ApiError
                         ? requestError.message
-                        : '施術場所の取得に失敗しました。';
+                        : '待ち合わせ場所の取得に失敗しました。';
 
                 setError(message);
             })
@@ -184,7 +187,7 @@ export function UserServiceAddressesPage() {
                 }
 
                 await loadAddresses();
-                setSuccessMessage('施術場所を更新しました。');
+                setSuccessMessage('待ち合わせ場所を更新しました。');
                 return;
             }
 
@@ -197,12 +200,12 @@ export function UserServiceAddressesPage() {
             const createdAddress = unwrapData(payload);
             await loadAddresses();
             setDraft(createDraft(createdAddress));
-            setSuccessMessage('施術場所を追加しました。');
+            setSuccessMessage('待ち合わせ場所を追加しました。');
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
                     ? requestError.message
-                    : '施術場所の保存に失敗しました。';
+                    : '待ち合わせ場所の保存に失敗しました。';
 
             setError(message);
         } finally {
@@ -226,7 +229,7 @@ export function UserServiceAddressesPage() {
             });
             await loadAddresses();
             setDraft(createDraft({ ...address, is_default: true }));
-            setSuccessMessage('既定の施術場所を更新しました。');
+            setSuccessMessage('既定の待ち合わせ場所を更新しました。');
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -259,12 +262,12 @@ export function UserServiceAddressesPage() {
             });
             await loadAddresses();
             setDraft(createDraft());
-            setSuccessMessage('施術場所を削除しました。');
+            setSuccessMessage('待ち合わせ場所を削除しました。');
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
                     ? requestError.message
-                    : '施術場所の削除に失敗しました。';
+                    : '待ち合わせ場所の削除に失敗しました。';
 
             setError(message);
         } finally {
@@ -303,7 +306,7 @@ export function UserServiceAddressesPage() {
     }
 
     if (isLoading) {
-        return <LoadingScreen title="施術場所を読み込み中" message="登録済みの住所とデフォルト設定を確認しています。" />;
+        return <LoadingScreen title="待ち合わせ場所を読み込み中" message="登録済みの住所とデフォルト設定を確認しています。" />;
     }
 
     return (
@@ -315,7 +318,7 @@ export function UserServiceAddressesPage() {
                         <div className="space-y-2">
                             <h1 className="text-3xl font-semibold">来てほしい場所を管理</h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                                検索や空き時間確認では、ここで登録した施術場所を基準に徒歩目安と概算料金を計算します。
+                                検索や空き時間確認では、ここで登録した待ち合わせ場所を基準に徒歩目安と概算料金を計算します。
                                 よく使う場所を既定にしておくと、検索導線がかなり軽くなります。
                             </p>
                         </div>
@@ -337,30 +340,20 @@ export function UserServiceAddressesPage() {
                             }}
                             className="inline-flex items-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105"
                         >
-                            新しい施術場所を追加
+                            新しい待ち合わせ場所を追加
                         </button>
                     </div>
                 </div>
             </section>
 
-            {error ? (
-                <section className="rounded-[24px] border border-[#f1d4b5] bg-[#fff4e8] px-5 py-4 text-sm text-[#9a4b35]">
-                    {error}
-                </section>
-            ) : null}
 
-            {successMessage ? (
-                <section className="rounded-[24px] border border-[#d3e8cc] bg-[#f3fbf1] px-5 py-4 text-sm text-[#24553a]">
-                    {successMessage}
-                </section>
-            ) : null}
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,0.9fr)_minmax(380px,0.82fr)]">
                 <section className="space-y-4">
                     <div className="flex items-center justify-between">
                         <div>
                             <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">REGISTERED</p>
-                            <h2 className="mt-2 text-2xl font-semibold text-white">登録済みの施術場所</h2>
+                            <h2 className="mt-2 text-2xl font-semibold text-white">登録済みの待ち合わせ場所</h2>
                         </div>
                         <span className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-300">
                             {addresses.length} 件
@@ -457,7 +450,7 @@ export function UserServiceAddressesPage() {
                         </div>
                     ) : (
                         <div className="rounded-[28px] border border-dashed border-white/15 bg-white/5 p-8 text-center text-slate-300">
-                            <h3 className="text-xl font-semibold text-white">まだ施術場所がありません</h3>
+                            <h3 className="text-xl font-semibold text-white">まだ待ち合わせ場所がありません</h3>
                             <p className="mt-3 text-sm leading-7">
                                 まず1件登録すると、検索一覧や空き時間確認でそのまま使えるようになります。
                             </p>
@@ -471,7 +464,7 @@ export function UserServiceAddressesPage() {
                             {draft.public_id ? 'EDIT ADDRESS' : 'NEW ADDRESS'}
                         </p>
                         <h2 className="text-2xl font-semibold text-[#17202b]">
-                            {draft.public_id ? '施術場所を編集' : '新しい施術場所を追加'}
+                            {draft.public_id ? '待ち合わせ場所を編集' : '新しい待ち合わせ場所を追加'}
                         </h2>
                         <p className="text-sm leading-7 text-[#68707a]">
                             位置はユーザー本人と運営だけが扱う前提です。セラピストには正確な住所ではなく、予約時に必要な情報だけを渡します。
@@ -659,7 +652,7 @@ export function UserServiceAddressesPage() {
                                     }}
                                     className="mt-1 h-4 w-4 rounded border-[#d1c4b1]"
                                 />
-                                <span>この場所を既定の施術場所として保存する</span>
+                                <span>この場所を既定の待ち合わせ場所として保存する</span>
                             </label>
                         ) : (
                             <label className="flex items-start gap-3 rounded-[20px] bg-[#f8f4ed] px-4 py-4 text-sm leading-7 text-[#48505a]">

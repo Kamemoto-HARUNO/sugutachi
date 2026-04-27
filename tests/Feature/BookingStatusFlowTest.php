@@ -67,8 +67,19 @@ class BookingStatusFlowTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.status', Booking::STATUS_MOVING);
 
+        $arrivalCode = $booking->refresh()->arrival_confirmation_code;
+
+        $this->assertNotNull($arrivalCode);
+
         $this->withToken($therapistToken)
             ->postJson("/api/bookings/{$booking->public_id}/arrived")
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['arrival_confirmation_code']);
+
+        $this->withToken($therapistToken)
+            ->postJson("/api/bookings/{$booking->public_id}/arrived", [
+                'arrival_confirmation_code' => $arrivalCode,
+            ])
             ->assertOk()
             ->assertJsonPath('data.status', Booking::STATUS_ARRIVED);
 
@@ -89,6 +100,33 @@ class BookingStatusFlowTest extends TestCase
         ]);
 
         $this->assertDatabaseCount('booking_status_logs', 5);
+    }
+
+    public function test_therapist_cannot_mark_arrived_with_wrong_confirmation_code(): void
+    {
+        [$user, $therapist, $booking] = $this->createRequestedBooking();
+
+        $therapistToken = $therapist->createToken('api')->plainTextToken;
+
+        $this->withToken($therapistToken)
+            ->postJson("/api/bookings/{$booking->public_id}/accept")
+            ->assertOk();
+
+        $this->withToken($therapistToken)
+            ->postJson("/api/bookings/{$booking->public_id}/moving")
+            ->assertOk();
+
+        $this->withToken($therapistToken)
+            ->postJson("/api/bookings/{$booking->public_id}/arrived", [
+                'arrival_confirmation_code' => '9999',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['arrival_confirmation_code']);
+
+        $this->assertDatabaseHas('bookings', [
+            'id' => $booking->id,
+            'status' => Booking::STATUS_MOVING,
+        ]);
     }
 
     public function test_user_cannot_accept_booking_as_therapist(): void

@@ -302,10 +302,12 @@ class BookingController extends Controller
             menu: $menu,
             serviceAddress: $serviceAddress,
             date: $requestedStartAt->startOfDay(),
+            requestedDurationMinutes: $quote->duration_minutes,
         );
 
         $matchingWindow = collect($availability['windows'])
             ->first(fn (array $window): bool => $window['availability_slot_id'] === $slot->public_id
+                && ($window['is_bookable'] ?? true)
                 && CarbonImmutable::instance($window['start_at'])->lte($requestedStartAt)
                 && CarbonImmutable::instance($window['end_at'])->gte($requestedStartAt->addMinutes($quote->duration_minutes)));
 

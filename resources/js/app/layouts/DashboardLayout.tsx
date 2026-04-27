@@ -39,7 +39,7 @@ export function DashboardLayout({ role, title, description, navItems }: Dashboar
                                 </div>
 
                                 <div className="space-y-3">
-                                    <h1 className="max-w-[16ch] text-[2.2rem] font-semibold leading-[1.15] text-white sm:text-[2.5rem]">
+                                    <h1 className="max-w-[16ch] text-[2.2rem] font-semibold leading-[1.4] text-white sm:text-[2.5rem]">
                                         {title}
                                     </h1>
                                     <p className="max-w-3xl text-sm leading-7 text-slate-300 sm:text-[0.95rem]">

@@ -183,7 +183,7 @@ export function UserTherapistTravelRequestPage() {
     }
 
     if (isLoading) {
-        return <LoadingScreen title="出張リクエストを準備中" message="セラピスト情報と施術場所を確認しています。" />;
+        return <LoadingScreen title="出張リクエストを準備中" message="セラピスト情報と待ち合わせ場所を確認しています。" />;
     }
 
     const detailPath = therapistDetail ? `/therapists/${therapistDetail.public_id}?${searchParams.toString()}` : '/user/therapists';
@@ -240,7 +240,7 @@ export function UserTherapistTravelRequestPage() {
 
                         <div className="mt-5 grid gap-4 md:grid-cols-2">
                             <div className="rounded-[20px] bg-[#f8f4ed] px-4 py-4">
-                                <p className="text-xs font-semibold tracking-wide text-[#7d6852]">現在の施術場所</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#7d6852]">現在の待ち合わせ場所</p>
                                 <p className="mt-2 text-sm font-semibold text-[#17202b]">
                                     {selectedAddress ? getServiceAddressLabel(selectedAddress) : '未登録'}
                                 </p>

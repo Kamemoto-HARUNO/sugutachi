@@ -1,14 +1,14 @@
-import { useEffect, useMemo, useState } from 'react';
+import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { DiscoveryFooter } from '../components/discovery/DiscoveryFooter';
-import { DiscoveryHeroShell } from '../components/discovery/DiscoveryHeroShell';
+import { StickyHeroHeader } from '../components/discovery/StickyHeroHeader';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import {
-    buildEstimatedPriceLabel,
     formatCurrency,
-    formatTrainingStatus,
+    formatMenuMinimumDurationLabel,
     formatWalkingTimeRange,
     getDefaultServiceAddress,
     getServiceAddressLabel,
@@ -23,8 +23,6 @@ import type {
     TherapistDetail,
 } from '../lib/types';
 
-const durationOptions = [60, 90, 120];
-
 function normalizeStartType(value: string | null): BookingStartType {
     return value === 'scheduled' ? 'scheduled' : 'now';
 }
@@ -35,22 +33,6 @@ function normalizeSort(value: string | null): DiscoverySort {
     }
 
     return 'recommended';
-}
-
-function formatScheduledValue(value: string): string {
-    if (!value) {
-        return '';
-    }
-
-    return value.slice(0, 16);
-}
-
-function formatScheduledApiValue(value: string): string {
-    if (!value) {
-        return '';
-    }
-
-    return `${value.replace('T', ' ')}:00`;
 }
 
 function formatScheduledLabel(value: string): string {
@@ -77,10 +59,11 @@ function resolveAvailabilityDate(value: string): string {
         return value.slice(0, 10);
     }
 
-    const today = new Date();
-    const year = today.getFullYear();
-    const month = String(today.getMonth() + 1).padStart(2, '0');
-    const day = String(today.getDate()).padStart(2, '0');
+    const nextDate = new Date();
+    nextDate.setDate(nextDate.getDate() + 1);
+    const year = nextDate.getFullYear();
+    const month = String(nextDate.getMonth() + 1).padStart(2, '0');
+    const day = String(nextDate.getDate()).padStart(2, '0');
 
     return `${year}-${month}-${day}`;
 }
@@ -110,6 +93,23 @@ function buildReviewMeta(review: ReviewSummary): string {
     return labels.length > 0 ? labels.join(' / ') : '総合評価を反映しています。';
 }
 
+function wrapPhotoIndex(index: number, count: number): number {
+    if (count <= 0) {
+        return 0;
+    }
+
+    return ((index % count) + count) % count;
+}
+
+interface PhotoDragState {
+    element: HTMLDivElement;
+    pointerId: number;
+    startX: number;
+    currentX: number;
+    viewportWidth: number;
+    moved: boolean;
+}
+
 export function UserTherapistDetailPage() {
     const { publicId } = useParams();
     const { hasRole, isAuthenticated, token } = useAuth();
@@ -121,9 +121,17 @@ export function UserTherapistDetailPage() {
     const [error, setError] = useState<string | null>(null);
     const [isBootstrapping, setIsBootstrapping] = useState(true);
     const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+    const [activePhotoIndex, setActivePhotoIndex] = useState(0);
+    const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+    const [photoDragOffsetX, setPhotoDragOffsetX] = useState(0);
+    const [isPhotoDragging, setIsPhotoDragging] = useState(false);
+    const [photoSnapDirection, setPhotoSnapDirection] = useState<-1 | 0 | 1>(0);
+    const [isPhotoTrackAnimating, setIsPhotoTrackAnimating] = useState(false);
+    const photoDragRef = useRef<PhotoDragState | null>(null);
+    const photoAnimationHandledRef = useRef(true);
+    const suppressMainPhotoClickRef = useRef(false);
 
     const selectedAddressId = searchParams.get('service_address_id');
-    const selectedDuration = Number(searchParams.get('menu_duration_minutes') ?? '60');
     const selectedStartType = normalizeStartType(searchParams.get('start_type'));
     const selectedSort = normalizeSort(searchParams.get('sort'));
     const scheduledStartAt = searchParams.get('scheduled_start_at') ?? '';
@@ -132,23 +140,6 @@ export function UserTherapistDetailPage() {
         () => serviceAddresses.find((address) => address.public_id === selectedAddressId) ?? null,
         [selectedAddressId, serviceAddresses],
     );
-
-    const highlightedMenu = useMemo(() => {
-        if (!therapistDetail) {
-            return null;
-        }
-
-        const exactDurationMatch = therapistDetail.menus.find(
-            (menu) => menu.duration_minutes === selectedDuration,
-        );
-
-        if (exactDurationMatch) {
-            return exactDurationMatch;
-        }
-
-        return therapistDetail.menus[0] ?? null;
-    }, [selectedDuration, therapistDetail]);
-
     const queryString = searchParams.toString();
     const listPath = isAuthenticated ? `/user/therapists${queryString ? `?${queryString}` : ''}` : '/';
     const intendedAvailabilityPath = useMemo(() => {
@@ -159,16 +150,13 @@ export function UserTherapistDetailPage() {
         const nextParams = new URLSearchParams(searchParams);
         nextParams.set('start_type', 'scheduled');
         nextParams.set('date', resolveAvailabilityDate(scheduledStartAt));
-
-        if (highlightedMenu) {
-            nextParams.set('therapist_menu_id', highlightedMenu.public_id);
-            nextParams.set('menu_duration_minutes', String(highlightedMenu.duration_minutes));
-        }
+        nextParams.delete('therapist_menu_id');
+        nextParams.delete('menu_duration_minutes');
 
         const nextQueryString = nextParams.toString();
 
         return `/user/therapists/${therapistDetail.public_id}/availability${nextQueryString ? `?${nextQueryString}` : ''}`;
-    }, [highlightedMenu, scheduledStartAt, searchParams, therapistDetail]);
+    }, [scheduledStartAt, searchParams, therapistDetail]);
     const intendedTravelRequestPath = useMemo(() => {
         if (!therapistDetail) {
             return null;
@@ -226,6 +214,7 @@ export function UserTherapistDetailPage() {
         : { label: '無料登録する', to: registerAvailabilityPath, variant: 'secondary' as const };
 
     usePageTitle(therapistDetail ? `${therapistDetail.public_name}の詳細` : 'セラピスト詳細');
+    useToastOnMessage(error, 'error');
 
     useEffect(() => {
         let isMounted = true;
@@ -254,7 +243,6 @@ export function UserTherapistDetailPage() {
                         setSearchParams((previous) => {
                             const next = new URLSearchParams(previous);
                             next.set('service_address_id', fallbackAddress.public_id);
-                            next.set('menu_duration_minutes', String(durationOptions.includes(selectedDuration) ? selectedDuration : 60));
                             next.set('start_type', selectedStartType);
                             next.set('sort', selectedSort);
 
@@ -268,7 +256,7 @@ export function UserTherapistDetailPage() {
                 }
 
                 const message =
-                    requestError instanceof ApiError ? requestError.message : '施術場所の取得に失敗しました。';
+                    requestError instanceof ApiError ? requestError.message : '待ち合わせ場所の取得に失敗しました。';
 
                 setError(message);
             } finally {
@@ -283,7 +271,7 @@ export function UserTherapistDetailPage() {
         return () => {
             isMounted = false;
         };
-    }, [publicId, selectedAddressId, selectedDuration, selectedSort, selectedStartType, setSearchParams, token]);
+    }, [publicId, selectedAddressId, selectedSort, selectedStartType, setSearchParams, token]);
 
     useEffect(() => {
         let isMounted = true;
@@ -304,13 +292,6 @@ export function UserTherapistDetailPage() {
 
                 if (isAuthenticated && selectedAddressId) {
                     detailParams.set('service_address_id', selectedAddressId);
-                }
-
-                detailParams.set('menu_duration_minutes', String(durationOptions.includes(selectedDuration) ? selectedDuration : 60));
-                detailParams.set('start_type', selectedStartType);
-
-                if (selectedStartType === 'scheduled' && scheduledStartAt) {
-                    detailParams.set('scheduled_start_at', formatScheduledApiValue(scheduledStartAt));
                 }
 
                 const detailPath = detailParams.toString()
@@ -353,189 +334,390 @@ export function UserTherapistDetailPage() {
         return () => {
             isMounted = false;
         };
-    }, [isAuthenticated, publicId, scheduledStartAt, selectedAddressId, selectedDuration, selectedStartType, token]);
+    }, [isAuthenticated, publicId, selectedAddressId, token]);
+
+    useEffect(() => {
+        setActivePhotoIndex(0);
+        setIsPhotoModalOpen(false);
+    }, [therapistDetail?.public_id]);
+
+    useEffect(() => {
+        if (!therapistDetail) {
+            return;
+        }
+
+        setActivePhotoIndex((current) => Math.min(current, Math.max(therapistDetail.photos.length - 1, 0)));
+    }, [therapistDetail]);
+
+    useEffect(() => {
+        if (!isPhotoModalOpen) {
+            return;
+        }
+
+        const previousOverflow = document.body.style.overflow;
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setIsPhotoModalOpen(false);
+            }
+        };
+
+        document.body.style.overflow = 'hidden';
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isPhotoModalOpen]);
+
+    useEffect(() => {
+        setPhotoDragOffsetX(0);
+        setIsPhotoDragging(false);
+        setPhotoSnapDirection(0);
+        setIsPhotoTrackAnimating(false);
+        photoDragRef.current = null;
+    }, [activePhotoIndex, isPhotoModalOpen, therapistDetail?.public_id]);
 
     if (isBootstrapping) {
-        return <LoadingScreen title="プロフィール準備中" message="施術場所と公開情報を確認しています。" />;
+        return <LoadingScreen title="プロフィール準備中" message="待ち合わせ場所と公開情報を確認しています。" />;
     }
 
     if (isLoadingDetail && !therapistDetail) {
         return <LoadingScreen title="プロフィール読込中" message="セラピストの詳細とレビューを取得しています。" />;
     }
 
-    const heroDescription = therapistDetail?.bio
-        ? therapistDetail.bio
-        : 'プロフィール詳細はこれから反映されます。料金とレビューを見ながら判断できます。';
+    const profileSummary = therapistDetail ? [
+        therapistDetail.height_cm != null ? String(therapistDetail.height_cm) : null,
+        therapistDetail.weight_kg != null ? String(therapistDetail.weight_kg) : null,
+        therapistDetail.age != null ? String(therapistDetail.age) : null,
+        therapistDetail.p_size_cm != null ? `P${therapistDetail.p_size_cm}` : null,
+    ].filter((value): value is string => value !== null).join(' / ') : '';
+    const photoCount = therapistDetail?.photos.length ?? 0;
+    const wrappedActivePhotoIndex = wrapPhotoIndex(activePhotoIndex, photoCount);
+    const mainPhoto = therapistDetail?.photos[wrappedActivePhotoIndex] ?? null;
+    const loopedPhotos = therapistDetail
+        ? [
+            therapistDetail.photos[wrapPhotoIndex(wrappedActivePhotoIndex - 1, photoCount)],
+            therapistDetail.photos[wrappedActivePhotoIndex],
+            therapistDetail.photos[wrapPhotoIndex(wrappedActivePhotoIndex + 1, photoCount)],
+        ].filter((photo): photo is NonNullable<typeof photo> => Boolean(photo))
+        : [];
+    const thumbnailPhotos = therapistDetail
+        ? therapistDetail.photos
+            .map((photo, index) => ({ photo, index }))
+            .filter(({ index }) => index !== wrappedActivePhotoIndex)
+            .slice(0, 3)
+        : [];
+    const bookingTimingNote = selectedStartType === 'scheduled' && scheduledStartAt
+        ? `${formatScheduledLabel(scheduledStartAt)} を起点に空き時間を確認できます。`
+        : '空き時間画面で日付と希望時間を選べます。';
+    const photoTrackBasePercent = photoSnapDirection === 1 ? -200 : photoSnapDirection === -1 ? 0 : -100;
+
+    const animatePhotoSlide = (direction: 1 | -1) => {
+        if (!therapistDetail || therapistDetail.photos.length <= 1 || isPhotoTrackAnimating) {
+            return;
+        }
+
+        photoAnimationHandledRef.current = false;
+        setPhotoDragOffsetX(0);
+        setIsPhotoDragging(false);
+        setPhotoSnapDirection(direction);
+        setIsPhotoTrackAnimating(true);
+    };
+
+    const handlePhotoPointerDown = (event: ReactPointerEvent<HTMLDivElement>) => {
+        if (!therapistDetail || therapistDetail.photos.length <= 1 || isPhotoTrackAnimating) {
+            return;
+        }
+
+        if (event.pointerType === 'mouse' && event.button !== 0) {
+            return;
+        }
+
+        const rect = event.currentTarget.getBoundingClientRect();
+
+        photoDragRef.current = {
+            element: event.currentTarget,
+            pointerId: event.pointerId,
+            startX: event.clientX,
+            currentX: event.clientX,
+            viewportWidth: rect.width,
+            moved: false,
+        };
+        suppressMainPhotoClickRef.current = false;
+        setPhotoDragOffsetX(0);
+        setIsPhotoDragging(true);
+        event.currentTarget.setPointerCapture(event.pointerId);
+    };
+
+    const handlePhotoPointerMove = (event: ReactPointerEvent<HTMLDivElement>) => {
+        const dragState = photoDragRef.current;
+
+        if (!dragState || event.pointerId !== dragState.pointerId) {
+            return;
+        }
+
+        const deltaX = event.clientX - dragState.startX;
+        dragState.currentX = event.clientX;
+
+        if (Math.abs(deltaX) > 6) {
+            dragState.moved = true;
+        }
+
+        setPhotoDragOffsetX(deltaX);
+    };
+
+    const handlePhotoPointerUp = (event: ReactPointerEvent<HTMLDivElement>) => {
+        const dragState = photoDragRef.current;
+
+        if (!dragState || event.pointerId !== dragState.pointerId) {
+            return;
+        }
+
+        const deltaX = dragState.currentX - dragState.startX;
+        const threshold = Math.min(120, Math.max(42, dragState.viewportWidth * 0.18));
+
+        if (Math.abs(deltaX) >= threshold) {
+            animatePhotoSlide(deltaX < 0 ? 1 : -1);
+        } else {
+            photoAnimationHandledRef.current = false;
+            setPhotoDragOffsetX(0);
+            setIsPhotoTrackAnimating(true);
+        }
+
+        if (dragState.element.hasPointerCapture?.(dragState.pointerId)) {
+            try {
+                dragState.element.releasePointerCapture(dragState.pointerId);
+            } catch {
+                // Pointer capture may already be released by the browser.
+            }
+        }
+
+        suppressMainPhotoClickRef.current = dragState.moved;
+        photoDragRef.current = null;
+        setIsPhotoDragging(false);
+    };
+
+    const handlePhotoPointerCancel = (event: ReactPointerEvent<HTMLDivElement>) => {
+        const dragState = photoDragRef.current;
+
+        if (!dragState || event.pointerId !== dragState.pointerId) {
+            return;
+        }
+
+        if (dragState.element.hasPointerCapture?.(dragState.pointerId)) {
+            try {
+                dragState.element.releasePointerCapture(dragState.pointerId);
+            } catch {
+                // Pointer capture may already be released by the browser.
+            }
+        }
+
+        photoDragRef.current = null;
+        setPhotoDragOffsetX(0);
+        setIsPhotoDragging(false);
+    };
+
+    const handlePhotoTrackTransitionEnd = () => {
+        if (!isPhotoTrackAnimating || photoAnimationHandledRef.current) {
+            return;
+        }
+
+        photoAnimationHandledRef.current = true;
+
+        if (photoSnapDirection !== 0 && therapistDetail) {
+            setActivePhotoIndex((current) => wrapPhotoIndex(current + photoSnapDirection, therapistDetail.photos.length));
+        }
+
+        setPhotoSnapDirection(0);
+        setPhotoDragOffsetX(0);
+        setIsPhotoTrackAnimating(false);
+    };
+
+    const handleMainPhotoActivate = () => {
+        if (suppressMainPhotoClickRef.current) {
+            suppressMainPhotoClickRef.current = false;
+            return;
+        }
+
+        setIsPhotoModalOpen(true);
+    };
+
+    const handleMainPhotoKeyDown = (event: ReactKeyboardEvent<HTMLDivElement>) => {
+        if (event.key !== 'Enter' && event.key !== ' ') {
+            return;
+        }
+
+        event.preventDefault();
+        handleMainPhotoActivate();
+    };
 
     return (
         <div className="min-h-screen bg-[#f6f1e7] text-[#17202b]">
             <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-16 px-6 py-10 md:px-10 md:py-14 xl:gap-[60px] xl:px-0">
-                <DiscoveryHeroShell
-                    domain={serviceMeta?.domain ?? 'sugutachi.com'}
-                    title={therapistDetail ? `${therapistDetail.public_name} のプロフィール` : 'セラピスト詳細'}
-                    description={heroDescription}
-                    topBadge={therapistDetail?.training_status ? formatTrainingStatus(therapistDetail.training_status) : '掲載審査済み'}
-                    bullets={[
-                        therapistDetail ? `総合 ★${therapistDetail.rating_average.toFixed(1)}（${therapistDetail.review_count}件）` : 'レビューを確認',
-                        therapistDetail ? formatWalkingTimeRange(therapistDetail.walking_time_range) : '徒歩目安を確認',
-                        selectedAddress ? `${getServiceAddressLabel(selectedAddress)} 基準` : isAuthenticated ? '施術場所未設定でも閲覧可能' : 'ログイン後に施術場所を指定',
-                    ]}
-                    primaryAction={primaryAction}
-                    secondaryAction={secondaryAction}
-                >
-                    <div className="rounded-[32px] border border-white/12 bg-[linear-gradient(109deg,rgba(255,249,241,0.18)_2.98%,rgba(255,255,255,0.04)_101.1%)] p-6 text-white shadow-[0_24px_60px_rgba(0,0,0,0.16)] md:p-8">
-                        <div className="space-y-4">
-                            <div className="flex items-start gap-4">
-                                <div className="h-24 w-24 shrink-0 overflow-hidden rounded-[28px] bg-[#ede2cf]">
-                                    {therapistDetail?.photos[0]?.url ? (
-                                        <img
-                                            src={therapistDetail.photos[0].url}
-                                            alt=""
-                                            className="h-full w-full object-cover"
-                                        />
-                                    ) : (
-                                        <div className="flex h-full w-full items-center justify-center bg-[linear-gradient(160deg,#e8d5b2_0%,#cbb08a_100%)] text-4xl font-semibold text-[#17202b]">
-                                            {therapistDetail?.public_name.slice(0, 1).toUpperCase() ?? '?'}
-                                        </div>
-                                    )}
-                                </div>
-
-                                <div className="min-w-0 flex-1 space-y-2">
-                                    <div className="flex flex-wrap items-center gap-2">
-                                        <h2 className="text-[1.9rem] font-semibold leading-none text-white">
-                                            {therapistDetail?.public_name ?? '読み込み中'}
-                                        </h2>
-                                        {therapistDetail?.is_online ? (
-                                            <span className="rounded-full bg-[#e8f1eb] px-2.5 py-1 text-xs font-medium text-[#2d5b3d]">
-                                                オンライン
-                                            </span>
-                                        ) : (
-                                            <span className="rounded-full bg-white/10 px-2.5 py-1 text-xs font-medium text-[#f4efe5]">
-                                                予定予約中心
-                                            </span>
-                                        )}
-                                    </div>
-
-                                    <p className="text-sm text-[#d8d3ca]">
-                                        {therapistDetail
-                                            ? `セラピスト都合キャンセル ${therapistDetail.therapist_cancellation_count}回`
-                                            : 'プロフィール情報を取得中'}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="grid gap-3 md:grid-cols-2">
-                                <div className="rounded-[24px] bg-white px-5 py-4 text-[#121a23]">
-                                    <p className="text-xs font-semibold text-[#69707a]">この条件での目安</p>
-                                    <p className="mt-1 text-lg font-semibold">
-                                        {highlightedMenu
-                                            ? buildEstimatedPriceLabel(highlightedMenu.duration_minutes, highlightedMenu.estimated_total_amount)
-                                            : '料金を計算中'}
-                                    </p>
-                                    <p className="mt-2 text-sm text-[#69707a]">
-                                        {therapistDetail ? formatWalkingTimeRange(therapistDetail.walking_time_range) : '徒歩目安を確認'}
-                                    </p>
-                                </div>
-
-                                <div className="rounded-[24px] bg-white px-5 py-4 text-[#121a23]">
-                                    <p className="text-xs font-semibold text-[#69707a]">検索条件</p>
-                                    <p className="mt-1 text-lg font-semibold">
-                                        {selectedStartType === 'scheduled' ? '日時指定' : '今すぐ'}
-                                    </p>
-                                    <p className="mt-2 text-sm text-[#69707a]">
-                                        {selectedStartType === 'scheduled'
-                                            ? formatScheduledLabel(scheduledStartAt)
-                                            : `${durationOptions.includes(selectedDuration) ? selectedDuration : 60}分コースで比較`}
-                                    </p>
-                                </div>
-                            </div>
-
-                            <div className="rounded-[20px] border border-white/10 bg-white/6 px-4 py-3 text-xs text-[#d8d3ca]">
-                                施術場所: {selectedAddress ? getServiceAddressLabel(selectedAddress) : isAuthenticated ? '未設定' : 'ログイン後に指定'}
-                            </div>
-                        </div>
-                    </div>
-                </DiscoveryHeroShell>
-
-                {error ? (
-                    <div className="rounded-[28px] bg-[#fffcf7] p-6 text-sm text-[#9a4b35] shadow-[0_10px_24px_rgba(23,32,43,0.08)]">
-                        {error}
-                    </div>
-                ) : null}
+                <section className="rounded-[32px] bg-[linear-gradient(107deg,#17202b_3.49%,#1d2a39_53.96%,#27364a_93.62%)] px-6 py-5 shadow-[0_24px_60px_rgba(23,32,43,0.16)] md:px-8">
+                    <StickyHeroHeader actions={[primaryAction, secondaryAction]} />
+                </section>
 
                 {therapistDetail ? (
                     <div className="grid gap-8 lg:grid-cols-[minmax(0,1fr)_340px]">
                         <div className="space-y-8">
                             <section className="rounded-[32px] bg-[#fffdf8] p-6 shadow-[0_10px_24px_rgba(23,32,43,0.08)] md:p-8">
-                                <div className="flex flex-col gap-6">
-                                    <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
-                                        <div>
+                                <div className="grid gap-8 lg:grid-cols-[minmax(0,1.05fr)_minmax(0,0.95fr)]">
+                                    <div className="space-y-5">
+                                        <div className="space-y-3">
                                             <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">PROFILE</p>
-                                            <h2 className="mt-1 text-2xl font-semibold text-[#17202b]">プロフィール</h2>
-                                        </div>
-                                        <Link
-                                            to={listPath}
-                                            className="inline-flex items-center rounded-full border border-[#ddcfb4] px-4 py-2 text-sm font-semibold text-[#17202b]"
-                                        >
-                                            {isAuthenticated ? '一覧に戻る' : 'トップへ戻る'}
-                                        </Link>
-                                    </div>
-
-                                    {therapistDetail.photos.length > 0 ? (
-                                        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_160px]">
-                                            <div className="overflow-hidden rounded-[28px] bg-[#ede2cf]">
-                                                <img
-                                                    src={therapistDetail.photos[0].url}
-                                                    alt=""
-                                                    className="h-full max-h-[420px] w-full object-cover"
-                                                />
+                                            <div className="space-y-2">
+                                                <div className="flex flex-wrap items-center gap-3">
+                                                    <h1 className="text-3xl font-semibold text-[#17202b] md:text-4xl">
+                                                        {therapistDetail.public_name}
+                                                    </h1>
+                                                    {therapistDetail.is_online ? (
+                                                        <span className="rounded-full bg-[#e8f1eb] px-3 py-1 text-xs font-semibold text-[#2d5b3d]">
+                                                            オンライン
+                                                        </span>
+                                                    ) : (
+                                                        <span className="rounded-full bg-[#f3eee4] px-3 py-1 text-xs font-semibold text-[#48505a]">
+                                                            予約のみ受付中
+                                                        </span>
+                                                    )}
+                                                </div>
+                                                {profileSummary ? (
+                                                    <p className="text-sm font-medium tracking-wide text-[#68707a]">
+                                                        {profileSummary}
+                                                    </p>
+                                                ) : null}
                                             </div>
-                                            <div className="grid grid-cols-3 gap-3 md:grid-cols-1">
-                                                {therapistDetail.photos.slice(1, 4).map((photo) => (
-                                                    <div
-                                                        key={photo.sort_order}
-                                                        className="overflow-hidden rounded-[20px] bg-[#ede2cf]"
-                                                    >
-                                                        <img
-                                                            src={photo.url}
-                                                            alt=""
-                                                            className="h-full w-full object-cover"
-                                                        />
+                                        </div>
+
+                                        {mainPhoto ? (
+                                            <div className="space-y-4">
+                                                <div
+                                                    role="button"
+                                                    tabIndex={0}
+                                                    onClick={handleMainPhotoActivate}
+                                                    onKeyDown={handleMainPhotoKeyDown}
+                                                    onPointerDown={handlePhotoPointerDown}
+                                                    onPointerMove={handlePhotoPointerMove}
+                                                    onPointerUp={handlePhotoPointerUp}
+                                                    onPointerCancel={handlePhotoPointerCancel}
+                                                    className="group relative block touch-pan-y overflow-hidden rounded-[28px] bg-[#ede2cf] text-left outline-none"
+                                                    aria-label="写真を拡大表示"
+                                                >
+                                                    <div className="aspect-square">
+                                                        <div
+                                                            className={[
+                                                                'flex h-full',
+                                                                isPhotoTrackAnimating && !isPhotoDragging ? 'transition-transform duration-300 ease-out' : '',
+                                                            ].join(' ')}
+                                                            onTransitionEnd={handlePhotoTrackTransitionEnd}
+                                                            style={{
+                                                                transform: `translateX(calc(${photoTrackBasePercent}% + ${photoDragOffsetX}px))`,
+                                                            }}
+                                                        >
+                                                            {loopedPhotos.map((photo, index) => (
+                                                                <div key={`${photo.sort_order}-${index}`} className="min-w-full">
+                                                                    <img
+                                                                        src={photo.url}
+                                                                        alt={`${therapistDetail.public_name}の写真 ${wrapPhotoIndex(wrappedActivePhotoIndex + index - 1, photoCount) + 1}`}
+                                                                        className="h-full w-full object-cover transition duration-300 group-hover:scale-[1.02]"
+                                                                        draggable={false}
+                                                                    />
+                                                                </div>
+                                                            ))}
+                                                        </div>
                                                     </div>
-                                                ))}
-                                            </div>
-                                        </div>
-                                    ) : null}
+                                                    {photoCount > 1 ? (
+                                                        <>
+                                                            <button
+                                                                type="button"
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    animatePhotoSlide(-1);
+                                                                }}
+                                                                className="absolute left-3 top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-[rgba(23,32,43,0.68)] text-lg font-semibold text-white transition hover:bg-[rgba(23,32,43,0.88)]"
+                                                                aria-label="前の写真へ"
+                                                            >
+                                                                ‹
+                                                            </button>
+                                                            <button
+                                                                type="button"
+                                                                onClick={(event) => {
+                                                                    event.stopPropagation();
+                                                                    animatePhotoSlide(1);
+                                                                }}
+                                                                className="absolute right-3 top-1/2 z-10 inline-flex h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-[rgba(23,32,43,0.68)] text-lg font-semibold text-white transition hover:bg-[rgba(23,32,43,0.88)]"
+                                                                aria-label="次の写真へ"
+                                                            >
+                                                                ›
+                                                            </button>
+                                                            <span className="absolute right-4 top-4 rounded-full bg-[rgba(23,32,43,0.72)] px-3 py-1 text-xs font-semibold text-white">
+                                                                {wrappedActivePhotoIndex + 1} / {photoCount}
+                                                            </span>
+                                                        </>
+                                                    ) : null}
+                                                </div>
 
-                                    <div className="grid gap-4 md:grid-cols-3">
-                                        <article className="rounded-[24px] bg-[#f6f1e7] p-5">
-                                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">REVIEW</p>
-                                            <p className="mt-2 text-2xl font-semibold text-[#17202b]">
-                                                ★{therapistDetail.rating_average.toFixed(1)}
-                                            </p>
-                                            <p className="mt-1 text-sm text-[#68707a]">{therapistDetail.review_count}件のレビュー</p>
-                                        </article>
-                                        <article className="rounded-[24px] bg-[#f6f1e7] p-5">
-                                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">DISTANCE</p>
-                                            <p className="mt-2 text-lg font-semibold text-[#17202b]">
-                                                {formatWalkingTimeRange(therapistDetail.walking_time_range)}
-                                            </p>
-                                            <p className="mt-1 text-sm text-[#68707a]">正確な位置は一覧と詳細に表示しません。</p>
-                                        </article>
-                                        <article className="rounded-[24px] bg-[#f6f1e7] p-5">
-                                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">POLICY</p>
-                                            <p className="mt-2 text-lg font-semibold text-[#17202b]">
-                                                セラピスト都合キャンセル {therapistDetail.therapist_cancellation_count}回
-                                            </p>
-                                            <p className="mt-1 text-sm text-[#68707a]">利用前に確認できる公開指標です。</p>
-                                        </article>
+                                                {thumbnailPhotos.length > 0 ? (
+                                                    <div className="grid grid-cols-3 gap-3">
+                                                        {thumbnailPhotos.map(({ photo, index }) => (
+                                                            <button
+                                                                key={`${photo.sort_order}-${index}`}
+                                                                type="button"
+                                                                onClick={() => setActivePhotoIndex(index)}
+                                                                className="overflow-hidden rounded-[20px] bg-[#ede2cf] text-left transition hover:opacity-90"
+                                                                aria-label={`${therapistDetail.public_name}の写真 ${index + 1} を表示`}
+                                                            >
+                                                                <div className="aspect-square">
+                                                                    <img
+                                                                        src={photo.url}
+                                                                        alt=""
+                                                                        className="h-full w-full object-cover"
+                                                                    />
+                                                                </div>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                ) : null}
+                                            </div>
+                                        ) : (
+                                            <div className="flex aspect-square items-center justify-center rounded-[28px] bg-[linear-gradient(160deg,#e8d5b2_0%,#cbb08a_100%)] text-6xl font-semibold text-[#17202b]">
+                                                {therapistDetail.public_name.slice(0, 1).toUpperCase()}
+                                            </div>
+                                        )}
+
+                                        <div className="space-y-4">
+                                            <article className="rounded-[24px] bg-[#f6f1e7] p-5">
+                                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">REVIEW</p>
+                                                <p className="mt-2 text-2xl font-semibold text-[#17202b]">
+                                                    ★{therapistDetail.rating_average.toFixed(1)}
+                                                </p>
+                                                <p className="mt-1 text-sm text-[#68707a]">{therapistDetail.review_count}件のレビュー</p>
+                                            </article>
+                                            <article className="rounded-[24px] bg-[#f6f1e7] p-5">
+                                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">DISTANCE</p>
+                                                <p className="mt-2 text-lg font-semibold text-[#17202b]">
+                                                    {formatWalkingTimeRange(therapistDetail.walking_time_range)}
+                                                </p>
+                                                <p className="mt-1 text-sm text-[#68707a]">正確な位置は一覧と詳細に表示しません。</p>
+                                            </article>
+                                            <article className="rounded-[24px] bg-[#f6f1e7] p-5">
+                                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">POLICY</p>
+                                                <p className="mt-2 text-lg font-semibold text-[#17202b]">
+                                                    セラピスト都合キャンセル {therapistDetail.therapist_cancellation_count}回
+                                                </p>
+                                                <p className="mt-1 text-sm text-[#68707a]">利用前に確認できる公開指標です。</p>
+                                            </article>
+                                        </div>
                                     </div>
 
-                                    <div className="space-y-3">
-                                        <h3 className="text-xl font-semibold text-[#17202b]">紹介文</h3>
-                                        <p className="whitespace-pre-wrap text-sm leading-8 text-[#48505a]">
-                                            {therapistDetail.bio ?? 'プロフィール文はこれから反映されます。'}
-                                        </p>
+                                    <div className="space-y-5">
+                                        <div className="space-y-3">
+                                            <h2 className="text-xl font-semibold text-[#17202b]">紹介文</h2>
+                                            <p className="whitespace-pre-wrap text-sm leading-8 text-[#48505a]">
+                                                {therapistDetail.bio ?? 'プロフィール文は準備中です。予約前のやり取りで詳しく確認できます。'}
+                                            </p>
+                                        </div>
                                     </div>
                                 </div>
                             </section>
@@ -543,58 +725,45 @@ export function UserTherapistDetailPage() {
                             <section className="rounded-[32px] bg-[#fffdf8] p-6 shadow-[0_10px_24px_rgba(23,32,43,0.08)] md:p-8">
                                 <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
                                     <div>
-                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">COURSES</p>
-                                        <h2 className="mt-1 text-2xl font-semibold text-[#17202b]">対応メニュー</h2>
+                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">SERVICE STYLE</p>
+                                        <h2 className="mt-1 text-2xl font-semibold text-[#17202b]">対応内容</h2>
                                     </div>
                                     <p className="text-sm text-[#68707a]">
-                                        検索条件に近いコースを上に表示しています。
+                                        空き時間を確認したあと、希望する対応内容と予約時間を選べます。
                                     </p>
                                 </div>
 
-                                <div className="mt-6 grid gap-4">
+                                <div className="mt-6 space-y-4">
+                                    <div className="grid gap-4">
                                     {therapistDetail.menus.map((menu) => {
-                                        const isHighlighted = highlightedMenu?.public_id === menu.public_id;
-
                                         return (
                                             <article
                                                 key={menu.public_id}
-                                                className={[
-                                                    'rounded-[24px] border p-5 transition',
-                                                    isHighlighted
-                                                        ? 'border-[#d2b179] bg-[#fff8ee]'
-                                                        : 'border-[#efe5d7] bg-white',
-                                                ].join(' ')}
+                                                className="rounded-[24px] border border-[#efe5d7] bg-white p-5"
                                             >
                                                 <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                                                     <div className="space-y-2">
                                                         <div className="flex flex-wrap items-center gap-2">
                                                             <h3 className="text-xl font-semibold text-[#17202b]">{menu.name}</h3>
                                                             <span className="rounded-full bg-[#f5efe4] px-3 py-1 text-xs text-[#48505a]">
-                                                                {menu.duration_minutes}分
+                                                                {formatMenuMinimumDurationLabel(menu)}
                                                             </span>
-                                                            {isHighlighted ? (
-                                                                <span className="rounded-full bg-[#17202b] px-3 py-1 text-xs text-white">
-                                                                    この条件でおすすめ
-                                                                </span>
-                                                            ) : null}
                                                         </div>
                                                         <p className="text-sm leading-7 text-[#48505a]">
-                                                            {menu.description ?? '詳細説明はこれから反映されます。'}
+                                                            {menu.description ?? '対応内容の詳細は予約前のやり取りで確認できます。'}
                                                         </p>
                                                     </div>
 
                                                     <div className="space-y-1 md:min-w-[180px] md:text-right">
                                                         <p className="text-xl font-bold text-[#17202b]">
-                                                            {buildEstimatedPriceLabel(menu.duration_minutes, menu.estimated_total_amount)}
-                                                        </p>
-                                                        <p className="text-sm text-[#68707a]">
-                                                            基本料金 {formatCurrency(menu.base_price_amount)}
+                                                            60分 {formatCurrency(menu.hourly_rate_amount)}〜
                                                         </p>
                                                     </div>
                                                 </div>
                                             </article>
                                         );
                                     })}
+                                    </div>
                                 </div>
                             </section>
 
@@ -636,7 +805,7 @@ export function UserTherapistDetailPage() {
                                         ))
                                     ) : (
                                         <div className="rounded-[24px] border border-dashed border-[#ddcfb4] bg-[#fff8ee] p-5 text-sm leading-7 text-[#68707a]">
-                                            まだ公開レビューはありません。プロフィール文とメニューを見ながら判断できます。
+                                            まだ公開レビューはありません。プロフィール文と対応内容を見ながら判断できます。
                                         </div>
                                     )}
                                 </div>
@@ -653,7 +822,7 @@ export function UserTherapistDetailPage() {
 
                                     <div className="space-y-3 text-sm text-[#48505a]">
                                         <div className="rounded-[20px] bg-[#f6f1e7] p-4">
-                                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">施術場所</p>
+                                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">待ち合わせ場所</p>
                                             <p className="mt-2 font-semibold text-[#17202b]">
                                                 {selectedAddress ? getServiceAddressLabel(selectedAddress) : isAuthenticated ? '未設定' : 'ログイン後に指定'}
                                             </p>
@@ -662,7 +831,7 @@ export function UserTherapistDetailPage() {
                                                     to={serviceAddressPath}
                                                     className="mt-3 inline-flex text-xs font-semibold text-[#9a7a49] underline underline-offset-4"
                                                 >
-                                                    {isAuthenticated ? '施術場所を追加する' : '無料登録して施術場所を設定する'}
+                                                    {isAuthenticated ? '待ち合わせ場所を追加する' : '無料登録して待ち合わせ場所を設定する'}
                                                 </Link>
                                             ) : null}
                                         </div>
@@ -673,18 +842,17 @@ export function UserTherapistDetailPage() {
                                                 {selectedStartType === 'scheduled' ? '日時指定' : '今すぐ'}
                                             </p>
                                             <p className="mt-1 text-xs text-[#68707a]">
-                                                {selectedStartType === 'scheduled'
-                                                    ? formatScheduledLabel(scheduledStartAt)
-                                                    : `${durationOptions.includes(selectedDuration) ? selectedDuration : 60}分コースで比較中`}
+                                                {bookingTimingNote}
                                             </p>
                                         </div>
 
-                                        <div className="rounded-[20px] bg-[#17202b] p-5 text-white">
-                                            <p className="text-xs font-semibold tracking-wide text-[#d2b179]">NEXT STEP</p>
-                                            <p className="mt-2 text-sm leading-7 text-[#d8d3ca]">
-                                                {isAuthenticated
-                                                    ? '空き時間を確認すると、予定予約のリクエスト導線へ進めます。今すぐ予約との比較もここから続けられます。'
-                                                    : 'プロフィール、メニュー、レビューはこのまま確認できます。空き時間確認と予約リクエストはログイン後に利用できます。'}
+                                        <div className="rounded-[20px] bg-[#f6f1e7] p-4">
+                                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">対応内容</p>
+                                            <p className="mt-2 font-semibold text-[#17202b]">
+                                                {therapistDetail.menus.length}件の対応内容を公開中
+                                            </p>
+                                            <p className="mt-1 text-xs text-[#68707a]">
+                                                空き時間の確認後に、希望する内容と予約時間を選べます。
                                             </p>
                                         </div>
                                     </div>
@@ -697,17 +865,14 @@ export function UserTherapistDetailPage() {
                                             {primaryAction.label}
                                         </Link>
                                         <Link
-                                            to={secondaryAction.to}
-                                            className="inline-flex w-full items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]"
-                                        >
-                                            {secondaryAction.label}
-                                        </Link>
-                                        <Link
                                             to={travelRequestAction.to}
                                             className="inline-flex w-full items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]"
                                         >
                                             {travelRequestAction.label}
                                         </Link>
+                                        <p className="text-xs leading-6 text-[#68707a]">
+                                            空き枠が合わないときは、希望エリアや希望日時を添えて出張リクエストを送れます。
+                                        </p>
                                         {!canUseUserFlows && !isAuthenticated ? (
                                             <Link
                                                 to={travelRequestRegisterPath}
@@ -716,6 +881,12 @@ export function UserTherapistDetailPage() {
                                                 無料登録してあとで送る
                                             </Link>
                                         ) : null}
+                                        <Link
+                                            to={listPath}
+                                            className="inline-flex w-full items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]"
+                                        >
+                                            一覧へ戻る
+                                        </Link>
                                     </div>
                                 </div>
                             </section>
@@ -723,6 +894,87 @@ export function UserTherapistDetailPage() {
                     </div>
                 ) : null}
             </div>
+
+            {therapistDetail && mainPhoto && isPhotoModalOpen ? (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(12,16,24,0.84)] px-4 py-6"
+                    onClick={() => setIsPhotoModalOpen(false)}
+                >
+                    <div
+                        className="relative w-full max-w-[920px]"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => setIsPhotoModalOpen(false)}
+                            className="absolute right-3 top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-[rgba(23,32,43,0.76)] text-xl font-semibold text-white transition hover:bg-[rgba(23,32,43,0.92)]"
+                            aria-label="拡大表示を閉じる"
+                        >
+                            ×
+                        </button>
+                        <div
+                            className="relative overflow-hidden rounded-[28px] bg-[#111822] shadow-[0_24px_60px_rgba(0,0,0,0.36)]"
+                            onPointerDown={handlePhotoPointerDown}
+                            onPointerMove={handlePhotoPointerMove}
+                            onPointerUp={handlePhotoPointerUp}
+                            onPointerCancel={handlePhotoPointerCancel}
+                        >
+                            <div className="aspect-square max-h-[85vh] w-full touch-pan-y">
+                                <div
+                                    className={[
+                                        'flex h-full',
+                                        isPhotoTrackAnimating && !isPhotoDragging ? 'transition-transform duration-300 ease-out' : '',
+                                    ].join(' ')}
+                                    onTransitionEnd={handlePhotoTrackTransitionEnd}
+                                    style={{
+                                        transform: `translateX(calc(${photoTrackBasePercent}% + ${photoDragOffsetX}px))`,
+                                    }}
+                                >
+                                    {loopedPhotos.map((photo, index) => (
+                                        <div key={`${photo.sort_order}-${index}-modal`} className="min-w-full">
+                                            <img
+                                                src={photo.url}
+                                                alt={`${therapistDetail.public_name}の写真 ${wrapPhotoIndex(wrappedActivePhotoIndex + index - 1, photoCount) + 1}`}
+                                                className="h-full w-full object-contain"
+                                                draggable={false}
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                            {photoCount > 1 ? (
+                                <>
+                                    <button
+                                        type="button"
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            animatePhotoSlide(-1);
+                                        }}
+                                        className="absolute left-4 top-1/2 z-10 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[rgba(23,32,43,0.76)] text-xl font-semibold text-white transition hover:bg-[rgba(23,32,43,0.92)]"
+                                        aria-label="前の写真へ"
+                                    >
+                                        ‹
+                                    </button>
+                                    <button
+                                        type="button"
+                                        onClick={(event) => {
+                                            event.stopPropagation();
+                                            animatePhotoSlide(1);
+                                        }}
+                                        className="absolute right-4 top-1/2 z-10 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[rgba(23,32,43,0.76)] text-xl font-semibold text-white transition hover:bg-[rgba(23,32,43,0.92)]"
+                                        aria-label="次の写真へ"
+                                    >
+                                        ›
+                                    </button>
+                                    <span className="absolute bottom-4 left-1/2 -translate-x-1/2 rounded-full bg-[rgba(23,32,43,0.72)] px-3 py-1 text-xs font-semibold text-white">
+                                        {wrappedActivePhotoIndex + 1} / {photoCount}
+                                    </span>
+                                </>
+                            ) : null}
+                        </div>
+                    </div>
+                </div>
+            ) : null}
 
             <DiscoveryFooter
                 domain={serviceMeta?.domain ?? 'sugutachi.com'}

@@ -1,8 +1,9 @@
 import { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatCurrency, getServiceAddressLabel } from '../lib/discovery';
 import { formatDateTime } from '../lib/therapist';
@@ -121,6 +122,10 @@ function buildServiceLocationLabel(request: TherapistBookingRequestRecord): stri
     return 'エリア確認中';
 }
 
+function buildRequestDetailPath(publicId: string, search: string): string {
+    return search ? `/therapist/requests/${publicId}${search}` : `/therapist/requests/${publicId}`;
+}
+
 function filterRequests(
     requests: TherapistBookingRequestRecord[],
     requestType: RequestTypeFilter,
@@ -134,6 +139,9 @@ function filterRequests(
 
 export function TherapistRequestsPage() {
     const { token } = useAuth();
+    const { publicId } = useParams<{ publicId: string }>();
+    const location = useLocation();
+    const navigate = useNavigate();
     const [requests, setRequests] = useState<TherapistBookingRequestRecord[]>([]);
     const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
     const [selectedBooking, setSelectedBooking] = useState<BookingDetailRecord | null>(null);
@@ -150,6 +158,8 @@ export function TherapistRequestsPage() {
     const [now, setNow] = useState(Date.now());
 
     usePageTitle('予約依頼一覧');
+    useToastOnMessage(error, 'error');
+    useToastOnMessage(successMessage, 'success');
 
     useEffect(() => {
         const timer = window.setInterval(() => {
@@ -181,8 +191,10 @@ export function TherapistRequestsPage() {
             setRequests(nextRequests);
             setError(null);
             setSelectedRequestId((current) => {
-                if (current && nextRequests.some((request) => request.public_id === current)) {
-                    return current;
+                const preferredId = publicId ?? current;
+
+                if (preferredId && nextRequests.some((request) => request.public_id === preferredId)) {
+                    return preferredId;
                 }
 
                 return nextRequests[0]?.public_id ?? null;
@@ -212,13 +224,35 @@ export function TherapistRequestsPage() {
     useEffect(() => {
         if (filteredRequests.length === 0) {
             setSelectedRequestId(null);
+
+            if (publicId) {
+                navigate('/therapist/requests', { replace: true });
+            }
+
+            return;
+        }
+
+        if (publicId) {
+            const matchedRequest = filteredRequests.find((request) => request.public_id === publicId);
+
+            if (matchedRequest) {
+                if (selectedRequestId !== matchedRequest.public_id) {
+                    setSelectedRequestId(matchedRequest.public_id);
+                }
+
+                return;
+            }
+
+            const fallbackId = filteredRequests[0].public_id;
+            setSelectedRequestId(fallbackId);
+            navigate(buildRequestDetailPath(fallbackId, location.search), { replace: true });
             return;
         }
 
         if (!selectedRequestId || !filteredRequests.some((request) => request.public_id === selectedRequestId)) {
             setSelectedRequestId(filteredRequests[0].public_id);
         }
-    }, [filteredRequests, selectedRequestId]);
+    }, [filteredRequests, location.search, navigate, publicId, selectedRequestId]);
 
     useEffect(() => {
         let isMounted = true;
@@ -297,6 +331,9 @@ export function TherapistRequestsPage() {
     const selectedRemainingSeconds = selectedRequest?.request_expires_at
         ? Math.floor((new Date(selectedRequest.request_expires_at).getTime() - now) / 1000)
         : null;
+    const selectedRemainingMinutes = selectedRemainingSeconds != null
+        ? Math.max(0, Math.ceil(selectedRemainingSeconds / 60))
+        : selectedRequest?.request_expires_in_minutes ?? null;
 
     async function handleAccept() {
         if (!token || !selectedBooking || isAccepting) {
@@ -320,13 +357,20 @@ export function TherapistRequestsPage() {
             });
 
             const currentId = selectedBooking.public_id;
+            const nextRequests = requests.filter((request) => request.public_id !== currentId);
+            const nextSelectedId = nextRequests[0]?.public_id ?? null;
+
             setSuccessMessage('予約依頼を承諾しました。予約一覧側で進行状況を追える状態です。');
-            setRequests((current) => {
-                const next = current.filter((request) => request.public_id !== currentId);
-                setSelectedRequestId(next[0]?.public_id ?? null);
-                return next;
-            });
+            setRequests(nextRequests);
+            setSelectedRequestId(nextSelectedId);
             setSelectedBooking(null);
+
+            if (publicId === currentId) {
+                navigate(
+                    nextSelectedId ? buildRequestDetailPath(nextSelectedId, location.search) : '/therapist/requests',
+                    { replace: true },
+                );
+            }
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -361,13 +405,20 @@ export function TherapistRequestsPage() {
             });
 
             const currentId = selectedBooking.public_id;
+            const nextRequests = requests.filter((request) => request.public_id !== currentId);
+            const nextSelectedId = nextRequests[0]?.public_id ?? null;
+
             setSuccessMessage('予約依頼を辞退しました。必要なら空き枠やプロフィール条件も見直せます。');
-            setRequests((current) => {
-                const next = current.filter((request) => request.public_id !== currentId);
-                setSelectedRequestId(next[0]?.public_id ?? null);
-                return next;
-            });
+            setRequests(nextRequests);
+            setSelectedRequestId(nextSelectedId);
             setSelectedBooking(null);
+
+            if (publicId === currentId) {
+                navigate(
+                    nextSelectedId ? buildRequestDetailPath(nextSelectedId, location.search) : '/therapist/requests',
+                    { replace: true },
+                );
+            }
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -389,7 +440,7 @@ export function TherapistRequestsPage() {
             <section className="rounded-[28px] bg-[linear-gradient(117deg,#17202b_0%,#243447_52%,#2b4158_100%)] p-7 text-white shadow-[0_24px_60px_rgba(15,23,42,0.22)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">REQUEST INBOX</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">依頼受信箱</p>
                         <div className="space-y-2">
                             <h1 className="text-3xl font-semibold">予約依頼一覧</h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300">
@@ -433,18 +484,6 @@ export function TherapistRequestsPage() {
                     ))}
                 </div>
             </section>
-
-            {error ? (
-                <section className="rounded-[24px] border border-[#f1d4b5] bg-[#fff4e8] px-6 py-5 text-sm text-[#9a4b35]">
-                    {error}
-                </section>
-            ) : null}
-
-            {successMessage ? (
-                <section className="rounded-[24px] border border-emerald-300/30 bg-emerald-300/10 px-6 py-5 text-sm text-emerald-100">
-                    {successMessage}
-                </section>
-            ) : null}
 
             <section className="flex flex-wrap gap-3">
                 {[
@@ -507,9 +546,9 @@ export function TherapistRequestsPage() {
                                 : request.request_expires_in_minutes;
 
                             return (
-                                <button
+                                <Link
                                     key={request.public_id}
-                                    type="button"
+                                    to={buildRequestDetailPath(request.public_id, location.search)}
                                     onClick={() => {
                                         setSelectedRequestId(request.public_id);
                                         setSuccessMessage(null);
@@ -555,11 +594,11 @@ export function TherapistRequestsPage() {
                                             <p className="mt-1">{placeTypeLabel(request.service_location?.place_type)}</p>
                                         </div>
                                         <div>
-                                            <p className="text-xs font-semibold tracking-wide text-inherit/70">リクエストID</p>
+                                            <p className="text-xs font-semibold tracking-wide text-inherit/70">受付番号</p>
                                             <p className="mt-1 font-mono text-xs">{request.public_id}</p>
                                         </div>
                                     </div>
-                                </button>
+                                </Link>
                             );
                         })
                     )}
@@ -568,7 +607,7 @@ export function TherapistRequestsPage() {
                 <div className="space-y-4">
                     {isDetailLoading ? (
                         <div className="rounded-[28px] border border-white/10 bg-white/5 px-6 py-8">
-                            <LoadingScreen title="依頼詳細を読み込み中" message="利用者情報、施術場所、決済状態を確認しています。" />
+                            <LoadingScreen title="依頼詳細を読み込み中" message="利用者情報、待ち合わせ場所、決済状態を確認しています。" />
                         </div>
                     ) : selectedBooking && selectedRequest ? (
                         <section className="space-y-5 rounded-[28px] border border-white/10 bg-white/5 p-6">
@@ -578,7 +617,7 @@ export function TherapistRequestsPage() {
                                         <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-slate-100">
                                             {requestTypeLabel(selectedBooking.request_type)}
                                         </span>
-                                        <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${countdownTone(selectedRequest.request_expires_in_minutes)}`}>
+                                        <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${countdownTone(selectedRemainingMinutes)}`}>
                                             {formatRemainingLabel(selectedRemainingSeconds)}
                                         </span>
                                     </div>
@@ -610,7 +649,7 @@ export function TherapistRequestsPage() {
                                     ) : null}
                                 </div>
                                 <div className="rounded-2xl border border-white/10 bg-[#17202b] px-5 py-4">
-                                    <p className="text-xs font-semibold tracking-wide text-slate-400">施術場所</p>
+                                    <p className="text-xs font-semibold tracking-wide text-slate-400">待ち合わせ場所</p>
                                     <p className="mt-2 text-sm text-white">{getServiceAddressLabel(selectedBooking.service_address)}</p>
                                     <p className="mt-2 text-xs text-slate-400">
                                         {selectedRequest.dispatch_area_label ?? '公開エリア未設定'} / {placeTypeLabel(selectedBooking.service_address?.place_type)}
@@ -719,7 +758,7 @@ export function TherapistRequestsPage() {
                         <section className="rounded-[28px] border border-dashed border-white/10 bg-white/5 px-6 py-10 text-center">
                             <p className="text-sm font-semibold text-white">確認する依頼を選んでください。</p>
                             <p className="mt-3 text-sm leading-7 text-slate-300">
-                                左側の依頼カードを選ぶと、利用者情報、施術場所、承諾バッファの確認まで進められます。
+                                左側の依頼カードを選ぶと、利用者情報、待ち合わせ場所、承諾バッファの確認まで進められます。
                             </p>
                         </section>
                     )}

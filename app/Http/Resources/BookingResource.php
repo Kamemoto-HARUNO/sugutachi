@@ -29,8 +29,17 @@ class BookingResource extends JsonResource
             'confirmed_at' => $this->confirmed_at,
             'moving_at' => $this->moving_at,
             'arrived_at' => $this->arrived_at,
+            'arrival_confirmation_code' => $this->when(
+                $request->user()?->id === $this->user_account_id,
+                fn () => $this->arrival_confirmation_code,
+            ),
+            'arrival_confirmation_code_generated_at' => $this->when(
+                $request->user()?->id === $this->user_account_id,
+                fn () => $this->arrival_confirmation_code_generated_at,
+            ),
             'started_at' => $this->started_at,
             'ended_at' => $this->ended_at,
+            'completed_at' => $this->completed_at,
             'canceled_at' => $this->canceled_at,
             'interrupted_at' => $this->interrupted_at,
             'cancel_reason_code' => $this->cancel_reason_code,
@@ -58,7 +67,10 @@ class BookingResource extends JsonResource
                 'public_id' => $this->therapistMenu->public_id,
                 'name' => $this->therapistMenu->name,
                 'duration_minutes' => $this->therapistMenu->duration_minutes,
+                'minimum_duration_minutes' => $this->therapistMenu->minimum_duration_minutes,
+                'duration_step_minutes' => $this->therapistMenu->duration_step_minutes,
                 'base_price_amount' => $this->therapistMenu->base_price_amount,
+                'hourly_rate_amount' => $this->therapistMenu->hourly_rate_amount,
             ] : null),
             'service_address' => $this->whenLoaded('serviceAddress', fn () => $this->serviceAddress
                 ? new ServiceAddressResource($this->serviceAddress)

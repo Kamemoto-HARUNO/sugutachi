@@ -10,7 +10,7 @@ class BookingStatusTransitionService
 {
     public function transition(
         Booking $booking,
-        Account $actor,
+        ?Account $actor,
         string $actorRole,
         array $allowedFromStatuses,
         string $toStatus,
@@ -53,7 +53,7 @@ class BookingStatusTransitionService
             $lockedBooking->statusLogs()->create([
                 'from_status' => $fromStatus,
                 'to_status' => $toStatus,
-                'actor_account_id' => $actor->id,
+                'actor_account_id' => $actor?->id,
                 'actor_role' => $actorRole,
                 'reason_code' => $reasonCode,
             ]);

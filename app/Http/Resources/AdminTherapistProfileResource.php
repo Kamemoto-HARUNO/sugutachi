@@ -12,6 +12,7 @@ class AdminTherapistProfileResource extends JsonResource
     {
         /** @var TherapistProfile $profile */
         $profile = $this->resource;
+        $ratingAverage = $profile->rating_average;
 
         return [
             'public_id' => $profile->public_id,
@@ -47,8 +48,8 @@ class AdminTherapistProfileResource extends JsonResource
                 'is_searchable' => $profile->location->is_searchable,
                 'updated_at' => $profile->location->updated_at,
             ] : null),
-            'rating_average' => $profile->rating_average,
-            'review_count' => $profile->review_count,
+            'rating_average' => $ratingAverage === null ? null : (float) $ratingAverage,
+            'review_count' => (int) $profile->review_count,
             'approved_at' => $profile->approved_at,
             'approved_by' => $this->whenLoaded('approvedBy', fn () => [
                 'public_id' => $profile->approvedBy?->public_id,

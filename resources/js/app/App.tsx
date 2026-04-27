@@ -21,6 +21,7 @@ import {
 } from './lib/navigation';
 import { getPostAuthPath, type RoleName } from './lib/account';
 import { DashboardLayout } from './layouts/DashboardLayout';
+import { BookingFlowLayout } from './layouts/BookingFlowLayout';
 import { PublicLayout } from './layouts/PublicLayout';
 import { HelpPage } from './pages/HelpPage';
 import { LegalDocumentPage } from './pages/LegalDocumentPage';
@@ -28,9 +29,24 @@ import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminAccountsPage } from './pages/AdminAccountsPage';
+import { AdminLegalDocumentsPage } from './pages/AdminLegalDocumentsPage';
 import { AdminBookingsPage } from './pages/AdminBookingsPage';
 import { AdminBookingMessagesPage } from './pages/AdminBookingMessagesPage';
+import { AdminContactInquiriesPage } from './pages/AdminContactInquiriesPage';
+import { AdminIdentityVerificationsPage } from './pages/AdminIdentityVerificationsPage';
+import { AdminAuditLogsPage } from './pages/AdminAuditLogsPage';
+import { AdminPlatformFeeSettingsPage } from './pages/AdminPlatformFeeSettingsPage';
+import { AdminPricingRulesPage } from './pages/AdminPricingRulesPage';
+import { AdminProfilePhotosPage } from './pages/AdminProfilePhotosPage';
+import { AdminPayoutRequestsPage } from './pages/AdminPayoutRequestsPage';
+import { AdminRefundRequestsPage } from './pages/AdminRefundRequestsPage';
 import { AdminReportsPage } from './pages/AdminReportsPage';
+import { AdminStripeDisputesPage } from './pages/AdminStripeDisputesPage';
+import { AdminTherapistProfilesPage } from './pages/AdminTherapistProfilesPage';
+import { AdminTravelRequestsPage } from './pages/AdminTravelRequestsPage';
+import { AccountIdentityVerificationPage } from './pages/AccountIdentityVerificationPage';
+import { AccountProfilePage } from './pages/AccountProfilePage';
+import { ContactPage } from './pages/ContactPage';
 import { PublicHomePage } from './pages/PublicHomePage';
 import { RegisterPage } from './pages/RegisterPage';
 import { RoleSelectPage } from './pages/RoleSelectPage';
@@ -46,6 +62,7 @@ import { TherapistPricingPage } from './pages/TherapistPricingPage';
 import { TherapistProfilePage } from './pages/TherapistProfilePage';
 import { TherapistRequestsPage } from './pages/TherapistRequestsPage';
 import { TherapistReviewsPage } from './pages/TherapistReviewsPage';
+import { TherapistSettingsPage } from './pages/TherapistSettingsPage';
 import { TherapistStripeConnectPage } from './pages/TherapistStripeConnectPage';
 import { TherapistTravelRequestsPage } from './pages/TherapistTravelRequestsPage';
 import { UserBookingDetailPage } from './pages/UserBookingDetailPage';
@@ -69,6 +86,7 @@ import { UserTherapistDetailPage } from './pages/UserTherapistDetailPage';
 import { UserTherapistTravelRequestPage } from './pages/UserTherapistTravelRequestPage';
 import { UserTherapistSearchPage } from './pages/UserTherapistSearchPage';
 import { AuthProvider } from './providers/AuthProvider';
+import { ToastProvider } from './providers/ToastProvider';
 
 function AppRoutes() {
     const { account, activeRole, hasRole, isAuthenticated, isBootstrapping, selectRole } = useAuth();
@@ -88,7 +106,7 @@ function AppRoutes() {
                 <Route path="/terms" element={<LegalDocumentPage documentType="terms" title="利用規約" />} />
                 <Route path="/privacy" element={<LegalDocumentPage documentType="privacy" title="プライバシーポリシー" />} />
                 <Route path="/commerce" element={<LegalDocumentPage documentType="commerce" title="特定商取引法に基づく表記" />} />
-                <Route path="/contact" element={<PlaceholderScreen title="お問い合わせ" description="問い合わせフォームと送信完了導線をつなぐ画面です。" apiPath="/api/contact" />} />
+                <Route path="/contact" element={<ContactPage />} />
                 <Route element={<GuestOnlyRoute isAuthenticated={isAuthenticated} accountPath={getPostAuthPath(account, activeRole)} />}>
                     <Route path="/login" element={<LoginPage />} />
                     <Route path="/register" element={<RegisterPage />} />
@@ -98,13 +116,19 @@ function AppRoutes() {
 
             <Route element={<ProtectedRoute isAuthenticated={isAuthenticated} />}>
                 <Route path="/role-select" element={<RoleSelectPage />} />
-                <Route path="/identity-verification" element={<PlaceholderScreen title="共通本人確認導線" description="役割別の本人確認画面へつなぐ共通入口です。" apiPath="/api/me/identity-verification" />} />
-                <Route path="/profile" element={<PlaceholderScreen title="共通プロフィール導線" description="役割に応じたプロフィール設定へ案内する入口です。" apiPath="/api/me/profile" />} />
+                <Route path="/identity-verification" element={<AccountIdentityVerificationPage />} />
+                <Route path="/profile" element={<AccountProfilePage />} />
             </Route>
 
             <Route element={<RoleRoute role="user" hasRole={hasRole} isAuthenticated={isAuthenticated} activeRole={activeRole} selectRole={selectRole} />}>
                 <Route path="/user/therapists" element={<UserTherapistSearchPage />} />
                 <Route path="/user/therapists/:publicId/availability" element={<UserTherapistAvailabilityPage />} />
+                <Route path="/user/booking-request" element={<BookingFlowLayout />}>
+                    <Route index element={<UserBookingRequestPage />} />
+                    <Route path="quote" element={<UserBookingQuotePage />} />
+                    <Route path="payment" element={<UserBookingPaymentPage />} />
+                    <Route path="waiting" element={<UserBookingWaitingPage />} />
+                </Route>
                 <Route
                     path="/user"
                     element={<DashboardLayout role="user" title="利用者ダッシュボード" description="検索、予約、メッセージ、安全導線の入口です。" navItems={userNavItems} />}
@@ -113,13 +137,13 @@ function AppRoutes() {
                         index
                         element={
                             <SectionHomePage
-                                eyebrow="User Workspace"
+                                eyebrow="利用者マイページ"
                                 title="利用者ダッシュボード"
                                 description="検索から予約、レビュー、通報までの利用者フローをここから組み上げていきます。"
                                 actions={[
                                     { label: 'セラピストを探す', to: '/user/therapists', description: '検索一覧、詳細、空き枠の導線をつなぎます。' },
                                     { label: '予約一覧', to: '/user/bookings', description: '進行中の予約や未読メッセージへすぐ戻れます。' },
-                                    { label: '施術場所', to: '/user/service-addresses', description: '来てほしい場所とデフォルト住所を管理します。' },
+                                    { label: '待ち合わせ場所', to: '/user/service-addresses', description: '来てほしい場所とデフォルト住所を管理します。' },
                                 ]}
                             />
                         }
@@ -136,10 +160,6 @@ function AppRoutes() {
                     <Route path="reports" element={<UserReportsPage />} />
                     <Route path="blocks" element={<UserBlocksPage />} />
                     <Route path="service-addresses" element={<UserServiceAddressesPage />} />
-                    <Route path="booking-request" element={<UserBookingRequestPage />} />
-                    <Route path="booking-request/quote" element={<UserBookingQuotePage />} />
-                    <Route path="booking-request/payment" element={<UserBookingPaymentPage />} />
-                    <Route path="booking-request/waiting" element={<UserBookingWaitingPage />} />
                     <Route path="therapists/:publicId/travel-request" element={<UserTherapistTravelRequestPage />} />
                     {userPlaceholderRoutes
                         .filter(
@@ -193,7 +213,7 @@ function AppRoutes() {
                         index
                         element={
                             <SectionHomePage
-                                eyebrow="Therapist Workspace"
+                                eyebrow="セラピストマイページ"
                                 title="セラピストダッシュボード"
                                 description="プロフィール審査から空き枠、料金ルール、売上管理までをここからつないでいきます。"
                                 actions={[
@@ -201,6 +221,7 @@ function AppRoutes() {
                                     { label: 'プロフィール編集', to: '/therapist/profile', description: '公開プロフィールと審査状態を確認します。' },
                                     { label: '空き枠管理', to: '/therapist/availability', description: '予定予約設定と公開枠を管理します。' },
                                     { label: '予約依頼一覧', to: '/therapist/requests', description: '今すぐ予約と予定予約の依頼を確認します。' },
+                                    { label: '設定', to: '/therapist/settings', description: '稼働状態、現在地、通知をまとめて確認します。' },
                                 ]}
                             />
                         }
@@ -213,15 +234,18 @@ function AppRoutes() {
                     <Route path="pricing" element={<TherapistPricingPage />} />
                     <Route path="availability" element={<TherapistAvailabilityPage />} />
                     <Route path="requests" element={<TherapistRequestsPage />} />
+                    <Route path="requests/:publicId" element={<TherapistRequestsPage />} />
                     <Route path="reviews" element={<TherapistReviewsPage />} />
                     <Route path="bookings" element={<TherapistBookingsPage />} />
                     <Route path="bookings/:publicId" element={<TherapistBookingDetailPage />} />
                     <Route path="bookings/:publicId/messages" element={<TherapistBookingMessagesPage />} />
                     <Route path="travel-requests" element={<TherapistTravelRequestsPage />} />
+                    <Route path="travel-requests/:publicId" element={<TherapistTravelRequestsPage />} />
                     <Route path="balance" element={<TherapistBalancePage />} />
                     <Route path="payouts" element={<Navigate to="/therapist/balance" replace />} />
+                    <Route path="settings" element={<TherapistSettingsPage />} />
                     {therapistPlaceholderRoutes
-                        .filter((route) => !['onboarding', 'identity-verification', 'stripe-connect', 'photos', 'profile', 'pricing', 'availability', 'requests', 'reviews', 'bookings', 'bookings/:publicId', 'bookings/:publicId/messages', 'travel-requests', 'balance', 'payouts'].includes(route.path))
+                        .filter((route) => !['onboarding', 'identity-verification', 'stripe-connect', 'photos', 'profile', 'pricing', 'availability', 'requests', 'requests/:publicId', 'reviews', 'bookings', 'bookings/:publicId', 'bookings/:publicId/messages', 'travel-requests', 'travel-requests/:publicId', 'balance', 'payouts', 'settings'].includes(route.path))
                         .map((route) => (
                         <Route
                             key={route.path}
@@ -240,13 +264,53 @@ function AppRoutes() {
                     <Route index element={<AdminDashboardPage />} />
                     <Route path="accounts" element={<AdminAccountsPage />} />
                     <Route path="accounts/:publicId" element={<AdminAccountsPage />} />
+                    <Route path="identity-verifications" element={<AdminIdentityVerificationsPage />} />
+                    <Route path="therapist-profiles" element={<AdminTherapistProfilesPage />} />
+                    <Route path="therapist-profiles/:publicId" element={<AdminTherapistProfilesPage />} />
+                    <Route path="profile-photos" element={<AdminProfilePhotosPage />} />
                     <Route path="bookings" element={<AdminBookingsPage />} />
                     <Route path="bookings/:publicId" element={<AdminBookingsPage />} />
                     <Route path="bookings/:publicId/messages" element={<AdminBookingMessagesPage />} />
                     <Route path="reports" element={<AdminReportsPage />} />
                     <Route path="reports/:publicId" element={<AdminReportsPage />} />
+                    <Route path="refund-requests" element={<AdminRefundRequestsPage />} />
+                    <Route path="payout-requests" element={<AdminPayoutRequestsPage />} />
+                    <Route path="stripe-disputes" element={<AdminStripeDisputesPage />} />
+                    <Route path="contact-inquiries" element={<AdminContactInquiriesPage />} />
+                    <Route path="contact-inquiries/:publicId" element={<AdminContactInquiriesPage />} />
+                    <Route path="travel-requests" element={<AdminTravelRequestsPage />} />
+                    <Route path="travel-requests/:publicId" element={<AdminTravelRequestsPage />} />
+                    <Route path="pricing-rules" element={<AdminPricingRulesPage />} />
+                    <Route path="pricing-rules/:id" element={<AdminPricingRulesPage />} />
+                    <Route path="legal-documents" element={<AdminLegalDocumentsPage />} />
+                    <Route path="platform-fee-settings" element={<AdminPlatformFeeSettingsPage />} />
+                    <Route path="audit-logs" element={<AdminAuditLogsPage />} />
                     {adminPlaceholderRoutes
-                        .filter((route) => !['accounts', 'accounts/:publicId', 'bookings', 'bookings/:publicId', 'bookings/:publicId/messages', 'reports', 'reports/:publicId'].includes(route.path))
+                        .filter((route) => ![
+                            'accounts',
+                            'accounts/:publicId',
+                            'identity-verifications',
+                            'therapist-profiles',
+                            'therapist-profiles/:publicId',
+                            'profile-photos',
+                            'bookings',
+                            'bookings/:publicId',
+                            'bookings/:publicId/messages',
+                            'reports',
+                            'reports/:publicId',
+                            'refund-requests',
+                            'payout-requests',
+                            'stripe-disputes',
+                            'contact-inquiries',
+                            'contact-inquiries/:publicId',
+                            'travel-requests',
+                            'travel-requests/:publicId',
+                            'pricing-rules',
+                            'pricing-rules/:id',
+                            'legal-documents',
+                            'platform-fee-settings',
+                            'audit-logs',
+                        ].includes(route.path))
                         .map((route) => (
                         <Route
                             key={route.path}
@@ -332,9 +396,11 @@ function LegacyUserTherapistDetailRedirect() {
 export function App() {
     return (
         <BrowserRouter>
-            <AuthProvider>
-                <AppRoutes />
-            </AuthProvider>
+            <ToastProvider>
+                <AuthProvider>
+                    <AppRoutes />
+                </AuthProvider>
+            </ToastProvider>
         </BrowserRouter>
     );
 }

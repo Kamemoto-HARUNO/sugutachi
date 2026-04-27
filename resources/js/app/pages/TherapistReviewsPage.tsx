@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import type { ApiEnvelope, ReviewSummary, TherapistProfileRecord } from '../lib/types';
 
@@ -36,16 +37,39 @@ function formatDateTime(value: string | null): string {
     }).format(date);
 }
 
+function formatDate(value: string | null): string {
+    if (!value) {
+        return '未設定';
+    }
+
+    const date = new Date(value);
+
+    if (Number.isNaN(date.getTime())) {
+        return '未設定';
+    }
+
+    return new Intl.DateTimeFormat('ja-JP', {
+        month: 'numeric',
+        day: 'numeric',
+    }).format(date);
+}
+
 function renderStars(value: number): string {
     return `${'★'.repeat(value)}${'☆'.repeat(5 - value)}`;
 }
 
-function averageLabel(value: number | null | undefined): string {
+function averageLabel(value: number | string | null | undefined): string {
     if (value === null || value === undefined) {
         return '-';
     }
 
-    return value.toFixed(1);
+    const numericValue = typeof value === 'number' ? value : Number(value);
+
+    if (!Number.isFinite(numericValue)) {
+        return '-';
+    }
+
+    return numericValue.toFixed(1);
 }
 
 function scoreTone(value: number | null): string {
@@ -74,6 +98,22 @@ function averageOf(values: Array<number | null | undefined>): number | null {
     return filtered.reduce((sum, value) => sum + value, 0) / filtered.length;
 }
 
+function insightLabel(values: Array<{ label: string; value: number | null }>, mode: 'highest' | 'lowest'): string | null {
+    const filtered = values.filter((item): item is { label: string; value: number } => typeof item.value === 'number');
+
+    if (filtered.length === 0) {
+        return null;
+    }
+
+    const sorted = [...filtered].sort((left, right) => (
+        mode === 'highest'
+            ? right.value - left.value
+            : left.value - right.value
+    ));
+
+    return sorted[0]?.label ?? null;
+}
+
 export function TherapistReviewsPage() {
     const { account, token } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -86,6 +126,7 @@ export function TherapistReviewsPage() {
     const filter = normalizeFilter(searchParams.get('filter'));
 
     usePageTitle('セラピストレビュー');
+    useToastOnMessage(error, 'error');
 
     const loadData = useCallback(async (refresh = false) => {
         if (!token) {
@@ -130,8 +171,17 @@ export function TherapistReviewsPage() {
         ))
     ), [account?.public_id, reviews]);
 
+    const sortedReceivedReviews = useMemo(() => (
+        [...receivedReviews].sort((left, right) => {
+            const leftTime = new Date(left.created_at).getTime();
+            const rightTime = new Date(right.created_at).getTime();
+
+            return rightTime - leftTime;
+        })
+    ), [receivedReviews]);
+
     const filteredReviews = useMemo(() => (
-        receivedReviews.filter((review) => {
+        sortedReceivedReviews.filter((review) => {
             if (filter === 'with_comment') {
                 return Boolean(review.public_comment?.trim());
             }
@@ -142,17 +192,67 @@ export function TherapistReviewsPage() {
 
             return true;
         })
-    ), [filter, receivedReviews]);
+    ), [filter, sortedReceivedReviews]);
 
     const metrics = useMemo(() => ({
-        averageOverall: averageOf(receivedReviews.map((review) => review.rating_overall)),
-        averageManners: averageOf(receivedReviews.map((review) => review.rating_manners)),
-        averageSkill: averageOf(receivedReviews.map((review) => review.rating_skill)),
-        averageCleanliness: averageOf(receivedReviews.map((review) => review.rating_cleanliness)),
-        averageSafety: averageOf(receivedReviews.map((review) => review.rating_safety)),
-        fiveStarCount: receivedReviews.filter((review) => review.rating_overall === 5).length,
-        commentCount: receivedReviews.filter((review) => Boolean(review.public_comment?.trim())).length,
-    }), [receivedReviews]);
+        averageOverall: averageOf(sortedReceivedReviews.map((review) => review.rating_overall)),
+        averageManners: averageOf(sortedReceivedReviews.map((review) => review.rating_manners)),
+        averageSkill: averageOf(sortedReceivedReviews.map((review) => review.rating_skill)),
+        averageCleanliness: averageOf(sortedReceivedReviews.map((review) => review.rating_cleanliness)),
+        averageSafety: averageOf(sortedReceivedReviews.map((review) => review.rating_safety)),
+        fiveStarCount: sortedReceivedReviews.filter((review) => review.rating_overall === 5).length,
+        commentCount: sortedReceivedReviews.filter((review) => Boolean(review.public_comment?.trim())).length,
+    }), [sortedReceivedReviews]);
+    const categoryAverages = useMemo(() => ([
+        { label: '接客', value: metrics.averageManners },
+        { label: '施術', value: metrics.averageSkill },
+        { label: '清潔感', value: metrics.averageCleanliness },
+        { label: '安心感', value: metrics.averageSafety },
+    ]), [metrics.averageCleanliness, metrics.averageManners, metrics.averageSafety, metrics.averageSkill]);
+    const strongestCategory = useMemo(
+        () => insightLabel(categoryAverages, 'highest'),
+        [categoryAverages],
+    );
+    const weakestCategory = useMemo(
+        () => insightLabel(categoryAverages, 'lowest'),
+        [categoryAverages],
+    );
+    const latestReview = sortedReceivedReviews[0] ?? null;
+    const latestThreeAverage = useMemo(() => (
+        averageOf(sortedReceivedReviews.slice(0, 3).map((review) => review.rating_overall))
+    ), [sortedReceivedReviews]);
+    const commentRate = useMemo(() => {
+        if (sortedReceivedReviews.length === 0) {
+            return null;
+        }
+
+        return Math.round((metrics.commentCount / sortedReceivedReviews.length) * 100);
+    }, [metrics.commentCount, sortedReceivedReviews.length]);
+    const filterOptions = useMemo(() => ([
+        { value: 'all' as const, label: 'すべて', count: sortedReceivedReviews.length },
+        {
+            value: 'with_comment' as const,
+            label: 'コメントあり',
+            count: sortedReceivedReviews.filter((review) => Boolean(review.public_comment?.trim())).length,
+        },
+        {
+            value: 'high_rating' as const,
+            label: '4点以上',
+            count: sortedReceivedReviews.filter((review) => review.rating_overall >= 4).length,
+        },
+    ]), [sortedReceivedReviews]);
+
+    const emptyStateTitle = useMemo(() => {
+        if (filter === 'with_comment') {
+            return 'まだコメント付きレビューはありません';
+        }
+
+        if (filter === 'high_rating') {
+            return 'まだ4点以上のレビューはありません';
+        }
+
+        return 'まだレビューはありません';
+    }, [filter]);
 
     function updateFilter(nextFilter: ReviewFilter) {
         const nextParams = new URLSearchParams(searchParams);
@@ -175,11 +275,25 @@ export function TherapistReviewsPage() {
             <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_16px_34px_rgba(2,6,23,0.14)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">REVIEWS</p>
-                        <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">利用者から届いたレビュー</h2>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">レビュー</p>
+                        <h1 className="text-2xl font-semibold text-white sm:text-[2rem]">利用者から届いたレビュー</h1>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
                             公開コメントと評価の傾向をまとめて確認できます。プロフィールに反映される平均評価と、改善のヒントになる個別コメントをここで追えます。
                         </p>
+                        <div className="flex flex-wrap gap-2">
+                            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold whitespace-nowrap text-slate-200">
+                                公開中の平均 {averageLabel(profile?.rating_average)}
+                            </span>
+                            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold whitespace-nowrap text-slate-200">
+                                レビュー {sortedReceivedReviews.length}件
+                            </span>
+                            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold whitespace-nowrap text-slate-200">
+                                コメント付き {metrics.commentCount}件
+                            </span>
+                            <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold whitespace-nowrap text-slate-200">
+                                最新 {latestReview ? formatDate(latestReview.created_at) : '未着'}
+                            </span>
+                        </div>
                     </div>
 
                     <div className="flex flex-wrap gap-3">
@@ -203,17 +317,12 @@ export function TherapistReviewsPage() {
                 </div>
             </section>
 
-            {error ? (
-                <div className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
-                    {error}
-                </div>
-            ) : null}
 
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 <article className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_14px_30px_rgba(2,6,23,0.12)]">
                     <p className="text-xs font-semibold tracking-wide text-[#d2b179]">公開中の平均</p>
                     <p className="mt-3 text-3xl font-semibold text-white">{averageLabel(profile?.rating_average)}</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-300">プロフィール表示中の評価 / {profile?.review_count ?? 0}件</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">プロフィールに表示される平均評価 / {profile?.review_count ?? 0}件</p>
                 </article>
                 <article className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_14px_30px_rgba(2,6,23,0.12)]">
                     <p className="text-xs font-semibold tracking-wide text-[#d2b179]">5点レビュー</p>
@@ -227,8 +336,8 @@ export function TherapistReviewsPage() {
                 </article>
                 <article className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_14px_30px_rgba(2,6,23,0.12)]">
                     <p className="text-xs font-semibold tracking-wide text-[#d2b179]">受信レビュー総数</p>
-                    <p className="mt-3 text-3xl font-semibold text-white">{receivedReviews.length}</p>
-                    <p className="mt-2 text-sm leading-6 text-slate-300">利用者から届いた visible レビュー</p>
+                    <p className="mt-3 text-3xl font-semibold text-white">{sortedReceivedReviews.length}</p>
+                    <p className="mt-2 text-sm leading-6 text-slate-300">利用者から届いた公開対象レビュー</p>
                 </article>
             </section>
 
@@ -237,19 +346,15 @@ export function TherapistReviewsPage() {
                     <article className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_14px_30px_rgba(2,6,23,0.12)]">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                             <div className="space-y-2">
-                                <p className="text-xs font-semibold tracking-wide text-[#d2b179]">INBOX</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#d2b179]">新着</p>
                                 <h3 className="text-xl font-semibold text-white">レビュー一覧</h3>
                                 <p className="text-sm leading-7 text-slate-300">
-                                    コメント付きだけに絞ったり、高評価レビューを先に見たりできます。
+                                    コメント付きだけに絞ったり、高評価レビューだけをまとめて振り返れます。
                                 </p>
                             </div>
 
                             <div className="flex flex-wrap gap-2">
-                                {[
-                                    { value: 'all', label: 'すべて' },
-                                    { value: 'with_comment', label: 'コメントあり' },
-                                    { value: 'high_rating', label: '4点以上' },
-                                ].map((option) => (
+                                {filterOptions.map((option) => (
                                     <button
                                         key={option.value}
                                         type="button"
@@ -261,10 +366,15 @@ export function TherapistReviewsPage() {
                                                 : 'border border-white/10 text-slate-200 hover:bg-white/5',
                                         ].join(' ')}
                                     >
-                                        {option.label}
+                                        {option.label} {option.count}件
                                     </button>
                                 ))}
                             </div>
+                        </div>
+                        <div className="mt-4 rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
+                            <p className="text-sm text-slate-300">
+                                {filteredReviews.length}件を表示中です。コメント付きレビューは、公開プロフィールの印象づくりや接客の振り返りに使えます。
+                            </p>
                         </div>
                     </article>
 
@@ -277,13 +387,16 @@ export function TherapistReviewsPage() {
                                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                                     <div className="space-y-3">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${scoreTone(review.rating_overall)}`}>
+                                            <span className={`rounded-full px-3 py-1 text-xs font-semibold whitespace-nowrap ${scoreTone(review.rating_overall)}`}>
                                                 {renderStars(review.rating_overall)}
                                             </span>
-                                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300">
-                                                予約 {review.booking_public_id ?? '-'}
+                                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold whitespace-nowrap text-slate-300">
+                                                {review.public_comment?.trim() ? 'コメントあり' : '評価のみ'}
                                             </span>
-                                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300">
+                                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold whitespace-nowrap text-slate-300">
+                                                予約ID {review.booking_public_id ?? '-'}
+                                            </span>
+                                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold whitespace-nowrap text-slate-300">
                                                 {formatDateTime(review.created_at)}
                                             </span>
                                         </div>
@@ -327,15 +440,66 @@ export function TherapistReviewsPage() {
                             </article>
                         ))
                     ) : (
-                        <article className="rounded-[24px] border border-dashed border-white/10 bg-white/[0.03] p-6 text-sm leading-7 text-slate-300">
-                            まだ条件に合うレビューはありません。施術後のレビューが増えると、ここで接客や施術の傾向を見返せるようになります。
+                        <article className="rounded-[24px] border border-dashed border-white/10 bg-white/[0.03] p-6">
+                            <p className="text-sm font-semibold text-white">{error && sortedReceivedReviews.length === 0 ? 'レビューを読み込めませんでした' : emptyStateTitle}</p>
+                            <p className="mt-3 text-sm leading-7 text-slate-300">
+                                {error && sortedReceivedReviews.length === 0
+                                    ? '通信状況を確認して、もう一度読み込み直してください。'
+                                    : '施術後のレビューが増えると、ここで接客や施術の傾向を見返せるようになります。まずは進行中の予約やプロフィールの見え方を整えておくと、次の評価につながりやすくなります。'}
+                            </p>
+                            <div className="mt-5 flex flex-wrap gap-3">
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        void loadData(true);
+                                    }}
+                                    className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/5"
+                                >
+                                    もう一度読み込む
+                                </button>
+                                <Link
+                                    to="/therapist/bookings"
+                                    className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/5"
+                                >
+                                    予約一覧を見る
+                                </Link>
+                                <Link
+                                    to="/therapist/profile"
+                                    className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/5"
+                                >
+                                    プロフィールを見直す
+                                </Link>
+                            </div>
                         </article>
                     )}
                 </div>
 
                 <div className="space-y-4">
                     <article className="rounded-[24px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_14px_30px_rgba(2,6,23,0.12)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">BREAKDOWN</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">公開プロフィール</p>
+                        <h3 className="mt-2 text-xl font-semibold text-white">プロフィールに見える数字</h3>
+                        <div className="mt-5 space-y-3">
+                            <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
+                                <p className="text-sm font-semibold text-white">平均評価</p>
+                                <p className="mt-2 text-sm text-slate-300">{averageLabel(profile?.rating_average)}</p>
+                            </div>
+                            <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
+                                <p className="text-sm font-semibold text-white">公開レビュー件数</p>
+                                <p className="mt-2 text-sm text-slate-300">{profile?.review_count ?? 0}件</p>
+                            </div>
+                            <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
+                                <p className="text-sm font-semibold text-white">最新レビュー</p>
+                                <p className="mt-2 text-sm text-slate-300">{latestReview ? formatDateTime(latestReview.created_at) : 'まだありません'}</p>
+                            </div>
+                            <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
+                                <p className="text-sm font-semibold text-white">直近3件の平均</p>
+                                <p className="mt-2 text-sm text-slate-300">{averageLabel(latestThreeAverage)}</p>
+                            </div>
+                        </div>
+                    </article>
+
+                    <article className="rounded-[24px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_14px_30px_rgba(2,6,23,0.12)]">
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">内訳</p>
                         <h3 className="mt-2 text-xl font-semibold text-white">評価の内訳</h3>
                         <div className="mt-5 space-y-3">
                             {[
@@ -353,30 +517,27 @@ export function TherapistReviewsPage() {
                     </article>
 
                     <article className="rounded-[24px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_14px_30px_rgba(2,6,23,0.12)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">NEXT ACTION</p>
-                        <h3 className="mt-2 text-xl font-semibold text-white">このあと見直すと効く場所</h3>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">傾向</p>
+                        <h3 className="mt-2 text-xl font-semibold text-white">届いている評価の傾向</h3>
                         <div className="mt-5 space-y-3">
-                            <Link
-                                to="/therapist/profile"
-                                className="block rounded-2xl border border-white/10 bg-[#111923] px-4 py-4 transition hover:bg-[#16202b]"
-                            >
-                                <p className="text-sm font-semibold text-white">プロフィールと写真を見直す</p>
-                                <p className="mt-2 text-sm leading-6 text-slate-300">公開文言や写真の印象を、届いたレビューと照らして調整できます。</p>
-                            </Link>
-                            <Link
-                                to="/therapist/requests"
-                                className="block rounded-2xl border border-white/10 bg-[#111923] px-4 py-4 transition hover:bg-[#16202b]"
-                            >
-                                <p className="text-sm font-semibold text-white">予約依頼の対応速度を確認する</p>
-                                <p className="mt-2 text-sm leading-6 text-slate-300">高評価を増やしやすい導線として、承諾待ちの処理速度も見直せます。</p>
-                            </Link>
-                            <Link
-                                to="/therapist/bookings"
-                                className="block rounded-2xl border border-white/10 bg-[#111923] px-4 py-4 transition hover:bg-[#16202b]"
-                            >
-                                <p className="text-sm font-semibold text-white">進行中予約を確認する</p>
-                                <p className="mt-2 text-sm leading-6 text-slate-300">直近の施術体験に関係する予約やメッセージへ戻れます。</p>
-                            </Link>
+                            <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-4">
+                                <p className="text-sm font-semibold text-white">いちばん高い評価</p>
+                                <p className="mt-2 text-sm leading-6 text-slate-300">
+                                    {strongestCategory ? `${strongestCategory} が特に高く評価されています。` : 'まだ傾向を出せるほどレビューが集まっていません。'}
+                                </p>
+                            </div>
+                            <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-4">
+                                <p className="text-sm font-semibold text-white">見直し候補</p>
+                                <p className="mt-2 text-sm leading-6 text-slate-300">
+                                    {weakestCategory ? `${weakestCategory} は他の項目より低めです。コメントの文脈と合わせて振り返ると改善点を掴みやすいです。` : 'レビューが増えると、見直し候補もここで追えるようになります。'}
+                                </p>
+                            </div>
+                            <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-4">
+                                <p className="text-sm font-semibold text-white">コメントの付きやすさ</p>
+                                <p className="mt-2 text-sm leading-6 text-slate-300">
+                                    {commentRate === null ? 'まだレビューが集まっていません。' : `${commentRate}% のレビューにコメントが付いています。印象に残った体験ほどコメントにつながりやすいです。`}
+                                </p>
+                            </div>
                         </div>
                     </article>
                 </div>

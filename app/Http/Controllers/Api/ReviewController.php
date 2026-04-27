@@ -8,6 +8,7 @@ use App\Models\Account;
 use App\Models\Booking;
 use App\Models\Review;
 use App\Models\TherapistProfile;
+use App\Services\Bookings\BookingCompletionService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -55,7 +56,11 @@ class ReviewController extends Controller
         );
     }
 
-    public function store(Request $request, Booking $booking): JsonResponse
+    public function store(
+        Request $request,
+        Booking $booking,
+        BookingCompletionService $bookingCompletionService,
+    ): JsonResponse
     {
         abort_unless(in_array($booking->status, self::REVIEWABLE_STATUSES, true), 409, 'This booking is not reviewable yet.');
 
@@ -77,7 +82,7 @@ class ReviewController extends Controller
             'private_feedback' => ['nullable', 'string', 'max:2000'],
         ]);
 
-        $review = DB::transaction(function () use ($actor, $booking, $revieweeId, $reviewerRole, $validated): Review {
+        $review = DB::transaction(function () use ($actor, $booking, $bookingCompletionService, $revieweeId, $reviewerRole, $validated): Review {
             $review = Review::create([
                 'booking_id' => $booking->id,
                 'reviewer_account_id' => $actor->id,
@@ -96,6 +101,15 @@ class ReviewController extends Controller
             ]);
 
             if ($reviewerRole === 'user') {
+                if ($booking->status === Booking::STATUS_THERAPIST_COMPLETED) {
+                    $booking = $bookingCompletionService->complete(
+                        booking: $booking,
+                        actor: $actor,
+                        actorRole: 'user',
+                        reasonCode: 'user_completed',
+                    );
+                }
+
                 $this->refreshTherapistRating($booking->therapistProfile);
             }
 

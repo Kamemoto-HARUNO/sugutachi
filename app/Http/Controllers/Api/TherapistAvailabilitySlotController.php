@@ -19,6 +19,8 @@ use Illuminate\Validation\ValidationException;
 
 class TherapistAvailabilitySlotController extends Controller
 {
+    private const MINIMUM_SLOT_DURATION_MINUTES = 60;
+
     private const BLOCKING_BOOKING_STATUSES = [
         Booking::STATUS_PAYMENT_AUTHORIZING,
         Booking::STATUS_REQUESTED,
@@ -43,6 +45,7 @@ class TherapistAvailabilitySlotController extends Controller
         ]);
 
         $profile = $this->therapistProfile($request);
+        $this->syncExpiredSlots($profile);
 
         $slots = $profile->availabilitySlots()
             ->withCount(['bookings as blocking_bookings_count' => fn ($query) => $query
@@ -187,19 +190,23 @@ class TherapistAvailabilitySlotController extends Controller
                 TherapistAvailabilitySlot::DISPATCH_BASE_TYPE_DEFAULT,
                 TherapistAvailabilitySlot::DISPATCH_BASE_TYPE_CUSTOM,
             ])],
-            'dispatch_area_label' => [$partial ? 'sometimes' : 'required', 'string', 'max:120'],
+            'dispatch_area_label' => ['sometimes', 'nullable', 'string', 'max:120'],
             'custom_dispatch_base.label' => ['sometimes', 'nullable', 'string', 'max:120'],
             'custom_dispatch_base.lat' => ['sometimes', 'numeric', 'between:-90,90'],
             'custom_dispatch_base.lng' => ['sometimes', 'numeric', 'between:-180,180'],
             'custom_dispatch_base.accuracy_m' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:10000'],
         ]);
 
+        $explicitDispatchAreaLabel = array_key_exists('dispatch_area_label', $validated)
+            ? $validated['dispatch_area_label']
+            : null;
+
         $resolved = [
             'start_at' => $validated['start_at'] ?? $currentSlot?->start_at?->toIso8601String(),
             'end_at' => $validated['end_at'] ?? $currentSlot?->end_at?->toIso8601String(),
             'status' => $validated['status'] ?? $currentSlot?->status ?? TherapistAvailabilitySlot::STATUS_PUBLISHED,
             'dispatch_base_type' => $validated['dispatch_base_type'] ?? $currentSlot?->dispatch_base_type ?? TherapistAvailabilitySlot::DISPATCH_BASE_TYPE_DEFAULT,
-            'dispatch_area_label' => $validated['dispatch_area_label'] ?? $currentSlot?->dispatch_area_label,
+            'dispatch_area_label' => $explicitDispatchAreaLabel,
             'custom_dispatch_base' => [
                 'label' => data_get($validated, 'custom_dispatch_base.label', $currentSlot?->custom_dispatch_base_label),
                 'lat' => data_get($validated, 'custom_dispatch_base.lat', $currentSlot?->custom_dispatch_base_lat),
@@ -236,9 +243,9 @@ class TherapistAvailabilitySlotController extends Controller
             ]);
         }
 
-        if (! filled($resolved['dispatch_area_label'])) {
+        if ($startAt->diffInMinutes($endAt) < self::MINIMUM_SLOT_DURATION_MINUTES) {
             throw ValidationException::withMessages([
-                'dispatch_area_label' => ['The dispatch area label is required.'],
+                'end_at' => ['Availability slots must be at least 60 minutes long.'],
             ]);
         }
 
@@ -269,6 +276,14 @@ class TherapistAvailabilitySlotController extends Controller
             }
         }
 
+        $resolved['dispatch_area_label'] = $this->resolveDispatchAreaLabel(
+            explicitLabel: $resolved['dispatch_area_label'],
+            dispatchBaseType: $resolved['dispatch_base_type'],
+            scheduledBaseLabel: $profile->bookingSetting?->scheduled_base_label,
+            customBaseLabel: data_get($resolved, 'custom_dispatch_base.label'),
+            fallbackCurrentLabel: $currentSlot?->dispatch_area_label,
+        );
+
         $resolved['start_at'] = $startAt;
         $resolved['end_at'] = $endAt;
 
@@ -294,8 +309,74 @@ class TherapistAvailabilitySlotController extends Controller
         }
     }
 
+    private function syncExpiredSlots(TherapistProfile $profile): void
+    {
+        $profile->availabilitySlots()
+            ->whereIn('status', [
+                TherapistAvailabilitySlot::STATUS_PUBLISHED,
+                TherapistAvailabilitySlot::STATUS_HIDDEN,
+            ])
+            ->where('end_at', '<=', CarbonImmutable::now())
+            ->update([
+                'status' => TherapistAvailabilitySlot::STATUS_EXPIRED,
+            ]);
+    }
+
     private function isQuarterHourAligned(CarbonImmutable $time): bool
     {
         return $time->second === 0 && $time->minute % 15 === 0;
+    }
+
+    private function resolveDispatchAreaLabel(
+        ?string $explicitLabel,
+        string $dispatchBaseType,
+        ?string $scheduledBaseLabel,
+        ?string $customBaseLabel,
+        ?string $fallbackCurrentLabel,
+    ): string {
+        if (filled($explicitLabel)) {
+            return trim((string) $explicitLabel);
+        }
+
+        return match ($dispatchBaseType) {
+            TherapistAvailabilitySlot::DISPATCH_BASE_TYPE_CUSTOM => $this->areaLabelFromBaseLabel(
+                $customBaseLabel,
+                $fallbackCurrentLabel ?? '枠専用拠点周辺',
+            ),
+            default => $this->areaLabelFromBaseLabel(
+                $scheduledBaseLabel,
+                $fallbackCurrentLabel ?? '基本拠点周辺',
+            ),
+        };
+    }
+
+    private function areaLabelFromBaseLabel(?string $label, string $fallback): string
+    {
+        if (! filled($label)) {
+            return $fallback;
+        }
+
+        $normalized = trim(preg_replace('/\s+/u', ' ', (string) $label) ?? '');
+
+        if ($normalized === '') {
+            return $fallback;
+        }
+
+        if (preg_match('/(周辺|付近)$/u', $normalized) === 1) {
+            return $normalized;
+        }
+
+        $stripped = preg_replace(
+            '/(?:\s|-)?(ベース|拠点|サテライト|Base|BASE|base|Visit|VISIT|visit|Satellite|SATELLITE|satellite|Hub|HUB|hub)$/u',
+            '',
+            $normalized,
+        );
+        $stripped = trim($stripped ?? '');
+
+        if ($stripped === '') {
+            return $fallback;
+        }
+
+        return $stripped.'周辺';
     }
 }

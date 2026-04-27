@@ -27,12 +27,6 @@ export function DiscoveryFooter({
                 <BrandMark domain={domain} inverse compact />
 
                 <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-[#e6e1d7]">
-                    <Link to="/#how-it-works" className="transition hover:text-white">
-                        使い方
-                    </Link>
-                    <Link to="/#safety" className="transition hover:text-white">
-                        安心への取り組み
-                    </Link>
                     <Link to="/privacy" className="transition hover:text-white">
                         プライバシーポリシー
                     </Link>

@@ -44,51 +44,210 @@ class PublicAvailabilityWindowCalculator
         TherapistMenu $menu,
         ServiceAddress $serviceAddress,
         CarbonImmutable $date,
+        ?int $requestedDurationMinutes = null,
+    ): array {
+        return $this->calculateWithAvailableDates(
+            profile: $profile,
+            menu: $menu,
+            serviceAddress: $serviceAddress,
+            date: $date,
+            availableDatesStartDate: $date,
+            requestedDurationMinutes: $requestedDurationMinutes,
+            availableDatesDays: 1,
+        );
+    }
+
+    public function calculateWithAvailableDates(
+        TherapistProfile $profile,
+        TherapistMenu $menu,
+        ServiceAddress $serviceAddress,
+        CarbonImmutable $date,
+        CarbonImmutable $availableDatesStartDate,
+        ?int $requestedDurationMinutes = null,
+        int $availableDatesDays = 14,
+    ): array {
+        $availableDatesDays = max(1, $availableDatesDays);
+        $durationMinutes = max($requestedDurationMinutes ?? $menu->minimum_duration_minutes, $menu->minimum_duration_minutes);
+        $calendarStart = $availableDatesStartDate->startOfDay();
+        $calendarEnd = $availableDatesStartDate->addDays($availableDatesDays - 1)->endOfDay();
+        $contextStart = $this->minTime([$date->startOfDay(), $calendarStart]);
+        $contextEnd = $this->maxTime([$date->endOfDay(), $calendarEnd]);
+        $context = $this->buildScheduleContext(
+            profile: $profile,
+            rangeStart: $contextStart,
+            rangeEnd: $contextEnd,
+        );
+        $selectedSnapshot = $this->calculateSnapshotForDate(
+            profile: $profile,
+            date: $date,
+            menu: $menu,
+            durationMinutes: $durationMinutes,
+            serviceAddress: $serviceAddress,
+            context: $context,
+        );
+        $availableDates = collect();
+        $calendarDates = collect();
+
+        for ($cursor = $calendarStart; $cursor <= $calendarEnd; $cursor = $cursor->addDay()) {
+            $snapshot = $cursor->isSameDay($date)
+                ? $selectedSnapshot
+                : $this->calculateSnapshotForDate(
+                    profile: $profile,
+                    date: $cursor,
+                    menu: $menu,
+                    durationMinutes: $durationMinutes,
+                    serviceAddress: $serviceAddress,
+                    context: $context,
+                );
+
+            $windows = collect($snapshot['windows']);
+            $bookableWindows = $windows->where('is_bookable', true)->values();
+            $isBookable = $bookableWindows->isNotEmpty();
+            $unavailableReason = $isBookable
+                ? null
+                : $windows->pluck('unavailable_reason')->filter()->first();
+
+            $calendarDates->push([
+                'date' => $snapshot['date'],
+                'earliest_start_at' => $windows->min('start_at'),
+                'latest_end_at' => $windows->max('end_at'),
+                'walking_time_range' => $snapshot['walking_time_range'],
+                'estimated_total_amount_range' => $snapshot['estimated_total_amount_range'],
+                'window_count' => $windows->count(),
+                'bookable_window_count' => $bookableWindows->count(),
+                'is_bookable' => $isBookable,
+                'unavailable_reason' => $unavailableReason,
+                'windows' => $windows->values()->all(),
+            ]);
+
+            if ($windows->isEmpty()) {
+                continue;
+            }
+
+            $availableDates->push([
+                'date' => $snapshot['date'],
+                'earliest_start_at' => $windows->min('start_at'),
+                'latest_end_at' => $windows->max('end_at'),
+                'window_count' => $windows->count(),
+                'bookable_window_count' => $bookableWindows->count(),
+                'is_bookable' => $isBookable,
+                'unavailable_reason' => $unavailableReason,
+            ]);
+        }
+
+        return [
+            ...$selectedSnapshot,
+            'available_dates' => $availableDates->values()->all(),
+            'calendar_dates' => $calendarDates->values()->all(),
+        ];
+    }
+
+    /**
+     * @return array{
+     *     bookingSetting: TherapistBookingSetting,
+     *     leadTimeMinutes: int,
+     *     roundedNow: CarbonImmutable,
+     *     leadStart: CarbonImmutable,
+     *     onDemandBlockedUntil: CarbonImmutable|null,
+     *     slots: Collection<int, TherapistAvailabilitySlot>,
+     *     blockingBookings: Collection<int, Booking>
+     * }
+     */
+    private function buildScheduleContext(
+        TherapistProfile $profile,
+        CarbonImmutable $rangeStart,
+        CarbonImmutable $rangeEnd,
     ): array {
         /** @var TherapistBookingSetting $bookingSetting */
-        $bookingSetting = $profile->bookingSetting;
+        $bookingSetting = $profile->relationLoaded('bookingSetting')
+            ? $profile->bookingSetting
+            : $profile->bookingSetting()->firstOrFail();
 
-        $startOfDay = $date->startOfDay();
-        $endOfDay = $date->endOfDay();
         $leadTimeMinutes = $bookingSetting->booking_request_lead_time_minutes;
         $now = CarbonImmutable::now();
-        $roundedNow = $this->roundUpToQuarter($now);
-        $leadStart = $this->roundUpToQuarter($now->addMinutes($leadTimeMinutes));
-        $onDemandBlockedUntil = $this->hasActiveOnDemandBooking($profile)
-            ? $this->roundUpToQuarter($now->addHours(6))
-            : null;
 
-        $slots = $profile->availabilitySlots()
-            ->where('status', TherapistAvailabilitySlot::STATUS_PUBLISHED)
-            ->where('start_at', '<=', $endOfDay)
-            ->where('end_at', '>=', $startOfDay)
-            ->orderBy('start_at')
-            ->get();
+        return [
+            'bookingSetting' => $bookingSetting,
+            'leadTimeMinutes' => $leadTimeMinutes,
+            'roundedNow' => $this->roundUpToQuarter($now),
+            'leadStart' => $this->roundUpToQuarter($now->addMinutes($leadTimeMinutes)),
+            'onDemandBlockedUntil' => $this->hasActiveOnDemandBooking($profile)
+                ? $this->roundUpToQuarter($now->addHours(6))
+                : null,
+            'slots' => $profile->availabilitySlots()
+                ->where('status', TherapistAvailabilitySlot::STATUS_PUBLISHED)
+                ->where('start_at', '<=', $rangeEnd)
+                ->where('end_at', '>=', $rangeStart)
+                ->orderBy('start_at')
+                ->get(),
+            'blockingBookings' => Booking::query()
+                ->where('therapist_profile_id', $profile->id)
+                ->where('is_on_demand', false)
+                ->whereIn('status', self::BLOCKING_SCHEDULED_BOOKING_STATUSES)
+                ->where(function ($query) use ($rangeStart, $rangeEnd): void {
+                    $query
+                        ->where(function ($query) use ($rangeEnd): void {
+                            $query
+                                ->whereNotNull('requested_start_at')
+                                ->where('requested_start_at', '<', $rangeEnd);
+                        })
+                        ->orWhere(function ($query) use ($rangeStart): void {
+                            $query
+                                ->whereNotNull('scheduled_end_at')
+                                ->where('scheduled_end_at', '>', $rangeStart);
+                        });
+                })
+                ->get(),
+        ];
+    }
 
-        $blockingBookings = Booking::query()
-            ->where('therapist_profile_id', $profile->id)
-            ->where('is_on_demand', false)
-            ->whereIn('status', self::BLOCKING_SCHEDULED_BOOKING_STATUSES)
-            ->where(function ($query) use ($endOfDay): void {
-                $query
-                    ->where(function ($query) use ($endOfDay): void {
-                        $query
-                            ->whereNotNull('requested_start_at')
-                            ->where('requested_start_at', '<', $endOfDay);
-                    })
-                    ->orWhere(function ($query): void {
-                        $query->whereNotNull('scheduled_end_at');
-                    });
-            })
-            ->get();
+    /**
+     * @param  array{
+     *     bookingSetting: TherapistBookingSetting,
+     *     leadTimeMinutes: int,
+     *     roundedNow: CarbonImmutable,
+     *     leadStart: CarbonImmutable,
+     *     onDemandBlockedUntil: CarbonImmutable|null,
+     *     slots: Collection<int, TherapistAvailabilitySlot>,
+     *     blockingBookings: Collection<int, Booking>
+     * }  $context
+     * @return array{
+     *     date: string,
+     *     walking_time_range: string|null,
+     *     estimated_total_amount_range: array{min:int,max:int}|null,
+     *     windows: array<int, array{
+     *         availability_slot_id: string,
+     *         slot_start_at: CarbonImmutable,
+     *         slot_end_at: CarbonImmutable,
+     *         start_at: CarbonImmutable,
+     *         end_at: CarbonImmutable,
+     *         booking_deadline_at: CarbonImmutable,
+     *         dispatch_area_label: string|null,
+     *         walking_time_range: string|null,
+     *         is_bookable: bool,
+     *         unavailable_reason: string|null
+     *     }>
+     * }
+     */
+    private function calculateSnapshotForDate(
+        TherapistProfile $profile,
+        CarbonImmutable $date,
+        TherapistMenu $menu,
+        int $durationMinutes,
+        ServiceAddress $serviceAddress,
+        array $context,
+    ): array {
+        $startOfDay = $date->startOfDay();
+        $endOfDay = $date->endOfDay();
+        $leadTimeMinutes = $context['leadTimeMinutes'];
 
         $windows = collect();
         $minAmount = null;
         $maxAmount = null;
         $bestWalkingMinutes = null;
 
-        foreach ($slots as $slot) {
-            $dispatchBase = $this->dispatchBaseForSlot($slot, $bookingSetting);
+        foreach ($context['slots'] as $slot) {
+            $dispatchBase = $this->dispatchBaseForSlot($slot, $context['bookingSetting']);
 
             if (! $dispatchBase) {
                 continue;
@@ -97,16 +256,16 @@ class PublicAvailabilityWindowCalculator
             $intervalStart = $this->maxTime([
                 CarbonImmutable::instance($slot->start_at),
                 $startOfDay,
-                $roundedNow,
-                $leadStart,
+                $context['roundedNow'],
+                $context['leadStart'],
             ]);
             $intervalEnd = $this->minTime([
                 CarbonImmutable::instance($slot->end_at),
                 $endOfDay,
             ]);
 
-            if ($onDemandBlockedUntil !== null) {
-                $intervalStart = $this->maxTime([$intervalStart, $onDemandBlockedUntil]);
+            if ($context['onDemandBlockedUntil'] !== null) {
+                $intervalStart = $this->maxTime([$intervalStart, $context['onDemandBlockedUntil']]);
             }
 
             if ($intervalStart->greaterThanOrEqualTo($intervalEnd)) {
@@ -119,50 +278,55 @@ class PublicAvailabilityWindowCalculator
                 (float) $serviceAddress->lat,
                 (float) $serviceAddress->lng,
             );
-
-            if ($walking['walking_time_range'] === 'outside_area') {
-                continue;
-            }
+            $isBookableForAddress = $walking['walking_time_range'] !== 'outside_area';
 
             $freeIntervals = $this->subtractBlockingIntervals(
                 startAt: $intervalStart,
                 endAt: $intervalEnd,
-                blockingIntervals: $this->blockingIntervalsForSlot($blockingBookings, $slot),
+                blockingIntervals: $this->blockingIntervalsForSlot($context['blockingBookings'], $slot),
             );
 
             foreach ($freeIntervals as $freeInterval) {
                 [$freeStart, $freeEnd] = $freeInterval;
 
-                if ($freeStart->diffInMinutes($freeEnd) < $menu->duration_minutes) {
+                if ($freeStart->diffInMinutes($freeEnd) < $durationMinutes) {
                     continue;
                 }
 
-                $windowRange = $this->windowAmountRange(
-                    profile: $profile,
-                    menu: $menu,
-                    serviceAddress: $serviceAddress,
-                    freeStart: $freeStart,
-                    freeEnd: $freeEnd,
-                    originLat: $dispatchBase['lat'],
-                    originLng: $dispatchBase['lng'],
-                );
+                if ($isBookableForAddress) {
+                    $windowRange = $this->windowAmountRange(
+                        profile: $profile,
+                        menu: $menu,
+                        serviceAddress: $serviceAddress,
+                        durationMinutes: $durationMinutes,
+                        freeStart: $freeStart,
+                        freeEnd: $freeEnd,
+                        originLat: $dispatchBase['lat'],
+                        originLng: $dispatchBase['lng'],
+                    );
 
-                if (! $windowRange) {
-                    continue;
+                    if (! $windowRange) {
+                        continue;
+                    }
+
+                    $minAmount = $minAmount === null ? $windowRange['min'] : min($minAmount, $windowRange['min']);
+                    $maxAmount = $maxAmount === null ? $windowRange['max'] : max($maxAmount, $windowRange['max']);
+                    $bestWalkingMinutes = $bestWalkingMinutes === null
+                        ? $walking['walking_time_minutes']
+                        : min($bestWalkingMinutes, $walking['walking_time_minutes']);
                 }
-
-                $minAmount = $minAmount === null ? $windowRange['min'] : min($minAmount, $windowRange['min']);
-                $maxAmount = $maxAmount === null ? $windowRange['max'] : max($maxAmount, $windowRange['max']);
-                $bestWalkingMinutes = $bestWalkingMinutes === null
-                    ? $walking['walking_time_minutes']
-                    : min($bestWalkingMinutes, $walking['walking_time_minutes']);
 
                 $windows->push([
                     'availability_slot_id' => $slot->public_id,
+                    'slot_start_at' => CarbonImmutable::instance($slot->start_at),
+                    'slot_end_at' => CarbonImmutable::instance($slot->end_at),
                     'start_at' => $freeStart,
                     'end_at' => $freeEnd,
                     'booking_deadline_at' => $freeStart->subMinutes($leadTimeMinutes),
                     'dispatch_area_label' => $slot->dispatch_area_label,
+                    'walking_time_range' => $walking['walking_time_range'],
+                    'is_bookable' => $isBookableForAddress,
+                    'unavailable_reason' => $isBookableForAddress ? null : 'outside_service_area',
                 ]);
             }
         }
@@ -315,12 +479,13 @@ class PublicAvailabilityWindowCalculator
         TherapistProfile $profile,
         TherapistMenu $menu,
         ServiceAddress $serviceAddress,
+        int $durationMinutes,
         CarbonImmutable $freeStart,
         CarbonImmutable $freeEnd,
         float $originLat,
         float $originLng,
     ): ?array {
-        $latestStartAt = $freeEnd->subMinutes($menu->duration_minutes);
+        $latestStartAt = $freeEnd->subMinutes($durationMinutes);
 
         if ($latestStartAt < $freeStart) {
             return null;
@@ -334,7 +499,7 @@ class PublicAvailabilityWindowCalculator
                 therapistProfile: $profile,
                 menu: $menu,
                 serviceAddress: $serviceAddress,
-                durationMinutes: $menu->duration_minutes,
+                durationMinutes: $durationMinutes,
                 isOnDemand: false,
                 requestedStartAt: $cursor->toIso8601String(),
                 originLat: $originLat,

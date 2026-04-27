@@ -29,9 +29,13 @@ class TherapistDiscoveryApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.public_id', $nearbyProfile->public_id)
+            ->assertJsonPath('data.0.age', 32)
+            ->assertJsonPath('data.0.height_cm', 176)
+            ->assertJsonPath('data.0.weight_kg', 68)
+            ->assertJsonPath('data.0.p_size_cm', 14)
             ->assertJsonPath('data.0.therapist_cancellation_count', 1)
             ->assertJsonPath('data.0.walking_time_range', 'within_15_min')
-            ->assertJsonPath('data.0.estimated_total_amount', 10300)
+            ->assertJsonPath('data.0.estimated_total_amount', 12300)
             ->assertJsonPath('data.1.public_id', $farProfile->public_id)
             ->assertJsonPath('data.1.therapist_cancellation_count', 3)
             ->assertJsonPath('data.1.walking_time_range', 'within_60_min')
@@ -42,6 +46,10 @@ class TherapistDiscoveryApiTest extends TestCase
                         'public_id',
                         'public_name',
                         'bio_excerpt',
+                        'age',
+                        'height_cm',
+                        'weight_kg',
+                        'p_size_cm',
                         'training_status',
                         'rating_average',
                         'review_count',
@@ -81,6 +89,10 @@ class TherapistDiscoveryApiTest extends TestCase
             ->getJson("/api/therapists/{$nearbyProfile->public_id}?service_address_id={$address->public_id}&menu_duration_minutes=90&start_type=scheduled&scheduled_start_at={$scheduledStartAt}")
             ->assertOk()
             ->assertJsonPath('data.public_id', $nearbyProfile->public_id)
+            ->assertJsonPath('data.age', 32)
+            ->assertJsonPath('data.height_cm', 176)
+            ->assertJsonPath('data.weight_kg', 68)
+            ->assertJsonPath('data.p_size_cm', 14)
             ->assertJsonPath('data.therapist_cancellation_count', 1)
             ->assertJsonPath('data.walking_time_range', 'within_15_min')
             ->assertJsonPath('data.lowest_estimated_total_amount', 16300)
@@ -238,6 +250,9 @@ class TherapistDiscoveryApiTest extends TestCase
             'public_id' => 'thp_near',
             'public_name' => 'Nearby Therapist',
             'bio' => '落ち着いたボディケアを中心に、丁寧なリラクゼーションを提供します。',
+            'height_cm' => 176,
+            'weight_kg' => 68,
+            'p_size_cm' => 14,
             'profile_status' => TherapistProfile::STATUS_APPROVED,
             'training_status' => 'completed',
             'is_online' => true,
@@ -286,6 +301,8 @@ class TherapistDiscoveryApiTest extends TestCase
         IdentityVerification::create([
             'account_id' => $nearbyTherapist->id,
             'status' => IdentityVerification::STATUS_APPROVED,
+            'birthdate_encrypted' => Crypt::encryptString(now()->subYears(32)->subMonth()->toDateString()),
+            'birth_year' => now()->subYears(32)->subMonth()->year,
             'is_age_verified' => true,
             'submitted_at' => now()->subDay(),
             'reviewed_at' => now(),

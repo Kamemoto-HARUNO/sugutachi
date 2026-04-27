@@ -1,5 +1,7 @@
 import { useEffect, useState } from 'react';
+import { Link } from 'react-router-dom';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import type { ApiEnvelope, HelpFaqItem } from '../lib/types';
 
@@ -8,6 +10,7 @@ export function HelpPage() {
     const [error, setError] = useState<string | null>(null);
 
     usePageTitle('ヘルプ');
+    useToastOnMessage(error, 'error');
 
     useEffect(() => {
         let isMounted = true;
@@ -35,13 +38,27 @@ export function HelpPage() {
 
     return (
         <div className="space-y-8">
-            <section className="space-y-3 border-b border-white/10 pb-8">
-                <p className="text-sm font-medium tracking-wide text-rose-200">Help</p>
+            <section className="space-y-4 rounded-[28px] border border-white/10 bg-white/5 p-6 md:p-8">
+                <p className="text-sm font-medium tracking-wide text-rose-200">ヘルプ</p>
                 <h1 className="text-4xl font-semibold text-white">よくある質問</h1>
                 <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                    公開 API から FAQ を読み込む最初の画面です。後続でカテゴリ切替や問い合わせフォームへつなげやすい構成にしています。
+                    予約前の確認や、アカウント利用中に迷いやすい点をまとめています。
+                    当てはまる答えが見つからない場合は、お問い合わせフォームからそのまま相談できます。
                 </p>
-                {error ? <p className="text-sm text-amber-200">{error}</p> : null}
+                <div className="flex flex-wrap gap-3">
+                    <Link
+                        to="/contact"
+                        className="inline-flex items-center rounded-full bg-rose-300 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-rose-200"
+                    >
+                        お問い合わせ
+                    </Link>
+                    <Link
+                        to="/"
+                        className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
+                    >
+                        ホームへ戻る
+                    </Link>
+                </div>
             </section>
 
             <section className="space-y-4">
@@ -55,7 +72,7 @@ export function HelpPage() {
 
                 {!error && faqs.length === 0 ? (
                     <div className="rounded-lg border border-white/10 bg-white/5 p-6 text-sm text-slate-300">
-                        FAQ はこれから表示されます。
+                        いま表示できるご案内はありません。急ぎの場合はお問い合わせをご利用ください。
                     </div>
                 ) : null}
             </section>

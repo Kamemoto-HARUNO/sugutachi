@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatCurrency, getServiceAddressLabel } from '../lib/discovery';
 import type { ApiEnvelope, BookingListRecord } from '../lib/types';
@@ -62,7 +63,7 @@ function statusLabel(status: string): string {
         case 'in_progress':
             return '施術中';
         case 'therapist_completed':
-            return '利用者確認待ち';
+            return '利用者の完了確認待ち';
         case 'completed':
             return '完了';
         case 'rejected':
@@ -246,6 +247,7 @@ export function TherapistBookingsPage() {
     const sortMode = normalizeSort(searchParams.get('sort'));
 
     usePageTitle('セラピスト予約一覧');
+    useToastOnMessage(error, 'error');
 
     async function loadBookings(nextIsRefresh = false) {
         if (!token) {
@@ -318,7 +320,7 @@ export function TherapistBookingsPage() {
             <section className="rounded-[32px] bg-[linear-gradient(117deg,#17202b_0%,#243447_52%,#2b4158_100%)] p-7 text-white shadow-[0_24px_60px_rgba(15,23,42,0.22)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">THERAPIST BOOKINGS</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">予約一覧</p>
                         <div className="space-y-2">
                             <h1 className="text-3xl font-semibold">予約一覧</h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300">
@@ -377,7 +379,7 @@ export function TherapistBookingsPage() {
                 <div className="flex flex-col gap-5 xl:flex-row xl:items-end xl:justify-between">
                     <div className="space-y-4">
                         <div>
-                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">FILTERS</p>
+                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">絞り込み</p>
                             <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">表示条件</h2>
                         </div>
 
@@ -463,16 +465,11 @@ export function TherapistBookingsPage() {
                 <div className="mt-6 flex items-center justify-between gap-4 border-t border-[#efe5d7] pt-5">
                     <p className="text-sm text-[#68707a]">{visibleCountLabel}</p>
                     <p className="text-sm text-[#68707a]">
-                        利用者名、施術場所、受取予定額、未読状況を一覧で確認できます。
+                        利用者名、待ち合わせ場所、受取予定額、未読状況を一覧で確認できます。
                     </p>
                 </div>
             </section>
 
-            {error ? (
-                <section className="rounded-[24px] border border-[#f1d4b5] bg-[#fff4e8] px-5 py-4 text-sm text-[#9a4b35]">
-                    {error}
-                </section>
-            ) : null}
 
             {filteredBookings.length > 0 ? (
                 <section className="grid gap-4">
@@ -516,7 +513,7 @@ export function TherapistBookingsPage() {
                                                 <p className="mt-2 text-sm font-semibold text-[#17202b]">{buildScheduleLine(booking)}</p>
                                             </div>
                                             <div>
-                                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">施術場所</p>
+                                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">待ち合わせ場所</p>
                                                 <p className="mt-2 text-sm font-semibold text-[#17202b]">
                                                     {booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
                                                 </p>
@@ -538,7 +535,7 @@ export function TherapistBookingsPage() {
 
                                     <div className="xl:min-w-[240px]">
                                         <div className="rounded-[24px] bg-[#f8f4ed] p-4">
-                                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">STATUS</p>
+                                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">状況</p>
                                             <div className="mt-4 grid gap-3 text-sm text-[#48505a]">
                                                 <div className="flex items-center justify-between gap-4">
                                                     <span>未読メッセージ</span>

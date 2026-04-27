@@ -629,7 +629,7 @@ export function AdminBookingsPage() {
                                     </div>
 
                                     <p className="mt-4 text-sm text-slate-400">
-                                        施術場所: {booking.service_address?.prefecture ?? '未設定'} {booking.service_address?.city ?? ''}
+                                        待ち合わせ場所: {booking.service_address?.prefecture ?? '未設定'} {booking.service_address?.city ?? ''}
                                     </p>
                                 </Link>
                             );
@@ -757,7 +757,7 @@ export function AdminBookingsPage() {
                                 </article>
 
                                 <article className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
-                                    <p className="text-xs font-semibold tracking-wide text-[#d2b179]">施術場所</p>
+                                    <p className="text-xs font-semibold tracking-wide text-[#d2b179]">待ち合わせ場所</p>
                                     {detail.service_address ? (
                                         <div className="mt-4 space-y-2 text-sm text-slate-300">
                                             <p>{placeTypeLabel(detail.service_address.place_type)}</p>
@@ -767,7 +767,7 @@ export function AdminBookingsPage() {
                                             {detail.service_address.access_notes ? <p>備考: {detail.service_address.access_notes}</p> : null}
                                         </div>
                                     ) : (
-                                        <p className="mt-4 text-sm text-slate-400">施術場所はありません。</p>
+                                        <p className="mt-4 text-sm text-slate-400">待ち合わせ場所はありません。</p>
                                     )}
                                 </article>
                             </section>

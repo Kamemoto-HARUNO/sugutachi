@@ -12,6 +12,7 @@ use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Http\Response;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
+use Illuminate\Validation\ValidationException;
 
 class TherapistMenuController extends Controller
 {
@@ -29,21 +30,24 @@ class TherapistMenuController extends Controller
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
             'description' => ['nullable', 'string', 'max:1000'],
-            'duration_minutes' => ['required', 'integer', 'min:30', 'max:240'],
-            'base_price_amount' => ['required', 'integer', 'min:1000', 'max:300000'],
+            'duration_minutes' => ['nullable', 'integer', 'min:30', 'max:240'],
+            'minimum_duration_minutes' => ['nullable', 'integer', 'min:30', 'max:240'],
+            'base_price_amount' => ['nullable', 'integer', 'min:1000', 'max:300000'],
+            'hourly_rate_amount' => ['nullable', 'integer', 'min:1000', 'max:300000'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:1000'],
         ]);
 
         $profile = $request->user()->therapistProfile()->firstOrFail();
+        $pricingAttributes = $this->resolvePricingAttributes($validated);
 
-        $menu = DB::transaction(function () use ($profile, $validated): TherapistMenu {
+        $menu = DB::transaction(function () use ($profile, $validated, $pricingAttributes): TherapistMenu {
             $menu = TherapistMenu::create([
                 'public_id' => 'menu_'.Str::ulid(),
                 'therapist_profile_id' => $profile->id,
                 'name' => $validated['name'],
                 'description' => $validated['description'] ?? null,
-                'duration_minutes' => $validated['duration_minutes'],
-                'base_price_amount' => $validated['base_price_amount'],
+                'duration_minutes' => $pricingAttributes['duration_minutes'],
+                'base_price_amount' => $pricingAttributes['base_price_amount'],
                 'is_active' => true,
                 'sort_order' => $validated['sort_order'] ?? 0,
             ]);
@@ -63,17 +67,30 @@ class TherapistMenuController extends Controller
         $validated = $request->validate([
             'name' => ['sometimes', 'required', 'string', 'max:120'],
             'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
-            'duration_minutes' => ['sometimes', 'required', 'integer', 'min:30', 'max:240'],
-            'base_price_amount' => ['sometimes', 'required', 'integer', 'min:1000', 'max:300000'],
+            'duration_minutes' => ['sometimes', 'nullable', 'integer', 'min:30', 'max:240'],
+            'minimum_duration_minutes' => ['sometimes', 'nullable', 'integer', 'min:30', 'max:240'],
+            'base_price_amount' => ['sometimes', 'nullable', 'integer', 'min:1000', 'max:300000'],
+            'hourly_rate_amount' => ['sometimes', 'nullable', 'integer', 'min:1000', 'max:300000'],
             'is_active' => ['sometimes', 'boolean'],
             'sort_order' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:1000'],
         ]);
 
         $profile = $request->user()->therapistProfile()->firstOrFail();
         abort_unless($therapistMenu->therapist_profile_id === $profile->id, 404);
+        $pricingAttributes = $this->resolvePricingAttributes($validated, $therapistMenu);
 
-        $menu = DB::transaction(function () use ($therapistMenu, $validated, $profile): TherapistMenu {
-            $therapistMenu->fill($validated);
+        $menu = DB::transaction(function () use ($therapistMenu, $validated, $profile, $pricingAttributes): TherapistMenu {
+            $nextAttributes = $validated;
+            unset($nextAttributes['minimum_duration_minutes'], $nextAttributes['hourly_rate_amount']);
+
+            if ($pricingAttributes !== []) {
+                $nextAttributes = [
+                    ...$nextAttributes,
+                    ...$pricingAttributes,
+                ];
+            }
+
+            $therapistMenu->fill($nextAttributes);
             $dirtyAttributes = array_keys($therapistMenu->getDirty());
 
             if ($dirtyAttributes === []) {
@@ -140,5 +157,56 @@ class TherapistMenuController extends Controller
             'approved_at' => null,
             'approved_by_account_id' => null,
         ])->save();
+    }
+
+    /**
+     * @param  array<string, mixed>  $validated
+     * @return array{duration_minutes:int,base_price_amount:int}|array{}
+     */
+    private function resolvePricingAttributes(array $validated, ?TherapistMenu $currentMenu = null): array
+    {
+        $minimumDurationProvided = array_key_exists('minimum_duration_minutes', $validated) || array_key_exists('duration_minutes', $validated);
+        $pricingProvided = array_key_exists('hourly_rate_amount', $validated) || array_key_exists('base_price_amount', $validated);
+
+        if (! $minimumDurationProvided && ! $pricingProvided) {
+            return [];
+        }
+
+        $durationMinutes = $validated['minimum_duration_minutes']
+            ?? $validated['duration_minutes']
+            ?? $currentMenu?->duration_minutes;
+
+        if (! is_numeric($durationMinutes)) {
+            throw ValidationException::withMessages([
+                'minimum_duration_minutes' => ['The minimum duration is required.'],
+            ]);
+        }
+
+        $durationMinutes = (int) $durationMinutes;
+
+        if (array_key_exists('hourly_rate_amount', $validated) && $validated['hourly_rate_amount'] !== null) {
+            return [
+                'duration_minutes' => $durationMinutes,
+                'base_price_amount' => (int) round(((int) $validated['hourly_rate_amount'] * $durationMinutes) / 60),
+            ];
+        }
+
+        if (array_key_exists('base_price_amount', $validated) && $validated['base_price_amount'] !== null) {
+            return [
+                'duration_minutes' => $durationMinutes,
+                'base_price_amount' => (int) $validated['base_price_amount'],
+            ];
+        }
+
+        if (! $currentMenu) {
+            throw ValidationException::withMessages([
+                'hourly_rate_amount' => ['The hourly rate is required when creating a menu.'],
+            ]);
+        }
+
+        return [
+            'duration_minutes' => $durationMinutes,
+            'base_price_amount' => (int) round(($currentMenu->hourly_rate_amount * $durationMinutes) / 60),
+        ];
     }
 }

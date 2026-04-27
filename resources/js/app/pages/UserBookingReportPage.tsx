@@ -245,7 +245,7 @@ export function UserBookingReportPage() {
                         <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">BOOKING CONTEXT</p>
                         <div className="mt-5 grid gap-4 md:grid-cols-2">
                             <div className="rounded-[20px] bg-[#f8f4ed] px-4 py-4">
-                                <p className="text-xs font-semibold tracking-wide text-[#7d6852]">施術場所</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#7d6852]">待ち合わせ場所</p>
                                 <p className="mt-2 text-sm font-semibold text-[#17202b]">
                                     {booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
                                 </p>

@@ -1,17 +1,28 @@
 import { useEffect, useMemo, useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
+import { DiscoveryFilterPanel } from '../components/discovery/DiscoveryFilterPanel';
+import { DiscoveryInfoCards } from '../components/discovery/DiscoveryInfoCards';
 import { DiscoveryFooter } from '../components/discovery/DiscoveryFooter';
 import { DiscoveryHeroShell } from '../components/discovery/DiscoveryHeroShell';
-import { TherapistDiscoveryCard } from '../components/discovery/TherapistDiscoveryCard';
+import { DiscoverySearchPanel } from '../components/discovery/DiscoverySearchPanel';
+import { DiscoverySortBar } from '../components/discovery/DiscoverySortBar';
+import { TherapistDiscoveryGrid } from '../components/discovery/TherapistDiscoveryGrid';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import {
-    buildEstimatedPriceLabel,
+    buildDiscoverySearchParams,
+    buildDefaultDiscoveryScheduledStartAt,
+    DISCOVERY_HERO_BULLETS,
+    DISCOVERY_HERO_TITLE,
+    DISCOVERY_LOCATION_LABEL,
+    DISCOVERY_TOP_BADGE,
+    formatDiscoveryScheduledApiValue,
     formatRelativeUpdatedAt,
     getDefaultServiceAddress,
     getServiceAddressLabel,
     matchesPriceRange,
+    normalizeDiscoveryDuration,
     resolveWalkingTimeMaxMinutes,
     type BookingStartType,
     type DiscoveryPriceRange,
@@ -24,8 +35,6 @@ import type {
     TherapistSearchResult,
 } from '../lib/types';
 
-const durationOptions = [60, 90, 120];
-
 function normalizeStartType(value: string | null): BookingStartType {
     return value === 'scheduled' ? 'scheduled' : 'now';
 }
@@ -36,22 +45,6 @@ function normalizeSort(value: string | null): DiscoverySort {
     }
 
     return 'recommended';
-}
-
-function formatScheduledValue(value: string): string {
-    if (!value) {
-        return '';
-    }
-
-    return value.slice(0, 16);
-}
-
-function formatScheduledApiValue(value: string): string {
-    if (!value) {
-        return '';
-    }
-
-    return `${value.replace('T', ' ')}:00`;
 }
 
 export function UserTherapistSearchPage() {
@@ -67,7 +60,7 @@ export function UserTherapistSearchPage() {
     const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
     const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
-    const [trainingOnly, setTrainingOnly] = useState(true);
+    const [trainingOnly, setTrainingOnly] = useState(false);
     const [ratingOnly, setRatingOnly] = useState(false);
     const [walkingOnly, setWalkingOnly] = useState(false);
     const [priceRange, setPriceRange] = useState<DiscoveryPriceRange>('all');
@@ -75,7 +68,7 @@ export function UserTherapistSearchPage() {
     usePageTitle('セラピスト検索');
 
     const selectedAddressId = searchParams.get('service_address_id');
-    const selectedDuration = Number(searchParams.get('menu_duration_minutes') ?? '60');
+    const selectedDuration = normalizeDiscoveryDuration(Number(searchParams.get('menu_duration_minutes') ?? '60'));
     const selectedStartType = normalizeStartType(searchParams.get('start_type'));
     const selectedSort = normalizeSort(searchParams.get('sort'));
     const scheduledStartAt = searchParams.get('scheduled_start_at') ?? '';
@@ -84,7 +77,13 @@ export function UserTherapistSearchPage() {
         () => serviceAddresses.find((address) => address.public_id === selectedAddressId) ?? null,
         [selectedAddressId, serviceAddresses],
     );
-    const queryString = searchParams.toString();
+    const queryString = buildDiscoverySearchParams({
+        serviceAddressId: selectedAddressId,
+        durationMinutes: selectedDuration,
+        startType: selectedStartType,
+        scheduledStartAt,
+        sort: selectedSort,
+    }).toString();
 
     useEffect(() => {
         let isMounted = true;
@@ -115,7 +114,7 @@ export function UserTherapistSearchPage() {
                         setSearchParams((previous) => {
                             const next = new URLSearchParams(previous);
                             next.set('service_address_id', fallbackAddress.public_id);
-                            next.set('menu_duration_minutes', String(durationOptions.includes(selectedDuration) ? selectedDuration : 60));
+                            next.set('menu_duration_minutes', String(selectedDuration));
                             next.set('start_type', selectedStartType);
                             next.set('sort', selectedSort);
 
@@ -129,7 +128,7 @@ export function UserTherapistSearchPage() {
                 }
 
                 const message =
-                    requestError instanceof ApiError ? requestError.message : '施術場所の取得に失敗しました。';
+                    requestError instanceof ApiError ? requestError.message : '待ち合わせ場所の取得に失敗しました。';
 
                 setAddressError(message);
             } finally {
@@ -165,16 +164,15 @@ export function UserTherapistSearchPage() {
             setResultsError(null);
 
             try {
-                const params = new URLSearchParams({
-                    service_address_id: selectedAddressId,
-                    menu_duration_minutes: String(durationOptions.includes(selectedDuration) ? selectedDuration : 60),
-                    start_type: selectedStartType,
+                const params = buildDiscoverySearchParams({
+                    serviceAddressId: selectedAddressId,
+                    durationMinutes: selectedDuration,
+                    startType: selectedStartType,
+                    scheduledStartAt: selectedStartType === 'scheduled'
+                        ? formatDiscoveryScheduledApiValue(scheduledStartAt)
+                        : null,
                     sort: selectedSort,
                 });
-
-                if (selectedStartType === 'scheduled' && scheduledStartAt) {
-                    params.set('scheduled_start_at', formatScheduledApiValue(scheduledStartAt));
-                }
 
                 const payload = await apiRequest<ApiEnvelope<TherapistSearchResult[]>>(`/therapists?${params.toString()}`, {
                     token,
@@ -248,127 +246,34 @@ export function UserTherapistSearchPage() {
             return next;
         });
     };
+    const handleSelectStartType = (startType: BookingStartType) => {
+        updateSearchParam({
+            start_type: startType,
+            scheduled_start_at: startType === 'scheduled'
+                ? (scheduledStartAt || buildDefaultDiscoveryScheduledStartAt())
+                : null,
+        });
+    };
 
     const filterPanel = (
-        <div className="space-y-5">
-            <div className="space-y-3">
-                <p className="text-xs font-semibold tracking-wide text-[#8a8f97]">時間</p>
-                <div className="flex flex-wrap gap-2">
-                    {[
-                        { value: 'now', label: '今すぐ' },
-                        { value: 'scheduled', label: '日時指定' },
-                    ].map((option) => (
-                        <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => updateSearchParam({
-                                start_type: option.value,
-                                scheduled_start_at: option.value === 'scheduled' ? scheduledStartAt : null,
-                            })}
-                            className={[
-                                'rounded-full px-4 py-2 text-sm font-semibold transition',
-                                selectedStartType === option.value
-                                    ? 'bg-[#17202b] text-white'
-                                    : 'bg-[#f6f1e7] text-[#17202b] hover:bg-[#ede2cf]',
-                            ].join(' ')}
-                        >
-                            {option.label}
-                        </button>
-                    ))}
-                </div>
-                {selectedStartType === 'scheduled' ? (
-                    <input
-                        type="datetime-local"
-                        value={formatScheduledValue(scheduledStartAt)}
-                        onChange={(event) => updateSearchParam({ scheduled_start_at: event.target.value || null })}
-                        className="w-full rounded-[20px] border border-[#e5d8c4] bg-white px-4 py-3 text-sm text-[#17202b] outline-none"
-                    />
-                ) : null}
-            </div>
-
-            <div className="space-y-3">
-                <p className="text-xs font-semibold tracking-wide text-[#8a8f97]">認証・条件</p>
-                <div className="flex flex-wrap gap-2">
-                    {[
-                        { active: trainingOnly, label: '研修済み', onClick: () => setTrainingOnly((value) => !value) },
-                        { active: ratingOnly, label: '星4.5以上', onClick: () => setRatingOnly((value) => !value) },
-                        { active: walkingOnly, label: '徒歩30分以内', onClick: () => setWalkingOnly((value) => !value) },
-                    ].map((chip) => (
-                        <button
-                            key={chip.label}
-                            type="button"
-                            onClick={chip.onClick}
-                            className={[
-                                'rounded-full px-4 py-2 text-sm font-semibold transition',
-                                chip.active
-                                    ? 'border border-[#ddcfb4] bg-[#f5ebd5] text-[#17202b]'
-                                    : 'bg-[#f6f1e7] text-[#17202b] hover:bg-[#ede2cf]',
-                            ].join(' ')}
-                        >
-                            {chip.label}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            <div className="space-y-3">
-                <p className="text-xs font-semibold tracking-wide text-[#8a8f97]">時間コース</p>
-                <div className="grid grid-cols-3 gap-2">
-                    {durationOptions.map((duration) => (
-                        <button
-                            key={duration}
-                            type="button"
-                            onClick={() => updateSearchParam({ menu_duration_minutes: String(duration) })}
-                            className={[
-                                'rounded-[18px] px-4 py-3 text-sm font-semibold transition',
-                                selectedDuration === duration
-                                    ? 'bg-[#17202b] text-white'
-                                    : 'bg-[#f6f1e7] text-[#17202b] hover:bg-[#ede2cf]',
-                            ].join(' ')}
-                        >
-                            {duration}分
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            <div className="space-y-3">
-                <p className="text-xs font-semibold tracking-wide text-[#8a8f97]">料金目安</p>
-                <div className="grid gap-2">
-                    {[
-                        { value: 'all', label: 'すべて' },
-                        { value: 'under_12000', label: '¥12,000未満' },
-                        { value: 'between_12000_20000', label: '¥12,000 - ¥20,000' },
-                        { value: 'over_20000', label: '¥20,000超' },
-                    ].map((option) => (
-                        <button
-                            key={option.value}
-                            type="button"
-                            onClick={() => setPriceRange(option.value as DiscoveryPriceRange)}
-                            className={[
-                                'rounded-[18px] px-4 py-3 text-left text-sm font-semibold transition',
-                                priceRange === option.value
-                                    ? 'bg-[#17202b] text-white'
-                                    : 'bg-[#f6f1e7] text-[#17202b] hover:bg-[#ede2cf]',
-                            ].join(' ')}
-                        >
-                            {option.label}
-                        </button>
-                    ))}
-                </div>
-            </div>
-
-            <div className="rounded-[24px] bg-[#17202b] p-5 text-white">
-                <p className="text-xs font-semibold tracking-wide text-[#d2b179]">SAFETY NOTE</p>
-                <p className="mt-2 text-sm leading-7 text-[#d8d3ca]">
-                    表示されるのは徒歩目安レンジだけです。正確な位置や住所は検索一覧に公開されません。
-                </p>
-            </div>
-        </div>
+        <DiscoveryFilterPanel
+            selectedStartType={selectedStartType}
+            onSelectStartType={handleSelectStartType}
+            scheduledStartAt={scheduledStartAt}
+            onScheduledStartAtChange={(value) => updateSearchParam({ scheduled_start_at: value || null })}
+            trainingOnly={trainingOnly}
+            onToggleTraining={() => setTrainingOnly((value) => !value)}
+            ratingOnly={ratingOnly}
+            onToggleRating={() => setRatingOnly((value) => !value)}
+            walkingOnly={walkingOnly}
+            onToggleWalking={() => setWalkingOnly((value) => !value)}
+            priceRange={priceRange}
+            onSelectPriceRange={setPriceRange}
+        />
     );
 
     if (isBootstrapping) {
-        return <LoadingScreen title="検索準備中" message="施術場所と公開情報を確認しています。" />;
+        return <LoadingScreen title="検索準備中" message="待ち合わせ場所と公開情報を確認しています。" />;
     }
 
     return (
@@ -376,135 +281,65 @@ export function UserTherapistSearchPage() {
             <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-16 px-6 py-10 md:px-10 md:py-14 xl:gap-[60px] xl:px-0">
                 <DiscoveryHeroShell
                     domain={serviceMeta?.domain ?? 'sugutachi.com'}
-                    title="今すぐ会える、近くで探せる。"
-                    description="デフォルトの施術場所を基準に、徒歩目安レンジと概算料金で比較できます。予定予約は日時を入れると、その条件で見積もりを揃えます。"
-                    topBadge="本人確認済みタチのみ掲載"
-                    bullets={['18歳以上確認済み', '位置情報は概算表示', '直接取引禁止']}
-                    primaryAction={{ label: '利用者ダッシュボード', to: '/user' }}
+                    title={DISCOVERY_HERO_TITLE}
+                    description="デフォルトの待ち合わせ場所を基準に、徒歩目安レンジと概算料金で比較できます。予定予約は日時を入れると、その条件で見積もりを揃えます。"
+                    topBadge={DISCOVERY_TOP_BADGE}
+                    bullets={[...DISCOVERY_HERO_BULLETS]}
+                    primaryAction={{ label: 'マイページ', to: '/user' }}
                     secondaryAction={{ label: '予約一覧', to: '/user/bookings' }}
                 >
-                    <div className="rounded-[32px] border border-white/12 bg-[linear-gradient(109deg,rgba(255,249,241,0.18)_2.98%,rgba(255,255,255,0.04)_101.1%)] p-6 text-white shadow-[0_24px_60px_rgba(0,0,0,0.16)] md:p-8">
-                        <div className="space-y-1">
-                            <h2 className="text-[1.35rem] font-semibold">条件を指定して探す</h2>
-                            <p className="text-sm text-[#c8c2b6]">施術場所、予約タイプ、時間コースを決めて一覧を更新できます。</p>
-                        </div>
-
-                        <div className="mt-5 space-y-3">
-                            <div className="grid gap-3 md:grid-cols-[minmax(0,1fr)_180px]">
-                                <label className="rounded-[24px] bg-white px-5 py-3 text-[#121a23]">
-                                    <span className="block text-xs font-semibold text-[#69707a]">施術場所</span>
-                                    <select
-                                        value={selectedAddressId ?? ''}
-                                        onChange={(event) => updateSearchParam({ service_address_id: event.target.value || null })}
-                                        className="mt-1 w-full bg-transparent text-lg font-semibold outline-none"
-                                    >
-                                        {serviceAddresses.length === 0 ? (
-                                            <option value="">施術場所を追加してください</option>
-                                        ) : null}
-                                        {serviceAddresses.map((address) => (
-                                            <option key={address.public_id} value={address.public_id}>
-                                                {getServiceAddressLabel(address)}
-                                            </option>
-                                        ))}
-                                    </select>
-                                </label>
-
-                                <div className="rounded-[24px] bg-white px-5 py-3 text-[#121a23]">
-                                    <p className="text-xs font-semibold text-[#69707a]">予約タイプ</p>
-                                    <div className="mt-1 flex gap-2 text-sm font-semibold">
-                                        {[
-                                            { value: 'now', label: '今すぐ' },
-                                            { value: 'scheduled', label: '日時指定' },
-                                        ].map((option) => (
-                                            <button
-                                                key={option.value}
-                                                type="button"
-                                                onClick={() => updateSearchParam({
-                                                    start_type: option.value,
-                                                    scheduled_start_at: option.value === 'scheduled' ? scheduledStartAt : null,
-                                                })}
-                                                className={[
-                                                    'rounded-full px-3 py-1 transition',
-                                                    selectedStartType === option.value
-                                                        ? 'bg-[#17202b] text-white'
-                                                        : 'bg-[#f3ede4] text-[#17202b]',
-                                                ].join(' ')}
-                                            >
-                                                {option.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            </div>
-
-                            {selectedStartType === 'scheduled' ? (
-                                <input
-                                    type="datetime-local"
-                                    value={formatScheduledValue(scheduledStartAt)}
-                                    onChange={(event) => updateSearchParam({ scheduled_start_at: event.target.value || null })}
-                                    className="w-full rounded-[24px] border border-transparent bg-white px-5 py-3 text-sm font-medium text-[#17202b] outline-none"
-                                />
-                            ) : null}
-
-                            <div className="flex flex-wrap gap-2">
-                                {durationOptions.map((duration) => (
-                                    <button
-                                        key={duration}
-                                        type="button"
-                                        onClick={() => updateSearchParam({ menu_duration_minutes: String(duration) })}
-                                        className={[
-                                            'rounded-full border px-4 py-2 text-xs font-bold transition',
-                                            selectedDuration === duration
-                                                ? 'border-transparent bg-[#d2b179] text-[#1a2430]'
-                                                : 'border-white/14 bg-white/8 text-[#f0e9de]',
-                                        ].join(' ')}
-                                    >
-                                        {buildEstimatedPriceLabel(duration, null).replace('料金は詳細で確認', `${duration}分`)}
-                                    </button>
-                                ))}
-                            </div>
-                        </div>
-
-                        <div className="mt-5 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-                            <button
-                                type="button"
-                                onClick={() => setRefreshKey((value) => value + 1)}
-                                className="inline-flex items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-6 py-3 text-sm font-bold text-[#1a2430] transition hover:brightness-105"
-                            >
-                                セラピストを再検索
-                            </button>
-                            <p className="text-xs text-[#c8c2b6]">
-                                {selectedAddress ? `${getServiceAddressLabel(selectedAddress)} を基準に検索しています。` : '施術場所が必要です。'}
-                            </p>
-                        </div>
-                    </div>
+                    <DiscoverySearchPanel
+                        description="待ち合わせ場所と予約タイプを決めて一覧を更新できます。"
+                        addressField={(
+                            <label className="rounded-[24px] bg-white px-5 py-3 text-[#121a23]">
+                                <span className="block text-xs font-semibold text-[#69707a]">{DISCOVERY_LOCATION_LABEL}</span>
+                                <select
+                                    value={selectedAddressId ?? ''}
+                                    onChange={(event) => updateSearchParam({ service_address_id: event.target.value || null })}
+                                    className="mt-1 w-full bg-transparent text-lg font-semibold outline-none"
+                                >
+                                    {serviceAddresses.length === 0 ? (
+                                        <option value="">待ち合わせ場所を追加してください</option>
+                                    ) : null}
+                                    {serviceAddresses.map((address) => (
+                                        <option key={address.public_id} value={address.public_id}>
+                                            {getServiceAddressLabel(address)}
+                                        </option>
+                                    ))}
+                                </select>
+                            </label>
+                        )}
+                        selectedStartType={selectedStartType}
+                        onSelectStartType={handleSelectStartType}
+                        scheduledStartAt={scheduledStartAt}
+                        onScheduledStartAtChange={(value) => updateSearchParam({ scheduled_start_at: value || null })}
+                        action={{
+                            label: 'セラピストを再検索',
+                            onClick: () => setRefreshKey((value) => value + 1),
+                        }}
+                        helperText={selectedAddress ? `${getServiceAddressLabel(selectedAddress)} を基準に検索しています。` : '待ち合わせ場所が必要です。'}
+                    />
                 </DiscoveryHeroShell>
 
-                <section className="grid gap-4 md:grid-cols-3">
-                    {[
+                <DiscoveryInfoCards
+                    cards={[
                         {
-                            label: 'LISTING RULE',
+                            label: '掲載条件',
                             title: '掲載条件',
                             body: '本人確認と審査を完了したセラピストのみ表示。ブロック中の相手や停止アカウントは一覧に出ません。',
                         },
                         {
-                            label: 'DISTANCE',
+                            label: '距離表示',
                             title: '表示ロジック',
                             body: '一覧では徒歩目安レンジだけを表示し、距離や正確な位置は出しません。比較しやすさと安全性を両立しています。',
                         },
                         {
-                            label: 'PAYMENT',
+                            label: '決済の流れ',
                             title: '決済前提',
                             body: 'カード決済のみ対応です。予定予約では与信を確保したうえでセラピスト承認待ちになります。',
                         },
-                    ].map((card) => (
-                        <article key={card.title} className="rounded-[24px] bg-[#fffdf8] p-6 shadow-[0_10px_24px_rgba(23,32,43,0.06)]">
-                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">{card.label}</p>
-                            <h2 className="mt-1 text-[1.35rem] font-semibold text-[#17202b]">{card.title}</h2>
-                            <p className="mt-3 text-sm leading-7 text-[#5b6470]">{card.body}</p>
-                        </article>
-                    ))}
-                </section>
+                    ]}
+                />
 
                 <section className="space-y-6">
                     <div className="space-y-1">
@@ -533,35 +368,16 @@ export function UserTherapistSearchPage() {
                         </aside>
 
                         <div className="space-y-5">
-                            <div className="rounded-[28px] bg-[#fffcf7] p-4 shadow-[0_10px_24px_rgba(23,32,43,0.08)]">
-                                <div className="flex flex-col gap-4 xl:flex-row xl:items-center xl:justify-between">
-                                    <div className="flex flex-wrap gap-2">
-                                        {[
-                                            { value: 'recommended', label: 'おすすめ順' },
-                                            { value: 'soonest', label: '徒歩が近い順' },
-                                            { value: 'rating', label: '評価順' },
-                                        ].map((option) => (
-                                            <button
-                                                key={option.value}
-                                                type="button"
-                                                onClick={() => updateSearchParam({ sort: option.value })}
-                                                className={[
-                                                    'rounded-full px-4 py-2 text-sm font-semibold transition',
-                                                    selectedSort === option.value
-                                                        ? 'bg-[#17202b] text-white'
-                                                        : 'bg-[#f6f1e7] text-[#17202b] hover:bg-[#ede2cf]',
-                                                ].join(' ')}
-                                            >
-                                                {option.label}
-                                            </button>
-                                        ))}
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-3 text-sm text-[#68707a]">
-                                        <span>{selectedAddress ? getServiceAddressLabel(selectedAddress) : '施術場所未設定'}</span>
+                            <DiscoverySortBar
+                                selectedSort={selectedSort}
+                                onSelectSort={(sort) => updateSearchParam({ sort })}
+                                aside={(
+                                    <>
+                                        <span>{selectedAddress ? getServiceAddressLabel(selectedAddress) : '待ち合わせ場所未設定'}</span>
                                         <span>最終更新 {formatRelativeUpdatedAt(lastUpdatedAt)}</span>
-                                    </div>
-                                </div>
-                            </div>
+                                    </>
+                                )}
+                            />
 
                             {addressError ? (
                                 <div className="rounded-[28px] bg-[#fffcf7] p-6 text-sm text-[#9a4b35] shadow-[0_10px_24px_rgba(23,32,43,0.08)]">
@@ -571,7 +387,7 @@ export function UserTherapistSearchPage() {
 
                             {!addressError && serviceAddresses.length === 0 ? (
                                 <div className="rounded-[28px] bg-[#fffcf7] p-8 shadow-[0_10px_24px_rgba(23,32,43,0.08)]">
-                                    <h3 className="text-xl font-semibold text-[#17202b]">まず施術場所を追加してください</h3>
+                                    <h3 className="text-xl font-semibold text-[#17202b]">まず待ち合わせ場所を追加してください</h3>
                                     <p className="mt-3 text-sm leading-7 text-[#5b6470]">
                                         検索には、来てほしい場所の登録が必要です。ホテル、自宅、オフィスなどを追加すると近さと料金が計算できます。
                                     </p>
@@ -580,10 +396,10 @@ export function UserTherapistSearchPage() {
                                             to="/user/service-addresses"
                                             className="rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-bold text-[#1a2430]"
                                         >
-                                            施術場所を追加
+                                            待ち合わせ場所を追加
                                         </Link>
                                         <Link to="/user" className="rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]">
-                                            ダッシュボードへ戻る
+                                            マイページへ
                                         </Link>
                                     </div>
                                 </div>
@@ -611,30 +427,17 @@ export function UserTherapistSearchPage() {
                                 <div className="rounded-[28px] bg-[#fffcf7] p-8 shadow-[0_10px_24px_rgba(23,32,43,0.08)]">
                                     <h3 className="text-xl font-semibold text-[#17202b]">条件に合うセラピストが見つかりませんでした</h3>
                                     <p className="mt-3 text-sm leading-7 text-[#5b6470]">
-                                        予約タイプや時間コース、料金目安を少し広げると見つかりやすくなります。
+                                        予約タイプや料金目安を少し広げると見つかりやすくなります。
                                     </p>
                                 </div>
                             ) : null}
 
-                            <div className="grid gap-5 xl:grid-cols-2">
-                                {filteredTherapists.map((therapist) => (
-                                    <TherapistDiscoveryCard
-                                        key={therapist.public_id}
-                                        name={therapist.public_name}
-                                        ratingAverage={therapist.rating_average}
-                                        reviewCount={therapist.review_count}
-                                        walkingTimeRange={therapist.walking_time_range}
-                                        estimatedTotalAmount={therapist.estimated_total_amount}
-                                        durationMinutes={durationOptions.includes(selectedDuration) ? selectedDuration : 60}
-                                        trainingStatus={therapist.training_status}
-                                        therapistCancellationCount={therapist.therapist_cancellation_count}
-                                        bioExcerpt={therapist.bio_excerpt}
-                                        photoUrl={therapist.photos[0]?.url ?? null}
-                                        to={`/therapists/${therapist.public_id}${queryString ? `?${queryString}` : ''}`}
-                                        footerHint="タップして詳細を見る"
-                                    />
-                                ))}
-                            </div>
+                            <TherapistDiscoveryGrid
+                                therapists={filteredTherapists}
+                                durationMinutes={selectedDuration}
+                                footerHint="タップして詳細を見る"
+                                buildLink={(therapist) => `/therapists/${therapist.public_id}${queryString ? `?${queryString}` : ''}`}
+                            />
                         </div>
                     </div>
                 </section>
@@ -660,8 +463,8 @@ export function UserTherapistSearchPage() {
 
             <DiscoveryFooter
                 domain={serviceMeta?.domain ?? 'sugutachi.com'}
-                description="施術場所を登録しておけば、近さと料金の見え方をそろえた検索一覧からそのまま予約フローへ進めます。"
-                primaryAction={{ label: '利用者ダッシュボード', to: '/user' }}
+                description="待ち合わせ場所を登録しておけば、近さと料金の見え方をそろえた検索一覧からそのまま予約フローへ進めます。"
+                primaryAction={{ label: 'マイページ', to: '/user' }}
                 secondaryAction={{ label: '予約一覧', to: '/user/bookings' }}
                 supportEmail={serviceMeta?.support_email ?? null}
             />

@@ -124,6 +124,49 @@ class TherapistScheduledBookingApiTest extends TestCase
         ]);
     }
 
+    public function test_availability_slot_can_infer_dispatch_area_label_from_base_information(): void
+    {
+        [$therapist, $token] = $this->createTherapist();
+
+        $this->withToken($token)
+            ->putJson('/api/me/therapist/scheduled-booking-settings', [
+                'booking_request_lead_time_minutes' => 60,
+                'scheduled_base_location' => [
+                    'label' => '新宿ベース',
+                    'lat' => 35.6895,
+                    'lng' => 139.6917,
+                    'accuracy_m' => 40,
+                ],
+            ])
+            ->assertOk();
+
+        $this->withToken($token)
+            ->postJson('/api/me/therapist/availability-slots', [
+                'start_at' => '2030-01-04T14:00:00+09:00',
+                'end_at' => '2030-01-04T17:00:00+09:00',
+                'status' => 'published',
+                'dispatch_base_type' => 'default',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.dispatch_area_label', '新宿周辺');
+
+        $this->withToken($token)
+            ->postJson('/api/me/therapist/availability-slots', [
+                'start_at' => '2030-01-05T14:00:00+09:00',
+                'end_at' => '2030-01-05T17:00:00+09:00',
+                'status' => 'hidden',
+                'dispatch_base_type' => 'custom',
+                'custom_dispatch_base' => [
+                    'label' => '渋谷サテライト',
+                    'lat' => 35.6580,
+                    'lng' => 139.7016,
+                    'accuracy_m' => 30,
+                ],
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.dispatch_area_label', '渋谷周辺');
+    }
+
     public function test_availability_slot_validation_rejects_missing_default_base_non_quarter_hour_and_overlap(): void
     {
         [$therapist, $token] = $this->createTherapist();
@@ -160,6 +203,17 @@ class TherapistScheduledBookingApiTest extends TestCase
             ])
             ->assertStatus(422)
             ->assertJsonValidationErrors(['start_at', 'end_at']);
+
+        $this->withToken($token)
+            ->postJson('/api/me/therapist/availability-slots', [
+                'start_at' => '2030-01-02T14:00:00+09:00',
+                'end_at' => '2030-01-02T14:30:00+09:00',
+                'status' => 'published',
+                'dispatch_base_type' => 'default',
+                'dispatch_area_label' => '天神周辺',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['end_at']);
 
         $slotId = $this->withToken($token)
             ->postJson('/api/me/therapist/availability-slots', [
@@ -265,6 +319,50 @@ class TherapistScheduledBookingApiTest extends TestCase
         $this->withToken($token)
             ->deleteJson("/api/me/therapist/availability-slots/{$slot->public_id}")
             ->assertStatus(409);
+    }
+
+    public function test_past_availability_slots_are_returned_as_expired(): void
+    {
+        [$therapist, $token] = $this->createTherapist();
+
+        TherapistAvailabilitySlot::create([
+            'public_id' => 'slot_past_published',
+            'therapist_profile_id' => $therapist->therapistProfile->id,
+            'start_at' => now()->subHours(4),
+            'end_at' => now()->subHours(2),
+            'status' => TherapistAvailabilitySlot::STATUS_PUBLISHED,
+            'dispatch_base_type' => TherapistAvailabilitySlot::DISPATCH_BASE_TYPE_DEFAULT,
+            'dispatch_area_label' => '過去枠',
+        ]);
+
+        TherapistAvailabilitySlot::create([
+            'public_id' => 'slot_future_published',
+            'therapist_profile_id' => $therapist->therapistProfile->id,
+            'start_at' => now()->addDay()->setTime(14, 0),
+            'end_at' => now()->addDay()->setTime(16, 0),
+            'status' => TherapistAvailabilitySlot::STATUS_PUBLISHED,
+            'dispatch_base_type' => TherapistAvailabilitySlot::DISPATCH_BASE_TYPE_DEFAULT,
+            'dispatch_area_label' => '未来枠',
+        ]);
+
+        $this->withToken($token)
+            ->getJson('/api/me/therapist/availability-slots')
+            ->assertOk()
+            ->assertJsonPath('data.0.public_id', 'slot_past_published')
+            ->assertJsonPath('data.0.status', TherapistAvailabilitySlot::STATUS_EXPIRED)
+            ->assertJsonPath('data.1.public_id', 'slot_future_published')
+            ->assertJsonPath('data.1.status', TherapistAvailabilitySlot::STATUS_PUBLISHED);
+
+        $this->withToken($token)
+            ->getJson('/api/me/therapist/availability-slots?status=published')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.public_id', 'slot_future_published');
+
+        $this->assertDatabaseHas('therapist_availability_slots', [
+            'public_id' => 'slot_past_published',
+            'status' => TherapistAvailabilitySlot::STATUS_EXPIRED,
+        ]);
     }
 
     private function createTherapist(): array

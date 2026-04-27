@@ -14,6 +14,7 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withSchedule(function (Schedule $schedule): void {
         $schedule->command('bookings:expire-pending-requests')->everyMinute();
+        $schedule->command('bookings:follow-up-completion-confirmations')->everyFifteenMinutes();
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();

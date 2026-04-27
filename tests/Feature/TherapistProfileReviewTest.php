@@ -54,6 +54,65 @@ class TherapistProfileReviewTest extends TestCase
             ->assertJsonPath('data.requirements.2.is_satisfied', false);
     }
 
+    public function test_show_returns_numeric_rating_summary_for_profile_without_reviews(): void
+    {
+        $therapist = Account::factory()->create(['public_id' => 'acc_therapist_rating_summary']);
+        $profile = TherapistProfile::create([
+            'account_id' => $therapist->id,
+            'public_id' => 'thp_rating_summary',
+            'public_name' => 'Rating Summary Therapist',
+            'profile_status' => TherapistProfile::STATUS_DRAFT,
+            'training_status' => 'completed',
+            'photo_review_status' => 'pending',
+            'rating_average' => 0,
+            'review_count' => 0,
+        ]);
+
+        $response = $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->getJson('/api/me/therapist-profile')
+            ->assertOk();
+
+        $this->assertSame($profile->public_id, $response->json('data.public_id'));
+        $this->assertFalse(is_string($response->json('data.rating_average')));
+        $this->assertSame(0, $response->json('data.rating_average'));
+        $this->assertSame(0, $response->json('data.review_count'));
+    }
+
+    public function test_show_returns_body_metrics_and_age_derived_from_identity_verification(): void
+    {
+        $therapist = Account::factory()->create(['public_id' => 'acc_therapist_profile_metrics']);
+
+        TherapistProfile::create([
+            'account_id' => $therapist->id,
+            'public_id' => 'thp_profile_metrics',
+            'public_name' => 'Profile Metrics Therapist',
+            'profile_status' => TherapistProfile::STATUS_DRAFT,
+            'training_status' => 'completed',
+            'photo_review_status' => 'pending',
+            'height_cm' => 178,
+            'weight_kg' => 72,
+            'p_size_cm' => 15,
+        ]);
+
+        IdentityVerification::create([
+            'account_id' => $therapist->id,
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'birthdate_encrypted' => Crypt::encryptString(now()->subYears(29)->subMonth()->toDateString()),
+            'birth_year' => now()->subYears(29)->subMonth()->year,
+            'is_age_verified' => true,
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now(),
+        ]);
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->getJson('/api/me/therapist-profile')
+            ->assertOk()
+            ->assertJsonPath('data.age', 29)
+            ->assertJsonPath('data.height_cm', 178)
+            ->assertJsonPath('data.weight_kg', 72)
+            ->assertJsonPath('data.p_size_cm', 15);
+    }
+
     public function test_therapist_can_submit_review_after_requirements_are_met(): void
     {
         $therapist = Account::factory()->create(['public_id' => 'acc_therapist_submit']);

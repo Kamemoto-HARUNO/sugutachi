@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatDateTime } from '../lib/therapist';
 import type {
@@ -47,6 +48,8 @@ export function UserBlocksPage() {
     const reasonFilter = normalizeReasonFilter(searchParams.get('reason_code'));
 
     usePageTitle('ブロック一覧');
+    useToastOnMessage(successMessage, 'success');
+    useToastOnMessage(error, 'error');
 
     const loadBlocks = useCallback(async (showRefreshing = false) => {
         if (!token) {
@@ -235,17 +238,7 @@ export function UserBlocksPage() {
                     </div>
                 </div>
 
-                {error ? (
-                    <div className="mt-5 rounded-[20px] border border-amber-300/40 bg-amber-50 px-4 py-3 text-sm text-[#8b5a16]">
-                        {error}
-                    </div>
-                ) : null}
 
-                {successMessage ? (
-                    <div className="mt-5 rounded-[20px] border border-emerald-200 bg-emerald-50 px-4 py-3 text-sm text-[#24553a]">
-                        {successMessage}
-                    </div>
-                ) : null}
 
                 <div className="mt-6 space-y-4">
                     {blocks.length > 0 ? blocks.map((block) => (

@@ -3,6 +3,7 @@ import { Link, useSearchParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatCurrency, getServiceAddressLabel } from '../lib/discovery';
 import type { ApiEnvelope, BookingListRecord } from '../lib/types';
@@ -64,7 +65,7 @@ function statusLabel(status: string): string {
         case 'in_progress':
             return '施術中';
         case 'therapist_completed':
-            return '完了確認待ち';
+            return 'あなたの完了確認待ち';
         case 'completed':
             return '完了';
         case 'rejected':
@@ -194,7 +195,7 @@ function matchesGroup(booking: BookingListRecord, group: BookingGroup): boolean 
 
 function buildAttentionLabel(booking: BookingListRecord): string | null {
     if (booking.status === 'therapist_completed') {
-        return '完了確認が必要です';
+        return '施術完了の確認が必要です';
     }
 
     if (booking.status === 'requested') {
@@ -229,6 +230,7 @@ export function UserBookingsPage() {
     const sortMode = normalizeSort(searchParams.get('sort'));
 
     usePageTitle('予約一覧');
+    useToastOnMessage(error, 'error');
 
     async function loadBookings(nextIsRefresh = false) {
         if (!token) {
@@ -443,11 +445,6 @@ export function UserBookingsPage() {
                 </div>
             </section>
 
-            {error ? (
-                <section className="rounded-[24px] border border-[#f1d4b5] bg-[#fff4e8] px-5 py-4 text-sm text-[#9a4b35]">
-                    {error}
-                </section>
-            ) : null}
 
             {filteredBookings.length > 0 ? (
                 <section className="grid gap-4">
@@ -494,7 +491,7 @@ export function UserBookingsPage() {
                                                 <p className="mt-2 text-sm font-semibold text-[#17202b]">{buildScheduleLine(booking)}</p>
                                             </div>
                                             <div>
-                                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">施術場所</p>
+                                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">待ち合わせ場所</p>
                                                 <p className="mt-2 text-sm font-semibold text-[#17202b]">
                                                     {booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
                                                 </p>

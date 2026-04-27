@@ -51,6 +51,33 @@ class ReviewApiTest extends TestCase
         ]);
     }
 
+    public function test_user_review_on_therapist_completed_booking_also_confirms_completion(): void
+    {
+        [$user, $therapist, $booking, $therapistProfile] = $this->createReviewFixture(Booking::STATUS_THERAPIST_COMPLETED);
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/reviews", [
+                'rating_overall' => 5,
+                'public_comment' => 'Thanks.',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.booking_public_id', $booking->public_id);
+
+        $this->assertDatabaseHas('bookings', [
+            'id' => $booking->id,
+            'status' => Booking::STATUS_COMPLETED,
+        ]);
+        $this->assertDatabaseHas('therapist_ledger_entries', [
+            'booking_id' => $booking->id,
+            'therapist_account_id' => $therapist->id,
+            'entry_type' => 'booking_sale',
+            'amount_signed' => 10800,
+        ]);
+
+        $therapistProfile->refresh();
+        $this->assertSame(1, $therapistProfile->review_count);
+    }
+
     public function test_therapist_public_reviews_include_only_visible_user_reviews(): void
     {
         [$user, $therapist, $booking, $therapistProfile] = $this->createReviewFixture(Booking::STATUS_COMPLETED);

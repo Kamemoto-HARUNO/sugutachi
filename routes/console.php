@@ -1,6 +1,7 @@
 <?php
 
 use App\Models\TherapistLedgerEntry;
+use App\Services\Bookings\BookingCompletionFollowupService;
 use App\Services\Bookings\BookingRequestExpirationService;
 use App\Services\Legal\DefaultLegalDocumentService;
 use Illuminate\Console\Command;
@@ -33,6 +34,14 @@ Artisan::command('bookings:expire-pending-requests', function (BookingRequestExp
 
     return $result['failed'] > 0 ? Command::FAILURE : Command::SUCCESS;
 })->purpose('Expire due scheduled booking requests and release their payment authorization');
+
+Artisan::command('bookings:follow-up-completion-confirmations', function (BookingCompletionFollowupService $service): int {
+    $result = $service->processPendingConfirmations();
+
+    $this->info("Processed booking completion follow-ups. reminded={$result['reminded']} auto_completed={$result['auto_completed']}");
+
+    return Command::SUCCESS;
+})->purpose('Send completion reminders and auto-complete due therapist-completed bookings');
 
 Artisan::command('legal-documents:sync-default-drafts', function (DefaultLegalDocumentService $defaultLegalDocumentService): int {
     $result = $defaultLegalDocumentService->syncDraftTemplates();

@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatCurrency } from '../lib/discovery';
 import { formatDate, formatDateTime, formatStripeStatus } from '../lib/therapist';
@@ -113,6 +114,8 @@ export function TherapistBalancePage() {
     const [isSubmittingPayout, setIsSubmittingPayout] = useState(false);
 
     usePageTitle('売上と出金');
+    useToastOnMessage(successMessage, 'success');
+    useToastOnMessage(error, 'error');
 
     const loadData = useCallback(async (nextIsRefresh = false) => {
         if (!token) {
@@ -207,7 +210,7 @@ export function TherapistBalancePage() {
             <section className="rounded-[32px] bg-[linear-gradient(117deg,#17202b_0%,#243447_52%,#2b4158_100%)] p-7 text-white shadow-[0_24px_60px_rgba(15,23,42,0.22)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">BALANCE</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">売上管理</p>
                         <div className="space-y-2">
                             <h1 className="text-3xl font-semibold">売上と出金</h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300">
@@ -266,28 +269,18 @@ export function TherapistBalancePage() {
                 ))}
             </section>
 
-            {error ? (
-                <section className="rounded-[24px] border border-[#f1d4b5] bg-[#fff4e8] px-5 py-4 text-sm text-[#9a4b35]">
-                    {error}
-                </section>
-            ) : null}
 
-            {successMessage ? (
-                <section className="rounded-[24px] border border-emerald-300/30 bg-emerald-300/10 px-5 py-4 text-sm text-emerald-100">
-                    {successMessage}
-                </section>
-            ) : null}
 
             <section className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(360px,0.85fr)]">
                 <div className="space-y-6">
                     <article className="rounded-[28px] bg-white p-5 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                             <div>
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">PAYOUT STATUS</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">出金状況</p>
                                 <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">出金準備状況</h2>
                             </div>
                             <div className="rounded-2xl bg-[#f8f4ed] px-4 py-3 text-right">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">STRIPE</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">受取設定</p>
                                 <p className="mt-2 text-lg font-semibold text-[#17202b]">{formatStripeStatus(stripeStatus?.status)}</p>
                             </div>
                         </div>
@@ -315,7 +308,7 @@ export function TherapistBalancePage() {
                     <article className="rounded-[28px] bg-white p-5 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                         <div className="flex items-center justify-between gap-4">
                             <div>
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">PAYOUT REQUESTS</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">申請履歴</p>
                                 <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">最近の出金申請</h2>
                             </div>
                             <span className="text-sm text-[#68707a]">{recentPayoutRequests.length}件表示</span>
@@ -331,6 +324,7 @@ export function TherapistBalancePage() {
                                                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${payoutStatusTone(request.status)}`}>
                                                         {payoutStatusLabel(request.status)}
                                                     </span>
+                                                    <span className="text-xs text-[#68707a]">申請番号</span>
                                                     <span className="font-mono text-xs text-[#68707a]">{request.public_id}</span>
                                                 </div>
                                                 <p className="text-lg font-semibold text-[#17202b]">{formatCurrency(request.net_amount)}</p>
@@ -370,7 +364,7 @@ export function TherapistBalancePage() {
                 <div className="space-y-6">
                     <article className="rounded-[28px] border border-white/10 bg-white/5 p-6">
                         <div>
-                            <p className="text-xs font-semibold tracking-wide text-[#d2b179]">LEDGER SNAPSHOT</p>
+                            <p className="text-xs font-semibold tracking-wide text-[#d2b179]">台帳サマリー</p>
                             <h2 className="mt-2 text-2xl font-semibold text-white">最近の台帳</h2>
                         </div>
 
@@ -420,7 +414,7 @@ export function TherapistBalancePage() {
                     </article>
 
                     <article className="rounded-[28px] border border-white/10 bg-white/5 p-6">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">NEXT ACTION</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">次のおすすめ</p>
                         <div className="mt-3 space-y-3">
                             <h2 className="text-2xl font-semibold text-white">売上まわりの次の一手</h2>
                             <p className="text-sm leading-7 text-slate-300">

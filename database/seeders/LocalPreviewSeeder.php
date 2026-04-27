@@ -87,8 +87,8 @@ class LocalPreviewSeeder extends Seeder
         );
 
         $this->upsertApprovedIdentity($previewUser, birthYear: 1994);
-        $this->upsertApprovedIdentity($previewTherapist, birthYear: 1992);
-        $this->upsertApprovedIdentity($previewHybrid, birthYear: 1997);
+        $this->upsertApprovedIdentity($previewTherapist, birthYear: 1992, birthdate: '1992-07-18');
+        $this->upsertApprovedIdentity($previewHybrid, birthYear: 1997, birthdate: '1997-11-04');
         $this->upsertApprovedIdentity($reviewerOne, birthYear: 1989);
         $this->upsertApprovedIdentity($reviewerTwo, birthYear: 1991);
         $this->upsertApprovedIdentity($requester, birthYear: 1999);
@@ -198,6 +198,20 @@ class LocalPreviewSeeder extends Seeder
             'lng' => '139.7100000',
             'is_default' => true,
         ]);
+        $this->upsertServiceAddress($previewHybrid, [
+            'public_id' => 'addr_hybrid_shinjuku',
+            'label' => '新宿の滞在先',
+            'place_type' => 'hotel',
+            'postal_code_encrypted' => Crypt::encryptString('160-0023'),
+            'prefecture' => '東京都',
+            'city' => '新宿区',
+            'address_line_encrypted' => Crypt::encryptString('西新宿 1-10-2'),
+            'building_encrypted' => Crypt::encryptString('サンプル新宿ステイ 704'),
+            'access_notes_encrypted' => Crypt::encryptString('フロントではなく客室階で待ち合わせです。'),
+            'lat' => '35.6896000',
+            'lng' => '139.6919000',
+            'is_default' => false,
+        ]);
         $reviewerOneAddress = $this->upsertServiceAddress($reviewerOne, [
             'public_id' => 'addr_rev1',
             'label' => '自宅',
@@ -236,6 +250,9 @@ class LocalPreviewSeeder extends Seeder
             'public_id' => 'thp_preview_thera',
             'public_name' => '奏太',
             'bio' => '都内中心でリラクゼーション / もみほぐしを提供しています。静かなやり取りと、丁寧な圧の調整が得意です。',
+            'height_cm' => 178,
+            'weight_kg' => 70,
+            'p_size_cm' => 15,
             'profile_status' => TherapistProfile::STATUS_APPROVED,
             'training_status' => 'completed',
             'photo_review_status' => ProfilePhoto::STATUS_APPROVED,
@@ -249,6 +266,9 @@ class LocalPreviewSeeder extends Seeder
             'public_id' => 'thp_preview_hybrid',
             'public_name' => '凪',
             'bio' => '池袋周辺を中心に、軽めのボディケアと夜帯の対応をしています。予定予約ベースで動くことが多いです。',
+            'height_cm' => 172,
+            'weight_kg' => 63,
+            'p_size_cm' => 13,
             'profile_status' => TherapistProfile::STATUS_APPROVED,
             'training_status' => 'completed',
             'photo_review_status' => ProfilePhoto::STATUS_APPROVED,
@@ -960,7 +980,7 @@ class LocalPreviewSeeder extends Seeder
         return $account->fresh();
     }
 
-    private function upsertApprovedIdentity(Account $account, int $birthYear): void
+    private function upsertApprovedIdentity(Account $account, int $birthYear, ?string $birthdate = null): void
     {
         $verification = $account->identityVerifications()->firstOrNew([
             'provider' => 'manual',
@@ -968,6 +988,7 @@ class LocalPreviewSeeder extends Seeder
         ]);
 
         $verification->forceFill([
+            'birthdate_encrypted' => $birthdate ? Crypt::encryptString($birthdate) : null,
             'birth_year' => $birthYear,
             'is_age_verified' => true,
             'self_declared_male' => true,

@@ -17,7 +17,7 @@ class TherapistProfileController extends Controller
     public function show(Request $request): TherapistProfileResource
     {
         return new TherapistProfileResource(
-            $request->user()->therapistProfile()->with('menus')->firstOrFail()
+            $request->user()->therapistProfile()->with(['menus', 'account.latestIdentityVerification'])->firstOrFail()
         );
     }
 
@@ -26,6 +26,9 @@ class TherapistProfileController extends Controller
         $validated = $request->validate([
             'public_name' => ['required', 'string', 'max:80'],
             'bio' => ['nullable', 'string', 'max:2000'],
+            'height_cm' => ['nullable', 'integer', 'between:100,250'],
+            'weight_kg' => ['nullable', 'integer', 'between:30,250'],
+            'p_size_cm' => ['nullable', 'integer', 'between:1,50'],
             'training_status' => ['nullable', 'string', 'max:50'],
         ]);
 
@@ -46,6 +49,9 @@ class TherapistProfileController extends Controller
                     'public_id' => $currentProfile?->public_id ?? 'thp_'.Str::ulid(),
                     'public_name' => $validated['public_name'],
                     'bio' => $validated['bio'] ?? null,
+                    'height_cm' => $validated['height_cm'] ?? null,
+                    'weight_kg' => $validated['weight_kg'] ?? null,
+                    'p_size_cm' => $validated['p_size_cm'] ?? null,
                     'profile_status' => $nextStatus,
                     'training_status' => $validated['training_status'] ?? 'none',
                     'photo_review_status' => $currentProfile?->photo_review_status ?? 'pending',
@@ -62,7 +68,7 @@ class TherapistProfileController extends Controller
             );
         });
 
-        return (new TherapistProfileResource($profile->load('menus')))
+        return (new TherapistProfileResource($profile->load(['menus', 'account.latestIdentityVerification'])))
             ->response()
             ->setStatusCode(200);
     }
@@ -112,7 +118,7 @@ class TherapistProfileController extends Controller
             'rejected_reason_code' => null,
         ])->save();
 
-        return new TherapistProfileResource($profile->refresh()->load('menus'));
+        return new TherapistProfileResource($profile->refresh()->load(['menus', 'account.latestIdentityVerification']));
     }
 
     public function reviewStatus(Request $request): JsonResponse
@@ -162,7 +168,7 @@ class TherapistProfileController extends Controller
             'online_since' => $profile->online_since ?? now(),
         ])->save();
 
-        return new TherapistProfileResource($profile->refresh()->load('menus'));
+        return new TherapistProfileResource($profile->refresh()->load(['menus', 'account.latestIdentityVerification']));
     }
 
     public function goOffline(Request $request): TherapistProfileResource
@@ -174,7 +180,7 @@ class TherapistProfileController extends Controller
             'online_since' => null,
         ])->save();
 
-        return new TherapistProfileResource($profile->refresh()->load('menus'));
+        return new TherapistProfileResource($profile->refresh()->load(['menus', 'account.latestIdentityVerification']));
     }
 
     public function updateLocation(Request $request): TherapistProfileResource
@@ -209,7 +215,7 @@ class TherapistProfileController extends Controller
             'last_location_updated_at' => now(),
         ])->save();
 
-        return new TherapistProfileResource($profile->refresh()->load('menus'));
+        return new TherapistProfileResource($profile->refresh()->load(['menus', 'account.latestIdentityVerification']));
     }
 
     private function statusAfterProfileUpdate(?TherapistProfile $profile): string

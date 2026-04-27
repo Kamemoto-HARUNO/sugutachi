@@ -71,6 +71,9 @@ export interface ServiceMeta {
             maximum_minutes?: number;
         };
     };
+    payment?: {
+        stripe_publishable_key: string | null;
+    };
     commerce_notice: {
         operator_name: string | null;
         representative_name: string | null;
@@ -148,6 +151,14 @@ export interface MeProfileRecord {
     photos: SelfProfilePhotoSummary[];
     created_at: string;
     updated_at: string;
+}
+
+export interface ContactInquirySubmissionRecord {
+    public_id: string;
+    status: string;
+    category: string;
+    source: string;
+    submitted_at: string;
 }
 
 export interface UserProfileRecord {
@@ -263,7 +274,10 @@ export interface AdminBookingTherapistMenuSummary {
     public_id: string;
     name: string;
     duration_minutes?: number | null;
+    minimum_duration_minutes?: number | null;
+    duration_step_minutes?: number | null;
     base_price_amount?: number | null;
+    hourly_rate_amount?: number | null;
 }
 
 export interface AdminBookingServiceAddressRecord {
@@ -363,8 +377,11 @@ export interface AdminBookingDetailRecord extends AdminBookingListRecord {
     confirmed_at: string | null;
     moving_at: string | null;
     arrived_at: string | null;
+    arrival_confirmation_code?: string | null;
+    arrival_confirmation_code_generated_at?: string | null;
     started_at: string | null;
     ended_at: string | null;
+    completed_at?: string | null;
     canceled_at: string | null;
     user_snapshot: Record<string, unknown> | null;
     therapist_snapshot: Record<string, unknown> | null;
@@ -442,6 +459,10 @@ export interface TherapistSearchResult {
     public_id: string;
     public_name: string;
     bio_excerpt: string | null;
+    age: number | null;
+    height_cm: number | null;
+    weight_kg: number | null;
+    p_size_cm: number | null;
     training_status: string | null;
     rating_average: number;
     review_count: number;
@@ -456,7 +477,10 @@ export interface TherapistMenu {
     name: string;
     description: string | null;
     duration_minutes: number;
+    minimum_duration_minutes: number;
+    duration_step_minutes: number;
     base_price_amount: number;
+    hourly_rate_amount: number;
     is_active: boolean;
     sort_order: number;
     estimated_total_amount: number | null;
@@ -466,6 +490,10 @@ export interface TherapistDetail {
     public_id: string;
     public_name: string;
     bio: string | null;
+    age: number | null;
+    height_cm: number | null;
+    weight_kg: number | null;
+    p_size_cm: number | null;
     training_status: string | null;
     rating_average: number;
     review_count: number;
@@ -481,6 +509,10 @@ export interface TherapistProfileRecord {
     public_id: string;
     public_name: string;
     bio: string | null;
+    age: number | null;
+    height_cm: number | null;
+    weight_kg: number | null;
+    p_size_cm: number | null;
     profile_status: string;
     training_status: string | null;
     photo_review_status: string;
@@ -709,10 +741,41 @@ export interface PayoutRequestRecord {
 
 export interface PublicTherapistAvailabilityWindow {
     availability_slot_id: string;
+    slot_start_at: string;
+    slot_end_at: string;
     start_at: string;
     end_at: string;
     booking_deadline_at: string;
     dispatch_area_label: string | null;
+    walking_time_range: string | null;
+    is_bookable: boolean;
+    unavailable_reason: string | null;
+}
+
+export interface PublicTherapistAvailabilityDateOption {
+    date: string;
+    earliest_start_at: string;
+    latest_end_at: string;
+    window_count: number;
+    bookable_window_count: number;
+    is_bookable: boolean;
+    unavailable_reason: string | null;
+}
+
+export interface PublicTherapistAvailabilityCalendarDate {
+    date: string;
+    earliest_start_at: string | null;
+    latest_end_at: string | null;
+    walking_time_range: string | null;
+    estimated_total_amount_range: {
+        min: number;
+        max: number;
+    } | null;
+    window_count: number;
+    bookable_window_count: number;
+    is_bookable: boolean;
+    unavailable_reason: string | null;
+    windows: PublicTherapistAvailabilityWindow[];
 }
 
 export interface PublicTherapistAvailability {
@@ -722,6 +785,8 @@ export interface PublicTherapistAvailability {
         min: number;
         max: number;
     } | null;
+    available_dates: PublicTherapistAvailabilityDateOption[];
+    calendar_dates: PublicTherapistAvailabilityCalendarDate[];
     windows: PublicTherapistAvailabilityWindow[];
 }
 
@@ -782,6 +847,9 @@ export interface BookingTherapistMenuSummary {
     name: string;
     duration_minutes: number;
     base_price_amount: number;
+    minimum_duration_minutes?: number | null;
+    duration_step_minutes?: number | null;
+    hourly_rate_amount?: number | null;
 }
 
 export interface PaymentIntentRecord {
@@ -817,8 +885,11 @@ export interface BookingListRecord {
     confirmed_at: string | null;
     moving_at: string | null;
     arrived_at: string | null;
+    arrival_confirmation_code?: string | null;
+    arrival_confirmation_code_generated_at?: string | null;
     started_at: string | null;
     ended_at: string | null;
+    completed_at?: string | null;
     canceled_at: string | null;
     interrupted_at: string | null;
     cancel_reason_code: string | null;
@@ -962,6 +1033,30 @@ export interface BookingMessageRecord {
     read_at: string | null;
 }
 
+export interface AppNotificationRecord {
+    id: number;
+    notification_type: string;
+    channel: string;
+    title: string;
+    body: string;
+    data: Record<string, unknown> | null;
+    status: string;
+    is_read: boolean;
+    sent_at: string | null;
+    read_at: string | null;
+    created_at: string;
+}
+
+export interface NotificationListMeta {
+    unread_count: number;
+    limit: number;
+    filters: {
+        notification_type: string | null;
+        status: string | null;
+        read_status: 'read' | 'unread' | null;
+    };
+}
+
 export interface BookingMessagesMeta {
     booking_public_id: string;
     booking_status: string;
@@ -1093,6 +1188,311 @@ export interface AdminAccountRecord {
     latest_identity_verification?: AdminAccountIdentitySummary | null;
     user_profile?: AdminAccountUserProfileSummary | null;
     therapist_profile?: AdminAccountTherapistProfileSummary | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface AdminTherapistMenuRecord {
+    public_id: string;
+    name: string;
+    description: string | null;
+    duration_minutes: number;
+    minimum_duration_minutes?: number | null;
+    duration_step_minutes?: number | null;
+    base_price_amount: number;
+    hourly_rate_amount?: number | null;
+    is_active: boolean;
+    sort_order: number;
+}
+
+export interface AdminProfilePhotoRecord {
+    id: number;
+    usage_type: string;
+    content_hash: string | null;
+    status: string;
+    rejection_reason_code: string | null;
+    sort_order: number;
+    account?: {
+        public_id: string | null;
+        display_name: string | null;
+        email: string | null;
+    } | null;
+    therapist_profile?: {
+        public_id: string | null;
+        public_name: string | null;
+        profile_status: string | null;
+        photo_review_status: string | null;
+    } | null;
+    reviewed_by?: {
+        public_id: string | null;
+        display_name: string | null;
+    } | null;
+    reviewed_at: string | null;
+    created_at: string;
+}
+
+export interface AdminIdentityVerificationRecord {
+    id: number;
+    provider: string;
+    status: string;
+    account?: {
+        public_id: string | null;
+        display_name: string | null;
+        email: string | null;
+    } | null;
+    birth_year: number | null;
+    is_age_verified: boolean;
+    self_declared_male: boolean;
+    document_type: string | null;
+    submitted_at: string | null;
+    reviewed_by?: {
+        public_id: string | null;
+        display_name: string | null;
+    } | null;
+    reviewed_at: string | null;
+    rejection_reason_code: string | null;
+    purge_after: string | null;
+}
+
+export interface AdminTherapistProfileRecord {
+    public_id: string;
+    public_name: string | null;
+    bio: string | null;
+    profile_status: string;
+    training_status: string | null;
+    photo_review_status: string;
+    latest_identity_verification_status: string | null;
+    stripe_connected_account_status: string | null;
+    account?: {
+        public_id: string | null;
+        display_name: string | null;
+        email: string | null;
+        status: string | null;
+    } | null;
+    latest_identity_verification?: IdentityVerificationRecord | null;
+    is_online: boolean;
+    online_since: string | null;
+    last_location_updated_at: string | null;
+    has_searchable_location: boolean | null;
+    active_menu_count: number | null;
+    location?: {
+        lat: number | string;
+        lng: number | string;
+        accuracy_m: number | null;
+        source: string | null;
+        is_searchable: boolean;
+        updated_at: string | null;
+    } | null;
+    rating_average: number;
+    review_count: number;
+    approved_at: string | null;
+    approved_by?: {
+        public_id: string | null;
+        display_name: string | null;
+    } | null;
+    rejected_reason_code: string | null;
+    menus: AdminTherapistMenuRecord[];
+    photos?: AdminProfilePhotoRecord[];
+    stripe_connected_account?: StripeConnectedAccountStatus | null;
+    available_actions: {
+        approve: boolean;
+        reject: boolean;
+        suspend: boolean;
+        restore: boolean;
+    };
+    created_at: string;
+    updated_at: string;
+}
+
+export interface AdminContactInquiryRecord {
+    public_id: string;
+    account?: {
+        public_id: string | null;
+        display_name: string | null;
+        email: string | null;
+    } | null;
+    name: string | null;
+    email: string | null;
+    category: string;
+    message: string | null;
+    status: string;
+    source: string;
+    admin_note_count: number;
+    resolved_at: string | null;
+    notes?: AdminNoteRecord[];
+    submitted_at: string;
+    updated_at: string;
+}
+
+export interface AdminPricingRuleRecord {
+    id: number;
+    rule_type: string;
+    adjustment_bucket: string;
+    scope: 'profile' | 'menu';
+    condition: Record<string, unknown> | null;
+    condition_summary: string | null;
+    adjustment_type: string;
+    adjustment_amount: number;
+    min_price_amount: number | null;
+    max_price_amount: number | null;
+    priority: number;
+    is_active: boolean;
+    monitoring_status: string;
+    monitoring_flags: string[];
+    has_monitoring_flags: boolean;
+    monitored_by_admin?: {
+        public_id: string | null;
+        display_name: string | null;
+    } | null;
+    monitored_at: string | null;
+    admin_note_count?: number;
+    notes?: AdminNoteRecord[];
+    therapist_profile?: {
+        public_id: string | null;
+        public_name: string | null;
+        profile_status: string | null;
+        training_status: string | null;
+        account: {
+            public_id: string | null;
+            display_name: string | null;
+            email: string | null;
+            status: string | null;
+        } | null;
+    } | null;
+    therapist_menu?: {
+        public_id: string | null;
+        name: string | null;
+        duration_minutes: number | null;
+        base_price_amount: number | null;
+        is_active: boolean | null;
+    } | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface AdminRefundRequestRecord extends RefundRequestRecord {}
+
+export interface AdminPayoutRequestRecord extends PayoutRequestRecord {
+    therapist_account?: {
+        public_id: string | null;
+        display_name: string | null;
+    } | null;
+    stripe_connected_account?: {
+        stripe_account_id: string | null;
+        status: string | null;
+        payouts_enabled: boolean | null;
+    } | null;
+    ledger_entries?: TherapistLedgerEntryRecord[];
+}
+
+export interface AdminTravelRequestRecord {
+    public_id: string;
+    prefecture: string;
+    message: string | null;
+    status: string;
+    monitoring_status: string;
+    detected_contact_exchange: boolean;
+    read_at: string | null;
+    archived_at: string | null;
+    monitored_by_admin?: {
+        public_id: string | null;
+        display_name: string | null;
+    } | null;
+    monitored_at: string | null;
+    admin_note_count?: number;
+    notes?: AdminNoteRecord[];
+    sender?: {
+        public_id: string | null;
+        display_name: string | null;
+        email: string | null;
+        status: string | null;
+        suspended_at: string | null;
+        suspension_reason: string | null;
+        travel_request_warning_count: number | null;
+        travel_request_last_warned_at: string | null;
+        travel_request_last_warning_reason: string | null;
+        travel_request_restricted_until: string | null;
+        travel_request_restriction_reason: string | null;
+    } | null;
+    therapist_profile?: {
+        public_id: string | null;
+        public_name: string | null;
+        profile_status: string | null;
+        account: {
+            public_id: string | null;
+            display_name: string | null;
+            email: string | null;
+            status: string | null;
+        } | null;
+    } | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface AdminStripeDisputeRecord {
+    stripe_dispute_id: string;
+    booking_public_id: string | null;
+    payment_intent?: {
+        stripe_payment_intent_id: string;
+        status: string | null;
+    } | null;
+    user_account_id: string | null;
+    therapist_account_id: string | null;
+    status: string;
+    reason: string | null;
+    amount: number;
+    currency: string;
+    evidence_due_by: string | null;
+    outcome: string | null;
+    last_stripe_event_id: string | null;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface AdminAuditLogRecord {
+    id: number;
+    actor_account?: {
+        public_id: string | null;
+        display_name: string | null;
+        email: string | null;
+    } | null;
+    action: string;
+    target_type: string;
+    target_id: number | null;
+    ip_hash: string | null;
+    user_agent_hash: string | null;
+    before: Record<string, unknown> | null;
+    after: Record<string, unknown> | null;
+    created_at: string;
+}
+
+export interface AdminLegalDocumentRecord {
+    id: number;
+    public_id: string;
+    document_type: string;
+    version: string;
+    title: string;
+    body: string;
+    published_at: string | null;
+    effective_at: string | null;
+    is_published: boolean;
+    acceptances_count?: number;
+    created_at: string;
+    updated_at: string;
+}
+
+export interface AdminPlatformFeeSettingRecord {
+    id: number;
+    setting_key: string;
+    value_json: Record<string, unknown>;
+    active_from: string | null;
+    active_until: string | null;
+    is_active: boolean;
+    created_by_account?: {
+        public_id: string | null;
+        display_name: string | null;
+        email: string | null;
+    } | null;
     created_at: string;
     updated_at: string;
 }

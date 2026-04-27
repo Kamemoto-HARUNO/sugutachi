@@ -3,6 +3,7 @@ import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatDateTime } from '../lib/therapist';
 import type {
@@ -182,6 +183,7 @@ export function AdminBookingMessagesPage() {
     const selectedMessageId = searchParams.get('message_id');
 
     usePageTitle(booking ? `${booking.public_id} のメッセージ監視` : '予約メッセージ監視');
+    useToastOnMessage(successMessage, 'success');
 
     const loadMessages = useCallback(async (refresh = false) => {
         if (!token || !publicId) {
@@ -795,11 +797,6 @@ export function AdminBookingMessagesPage() {
                 </div>
 
                 <div className="space-y-4">
-                    {successMessage ? (
-                        <section className="rounded-[22px] border border-emerald-300/30 bg-emerald-300/10 px-5 py-4 text-sm text-emerald-100">
-                            {successMessage}
-                        </section>
-                    ) : null}
 
                     {actionError ? (
                         <section className="rounded-[22px] border border-[#f1d4b5] bg-[#fff4e8] px-5 py-4 text-sm text-[#9a4b35]">

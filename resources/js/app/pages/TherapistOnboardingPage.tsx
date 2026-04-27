@@ -3,13 +3,16 @@ import { Link } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import {
     formatDateTime,
     formatIdentityVerificationStatus,
     formatProfileStatus,
     formatRejectionReason,
+    formatStripeRequirementField,
     formatStripeStatus,
+    formatTherapistRequirementKey,
 } from '../lib/therapist';
 import type {
     ApiEnvelope,
@@ -36,6 +39,10 @@ function statusTone(isComplete: boolean): string {
     return isComplete
         ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100'
         : 'border-amber-300/30 bg-amber-300/10 text-amber-100';
+}
+
+function badgeClassName(isComplete: boolean): string {
+    return `inline-flex shrink-0 items-center whitespace-nowrap rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(isComplete)}`;
 }
 
 function photoReviewLabel(status: string | null | undefined): string {
@@ -76,6 +83,7 @@ export function TherapistOnboardingPage() {
     const [isSubmittingReview, setIsSubmittingReview] = useState(false);
 
     usePageTitle('セラピスト準備状況');
+    useToastOnMessage(error, 'error');
 
     const loadData = useCallback(async () => {
         if (!token) {
@@ -168,7 +176,7 @@ export function TherapistOnboardingPage() {
             {
                 key: 'stripe',
                 title: '売上受取設定',
-                description: 'Stripe Connect で本人情報と受取口座を登録します。',
+                description: '受取設定で本人情報と受取口座を登録します。',
                 value: formatStripeStatus(stripeStatus?.status),
                 isComplete: isStripeReady,
                 to: '/therapist/stripe-connect',
@@ -202,13 +210,6 @@ export function TherapistOnboardingPage() {
     const profileStatus = reviewStatus?.profile.profile_status ?? null;
     const publishedSlotCount = availabilitySlots.filter((slot) => slot.status === 'published').length;
     const activePricingRuleCount = pricingRules.filter((rule) => rule.is_active).length;
-    const hasPastDueStripeRequirements = Boolean(stripeStatus?.requirements_past_due?.length);
-    const nextRecommendedLink = !setupSteps.find((step) => !step.isComplete)?.to
-        ? '/therapist/profile'
-        : setupSteps.find((step) => !step.isComplete)?.to ?? '/therapist/profile';
-    const nextRecommendedLabel = setupSteps.find((step) => !step.isComplete)?.actionLabel ?? 'プロフィールを確認';
-    const nextRecommendedTitle = setupSteps.find((step) => !step.isComplete)?.title ?? '公開後の調整';
-
     async function submitReview() {
         if (!token || !canSubmit) {
             return;
@@ -245,7 +246,7 @@ export function TherapistOnboardingPage() {
             <section className="space-y-5 rounded-[28px] border border-white/10 bg-white/5 p-6 md:p-8">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">ONBOARDING</p>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">準備状況</p>
                         <div className="space-y-2">
                             <h1 className="text-3xl font-semibold text-white">セラピスト準備状況</h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300">
@@ -255,29 +256,12 @@ export function TherapistOnboardingPage() {
                     </div>
 
                     <div className="rounded-2xl border border-white/10 bg-[#111923] px-5 py-4 text-sm text-slate-200">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">SETUP SCORE</p>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">進捗</p>
                         <p className="mt-2 text-3xl font-semibold text-white">{completedStepCount} / {setupSteps.length}</p>
                         <p className="mt-2 text-sm text-slate-300">主要ステップの完了数</p>
                     </div>
                 </div>
 
-                <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full border border-white/10 px-3 py-1 text-sm text-slate-200">
-                        プロフィール: {formatProfileStatus(profileStatus)}
-                    </span>
-                    <span className="rounded-full border border-white/10 px-3 py-1 text-sm text-slate-200">
-                        本人確認: {formatIdentityVerificationStatus(identityVerification?.status)}
-                    </span>
-                    <span className="rounded-full border border-white/10 px-3 py-1 text-sm text-slate-200">
-                        Stripe: {formatStripeStatus(stripeStatus?.status)}
-                    </span>
-                </div>
-
-                {error ? (
-                    <div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-                        {error}
-                    </div>
-                ) : null}
 
                 {reviewStatus?.profile.rejected_reason_code ? (
                     <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm leading-7 text-amber-100">
@@ -294,7 +278,7 @@ export function TherapistOnboardingPage() {
                                 <p className="text-sm font-semibold text-white">{step.title}</p>
                                 <p className="text-sm leading-7 text-slate-300">{step.description}</p>
                             </div>
-                            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(step.isComplete)}`}>
+                            <span className={badgeClassName(step.isComplete)}>
                                 {step.isComplete ? '完了' : '未完了'}
                             </span>
                         </div>
@@ -313,7 +297,7 @@ export function TherapistOnboardingPage() {
                 <article className="rounded-[24px] border border-white/10 bg-white/5 p-6">
                     <div className="flex items-start justify-between gap-3">
                         <div className="space-y-2">
-                            <p className="text-xs font-semibold tracking-wide text-rose-200">REVIEW CHECKLIST</p>
+                            <p className="text-xs font-semibold tracking-wide text-rose-200">審査チェック</p>
                             <h2 className="text-xl font-semibold text-white">公開審査の条件</h2>
                         </div>
                         <button
@@ -336,9 +320,9 @@ export function TherapistOnboardingPage() {
                             >
                                 <div>
                                     <p className="text-sm font-semibold text-white">{requirement.label}</p>
-                                    <p className="text-xs text-slate-400">{requirement.key}</p>
+                                    <p className="text-xs text-slate-400">確認項目: {formatTherapistRequirementKey(requirement.key)}</p>
                                 </div>
-                                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(requirement.is_satisfied)}`}>
+                                <span className={badgeClassName(requirement.is_satisfied)}>
                                     {requirement.is_satisfied ? 'OK' : '要対応'}
                                 </span>
                             </div>
@@ -349,7 +333,7 @@ export function TherapistOnboardingPage() {
                                 <p className="text-sm font-semibold text-white">写真審査</p>
                                 <p className="text-xs text-slate-400">プロフィール写真の提出状態です。</p>
                             </div>
-                            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(reviewStatus?.profile.photo_review_status === 'approved' || reviewStatus?.profile.photo_review_status === 'pending')}`}>
+                            <span className={badgeClassName(reviewStatus?.profile.photo_review_status === 'approved' || reviewStatus?.profile.photo_review_status === 'pending')}>
                                 {photoReviewLabel(reviewStatus?.profile.photo_review_status)}
                             </span>
                         </div>
@@ -359,7 +343,7 @@ export function TherapistOnboardingPage() {
                                 <p className="text-sm font-semibold text-white">空き枠の公開</p>
                                 <p className="text-xs text-slate-400">公開中の予定予約枠と出動拠点の準備です。</p>
                             </div>
-                            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(Boolean(bookingSetting?.can_publish_scheduled_bookings && publishedSlotCount > 0))}`}>
+                            <span className={badgeClassName(Boolean(bookingSetting?.can_publish_scheduled_bookings && publishedSlotCount > 0))}>
                                 {bookingSetting?.can_publish_scheduled_bookings && publishedSlotCount > 0 ? `公開中 ${publishedSlotCount}件` : '要対応'}
                             </span>
                         </div>
@@ -368,7 +352,7 @@ export function TherapistOnboardingPage() {
 
                 <article className="space-y-4 rounded-[24px] border border-white/10 bg-white/5 p-6">
                     <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">CURRENT STATUS</p>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">現在の状態</p>
                         <h2 className="text-xl font-semibold text-white">いまの状態</h2>
                     </div>
 
@@ -389,12 +373,12 @@ export function TherapistOnboardingPage() {
                     </div>
 
                     <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
-                        <p className="text-sm font-semibold text-white">Stripe Connect</p>
+                        <p className="text-sm font-semibold text-white">受取設定</p>
                         <p className="mt-2 text-sm text-slate-300">{formatStripeStatus(stripeStatus?.status)}</p>
                         {stripeStatus?.requirements_currently_due?.length ? (
                             <ul className="mt-3 space-y-1 text-xs text-slate-400">
                                 {stripeStatus.requirements_currently_due.slice(0, 4).map((requirement) => (
-                                    <li key={requirement}>- {requirement}</li>
+                                    <li key={requirement}>- {formatStripeRequirementField(requirement)}</li>
                                 ))}
                             </ul>
                         ) : (
@@ -433,7 +417,7 @@ export function TherapistOnboardingPage() {
                             to="/therapist/stripe-connect"
                             className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
                         >
-                            Stripeを確認
+                            受取設定を確認
                         </Link>
                         <Link
                             to="/therapist/availability"
@@ -443,45 +427,6 @@ export function TherapistOnboardingPage() {
                         </Link>
                     </div>
                 </article>
-            </section>
-
-            <section className="rounded-[24px] border border-white/10 bg-white/5 p-6">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">NEXT ACTION</p>
-                        <h2 className="text-xl font-semibold text-white">次に進むときのおすすめ</h2>
-                        <p className="text-sm leading-7 text-slate-300">
-                            いま未完了の項目から順に埋めれば、公開審査と予定予約の準備がそのまま整っていきます。
-                        </p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-3">
-                        <Link
-                            to={nextRecommendedLink}
-                            className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
-                        >
-                            {nextRecommendedTitle}: {nextRecommendedLabel}
-                        </Link>
-                        <Link
-                            to="/therapist/availability"
-                            className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
-                        >
-                            空き枠へ進む
-                        </Link>
-                        <Link
-                            to="/therapist/pricing"
-                            className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
-                        >
-                            料金ルールへ
-                        </Link>
-                    </div>
-                </div>
-
-                {hasPastDueStripeRequirements ? (
-                    <div className="mt-5 rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm leading-7 text-amber-100">
-                        Stripe Connect に期限切れの追加提出項目があります。受取設定画面から内容を確認してください。
-                    </div>
-                ) : null}
             </section>
         </div>
     );

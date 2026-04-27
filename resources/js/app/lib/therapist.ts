@@ -94,3 +94,74 @@ export function formatDate(value: string | null | undefined): string {
         day: 'numeric',
     }).format(date);
 }
+
+export function formatTherapistRequirementKey(key: string | null | undefined): string {
+    switch (key) {
+        case 'public_name':
+            return '公開名';
+        case 'active_menu':
+            return '有効メニュー';
+        case 'identity_verification':
+            return '本人確認';
+        default:
+            return '設定内容';
+    }
+}
+
+export function formatStripeRequirementField(key: string | null | undefined): string {
+    switch (key) {
+        case 'business_profile.mcc':
+            return '業種カテゴリの確認';
+        case 'business_profile.product_description':
+            return 'サービス内容の説明';
+        case 'external_account':
+            return '受取口座の登録';
+        case 'individual.address.line1':
+            return '住所1行目';
+        case 'individual.address.city':
+            return '市区町村';
+        case 'individual.address.postal_code':
+            return '郵便番号';
+        case 'individual.dob.day':
+        case 'individual.dob.month':
+        case 'individual.dob.year':
+            return '生年月日';
+        case 'individual.email':
+            return 'メールアドレス';
+        case 'individual.first_name':
+        case 'individual.last_name':
+            return '氏名';
+        case 'individual.id_number':
+            return '本人確認番号';
+        case 'individual.phone':
+            return '電話番号';
+        case 'individual.ssn_last_4':
+            return '本人確認番号下4桁';
+        case 'individual.verification.document':
+            return '本人確認書類';
+        case 'individual.verification.additional_document':
+            return '追加本人確認書類';
+        case 'representative.verification.document':
+            return '代表者の本人確認書類';
+        case 'tos_acceptance.date':
+        case 'tos_acceptance.ip':
+            return '利用規約同意';
+        default:
+            return '追加確認項目';
+    }
+}
+
+export function formatNotificationType(type: string | null | undefined): string {
+    switch (type) {
+        case 'travel_request_received':
+            return '出張リクエスト受信';
+        case 'travel_request_warning':
+            return '出張リクエスト注意';
+        case 'travel_request_restricted':
+            return '出張リクエスト制限';
+        case 'booking_refunded':
+            return '返金完了';
+        default:
+            return 'アプリ通知';
+    }
+}

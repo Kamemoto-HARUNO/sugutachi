@@ -1,6 +1,6 @@
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { BrandMark } from '../components/brand/BrandMark';
-import { getAccountDisplayName, getRoleHomePath } from '../lib/account';
+import { getRoleHomePath } from '../lib/account';
 import { publicNavItems } from '../lib/navigation';
 import { useAuth } from '../hooks/useAuth';
 
@@ -12,11 +12,12 @@ function navLinkClass(isActive: boolean): string {
 }
 
 export function PublicLayout() {
-    const { account, activeRole, isAuthenticated, logout } = useAuth();
+    const { activeRole, hasRole, isAuthenticated, logout } = useAuth();
     const location = useLocation();
     const returnTo = `${location.pathname}${location.search}`;
     const loginPath = location.pathname === '/login' ? '/login' : `/login?return_to=${encodeURIComponent(returnTo)}`;
     const registerPath = location.pathname === '/register' ? '/register' : `/register?return_to=${encodeURIComponent(returnTo)}`;
+    const myPagePath = hasRole('user') ? '/user' : activeRole ? getRoleHomePath(activeRole) : '/role-select';
 
     return (
         <div className="min-h-screen">
@@ -48,10 +49,10 @@ export function PublicLayout() {
                                         モード管理
                                     </Link>
                                     <Link
-                                        to={activeRole ? getRoleHomePath(activeRole) : '/role-select'}
+                                        to={myPagePath}
                                         className="rounded-full border border-rose-300/40 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-300/10"
                                     >
-                                        {getAccountDisplayName(account)}
+                                        マイページ
                                     </Link>
                                     <button
                                         type="button"

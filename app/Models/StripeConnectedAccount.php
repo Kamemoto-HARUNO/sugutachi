@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Guarded;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Str;
 
 #[Guarded(['id'])]
 class StripeConnectedAccount extends Model
@@ -36,6 +37,19 @@ class StripeConnectedAccount extends Model
     public function payoutRequests(): HasMany
     {
         return $this->hasMany(PayoutRequest::class);
+    }
+
+    public function canReceiveStripeTransfers(): bool
+    {
+        if (! $this->charges_enabled || blank($this->stripe_account_id)) {
+            return false;
+        }
+
+        if (app()->environment(['local', 'testing']) && Str::startsWith($this->stripe_account_id, 'acct_preview_')) {
+            return false;
+        }
+
+        return true;
     }
 
     protected function casts(): array

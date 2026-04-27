@@ -471,9 +471,9 @@ export function UserProfilePage() {
         },
         {
             key: 'address',
-            label: '施術場所',
+            label: '待ち合わせ場所',
             description: defaultServiceAddress
-                ? 'デフォルトの施術場所が設定されています。'
+                ? 'デフォルトの待ち合わせ場所が設定されています。'
                 : '来てほしい場所を先に登録しておくと予約が早く進みます。',
             isComplete: defaultServiceAddress !== null,
             actionLabel: defaultServiceAddress ? '住所を確認する' : '住所を追加する',
@@ -733,7 +733,7 @@ export function UserProfilePage() {
                             to="/user/service-addresses"
                             className="inline-flex items-center rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8"
                         >
-                            施術場所を管理
+                            待ち合わせ場所を管理
                         </Link>
                         <Link
                             to="/role-select"
@@ -1136,7 +1136,7 @@ export function UserProfilePage() {
                                 </p>
                             </div>
                             <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">施術場所</p>
+                                <p className="text-xs font-semibold text-[#7d6852]">待ち合わせ場所</p>
                                 <p className="mt-1 font-semibold text-[#17202b]">
                                     {defaultServiceAddress
                                         ? `${defaultServiceAddress.prefecture ?? ''}${defaultServiceAddress.city ?? ''} / ${formatPlaceType(defaultServiceAddress.place_type)}`

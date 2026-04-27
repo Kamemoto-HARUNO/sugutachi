@@ -1,13 +1,16 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link, Navigate, useSearchParams } from 'react-router-dom';
+import { BookingFlowSteps } from '../components/booking/BookingFlowSteps';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatCurrency, getServiceAddressLabel } from '../lib/discovery';
 import type {
     ApiEnvelope,
     BookingDetailRecord,
+    PaymentIntentRecord,
 } from '../lib/types';
 
 const pollingStatuses = new Set(['payment_authorizing', 'requested']);
@@ -27,7 +30,7 @@ function bookingStatusLabel(status: string): string {
         case 'in_progress':
             return '施術中';
         case 'therapist_completed':
-            return '完了確認待ち';
+            return 'あなたの完了確認待ち';
         case 'completed':
             return '完了';
         case 'rejected':
@@ -72,7 +75,7 @@ function paymentStatusLabel(value: string | null | undefined): string {
         case 'canceled':
             return '与信取消';
         default:
-            return '未作成';
+            return '確認中';
     }
 }
 
@@ -122,8 +125,8 @@ function waitingDescription(booking: BookingDetailRecord): string {
     switch (booking.status) {
         case 'payment_authorizing':
             return booking.current_payment_intent?.status === 'requires_capture'
-                ? 'ローカルでは webhook 反映待ちになることがあります。数秒後に更新して、承諾待ちへ進んだか確認してください。'
-                : 'カード与信の作成が完了すると、承諾待ちへ進みます。';
+                ? 'カード与信は確保済みです。承諾待ちへ切り替わるまで、この画面でそのままお待ちください。'
+                : 'カード与信の確認が終わると、承諾待ちへ進みます。';
         case 'requested':
             return '承諾されるまで仮押さえ状態です。期限切れや辞退になった場合は与信取消の対象です。';
         case 'accepted':
@@ -149,6 +152,7 @@ export function UserBookingWaitingPage() {
     const bookingId = searchParams.get('booking_id');
 
     usePageTitle('予約待機');
+    useToastOnMessage(error, 'error');
 
     const loadBooking = useCallback(async (refreshOnly = false) => {
         if (!token || !bookingId) {
@@ -162,8 +166,15 @@ export function UserBookingWaitingPage() {
         }
 
         try {
-            const payload = await apiRequest<ApiEnvelope<BookingDetailRecord>>(`/bookings/${bookingId}`, { token });
-            setBooking(unwrapData(payload));
+            const payload = await apiRequest<ApiEnvelope<{ booking: BookingDetailRecord; payment_intent: PaymentIntentRecord | null }>>(
+                `/bookings/${bookingId}/payment-sync`,
+                {
+                    method: 'POST',
+                    token,
+                },
+            );
+            const synced = unwrapData(payload);
+            setBooking(synced.booking);
             setError(null);
         } catch (requestError) {
             const nextMessage = requestError instanceof ApiError
@@ -243,7 +254,7 @@ export function UserBookingWaitingPage() {
     return (
         <div className="space-y-8">
             <section className="rounded-[32px] bg-[linear-gradient(140deg,#17202b_0%,#223245_100%)] p-6 text-white shadow-[0_24px_60px_rgba(15,23,42,0.28)] sm:p-8">
-                <p className="text-xs font-semibold tracking-wide text-[#f3dec0]">BOOKING WAITING</p>
+                <p className="text-xs font-semibold tracking-wide text-[#f3dec0]">STEP 2</p>
                 <div className="mt-4 flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                     <div className="space-y-3">
                         <h1 className="text-3xl font-semibold">{waitingHeadline(booking)}</h1>
@@ -262,11 +273,8 @@ export function UserBookingWaitingPage() {
                 </div>
             </section>
 
-            {error ? (
-                <section className="rounded-[24px] border border-[#f1d4b5] bg-[#fff4e8] px-5 py-4 text-sm text-[#9a4b35]">
-                    {error}
-                </section>
-            ) : null}
+            <BookingFlowSteps current="waiting" />
+
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_360px]">
                 <section className="space-y-6">
@@ -296,7 +304,7 @@ export function UserBookingWaitingPage() {
                                 </p>
                             </div>
                             <div className="rounded-[20px] bg-[#f8f4ed] px-4 py-4">
-                                <p className="text-xs font-semibold tracking-wide text-[#7d6852]">施術場所</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#7d6852]">待ち合わせ場所</p>
                                 <p className="mt-2 text-sm font-semibold text-[#17202b]">
                                     {booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
                                 </p>
@@ -365,8 +373,8 @@ export function UserBookingWaitingPage() {
                     <section className="rounded-[28px] bg-[#17202b] p-6 text-white shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                         <p className="text-xs font-semibold tracking-wide text-[#d2b179]">STATUS NOTE</p>
                         <p className="mt-3 text-sm leading-7 text-[#d8d3ca]">
-                            ローカル環境では Stripe webhook 反映がすぐ来ないことがあります。
-                            与信状態が進んでいれば、まずはこの画面の更新と予約一覧の両方で確認してみてください。
+                            カード確認の直後は、承諾待ちへ切り替わるまで数秒かかることがあります。
+                            自動で切り替わらないときは、この画面の更新ボタンでもう一度確認できます。
                         </p>
                     </section>
                 </aside>

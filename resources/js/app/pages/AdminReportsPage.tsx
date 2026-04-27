@@ -3,6 +3,7 @@ import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom'
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatDateTime } from '../lib/therapist';
 import type {
@@ -146,6 +147,7 @@ export function AdminReportsPage() {
     const targetFilter = searchParams.get('target_account_id') ?? '';
 
     usePageTitle('通報管理');
+    useToastOnMessage(successMessage, 'success');
 
     const loadReports = useCallback(async (refresh = false) => {
         if (!token) {
@@ -574,11 +576,6 @@ export function AdminReportsPage() {
                 </div>
 
                 <div className="space-y-4">
-                    {successMessage ? (
-                        <section className="rounded-[22px] border border-emerald-300/30 bg-emerald-300/10 px-5 py-4 text-sm text-emerald-100">
-                            {successMessage}
-                        </section>
-                    ) : null}
 
                     {actionError ? (
                         <section className="rounded-[22px] border border-[#f1d4b5] bg-[#fff4e8] px-5 py-4 text-sm text-[#9a4b35]">

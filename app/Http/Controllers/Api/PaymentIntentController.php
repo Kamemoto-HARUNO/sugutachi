@@ -42,10 +42,10 @@ class PaymentIntentController extends Controller
                 'capture_method' => 'manual',
                 'currency' => config('services.stripe.currency', 'jpy'),
                 'amount' => $quote->total_amount,
-                'application_fee_amount' => $connectedAccount?->charges_enabled
+                'application_fee_amount' => $connectedAccount?->canReceiveStripeTransfers()
                     ? $quote->platform_fee_amount + $quote->matching_fee_amount
                     : 0,
-                'transfer_amount' => $connectedAccount?->charges_enabled
+                'transfer_amount' => $connectedAccount?->canReceiveStripeTransfers()
                     ? $quote->therapist_net_amount
                     : 0,
                 'is_current' => true,

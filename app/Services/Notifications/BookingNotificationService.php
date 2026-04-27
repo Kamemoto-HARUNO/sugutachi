@@ -5,12 +5,15 @@ namespace App\Services\Notifications;
 use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\Refund;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Crypt;
 
 class BookingNotificationService
 {
     public function notifyRequested(Booking $booking): void
     {
+        $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);
+
         $this->create(
             accountId: $booking->therapist_account_id,
             type: 'booking_requested',
@@ -29,6 +32,8 @@ class BookingNotificationService
 
     public function notifyAccepted(Booking $booking): void
     {
+        $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);
+
         $this->create(
             accountId: $booking->user_account_id,
             type: 'booking_accepted',
@@ -42,6 +47,165 @@ class BookingNotificationService
                 'buffer_after_minutes' => $booking->buffer_after_minutes,
             ],
         );
+
+        $this->sendEmail(
+            email: $booking->userAccount?->email,
+            subject: '予約が承諾されました',
+            body: '予約リクエストが承諾されました。アプリから予約詳細をご確認ください。'
+        );
+    }
+
+    public function notifyMoving(Booking $booking): void
+    {
+        $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);
+
+        $this->create(
+            accountId: $booking->user_account_id,
+            type: 'booking_moving',
+            title: 'セラピストが向かっています',
+            body: 'セラピストが移動を開始しました。到着時はアプリに表示される4桁コードをお伝えください。',
+            data: [
+                'booking_public_id' => $booking->public_id,
+                'status' => $booking->status,
+                'arrival_confirmation_code_generated_at' => $booking->arrival_confirmation_code_generated_at?->toJSON(),
+            ],
+        );
+
+        $this->sendEmail(
+            email: $booking->userAccount?->email,
+            subject: 'セラピストが向かっています',
+            body: 'セラピストが移動を開始しました。到着したら、アプリの予約詳細に表示される4桁コードをお伝えください。'
+        );
+    }
+
+    public function notifyArrived(Booking $booking): void
+    {
+        $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);
+
+        $this->create(
+            accountId: $booking->user_account_id,
+            type: 'booking_arrived',
+            title: 'セラピストが到着しました',
+            body: 'セラピストが到着しました。合流後の案内をご確認ください。',
+            data: [
+                'booking_public_id' => $booking->public_id,
+                'status' => $booking->status,
+            ],
+        );
+
+        $this->sendEmail(
+            email: $booking->userAccount?->email,
+            subject: 'セラピストが到着しました',
+            body: 'セラピストが到着しました。アプリから予約詳細やメッセージをご確認ください。'
+        );
+    }
+
+    public function notifyStarted(Booking $booking): void
+    {
+        $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);
+
+        $this->create(
+            accountId: $booking->user_account_id,
+            type: 'booking_started',
+            title: '施術が開始されました',
+            body: 'セラピストが施術開始を記録しました。',
+            data: [
+                'booking_public_id' => $booking->public_id,
+                'status' => $booking->status,
+            ],
+        );
+
+        $this->sendEmail(
+            email: $booking->userAccount?->email,
+            subject: '施術が開始されました',
+            body: '施術が開始されました。何かあればアプリからメッセージや通報をご利用ください。'
+        );
+    }
+
+    public function notifyTherapistCompleted(Booking $booking): void
+    {
+        $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);
+
+        $this->create(
+            accountId: $booking->user_account_id,
+            type: 'booking_therapist_completed',
+            title: '施術終了の確認をお願いします',
+            body: 'セラピストが施術終了を記録しました。レビュー送信または完了確認をお願いします。',
+            data: [
+                'booking_public_id' => $booking->public_id,
+                'status' => $booking->status,
+                'ended_at' => $booking->ended_at?->toJSON(),
+            ],
+        );
+
+        $this->sendEmail(
+            email: $booking->userAccount?->email,
+            subject: '施術終了の確認をお願いします',
+            body: 'セラピストが施術終了を記録しました。アプリでレビュー送信、または完了確認をお願いします。'
+        );
+    }
+
+    public function notifyCompletionReminder(Booking $booking): void
+    {
+        $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);
+
+        $this->create(
+            accountId: $booking->user_account_id,
+            type: 'booking_completion_reminder',
+            title: '施術完了の確認がまだです',
+            body: '施術終了の確認がまだ完了していません。レビュー送信または完了確認をお願いします。',
+            data: [
+                'booking_public_id' => $booking->public_id,
+                'status' => $booking->status,
+            ],
+        );
+
+        $this->sendEmail(
+            email: $booking->userAccount?->email,
+            subject: '施術完了の確認がまだです',
+            body: 'レビュー送信または完了確認を行うと、予約が完了します。アプリからご対応ください。'
+        );
+    }
+
+    public function notifyAutoCompleted(Booking $booking): void
+    {
+        $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);
+
+        $this->create(
+            accountId: $booking->user_account_id,
+            type: 'booking_auto_completed',
+            title: '予約が自動で完了になりました',
+            body: '一定時間経過したため、この予約は自動で完了になりました。',
+            data: [
+                'booking_public_id' => $booking->public_id,
+                'status' => $booking->status,
+                'completed_at' => $booking->completed_at?->toJSON(),
+            ],
+        );
+
+        $this->create(
+            accountId: $booking->therapist_account_id,
+            type: 'booking_auto_completed',
+            title: '予約が自動で完了になりました',
+            body: '利用者確認がなかったため、この予約は自動で完了になりました。',
+            data: [
+                'booking_public_id' => $booking->public_id,
+                'status' => $booking->status,
+                'completed_at' => $booking->completed_at?->toJSON(),
+            ],
+        );
+
+        $this->sendEmail(
+            email: $booking->userAccount?->email,
+            subject: '予約が自動で完了になりました',
+            body: '一定時間経過したため、この予約は自動で完了になりました。'
+        );
+
+        $this->sendEmail(
+            email: $booking->therapistAccount?->email,
+            subject: '予約が自動で完了になりました',
+            body: '利用者確認がなかったため、この予約は自動で完了になりました。'
+        );
     }
 
     public function notifyCanceled(
@@ -50,6 +214,8 @@ class BookingNotificationService
         ?string $reasonCode = null,
         ?string $reasonNote = null,
     ): void {
+        $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);
+
         $reasonCode ??= (string) ($booking->cancel_reason_code ?? '');
         $reasonNote ??= $booking->cancel_reason_note_encrypted
             ? rescue(fn () => Crypt::decryptString($booking->cancel_reason_note_encrypted), null, false)
@@ -109,6 +275,8 @@ class BookingNotificationService
         ?string $reasonNote = null,
         ?int $recipientAccountId = null,
     ): void {
+        $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);
+
         $reasonCode ??= (string) ($booking->cancel_reason_code ?? '');
         $reasonNote ??= $booking->cancel_reason_note_encrypted
             ? rescue(fn () => Crypt::decryptString($booking->cancel_reason_note_encrypted), null, false)
@@ -143,6 +311,19 @@ class BookingNotificationService
             'status' => 'sent',
             'sent_at' => now(),
         ]);
+    }
+
+    private function sendEmail(?string $email, string $subject, string $body): void
+    {
+        if (blank($email)) {
+            return;
+        }
+
+        rescue(function () use ($body, $email, $subject): void {
+            Mail::raw($body, function ($message) use ($email, $subject): void {
+                $message->to($email)->subject($subject);
+            });
+        }, report: false);
     }
 
     private function cancellationRecipientId(Booking $booking): int

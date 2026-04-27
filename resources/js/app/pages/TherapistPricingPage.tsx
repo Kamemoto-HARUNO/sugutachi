@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import type {
     ApiEnvelope,
@@ -353,6 +354,8 @@ export function TherapistPricingPage() {
     const [deletingRuleId, setDeletingRuleId] = useState<number | null>(null);
 
     usePageTitle('料金ルール');
+    useToastOnMessage(error, 'error');
+    useToastOnMessage(successMessage, 'success');
 
     const loadData = useCallback(async () => {
         if (!token) {
@@ -633,7 +636,7 @@ export function TherapistPricingPage() {
             <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_16px_34px_rgba(2,6,23,0.14)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">PRICING RULES</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">料金ルール</p>
                         <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">料金ルール</h2>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
                             属性別、時間帯別、徒歩目安別の調整をここで管理します。プロフィール共通ルールとメニュー個別ルールを組み合わせて、
@@ -673,24 +676,12 @@ export function TherapistPricingPage() {
                 ))}
             </section>
 
-            {error ? (
-                <div className="rounded-2xl border border-rose-400/30 bg-rose-400/10 px-4 py-3 text-sm text-rose-100">
-                    {error}
-                </div>
-            ) : null}
-
-            {successMessage ? (
-                <div className="rounded-2xl border border-emerald-400/30 bg-emerald-400/10 px-4 py-3 text-sm text-emerald-100">
-                    {successMessage}
-                </div>
-            ) : null}
-
             <section className="grid gap-6 lg:grid-cols-[minmax(0,1.1fr)_420px]">
                 <div className="space-y-4">
                     <article className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_14px_30px_rgba(2,6,23,0.12)]">
                         <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
                             <div className="space-y-2">
-                                <p className="text-xs font-semibold tracking-wide text-[#d2b179]">RULE LIST</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#d2b179]">ルール一覧</p>
                                 <h3 className="text-xl font-semibold text-white">現在のルール</h3>
                                 <p className="text-sm leading-7 text-slate-300">
                                     メニュー個別ルールはプロフィール共通ルールより先に評価されます。priority が小さいほど先に適用されます。
@@ -795,7 +786,7 @@ export function TherapistPricingPage() {
 
                 <article className="space-y-5 rounded-[24px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_14px_30px_rgba(2,6,23,0.12)] lg:sticky lg:top-6 lg:self-start">
                     <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">RULE EDITOR</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">ルール編集</p>
                         <h3 className="text-xl font-semibold text-white">
                             {draft.id === null ? '料金ルールを追加' : `ルール #${draft.id} を編集`}
                         </h3>

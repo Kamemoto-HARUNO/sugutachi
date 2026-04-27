@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import type { ApiEnvelope, LegalDocumentSummary } from '../lib/types';
 
@@ -13,6 +14,7 @@ export function LegalDocumentPage({ documentType, title }: LegalDocumentPageProp
     const [error, setError] = useState<string | null>(null);
 
     usePageTitle(title);
+    useToastOnMessage(error, 'error');
 
     useEffect(() => {
         let isMounted = true;
@@ -53,7 +55,6 @@ export function LegalDocumentPage({ documentType, title }: LegalDocumentPageProp
                         {documentData.effective_at ? ` / 発効 ${new Date(documentData.effective_at).toLocaleDateString('ja-JP')}` : ''}
                     </p>
                 ) : null}
-                {error ? <p className="text-sm text-amber-200">{error}</p> : null}
             </section>
 
             <section className="rounded-lg border border-white/10 bg-white/5 p-6">

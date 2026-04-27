@@ -34,10 +34,10 @@ export function SectionHomePage({ title, description, eyebrow, actions }: Sectio
                         to={action.to}
                         className="rounded-[24px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_16px_34px_rgba(2,6,23,0.12)] transition hover:-translate-y-0.5 hover:bg-white/[0.07] hover:shadow-[0_22px_42px_rgba(2,6,23,0.18)]"
                     >
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">QUICK ACTION</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">よく使う操作</p>
                         <h3 className="mt-3 text-xl font-semibold text-white">{action.label}</h3>
                         <p className="mt-3 text-sm leading-7 text-slate-300">{action.description}</p>
-                        <p className="mt-5 text-sm font-semibold text-white">この画面へ進む</p>
+                        <p className="mt-5 text-sm font-semibold text-white">開く</p>
                     </Link>
                 ))}
             </section>

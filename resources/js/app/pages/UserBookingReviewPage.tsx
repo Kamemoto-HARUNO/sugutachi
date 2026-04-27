@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { getServiceAddressLabel } from '../lib/discovery';
 import type {
@@ -38,7 +39,7 @@ function statusLabel(status: string): string {
         case 'in_progress':
             return '施術中';
         case 'therapist_completed':
-            return '完了確認待ち';
+            return 'あなたの完了確認待ち';
         case 'completed':
             return '完了';
         case 'rejected':
@@ -251,7 +252,9 @@ export function UserBookingReviewPage() {
         }
 
         if (isReviewable) {
-            return '施術後の感想を共有して、今後の利用者の判断材料にできます。';
+            return booking.status === 'therapist_completed'
+                ? 'レビューを送ると、この予約はそのまま完了になります。'
+                : '施術後の感想を共有して、今後の利用者の判断材料にできます。';
         }
 
         return 'レビューは施術完了後に送信できます。完了確認前はまだ投稿できません。';
@@ -263,6 +266,8 @@ export function UserBookingReviewPage() {
         if (!token || !publicId || existingReview || !ratingOverall || !isReviewable) {
             return;
         }
+
+        const shouldCompleteBooking = booking?.status === 'therapist_completed';
 
         setIsSubmitting(true);
         setFormError(null);
@@ -286,8 +291,9 @@ export function UserBookingReviewPage() {
 
             const review = unwrapData(payload);
             setExistingReview(review);
-            setSuccessMessage('レビューを送信しました。');
             setPrivateFeedback('');
+            await loadData();
+            setSuccessMessage(shouldCompleteBooking ? 'レビューを送信し、予約を完了しました。' : 'レビューを送信しました。');
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -368,11 +374,6 @@ export function UserBookingReviewPage() {
                 </section>
             ) : null}
 
-            {successMessage ? (
-                <section className="rounded-[24px] border border-[#cfe5d5] bg-[#edf8f0] px-5 py-4 text-sm text-[#24553a]">
-                    {successMessage}
-                </section>
-            ) : null}
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
                 <section className="space-y-5">
@@ -478,7 +479,7 @@ export function UserBookingReviewPage() {
                                 disabled={isSubmitting || !isReviewable || !ratingOverall}
                                 className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                {isSubmitting ? '送信中...' : 'レビューを送信する'}
+                                {isSubmitting ? '送信中...' : booking.status === 'therapist_completed' ? 'レビューを送信して完了する' : 'レビューを送信する'}
                             </button>
                         </form>
                     )}
@@ -493,7 +494,7 @@ export function UserBookingReviewPage() {
                                 <p className="mt-1 font-semibold text-[#17202b]">{buildPrimaryTime(booking)}</p>
                             </div>
                             <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">施術場所</p>
+                                <p className="text-xs font-semibold text-[#7d6852]">待ち合わせ場所</p>
                                 <p className="mt-1 font-semibold text-[#17202b]">
                                     {booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
                                 </p>

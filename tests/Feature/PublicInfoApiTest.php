@@ -207,6 +207,10 @@ class PublicInfoApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(2, 'data')
             ->assertJsonPath('data.0.public_id', 'thp_public_online')
+            ->assertJsonPath('data.0.age', null)
+            ->assertJsonPath('data.0.height_cm', null)
+            ->assertJsonPath('data.0.weight_kg', null)
+            ->assertJsonPath('data.0.p_size_cm', null)
             ->assertJsonPath('data.0.walking_time_range', null)
             ->assertJsonPath('data.0.estimated_total_amount', null)
             ->assertJsonPath('data.1.public_id', 'thp_public_offline');

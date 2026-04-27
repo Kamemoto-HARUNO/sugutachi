@@ -3,6 +3,7 @@ import { Link, useParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatCurrency, getServiceAddressLabel } from '../lib/discovery';
 import type {
@@ -45,7 +46,7 @@ function statusLabel(status: string): string {
         case 'in_progress':
             return '施術中';
         case 'therapist_completed':
-            return '利用者確認待ち';
+            return '利用者の完了確認待ち';
         case 'completed':
             return '完了';
         case 'rejected':
@@ -87,10 +88,6 @@ function statusTone(status: string): string {
     }
 }
 
-function requestTypeLabel(value: BookingDetailRecord['request_type']): string {
-    return value === 'scheduled' ? '予定予約' : '今すぐ';
-}
-
 function paymentStatusLabel(value: string | null | undefined): string {
     switch (value) {
         case 'requires_capture':
@@ -102,6 +99,98 @@ function paymentStatusLabel(value: string | null | undefined): string {
         default:
             return '未作成';
     }
+}
+
+function therapistRewardAmount(
+    booking: Pick<BookingDetailRecord, 'therapist_net_amount' | 'platform_fee_amount'>,
+): number {
+    return Math.max(0, booking.therapist_net_amount + booking.platform_fee_amount);
+}
+
+function formatNegativeCurrency(amount: number): string {
+    return `-${formatCurrency(amount)}`;
+}
+
+function parseCoordinate(value: number | string | null | undefined): number | null {
+    if (value == null || value === '') {
+        return null;
+    }
+
+    const parsed = Number(value);
+
+    return Number.isFinite(parsed) ? parsed : null;
+}
+
+function buildDetailedServiceAddress(address: BookingDetailRecord['service_address']): string | null {
+    if (!address) {
+        return null;
+    }
+
+    const parts = [
+        address.postal_code ? `〒${address.postal_code}` : null,
+        address.prefecture,
+        address.city,
+        address.address_line,
+        address.building,
+    ].filter((part): part is string => Boolean(part));
+
+    return parts.length > 0 ? parts.join(' ') : null;
+}
+
+function buildServiceAddressMapEmbedUrl(address: BookingDetailRecord['service_address']): string | null {
+    const latitude = parseCoordinate(address?.lat);
+    const longitude = parseCoordinate(address?.lng);
+
+    if (latitude === null || longitude === null) {
+        return null;
+    }
+
+    const lngDelta = 0.008;
+    const latDelta = 0.006;
+    const params = new URLSearchParams({
+        bbox: [
+            longitude - lngDelta,
+            latitude - latDelta,
+            longitude + lngDelta,
+            latitude + latDelta,
+        ].join(','),
+        layer: 'mapnik',
+        marker: `${latitude},${longitude}`,
+    });
+
+    return `https://www.openstreetmap.org/export/embed.html?${params.toString()}`;
+}
+
+function buildServiceAddressGoogleMapUrl(address: BookingDetailRecord['service_address']): string | null {
+    const latitude = parseCoordinate(address?.lat);
+    const longitude = parseCoordinate(address?.lng);
+
+    if (latitude !== null && longitude !== null) {
+        return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${latitude},${longitude}`)}`;
+    }
+
+    const detailedAddress = buildDetailedServiceAddress(address);
+
+    if (!detailedAddress) {
+        return null;
+    }
+
+    return `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(detailedAddress)}`;
+}
+
+function formatBufferSummary(booking: Pick<BookingDetailRecord, 'buffer_before_minutes' | 'buffer_after_minutes'>): string {
+    const beforeMinutes = booking.buffer_before_minutes;
+    const afterMinutes = booking.buffer_after_minutes;
+
+    if (beforeMinutes === 0 && afterMinutes === 0) {
+        return '予約前後の調整時間は設定されていません。';
+    }
+
+    if (beforeMinutes === afterMinutes) {
+        return `予約の前後にそれぞれ ${beforeMinutes}分 の移動・準備時間を確保しています。`;
+    }
+
+    return `開始前 ${beforeMinutes}分 / 終了後 ${afterMinutes}分 の移動・準備時間を確保しています。`;
 }
 
 function refundStatusLabel(status: string): string {
@@ -164,6 +253,7 @@ function buildTimeline(booking: BookingDetailRecord): Array<{ key: string; label
         { key: 'arrived', label: '到着', value: booking.arrived_at, isActive: Boolean(booking.arrived_at) },
         { key: 'started', label: '施術開始', value: booking.started_at, isActive: Boolean(booking.started_at) },
         { key: 'ended', label: '施術終了', value: booking.ended_at, isActive: Boolean(booking.ended_at) },
+        { key: 'completed', label: '完了', value: booking.completed_at ?? null, isActive: Boolean(booking.completed_at) },
     ];
 }
 
@@ -238,10 +328,13 @@ export function TherapistBookingDetailPage() {
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSubmittingStage, setIsSubmittingStage] = useState(false);
+    const [arrivalConfirmationCode, setArrivalConfirmationCode] = useState('');
     const [isLoadingCancelPreview, setIsLoadingCancelPreview] = useState(false);
     const [isCanceling, setIsCanceling] = useState(false);
 
     usePageTitle(booking ? `${booking.counterparty?.display_name ?? '予約'}の詳細` : 'セラピスト予約詳細');
+    useToastOnMessage(successMessage, 'success');
+    useToastOnMessage(error, 'error');
 
     const loadBooking = useCallback(async () => {
         if (!token || !publicId) {
@@ -353,16 +446,20 @@ export function TherapistBookingDetailPage() {
             await apiRequest<ApiEnvelope<BookingDetailRecord>>(`/bookings/${booking.public_id}/${nextAction.path}`, {
                 method: 'POST',
                 token,
+                body: nextAction.path === 'arrived'
+                    ? { arrival_confirmation_code: arrivalConfirmationCode.trim() }
+                    : undefined,
             });
 
             const messageMap: Record<string, string> = {
-                moving: '移動開始を記録しました。',
+                moving: '移動開始を記録しました。利用者の画面に到着確認コードを表示しています。',
                 arrived: '到着を記録しました。',
                 start: '施術開始を記録しました。',
                 complete: '施術完了を記録しました。利用者の確認待ちになります。',
             };
 
             await reloadAfterMutation(messageMap[nextAction.path] ?? '予約状態を更新しました。');
+            setArrivalConfirmationCode('');
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -439,9 +536,6 @@ export function TherapistBookingDetailPage() {
                             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
                                 {statusLabel(booking.status)}
                             </span>
-                            <span className="rounded-full bg-[#f5efe4] px-3 py-1 text-xs font-semibold text-[#48505a]">
-                                {requestTypeLabel(booking.request_type)}
-                            </span>
                         </div>
                         <div className="space-y-2">
                             <h1 className="text-3xl font-semibold">
@@ -472,32 +566,24 @@ export function TherapistBookingDetailPage() {
                 </div>
             </section>
 
-            {error ? (
-                <section className="rounded-[24px] border border-[#f1d4b5] bg-[#fff4e8] px-5 py-4 text-sm text-[#9a4b35]">
-                    {error}
-                </section>
-            ) : null}
 
-            {successMessage ? (
-                <section className="rounded-[24px] border border-emerald-300/30 bg-emerald-300/10 px-5 py-4 text-sm text-emerald-100">
-                    {successMessage}
-                </section>
-            ) : null}
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(360px,0.82fr)]">
                 <section className="space-y-5">
                     <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                             <div className="space-y-2">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">BOOKING SUMMARY</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予約サマリー</p>
                                 <h2 className="text-2xl font-semibold text-[#17202b]">{buildPrimaryTime(booking)}</h2>
                                 <p className="text-sm leading-7 text-[#68707a]">
-                                    施術場所: {booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
+                                    待ち合わせ場所: {booking.service_address
+                                        ? buildDetailedServiceAddress(booking.service_address) ?? getServiceAddressLabel(booking.service_address)
+                                        : '未設定'}
                                 </p>
                             </div>
 
                             <div className="rounded-[22px] bg-[#f8f4ed] px-5 py-4">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">THERAPIST NET</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">受取見込み</p>
                                 <p className="mt-2 text-2xl font-semibold text-[#17202b]">{formatCurrency(booking.therapist_net_amount)}</p>
                             </div>
                         </div>
@@ -525,7 +611,7 @@ export function TherapistBookingDetailPage() {
                     </article>
 
                     <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">TIMELINE</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">進行状況</p>
                         <div className="mt-5 grid gap-4">
                             {timeline.map((item) => (
                                 <div key={item.key} className="flex items-start gap-4">
@@ -544,22 +630,22 @@ export function TherapistBookingDetailPage() {
                         <div className="mt-5 grid gap-4 md:grid-cols-2">
                             <div className="rounded-[22px] bg-[#f8f4ed] p-4">
                                 <p className="text-sm font-semibold text-[#17202b]">決済</p>
-                                <div className="mt-3 space-y-2 text-sm text-[#48505a]">
-                                    <div className="flex items-center justify-between gap-4">
-                                        <span>支払い予定額</span>
-                                        <span className="font-semibold text-[#17202b]">{formatCurrency(booking.total_amount)}</span>
+                                <div className="mt-3 space-y-3">
+                                    <div className="rounded-[18px] bg-white/70 px-4 py-3">
+                                        <p className="text-xs font-semibold tracking-wide text-[#7d6852]">受取予定額</p>
+                                        <p className="mt-2 text-2xl font-semibold text-[#17202b]">
+                                            {formatCurrency(booking.therapist_net_amount)}
+                                        </p>
                                     </div>
-                                    <div className="flex items-center justify-between gap-4">
-                                        <span>マッチング手数料</span>
-                                        <span className="font-semibold text-[#17202b]">{formatCurrency(booking.matching_fee_amount)}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-4">
-                                        <span>プラットフォーム料</span>
-                                        <span className="font-semibold text-[#17202b]">{formatCurrency(booking.platform_fee_amount)}</span>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-4">
-                                        <span>受取予定額</span>
-                                        <span className="font-semibold text-[#17202b]">{formatCurrency(booking.therapist_net_amount)}</span>
+                                    <div className="space-y-2 text-sm text-[#48505a]">
+                                        <div className="flex items-center justify-between gap-4">
+                                            <span>セラピスト謝礼</span>
+                                            <span className="font-semibold text-[#17202b]">{formatCurrency(therapistRewardAmount(booking))}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-4">
+                                            <span>プラットフォーム料金</span>
+                                            <span className="font-semibold text-[#9a4b35]">{formatNegativeCurrency(booking.platform_fee_amount)}</span>
+                                        </div>
                                     </div>
                                 </div>
                             </div>
@@ -606,7 +692,7 @@ export function TherapistBookingDetailPage() {
 
                     {(booking.consents.length > 0 || booking.health_checks.length > 0) ? (
                         <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">SAFETY RECORDS</p>
+                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">安全記録</p>
                             <div className="mt-5 grid gap-5 md:grid-cols-2">
                                 <div className="space-y-3">
                                     <h3 className="text-lg font-semibold text-[#17202b]">同意記録</h3>
@@ -641,22 +727,39 @@ export function TherapistBookingDetailPage() {
 
                 <aside className="space-y-5">
                     <section className="rounded-[28px] bg-[#fffcf7] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.1)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">NEXT ACTION</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">次のおすすめ</p>
                         <div className="mt-4 space-y-4">
                             {nextAction ? (
                                 <>
                                     <div className="rounded-[22px] bg-[#f8f4ed] px-4 py-4">
                                         <p className="text-sm font-semibold text-[#17202b]">{nextAction.label}</p>
                                         <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                            進行ステータスを更新すると、予約一覧や相手側の表示もすぐに追従します。
+                                            {nextAction.path === 'arrived'
+                                                ? '利用者の画面に表示されている4桁コードを入力すると、到着ステータスに進めます。'
+                                                : '進行ステータスを更新すると、予約一覧や相手側の表示もすぐに追従します。'}
                                         </p>
+                                        {nextAction.path === 'arrived' ? (
+                                            <label className="mt-4 block space-y-2">
+                                                <span className="text-xs font-semibold tracking-wide text-[#7d6852]">到着確認コード</span>
+                                                <input
+                                                    type="text"
+                                                    inputMode="numeric"
+                                                    pattern="[0-9]*"
+                                                    maxLength={4}
+                                                    value={arrivalConfirmationCode}
+                                                    onChange={(event) => setArrivalConfirmationCode(event.target.value.replace(/\D/g, '').slice(0, 4))}
+                                                    className="w-full rounded-[18px] border border-[#e4d7c2] bg-white px-4 py-3 text-lg font-semibold tracking-[0.3em] text-[#17202b] outline-none transition focus:border-[#c6a16a]"
+                                                    placeholder="0000"
+                                                />
+                                            </label>
+                                        ) : null}
                                     </div>
                                     <button
                                         type="button"
                                         onClick={() => {
                                             void handleStageAction();
                                         }}
-                                        disabled={isSubmittingStage}
+                                        disabled={isSubmittingStage || (nextAction.path === 'arrived' && arrivalConfirmationCode.trim().length !== 4)}
                                         className="inline-flex w-full items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243447] disabled:cursor-not-allowed disabled:opacity-60"
                                     >
                                         {isSubmittingStage ? '更新中...' : nextAction.label}
@@ -674,7 +777,7 @@ export function TherapistBookingDetailPage() {
                     </section>
 
                     <section className="rounded-[28px] bg-[#fffcf7] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.1)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">DETAILS</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">詳細情報</p>
                         <div className="mt-4 space-y-4 text-sm text-[#48505a]">
                             <div>
                                 <p className="text-xs font-semibold text-[#7d6852]">利用者</p>
@@ -683,26 +786,44 @@ export function TherapistBookingDetailPage() {
                                 </p>
                             </div>
                             <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">施術場所</p>
+                                <p className="text-xs font-semibold text-[#7d6852]">待ち合わせ場所</p>
                                 <p className="mt-1 font-semibold text-[#17202b]">
                                     {booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
                                 </p>
-                                {booking.service_address?.address_line ? (
+                                {buildDetailedServiceAddress(booking.service_address) ? (
                                     <p className="mt-2 text-sm leading-7 text-[#48505a]">
-                                        {booking.service_address.address_line}
-                                        {booking.service_address.building ? ` ${booking.service_address.building}` : ''}
+                                        {buildDetailedServiceAddress(booking.service_address)}
                                     </p>
                                 ) : null}
                                 {booking.service_address?.access_notes ? (
-                                    <p className="mt-2 text-sm leading-7 text-[#48505a]">{booking.service_address.access_notes}</p>
+                                    <p className="mt-2 text-sm leading-7 text-[#48505a]">補足: {booking.service_address.access_notes}</p>
+                                ) : null}
+                                {buildServiceAddressGoogleMapUrl(booking.service_address) ? (
+                                    <a
+                                        href={buildServiceAddressGoogleMapUrl(booking.service_address) ?? undefined}
+                                        target="_blank"
+                                        rel="noreferrer"
+                                        className="mt-3 inline-flex items-center rounded-full border border-[#d9c9ae] px-4 py-2 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
+                                    >
+                                        マップで開く
+                                    </a>
+                                ) : null}
+                                {buildServiceAddressMapEmbedUrl(booking.service_address) ? (
+                                    <div className="mt-3 overflow-hidden rounded-[20px] border border-[#e6dccd] bg-[#f8f4ed]">
+                                        <iframe
+                                            title="待ち合わせ場所の地図"
+                                            src={buildServiceAddressMapEmbedUrl(booking.service_address) ?? undefined}
+                                            className="h-48 w-full border-0"
+                                            loading="lazy"
+                                            referrerPolicy="no-referrer-when-downgrade"
+                                        />
+                                    </div>
                                 ) : null}
                             </div>
                             {booking.request_type === 'scheduled' ? (
                                 <div>
-                                    <p className="text-xs font-semibold text-[#7d6852]">バッファ</p>
-                                    <p className="mt-1 font-semibold text-[#17202b]">
-                                        前 {booking.buffer_before_minutes}分 / 後 {booking.buffer_after_minutes}分
-                                    </p>
+                                    <p className="text-xs font-semibold text-[#7d6852]">予約前後の移動・準備時間</p>
+                                    <p className="mt-1 font-semibold text-[#17202b]">{formatBufferSummary(booking)}</p>
                                 </div>
                             ) : null}
                             {booking.cancel_reason_note ? (
@@ -731,7 +852,7 @@ export function TherapistBookingDetailPage() {
 
                     {canTherapistCancel(booking.status) ? (
                         <section className="rounded-[28px] border border-[#f0d6a4] bg-[#fff7e8] p-6">
-                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">THERAPIST CANCEL</p>
+                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">セラピスト都合キャンセル</p>
                             <div className="mt-4 space-y-4">
                                 <div>
                                     <h2 className="text-xl font-semibold text-[#17202b]">セラピスト都合キャンセル</h2>

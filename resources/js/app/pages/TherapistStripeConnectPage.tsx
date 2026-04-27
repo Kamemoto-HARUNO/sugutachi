@@ -3,8 +3,9 @@ import { Link } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
-import { formatDateTime, formatStripeStatus } from '../lib/therapist';
+import { formatDateTime, formatStripeRequirementField, formatStripeStatus } from '../lib/therapist';
 import type {
     ApiEnvelope,
     StripeAccountLink,
@@ -20,7 +21,8 @@ export function TherapistStripeConnectPage() {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isLaunching, setIsLaunching] = useState(false);
 
-    usePageTitle('Stripe Connect');
+    usePageTitle('受取設定');
+    useToastOnMessage(error, 'error');
 
     const loadStripeStatus = useCallback(async () => {
         if (!token) {
@@ -151,7 +153,7 @@ export function TherapistStripeConnectPage() {
     }
 
     if (isLoading) {
-        return <LoadingScreen title="Stripe Connect を確認中" message="受取設定と提出状況を読み込んでいます。" />;
+        return <LoadingScreen title="受取設定を確認中" message="受取設定と提出状況を読み込んでいます。" />;
     }
 
     return (
@@ -159,15 +161,15 @@ export function TherapistStripeConnectPage() {
             <section className="space-y-4 rounded-[28px] border border-white/10 bg-white/5 p-6 md:p-8">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">STRIPE CONNECT</p>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">受取設定</p>
                         <h1 className="text-3xl font-semibold text-white">売上受取設定</h1>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                            売上の受け取りには Stripe Connect の登録が必要です。本人情報と銀行口座の登録は Stripe-hosted onboarding で進めます。
+                            売上の受け取りには Stripe Connect の登録が必要です。本人情報と銀行口座の登録は Stripe の案内画面で進めます。
                         </p>
                     </div>
 
                     <div className="rounded-2xl border border-white/10 bg-[#111923] px-5 py-4 text-sm text-slate-200">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">STATUS</p>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">現在の状態</p>
                         <p className="mt-2 text-2xl font-semibold text-white">{formatStripeStatus(stripeStatus?.status)}</p>
                         <p className="mt-2 text-xs text-slate-400">
                             {isReady ? '出金準備が整っています。' : '追加対応が必要な可能性があります。'}
@@ -190,17 +192,12 @@ export function TherapistStripeConnectPage() {
                     </Link>
                 </div>
 
-                {error ? (
-                    <div className="rounded-2xl border border-amber-300/30 bg-amber-300/10 px-4 py-3 text-sm text-amber-100">
-                        {error}
-                    </div>
-                ) : null}
             </section>
 
             <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_380px]">
                 <article className="space-y-5 rounded-[24px] border border-white/10 bg-white/5 p-6">
                     <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">ACTIONS</p>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">進め方</p>
                         <h2 className="text-xl font-semibold text-white">受取設定を進める</h2>
                     </div>
 
@@ -217,7 +214,7 @@ export function TherapistStripeConnectPage() {
                                 disabled={isCreatingAccount}
                                 className="inline-flex items-center rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                {isCreatingAccount ? '作成中...' : 'Stripe Connect を開始する'}
+                                {isCreatingAccount ? '作成中...' : '受取設定を始める'}
                             </button>
                         </div>
                     ) : (
@@ -236,7 +233,7 @@ export function TherapistStripeConnectPage() {
                                     disabled={isLaunching}
                                     className="inline-flex items-center rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
-                                    {isLaunching ? '移動中...' : stripeStatus.details_submitted ? 'Stripe画面をもう一度開く' : 'Stripe入力を進める'}
+                                    {isLaunching ? '移動中...' : stripeStatus.details_submitted ? '受取設定画面をもう一度開く' : '受取設定を進める'}
                                 </button>
                                 <button
                                     type="button"
@@ -259,7 +256,7 @@ export function TherapistStripeConnectPage() {
 
                 <article className="space-y-4 rounded-[24px] border border-white/10 bg-white/5 p-6">
                     <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">DETAILS</p>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">連携状況</p>
                         <h2 className="text-xl font-semibold text-white">現在の連携状況</h2>
                     </div>
 
@@ -285,7 +282,7 @@ export function TherapistStripeConnectPage() {
                             <p className="text-sm font-semibold text-amber-100">現在不足している項目</p>
                             <ul className="mt-3 space-y-1 text-sm text-amber-100">
                                 {stripeStatus.requirements_currently_due.map((requirement) => (
-                                    <li key={requirement}>- {requirement}</li>
+                                    <li key={requirement}>- {formatStripeRequirementField(requirement)}</li>
                                 ))}
                             </ul>
                         </div>
@@ -296,7 +293,7 @@ export function TherapistStripeConnectPage() {
                             <p className="text-sm font-semibold text-amber-100">期限超過の項目</p>
                             <ul className="mt-3 space-y-1 text-sm text-amber-100">
                                 {stripeStatus.requirements_past_due.map((requirement) => (
-                                    <li key={requirement}>- {requirement}</li>
+                                    <li key={requirement}>- {formatStripeRequirementField(requirement)}</li>
                                 ))}
                             </ul>
                         </div>

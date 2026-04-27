@@ -30,7 +30,7 @@ class BookingQuoteCalculator
         ?float $originLng = null,
     ): array {
         $walking = $this->walkingEstimate($therapistProfile, $serviceAddress, $originLat, $originLng);
-        $baseAmount = (int) round($menu->base_price_amount * $durationMinutes / $menu->duration_minutes);
+        $baseAmount = (int) round($menu->hourly_rate_amount * $durationMinutes / 60);
         $nightFeeAmount = $this->nightFeeAmount($requestedStartAt);
         $travelFeeAmount = $this->travelFeeAmount($walking['walking_time_minutes']);
         $pricingRuleResult = $this->pricingRuleResult(

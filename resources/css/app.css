@@ -35,4 +35,8 @@
     a {
         color: inherit;
     }
+
+    h1 {
+        line-height: 1.4;
+    }
 }

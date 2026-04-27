@@ -9,7 +9,7 @@ export const publicNavItems: NavItem[] = [
 ];
 
 export const userNavItems: NavItem[] = [
-    { label: 'ダッシュボード', to: '/user', exact: true },
+    { label: 'マイページ', to: '/user', exact: true },
     { label: '探す', to: '/user/therapists' },
     { label: '予約', to: '/user/bookings' },
     { label: 'プロフィール', to: '/user/profile' },
@@ -18,7 +18,7 @@ export const userNavItems: NavItem[] = [
 ];
 
 export const therapistNavItems: NavItem[] = [
-    { label: 'ダッシュボード', to: '/therapist', exact: true },
+    { label: 'マイページ', to: '/therapist', exact: true },
     { label: '準備状況', to: '/therapist/onboarding' },
     { label: 'プロフィール', to: '/therapist/profile' },
     { label: '料金', to: '/therapist/pricing' },
@@ -28,10 +28,11 @@ export const therapistNavItems: NavItem[] = [
     { label: '予約', to: '/therapist/bookings' },
     { label: '出張リクエスト', to: '/therapist/travel-requests' },
     { label: '売上', to: '/therapist/balance' },
+    { label: '設定', to: '/therapist/settings' },
 ];
 
 export const adminNavItems: NavItem[] = [
-    { label: 'ダッシュボード', to: '/admin', exact: true },
+    { label: 'マイページ', to: '/admin', exact: true },
     { label: 'アカウント', to: '/admin/accounts' },
     { label: 'セラピスト', to: '/admin/therapist-profiles' },
     { label: '予約', to: '/admin/bookings' },
@@ -42,12 +43,12 @@ export const adminNavItems: NavItem[] = [
 
 export const userPlaceholderRoutes: PlaceholderRouteDefinition[] = [
     { path: 'profile', title: '利用者プロフィール', description: '基本プロフィールと公開設定を整える画面です。', apiPath: '/api/me/profile' },
-    { path: 'service-addresses', title: '施術場所', description: '来てほしい場所やデフォルト住所を管理します。', apiPath: '/api/me/service-addresses' },
+    { path: 'service-addresses', title: '待ち合わせ場所', description: '来てほしい場所やデフォルト住所を管理します。', apiPath: '/api/me/service-addresses' },
     { path: 'therapists', title: 'セラピスト検索', description: '近くのセラピストや公開中の条件を探す画面です。', apiPath: '/api/therapists' },
     { path: 'therapists/:publicId', title: 'セラピスト詳細', description: 'プロフィール、メニュー、レビュー、料金根拠を確認します。', apiPath: '/api/therapists/{public_id}' },
     { path: 'therapists/:publicId/availability', title: '空き時間', description: '公開中の予定予約ウィンドウを確認してリクエストを送る画面です。', apiPath: '/api/therapists/{public_id}/availability' },
     { path: 'therapists/:publicId/travel-request', title: '出張リクエスト送信', description: '予約できないエリアから需要を届ける画面です。', apiPath: '/api/therapists/{public_id}/travel-requests' },
-    { path: 'booking-request', title: '今すぐ予約入力', description: '施術場所やメニューを入力して見積もりに進みます。', apiPath: '/api/booking-quotes' },
+    { path: 'booking-request', title: '今すぐ予約入力', description: '待ち合わせ場所やメニューを入力して見積もりに進みます。', apiPath: '/api/booking-quotes' },
     { path: 'booking-request/quote', title: '見積もり確認', description: '料金内訳と徒歩目安を確認する画面です。', apiPath: '/api/booking-quotes' },
     { path: 'booking-request/payment', title: '支払い確認', description: '与信取得と支払い状態の確認を行う画面です。', apiPath: '/api/bookings/{public_id}/payment-intents' },
     { path: 'booking-request/waiting', title: '予約待機', description: 'セラピストの応答待ちや与信状態を確認します。', apiPath: '/api/bookings/{public_id}' },

@@ -17,6 +17,42 @@ class TherapistMenuApiTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_therapist_can_create_menu_with_hourly_rate_and_minimum_duration(): void
+    {
+        $therapist = Account::factory()->create(['public_id' => 'acc_menu_hourly']);
+        $token = $therapist->createToken('api')->plainTextToken;
+
+        $this->withToken($token)
+            ->putJson('/api/me/therapist-profile', [
+                'public_name' => 'Hourly Menu Owner',
+                'bio' => 'Conversation and relaxation focused.',
+            ])
+            ->assertOk();
+
+        $menuId = $this->withToken($token)
+            ->postJson('/api/me/therapist/menus', [
+                'name' => 'リラクゼーション',
+                'description' => '会話しながらゆったり過ごせます。',
+                'minimum_duration_minutes' => 90,
+                'hourly_rate_amount' => 12000,
+                'sort_order' => 2,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.name', 'リラクゼーション')
+            ->assertJsonPath('data.duration_minutes', 90)
+            ->assertJsonPath('data.minimum_duration_minutes', 90)
+            ->assertJsonPath('data.base_price_amount', 18000)
+            ->assertJsonPath('data.hourly_rate_amount', 12000)
+            ->json('data.public_id');
+
+        $this->assertDatabaseHas('therapist_menus', [
+            'public_id' => $menuId,
+            'duration_minutes' => 90,
+            'base_price_amount' => 18000,
+            'sort_order' => 2,
+        ]);
+    }
+
     public function test_therapist_can_update_and_delete_own_unused_menu(): void
     {
         $therapist = Account::factory()->create(['public_id' => 'acc_menu_owner']);
