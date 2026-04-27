@@ -93,16 +93,21 @@ function buildRequestMeetingPlace(address: BookingDetailRecord['service_address'
         return '未設定';
     }
 
-    const parts = [address.prefecture, address.address_line].filter(Boolean);
+    const parts = [address.prefecture, address.city].filter(Boolean);
 
     return parts.length > 0 ? parts.join(' ') : getServiceAddressLabel(address);
 }
 
 function formatRequestYear(value: string): string {
-    return `${new Intl.DateTimeFormat('ja-JP', {
+    const year = new Intl.DateTimeFormat('ja-JP', {
         timeZone: 'Asia/Tokyo',
         year: 'numeric',
-    }).format(new Date(value))}年`;
+    })
+        .formatToParts(new Date(value))
+        .find((part) => part.type === 'year')
+        ?.value;
+
+    return year ? `${year}年` : '';
 }
 
 function formatRequestDateLabel(value: string): string {
