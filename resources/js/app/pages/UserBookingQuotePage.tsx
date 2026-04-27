@@ -85,11 +85,13 @@ export function UserBookingQuotePage() {
     const [booking, setBooking] = useState<BookingDetailRecord | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [cardError, setCardError] = useState<string | null>(null);
+    const [cardSetupMessage, setCardSetupMessage] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isPreparingCard, setIsPreparingCard] = useState(false);
     const [isCardComplete, setIsCardComplete] = useState(false);
     const [isSubmitting, setIsSubmitting] = useState(false);
     const [cardMountNode, setCardMountNode] = useState<HTMLDivElement | null>(null);
+    const [cardInitializationNonce, setCardInitializationNonce] = useState(0);
     const stripeRef = useRef<StripeInstance | null>(null);
     const elementsRef = useRef<StripeElements | null>(null);
     const cardElementRef = useRef<StripeCardElement | null>(null);
@@ -210,9 +212,20 @@ export function UserBookingQuotePage() {
 
         let isMounted = true;
         let mountedCardElement: StripeCardElement | null = null;
+        const stallTimer = window.setTimeout(() => {
+            if (!isMounted || mountedCardElement) {
+                return;
+            }
+
+            setIsPreparingCard(false);
+            setCardSetupMessage('カード入力欄を表示できません。もう一度準備するか、画面を再読み込みしてください。');
+        }, 8000);
 
         setIsPreparingCard(true);
         setCardError(null);
+        setCardSetupMessage(null);
+        setIsCardComplete(false);
+        cardMountNode.replaceChildren();
 
         void createStripeInstance(stripePublishableKey)
             .then((stripe) => {
@@ -252,6 +265,7 @@ export function UserBookingQuotePage() {
                 elementsRef.current = elements;
                 cardElementRef.current = cardElement;
                 mountedCardElement = cardElement;
+                window.clearTimeout(stallTimer);
                 setIsPreparingCard(false);
             })
             .catch((stripeError) => {
@@ -259,12 +273,15 @@ export function UserBookingQuotePage() {
                     return;
                 }
 
+                window.clearTimeout(stallTimer);
                 setCardError(stripeError instanceof Error ? stripeError.message : 'カード入力を準備できませんでした。');
+                setCardSetupMessage('カード入力欄を表示できませんでした。もう一度準備するか、画面を再読み込みしてください。');
                 setIsPreparingCard(false);
             });
 
         return () => {
             isMounted = false;
+            window.clearTimeout(stallTimer);
             mountedCardElement?.destroy();
             if (cardElementRef.current === mountedCardElement) {
                 cardElementRef.current = null;
@@ -273,7 +290,7 @@ export function UserBookingQuotePage() {
             stripeRef.current = null;
             setIsCardComplete(false);
         };
-    }, [cardMountNode, isLoading, stripePublishableKey]);
+    }, [cardInitializationNonce, cardMountNode, isLoading, stripePublishableKey]);
 
     if (!token) {
         return <Navigate to="/login" replace />;
@@ -478,14 +495,44 @@ export function UserBookingQuotePage() {
                         ) : (
                             <div className="mt-5 space-y-4">
                                 <div className="rounded-[22px] border border-[#e8dfd2] bg-[#fffdf8] px-4 py-4">
-                                    {isPreparingCard ? (
-                                        <p className="text-sm text-[#68707a]">カード入力欄を準備しています...</p>
-                                    ) : (
-                                        <div ref={setCardMountNode} />
-                                    )}
+                                    <div className="relative min-h-[44px]">
+                                        <div
+                                            ref={setCardMountNode}
+                                            className={isPreparingCard ? 'pointer-events-none opacity-0' : undefined}
+                                        />
+                                        {isPreparingCard ? (
+                                            <div className="absolute inset-0 flex items-center">
+                                                <p className="text-sm text-[#68707a]">カード入力欄を準備しています...</p>
+                                            </div>
+                                        ) : null}
+                                    </div>
                                 </div>
 
-                                {cardError ? (
+                                {cardSetupMessage ? (
+                                    <div className="space-y-3">
+                                        <p className="text-sm text-[#b45309]">{cardSetupMessage}</p>
+                                        <div className="flex flex-wrap gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    setCardInitializationNonce((current) => current + 1);
+                                                }}
+                                                className="inline-flex items-center rounded-full border border-[#d9c9ae] px-4 py-2 text-sm font-semibold text-[#6f4b1f] transition hover:bg-[#fff7eb]"
+                                            >
+                                                もう一度準備する
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    window.location.reload();
+                                                }}
+                                                className="inline-flex items-center rounded-full border border-[#d9c9ae] px-4 py-2 text-sm font-semibold text-[#6f4b1f] transition hover:bg-[#fff7eb]"
+                                            >
+                                                画面を再読み込み
+                                            </button>
+                                        </div>
+                                    </div>
+                                ) : cardError ? (
                                     <p className="text-sm text-[#b45309]">{cardError}</p>
                                 ) : (
                                     <p className="text-xs leading-6 text-[#7d6852]">
