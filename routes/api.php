@@ -81,6 +81,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/legal-documents/{legalDocument:public_id}/accept', [LegalDocumentController::class, 'accept']);
     Route::get('/me/profile', [MeProfileController::class, 'show']);
     Route::patch('/me/profile', [MeProfileController::class, 'update']);
+    Route::patch('/me/profile/email', [MeProfileController::class, 'updateEmail']);
+    Route::patch('/me/profile/password', [MeProfileController::class, 'updatePassword']);
     Route::post('/me/profile/photos', [ProfilePhotoController::class, 'store']);
     Route::delete('/me/profile/photos/{profilePhoto}', [ProfilePhotoController::class, 'destroy']);
     Route::get('/me/profile/photos/{profilePhoto}/file', [ProfilePhotoFileController::class, 'showOwned']);

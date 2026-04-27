@@ -611,6 +611,14 @@ export function TherapistProfilePage() {
                     >
                         準備状況へ戻る
                     </Link>
+                    {profile?.public_id ? (
+                        <Link
+                            to={`/therapists/${profile.public_id}`}
+                            className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
+                        >
+                            自分のページを確認
+                        </Link>
+                    ) : null}
                     <a
                         href="#profile-photos"
                         className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"

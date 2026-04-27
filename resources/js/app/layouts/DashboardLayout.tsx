@@ -1,9 +1,10 @@
-import { NavLink, Outlet } from 'react-router-dom';
+import { useEffect, useState } from 'react';
+import { Link, NavLink, Outlet } from 'react-router-dom';
 import { RoleModeSwitcher } from '../components/account/RoleModeSwitcher';
 import { BrandMark } from '../components/brand/BrandMark';
 import { NotificationBellLink } from '../components/notifications/NotificationBellLink';
-import { getAccountDisplayName } from '../lib/account';
-import type { NavItem, RoleName } from '../lib/types';
+import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import type { ApiEnvelope, NavItem, RoleName } from '../lib/types';
 import { useAuth } from '../hooks/useAuth';
 
 interface DashboardLayoutProps {
@@ -22,8 +23,41 @@ function navLinkClass(isActive: boolean): string {
     ].join(' ');
 }
 
-export function DashboardLayout({ title, description, navItems }: DashboardLayoutProps) {
-    const { account, logout } = useAuth();
+export function DashboardLayout({ role, title, description, navItems }: DashboardLayoutProps) {
+    const { logout, token } = useAuth();
+    const [therapistPublicId, setTherapistPublicId] = useState<string | null>(null);
+
+    useEffect(() => {
+        if (role !== 'therapist' || !token) {
+            setTherapistPublicId(null);
+            return;
+        }
+
+        let isMounted = true;
+
+        void apiRequest<ApiEnvelope<{ public_id: string | null }>>('/me/therapist-profile', { token })
+            .then((payload) => {
+                if (!isMounted) {
+                    return;
+                }
+
+                const therapistProfile = unwrapData(payload);
+                setTherapistPublicId(therapistProfile.public_id ?? null);
+            })
+            .catch((error: unknown) => {
+                if (!isMounted) {
+                    return;
+                }
+
+                if (!(error instanceof ApiError && error.status === 404)) {
+                    setTherapistPublicId(null);
+                }
+            });
+
+        return () => {
+            isMounted = false;
+        };
+    }, [role, token]);
 
     return (
         <div className="min-h-screen">
@@ -49,9 +83,20 @@ export function DashboardLayout({ title, description, navItems }: DashboardLayou
 
                             <div className="flex flex-wrap items-center gap-3 xl:max-w-[420px] xl:justify-end">
                                 <NotificationBellLink />
-                                <span className="inline-flex min-h-11 items-center rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-100">
-                                    {getAccountDisplayName(account)}
-                                </span>
+                                {role === 'therapist' && therapistPublicId ? (
+                                    <Link
+                                        to={`/therapists/${therapistPublicId}`}
+                                        className="inline-flex min-h-11 items-center rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/6"
+                                    >
+                                        自分のページを確認
+                                    </Link>
+                                ) : null}
+                                <Link
+                                    to="/profile"
+                                    className="inline-flex min-h-11 items-center rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/6"
+                                >
+                                    アカウント設定
+                                </Link>
                                 <button
                                     type="button"
                                     onClick={() => {

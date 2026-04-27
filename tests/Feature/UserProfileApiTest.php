@@ -8,6 +8,7 @@ use App\Models\TherapistProfile;
 use App\Models\UserProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -100,6 +101,69 @@ class UserProfileApiTest extends TestCase
             'display_name' => 'Domestic User Updated',
             'phone_e164' => '+818012345678',
         ]);
+    }
+
+    public function test_account_can_update_login_email_with_current_password(): void
+    {
+        $account = Account::factory()->create([
+            'public_id' => 'acc_common_profile_email',
+            'email' => 'before@example.test',
+            'password' => 'very-secure-password',
+            'last_active_role' => 'user',
+        ]);
+        $token = $account->createToken('api')->plainTextToken;
+
+        $this->withToken($token)
+            ->patchJson('/api/me/profile/email', [
+                'email' => 'After@Example.test',
+                'current_password' => 'very-secure-password',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.email', 'after@example.test');
+
+        $this->assertDatabaseHas('accounts', [
+            'id' => $account->id,
+            'email' => 'after@example.test',
+        ]);
+    }
+
+    public function test_account_cannot_update_login_email_with_wrong_password(): void
+    {
+        $account = Account::factory()->create([
+            'public_id' => 'acc_common_profile_email_invalid',
+            'email' => 'before@example.test',
+            'password' => 'very-secure-password',
+            'last_active_role' => 'user',
+        ]);
+        $token = $account->createToken('api')->plainTextToken;
+
+        $this->withToken($token)
+            ->patchJson('/api/me/profile/email', [
+                'email' => 'after@example.test',
+                'current_password' => 'wrong-password',
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors(['current_password']);
+    }
+
+    public function test_account_can_update_password_with_current_password(): void
+    {
+        $account = Account::factory()->create([
+            'public_id' => 'acc_common_profile_password',
+            'password' => 'very-secure-password',
+            'last_active_role' => 'user',
+        ]);
+        $token = $account->createToken('api')->plainTextToken;
+
+        $this->withToken($token)
+            ->patchJson('/api/me/profile/password', [
+                'current_password' => 'very-secure-password',
+                'password' => 'new-secure-password',
+                'password_confirmation' => 'new-secure-password',
+            ])
+            ->assertOk();
+
+        $this->assertTrue(Hash::check('new-secure-password', $account->fresh()->password));
     }
 
     public function test_account_can_create_update_and_read_user_profile(): void

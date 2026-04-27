@@ -6,6 +6,9 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\MeProfileResource;
 use App\Models\Account;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 
 class MeProfileController extends Controller
@@ -57,6 +60,57 @@ class MeProfileController extends Controller
         if ($attributes !== []) {
             $account->forceFill($attributes)->save();
         }
+
+        return new MeProfileResource(
+            $account->fresh(['roleAssignments', 'latestIdentityVerification', 'profilePhotos.therapistProfile'])
+        );
+    }
+
+    public function updateEmail(Request $request): MeProfileResource
+    {
+        $account = $request->user();
+        $validated = $request->validate([
+            'email' => ['required', 'email:rfc', 'max:255', Rule::unique('accounts', 'email')->ignore($account->id)],
+            'current_password' => ['required', 'string'],
+        ]);
+
+        if (! Hash::check($validated['current_password'], $account->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['現在のパスワードが一致しません。'],
+            ]);
+        }
+
+        $nextEmail = Str::lower($validated['email']);
+
+        if ($nextEmail !== $account->email) {
+            $account->forceFill([
+                'email' => $nextEmail,
+                'email_verified_at' => null,
+            ])->save();
+        }
+
+        return new MeProfileResource(
+            $account->fresh(['roleAssignments', 'latestIdentityVerification', 'profilePhotos.therapistProfile'])
+        );
+    }
+
+    public function updatePassword(Request $request): MeProfileResource
+    {
+        $account = $request->user();
+        $validated = $request->validate([
+            'current_password' => ['required', 'string'],
+            'password' => ['required', 'string', 'min:10', 'confirmed'],
+        ]);
+
+        if (! Hash::check($validated['current_password'], $account->password)) {
+            throw ValidationException::withMessages([
+                'current_password' => ['現在のパスワードが一致しません。'],
+            ]);
+        }
+
+        $account->forceFill([
+            'password' => $validated['password'],
+        ])->save();
 
         return new MeProfileResource(
             $account->fresh(['roleAssignments', 'latestIdentityVerification', 'profilePhotos.therapistProfile'])
