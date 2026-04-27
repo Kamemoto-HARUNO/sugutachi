@@ -5,6 +5,11 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import {
+    formatJstDateTime,
+    formatJstDateTimeLocalValue,
+    parseJstDateTimeLocalInput,
+} from '../lib/datetime';
 import { formatCurrency, getServiceAddressLabel } from '../lib/discovery';
 import type {
     ApiEnvelope,
@@ -223,22 +228,12 @@ function refundStatusLabel(status: string): string {
 }
 
 function formatDateTime(value: string | null): string {
-    if (!value) {
-        return '未設定';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '未設定';
-    }
-
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatJstDateTime(value, {
         month: 'numeric',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-    }).format(date);
+    }) ?? '未設定';
 }
 
 function formatBooleanLabel(value: boolean): string {
@@ -321,20 +316,7 @@ function completionActionLabel(status: string): string {
 }
 
 function formatDateTimeLocalValue(value: string | null): string {
-    if (!value) {
-        return '';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '';
-    }
-
-    const offsetMinutes = date.getTimezoneOffset();
-    const localDate = new Date(date.getTime() - offsetMinutes * 60_000);
-
-    return localDate.toISOString().slice(0, 16);
+    return formatJstDateTimeLocalValue(value);
 }
 
 function parseDateTimeInputValue(value: string): Date | null {
@@ -342,21 +324,11 @@ function parseDateTimeInputValue(value: string): Date | null {
         return null;
     }
 
-    const date = new Date(value);
-
-    return Number.isNaN(date.getTime()) ? null : date;
+    return parseJstDateTimeLocalInput(value);
 }
 
 function floorDateToMinute(date: Date): Date {
-    return new Date(
-        date.getFullYear(),
-        date.getMonth(),
-        date.getDate(),
-        date.getHours(),
-        date.getMinutes(),
-        0,
-        0,
-    );
+    return new Date(Math.floor(date.getTime() / 60_000) * 60_000);
 }
 
 function openDateTimePicker(input: HTMLInputElement | null) {

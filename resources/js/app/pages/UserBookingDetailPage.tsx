@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { formatJstDateTime } from '../lib/datetime';
 import { formatCurrency, getServiceAddressLabel } from '../lib/discovery';
 import type {
     ApiEnvelope,
@@ -118,22 +119,12 @@ function refundStatusLabel(status: string): string {
 }
 
 function formatDateTime(value: string | null): string {
-    if (!value) {
-        return '未設定';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '未設定';
-    }
-
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatJstDateTime(value, {
         month: 'numeric',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-    }).format(date);
+    }) ?? '未設定';
 }
 
 function formatBooleanLabel(value: boolean): string {

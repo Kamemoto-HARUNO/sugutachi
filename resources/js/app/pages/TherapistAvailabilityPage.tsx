@@ -5,6 +5,17 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToast } from '../hooks/useToast';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import {
+    addDaysToJstDateValue,
+    buildCurrentJstDateTimeLocalValue,
+    buildCurrentJstDateValue,
+    formatJstDateTime,
+    formatJstDateTimeLocalValue,
+    formatJstDateValue,
+    formatJstTime,
+    parseJstDateTimeLocalInput,
+    weekdayIndexFromJstDateValue,
+} from '../lib/datetime';
 import type {
     ApiEnvelope,
     TherapistAvailabilitySlotRecord,
@@ -80,27 +91,8 @@ const MAP_DEFAULT_CENTER = {
 } as const;
 const MAP_MAX_LATITUDE = 85.05112878;
 
-function roundToNextQuarter(date: Date): Date {
-    const rounded = new Date(date);
-    rounded.setSeconds(0, 0);
-
-    const remainder = rounded.getMinutes() % 15;
-
-    if (remainder !== 0) {
-        rounded.setMinutes(rounded.getMinutes() + (15 - remainder), 0, 0);
-    }
-
-    return rounded;
-}
-
 function todayDateValue(): string {
-    const now = new Date();
-
-    return [
-        now.getFullYear(),
-        String(now.getMonth() + 1).padStart(2, '0'),
-        String(now.getDate()).padStart(2, '0'),
-    ].join('-');
+    return buildCurrentJstDateValue();
 }
 
 function dateKeyFromLocalValue(value: string | null | undefined): string | null {
@@ -112,14 +104,7 @@ function dateKeyFromLocalValue(value: string | null | undefined): string | null 
 }
 
 function addDaysToDateKey(dateKey: string, days: number): string {
-    const date = new Date(`${dateKey}T00:00:00`);
-    date.setDate(date.getDate() + days);
-
-    return [
-        date.getFullYear(),
-        String(date.getMonth() + 1).padStart(2, '0'),
-        String(date.getDate()).padStart(2, '0'),
-    ].join('-');
+    return addDaysToJstDateValue(dateKey, days);
 }
 
 function buildCalendarDateKeys(anchorDate: string, days: number): string[] {
@@ -135,32 +120,23 @@ function timeStringFromMinutes(minutes: number): string {
 }
 
 function buildLocalDateTime(dateKey: string, minutes: number): string {
-    const date = new Date(`${dateKey}T00:00:00`);
+    const dayOffset = Math.floor(minutes / TIMELINE_END_MINUTES);
+    const normalizedMinutes = ((minutes % TIMELINE_END_MINUTES) + TIMELINE_END_MINUTES) % TIMELINE_END_MINUTES;
+    const resolvedDateKey = addDaysToDateKey(dateKey, dayOffset);
 
-    if (Number.isNaN(date.getTime())) {
-        return `${dateKey}T00:00`;
-    }
-
-    date.setMinutes(minutes, 0, 0);
-
-    return [
-        date.getFullYear(),
-        String(date.getMonth() + 1).padStart(2, '0'),
-        String(date.getDate()).padStart(2, '0'),
-    ].join('-')
-        + `T${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    return `${resolvedDateKey}T${timeStringFromMinutes(normalizedMinutes)}`;
 }
 
 function addMinutesToLocalValue(value: string, minutes: number): string {
-    const date = new Date(value);
+    const date = parseJstDateTimeLocalInput(value);
 
-    if (Number.isNaN(date.getTime())) {
+    if (!date) {
         return value;
     }
 
-    date.setMinutes(date.getMinutes() + minutes);
+    date.setUTCMinutes(date.getUTCMinutes() + minutes);
 
-    return toDateTimeLocalValue(date.toISOString());
+    return formatJstDateTimeLocalValue(date.toISOString());
 }
 
 function durationMinutesBetweenLocalValues(startValue: string | null | undefined, endValue: string | null | undefined): number {
@@ -168,10 +144,10 @@ function durationMinutesBetweenLocalValues(startValue: string | null | undefined
         return 0;
     }
 
-    const start = new Date(startValue);
-    const end = new Date(endValue);
+    const start = parseJstDateTimeLocalInput(startValue);
+    const end = parseJstDateTimeLocalInput(endValue);
 
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    if (!start || !end) {
         return 0;
     }
 
@@ -209,10 +185,10 @@ function minutesOffsetFromDateKey(dateKey: string, value: string | null | undefi
         return TIMELINE_START_HOUR * 60;
     }
 
-    const anchor = new Date(`${dateKey}T00:00:00`);
-    const target = new Date(value);
+    const anchor = parseJstDateTimeLocalInput(`${dateKey}T00:00`);
+    const target = parseJstDateTimeLocalInput(value);
 
-    if (Number.isNaN(anchor.getTime()) || Number.isNaN(target.getTime())) {
+    if (!anchor || !target) {
         return TIMELINE_START_HOUR * 60;
     }
 
@@ -224,72 +200,50 @@ function timeRangeOverlaps(startMinutes: number, endMinutes: number, compareStar
 }
 
 function formatDateTime(value: string | null): string {
-    if (!value) {
-        return '未設定';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '未設定';
-    }
-
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatJstDateTime(value, {
         month: 'numeric',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-    }).format(date);
+    }) ?? '未設定';
 }
 
 function formatCalendarLabel(value: string): string {
-    const date = new Date(`${value}T00:00:00`);
-
-    if (Number.isNaN(date.getTime())) {
-        return '日付未設定';
-    }
-
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatJstDateValue(value, {
         month: 'numeric',
         day: 'numeric',
         weekday: 'short',
-    }).format(date);
+    }) ?? '日付未設定';
 }
 
 function formatCalendarDayNumber(value: string): string {
-    const date = new Date(`${value}T00:00:00`);
+    const dayValue = Number(value.slice(8, 10));
 
-    if (Number.isNaN(date.getTime())) {
+    if (Number.isNaN(dayValue)) {
         return '--';
     }
 
-    return String(date.getDate());
+    return String(dayValue);
 }
 
 function formatCalendarWeekday(value: string): string {
-    const date = new Date(`${value}T00:00:00`);
-
-    if (Number.isNaN(date.getTime())) {
-        return '--';
-    }
-
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatJstDateValue(value, {
         weekday: 'short',
-    }).format(date);
+    }) ?? '--';
 }
 
 function calendarWeekdayTone(value: string): string {
-    const date = new Date(`${value}T00:00:00`);
+    const dayOfWeek = weekdayIndexFromJstDateValue(value);
 
-    if (Number.isNaN(date.getTime())) {
+    if (dayOfWeek == null) {
         return 'text-slate-400';
     }
 
-    if (date.getDay() === 0) {
+    if (dayOfWeek === 0) {
         return 'text-rose-300';
     }
 
-    if (date.getDay() === 6) {
+    if (dayOfWeek === 6) {
         return 'text-sky-300';
     }
 
@@ -297,43 +251,18 @@ function calendarWeekdayTone(value: string): string {
 }
 
 function formatTime(value: string | null | undefined): string {
-    if (!value) {
-        return '--:--';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '--:--';
-    }
-
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatJstTime(value, {
         hour: '2-digit',
         minute: '2-digit',
-    }).format(date);
+    }) ?? '--:--';
 }
 
 function toDateTimeLocalValue(value: string | null | undefined): string {
-    if (!value) {
-        return '';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '';
-    }
-
-    return [
-        date.getFullYear(),
-        String(date.getMonth() + 1).padStart(2, '0'),
-        String(date.getDate()).padStart(2, '0'),
-    ].join('-')
-        + `T${String(date.getHours()).padStart(2, '0')}:${String(date.getMinutes()).padStart(2, '0')}`;
+    return formatJstDateTimeLocalValue(value);
 }
 
 function fromDateTimeLocalValue(value: string): string {
-    return new Date(value).toISOString();
+    return parseJstDateTimeLocalInput(value)?.toISOString() ?? new Date(value).toISOString();
 }
 
 function leadTimeLabel(minutes: number): string {
@@ -1039,14 +968,14 @@ function slotDraftMatchesSlot(draft: SlotDraft, slot: TherapistAvailabilitySlotR
 
 function createEmptySlotDraft(dateKey = todayDateValue()): SlotDraft {
     const defaultStart = dateKey === todayDateValue()
-        ? roundToNextQuarter(new Date(Date.now() + 60 * 60 * 1000))
-        : new Date(`${dateKey}T18:00:00`);
-    const defaultEnd = new Date(defaultStart.getTime() + MIN_SLOT_DURATION_MINUTES * 60 * 1000);
+        ? buildCurrentJstDateTimeLocalValue(new Date(Date.now() + 60 * 60 * 1000))
+        : `${dateKey}T18:00`;
+    const defaultEnd = addMinutesToLocalValue(defaultStart, MIN_SLOT_DURATION_MINUTES);
 
     return {
         public_id: null,
-        start_at: toDateTimeLocalValue(defaultStart.toISOString()),
-        end_at: toDateTimeLocalValue(defaultEnd.toISOString()),
+        start_at: defaultStart,
+        end_at: defaultEnd,
         status: 'published',
         dispatch_base_type: 'default',
         custom_dispatch_base_label: '',
@@ -1746,14 +1675,18 @@ export function TherapistAvailabilityPage() {
     function handleStartDateTimeChange(nextValue: string) {
         setSlotDraft((current) => {
             const nextStart = nextValue;
-            const currentEnd = new Date(current.end_at);
-            const nextStartDate = new Date(nextStart);
-            const minimumEndDate = new Date(nextStart);
-            minimumEndDate.setMinutes(minimumEndDate.getMinutes() + MIN_SLOT_DURATION_MINUTES);
+            const currentEnd = parseJstDateTimeLocalInput(current.end_at);
+            const nextStartDate = parseJstDateTimeLocalInput(nextStart);
+            const minimumEndDate = nextStartDate ? new Date(nextStartDate.getTime()) : null;
+
+            if (minimumEndDate) {
+                minimumEndDate.setUTCMinutes(minimumEndDate.getUTCMinutes() + MIN_SLOT_DURATION_MINUTES);
+            }
 
             if (
-                Number.isNaN(currentEnd.getTime())
-                || Number.isNaN(nextStartDate.getTime())
+                !currentEnd
+                || !nextStartDate
+                || !minimumEndDate
                 || currentEnd.getTime() < minimumEndDate.getTime()
             ) {
                 return {
@@ -1782,23 +1715,23 @@ export function TherapistAvailabilityPage() {
 
     function handleEndDateTimeChange(nextValue: string) {
         setSlotDraft((current) => {
-            const currentStart = new Date(current.start_at);
-            const nextEnd = new Date(nextValue);
+            const currentStart = parseJstDateTimeLocalInput(current.start_at);
+            const nextEnd = parseJstDateTimeLocalInput(nextValue);
 
-            if (Number.isNaN(currentStart.getTime()) || Number.isNaN(nextEnd.getTime())) {
+            if (!currentStart || !nextEnd) {
                 return {
                     ...current,
                     end_at: nextValue,
                 };
             }
 
-            const minimumEnd = new Date(currentStart);
-            minimumEnd.setMinutes(minimumEnd.getMinutes() + MIN_SLOT_DURATION_MINUTES);
+            const minimumEnd = new Date(currentStart.getTime());
+            minimumEnd.setUTCMinutes(minimumEnd.getUTCMinutes() + MIN_SLOT_DURATION_MINUTES);
 
             if (nextEnd.getTime() < minimumEnd.getTime()) {
                 return {
                     ...current,
-                    end_at: toDateTimeLocalValue(minimumEnd.toISOString()),
+                    end_at: formatJstDateTimeLocalValue(minimumEnd.toISOString()),
                 };
             }
 

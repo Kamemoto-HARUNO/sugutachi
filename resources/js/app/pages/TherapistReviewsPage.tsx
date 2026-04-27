@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { formatJstDate, formatJstDateTime } from '../lib/datetime';
 import type { ApiEnvelope, ReviewSummary, TherapistProfileRecord } from '../lib/types';
 
 type ReviewFilter = 'all' | 'with_comment' | 'high_rating';
@@ -18,40 +19,20 @@ function normalizeFilter(value: string | null): ReviewFilter {
 }
 
 function formatDateTime(value: string | null): string {
-    if (!value) {
-        return '未設定';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '未設定';
-    }
-
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatJstDateTime(value, {
         year: 'numeric',
         month: 'numeric',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-    }).format(date);
+    }) ?? '未設定';
 }
 
 function formatDate(value: string | null): string {
-    if (!value) {
-        return '未設定';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '未設定';
-    }
-
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatJstDate(value, {
         month: 'numeric',
         day: 'numeric',
-    }).format(date);
+    }) ?? '未設定';
 }
 
 function renderStars(value: number): string {

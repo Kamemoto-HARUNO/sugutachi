@@ -1,3 +1,4 @@
+import { buildCurrentJstDateTimeLocalValue, buildRoundedJstDateTimeLocalValue } from './datetime';
 import type { ServiceAddress, TherapistMenu, TherapistSearchResult } from './types';
 
 export type BookingStartType = 'now' | 'scheduled';
@@ -113,23 +114,7 @@ export function formatDiscoveryScheduledApiValue(value: string): string {
 }
 
 export function buildDefaultDiscoveryScheduledStartAt(now = new Date()): string {
-    const exactNow = new Date(now);
-    exactNow.setSeconds(0, 0);
-
-    const rounded = new Date(exactNow);
-    rounded.setMinutes(Math.ceil(rounded.getMinutes() / 15) * 15, 0, 0);
-
-    const preferred = rounded.toDateString() === exactNow.toDateString()
-        ? rounded
-        : exactNow;
-
-    const year = preferred.getFullYear();
-    const month = String(preferred.getMonth() + 1).padStart(2, '0');
-    const day = String(preferred.getDate()).padStart(2, '0');
-    const hours = String(preferred.getHours()).padStart(2, '0');
-    const minutes = String(preferred.getMinutes()).padStart(2, '0');
-
-    return `${year}-${month}-${day}T${hours}:${minutes}`;
+    return buildRoundedJstDateTimeLocalValue(now, 15) || buildCurrentJstDateTimeLocalValue(now);
 }
 
 export function formatWalkingTimeRange(range: string | null | undefined): string {

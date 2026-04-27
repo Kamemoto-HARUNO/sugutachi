@@ -16,6 +16,7 @@ import {
     type DiscoverySort,
 } from '../lib/discovery';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { addDaysToJstDateValue, buildCurrentJstDateValue, formatJstDate, formatJstDateTime } from '../lib/datetime';
 import type {
     ApiEnvelope,
     ReviewSummary,
@@ -36,22 +37,12 @@ function normalizeSort(value: string | null): DiscoverySort {
 }
 
 function formatScheduledLabel(value: string): string {
-    if (!value) {
-        return '開始日時を未指定';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '開始日時を未指定';
-    }
-
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatJstDateTime(value, {
         month: 'numeric',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-    }).format(date);
+    }) ?? '開始日時を未指定';
 }
 
 function resolveAvailabilityDate(value: string): string {
@@ -59,27 +50,15 @@ function resolveAvailabilityDate(value: string): string {
         return value.slice(0, 10);
     }
 
-    const nextDate = new Date();
-    nextDate.setDate(nextDate.getDate() + 1);
-    const year = nextDate.getFullYear();
-    const month = String(nextDate.getMonth() + 1).padStart(2, '0');
-    const day = String(nextDate.getDate()).padStart(2, '0');
-
-    return `${year}-${month}-${day}`;
+    return addDaysToJstDateValue(buildCurrentJstDateValue(), 1);
 }
 
 function formatReviewDate(value: string): string {
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '日付不明';
-    }
-
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatJstDate(value, {
         year: 'numeric',
         month: 'numeric',
         day: 'numeric',
-    }).format(date);
+    }) ?? '日付不明';
 }
 
 function buildReviewMeta(review: ReviewSummary): string {
@@ -792,11 +771,6 @@ export function UserTherapistDetailPage() {
                                                         </div>
                                                         <p className="text-sm text-[#68707a]">{buildReviewMeta(review)}</p>
                                                     </div>
-                                                    {review.booking_public_id ? (
-                                                        <span className="rounded-full bg-[#f5efe4] px-3 py-1 text-xs text-[#48505a]">
-                                                            予約 {review.booking_public_id}
-                                                        </span>
-                                                    ) : null}
                                                 </div>
                                                 <p className="mt-4 text-sm leading-7 text-[#48505a]">
                                                     {review.public_comment ?? 'コメントは未入力です。'}

@@ -1,3 +1,5 @@
+import { formatJstDate, formatJstDateTime } from './datetime';
+
 export function formatProfileStatus(status: string | null | undefined): string {
     switch (status) {
         case 'draft':
@@ -58,41 +60,21 @@ export function formatRejectionReason(code: string | null | undefined): string {
 }
 
 export function formatDateTime(value: string | null | undefined): string {
-    if (!value) {
-        return '未設定';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '未設定';
-    }
-
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatJstDateTime(value, {
         year: 'numeric',
         month: 'numeric',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-    }).format(date);
+    }) ?? '未設定';
 }
 
 export function formatDate(value: string | null | undefined): string {
-    if (!value) {
-        return '未設定';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '未設定';
-    }
-
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatJstDate(value, {
         year: 'numeric',
         month: 'numeric',
         day: 'numeric',
-    }).format(date);
+    }) ?? '未設定';
 }
 
 export function formatTherapistRequirementKey(key: string | null | undefined): string {

@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { formatJstDate } from '../lib/datetime';
 import type { ApiEnvelope, LegalDocumentSummary } from '../lib/types';
 
 interface LegalDocumentPageProps {
@@ -52,7 +53,7 @@ export function LegalDocumentPage({ documentType, title }: LegalDocumentPageProp
                 {documentData ? (
                     <p className="text-sm text-slate-400">
                         バージョン {documentData.version}
-                        {documentData.effective_at ? ` / 発効 ${new Date(documentData.effective_at).toLocaleDateString('ja-JP')}` : ''}
+                        {documentData.effective_at ? ` / 発効 ${formatJstDate(documentData.effective_at) ?? '未設定'}` : ''}
                     </p>
                 ) : null}
             </section>

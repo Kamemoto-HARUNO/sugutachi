@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { formatJstDateTime } from '../lib/datetime';
 import { formatProfileStatus, formatRejectionReason } from '../lib/therapist';
 import type {
     ApiEnvelope,
@@ -867,7 +868,12 @@ export function TherapistProfilePage() {
                                             </p>
                                         ) : (
                                             <p className="text-xs leading-6 text-slate-400">
-                                                登録日時: {new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(photo.created_at))}
+                                                登録日時: {formatJstDateTime(photo.created_at, {
+                                                    month: 'numeric',
+                                                    day: 'numeric',
+                                                    hour: '2-digit',
+                                                    minute: '2-digit',
+                                                }) ?? '未設定'}
                                             </p>
                                         )}
 

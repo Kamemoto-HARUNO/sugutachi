@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { formatJstDateTime } from '../lib/datetime';
 import { getServiceAddressLabel } from '../lib/discovery';
 import type { ApiEnvelope, ServiceAddress } from '../lib/types';
 
@@ -58,22 +59,12 @@ function buildAddressLine(address: ServiceAddress): string {
 }
 
 function formatDateTime(value: string | null): string {
-    if (!value) {
-        return '未更新';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '未更新';
-    }
-
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatJstDateTime(value, {
         month: 'numeric',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-    }).format(date);
+    }) ?? '未更新';
 }
 
 export function UserServiceAddressesPage() {

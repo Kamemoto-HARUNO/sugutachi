@@ -7,6 +7,15 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import {
+    addDaysToJstDateValue,
+    buildCurrentJstDateValue,
+    getJstMinutesSinceStartOfDay,
+    formatJstDateTime,
+    formatJstDateValue,
+    formatJstTime,
+    weekdayIndexFromJstDateValue,
+} from '../lib/datetime';
+import {
     formatCurrency,
     formatMenuHourlyRateLabel,
     formatMenuMinimumDurationLabel,
@@ -56,13 +65,7 @@ interface AvailabilityResizeDragState {
 }
 
 function todayDateValue(): string {
-    const today = new Date();
-
-    return [
-        today.getFullYear(),
-        String(today.getMonth() + 1).padStart(2, '0'),
-        String(today.getDate()).padStart(2, '0'),
-    ].join('-');
+    return buildCurrentJstDateValue();
 }
 
 function normalizeDateValue(value: string | null): string {
@@ -74,79 +77,51 @@ function normalizeDateValue(value: string | null): string {
 }
 
 function addDaysToDateValue(value: string, days: number): string {
-    const [year, month, day] = value.split('-').map((part) => Number(part));
-    const date = new Date(year, (month || 1) - 1, day || 1);
-    date.setDate(date.getDate() + days);
-
-    return [
-        date.getFullYear(),
-        String(date.getMonth() + 1).padStart(2, '0'),
-        String(date.getDate()).padStart(2, '0'),
-    ].join('-');
+    return addDaysToJstDateValue(value, days);
 }
 
 function formatDateLabel(value: string): string {
-    const [year, month, day] = value.split('-').map((part) => Number(part));
-    const date = new Date(year, (month || 1) - 1, day || 1);
-
-    if (Number.isNaN(date.getTime())) {
-        return '日付未定';
-    }
-
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatJstDateValue(value, {
         month: 'numeric',
         day: 'numeric',
         weekday: 'short',
-    }).format(date);
+    }) ?? '日付未定';
 }
 
 function formatWeekRangeLabel(startDate: string): string {
     const endDate = addDaysToDateValue(startDate, CALENDAR_DAYS - 1);
-    const [startYear, startMonth, startDay] = startDate.split('-').map((part) => Number(part));
-    const [endYear, endMonth, endDay] = endDate.split('-').map((part) => Number(part));
-    const start = new Date(startYear, (startMonth || 1) - 1, startDay || 1);
-    const end = new Date(endYear, (endMonth || 1) - 1, endDay || 1);
+    const startLabel = formatJstDateValue(startDate, { month: 'numeric', day: 'numeric' });
+    const endLabel = formatJstDateValue(endDate, { month: 'numeric', day: 'numeric' });
 
-    if (Number.isNaN(start.getTime()) || Number.isNaN(end.getTime())) {
+    if (!startLabel || !endLabel) {
         return '1週間';
     }
 
-    return `${new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric' }).format(start)} - ${new Intl.DateTimeFormat('ja-JP', { month: 'numeric', day: 'numeric' }).format(end)}`;
+    return `${startLabel} - ${endLabel}`;
 }
 
 function formatCalendarDayLabel(value: string): string {
-    const [year, month, day] = value.split('-').map((part) => Number(part));
-    const date = new Date(year, (month || 1) - 1, day || 1);
+    const dayValue = Number(value.slice(8, 10));
 
-    if (Number.isNaN(date.getTime())) {
+    if (Number.isNaN(dayValue)) {
         return '--';
     }
 
-    return String(date.getDate());
+    return String(dayValue);
 }
 
 function formatCalendarWeekdayLabel(value: string): string {
-    const [year, month, day] = value.split('-').map((part) => Number(part));
-    const date = new Date(year, (month || 1) - 1, day || 1);
-
-    if (Number.isNaN(date.getTime())) {
-        return '--';
-    }
-
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatJstDateValue(value, {
         weekday: 'short',
-    }).format(date);
+    }) ?? '--';
 }
 
 function getCalendarWeekdayTone(value: string): string {
-    const [year, month, day] = value.split('-').map((part) => Number(part));
-    const date = new Date(year, (month || 1) - 1, day || 1);
+    const dayOfWeek = weekdayIndexFromJstDateValue(value);
 
-    if (Number.isNaN(date.getTime())) {
+    if (dayOfWeek == null) {
         return 'text-[#8b7451]';
     }
-
-    const dayOfWeek = date.getDay();
 
     if (dayOfWeek === 0) {
         return 'text-[#cc6f7f]';
@@ -160,35 +135,19 @@ function getCalendarWeekdayTone(value: string): string {
 }
 
 function formatTimeLabel(value: string): string {
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '--:--';
-    }
-
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatJstTime(value, {
         hour: '2-digit',
         minute: '2-digit',
-    }).format(date);
+    }) ?? '--:--';
 }
 
 function formatDateTimeLabel(value: string | null): string {
-    if (!value) {
-        return '未設定';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '未設定';
-    }
-
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatJstDateTime(value, {
         month: 'numeric',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-    }).format(date);
+    }) ?? '未設定';
 }
 
 function formatAvailabilityUnavailableReason(reason: string | null | undefined): string {
@@ -222,13 +181,7 @@ function buildWindowKey(window: PublicTherapistAvailabilityWindow): string {
 }
 
 function getMinutesSinceStartOfDay(value: string): number {
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return 0;
-    }
-
-    return date.getHours() * 60 + date.getMinutes();
+    return getJstMinutesSinceStartOfDay(value) ?? 0;
 }
 
 function getRangeMinutes(startAt: string, endAt: string): number {

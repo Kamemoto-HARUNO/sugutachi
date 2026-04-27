@@ -21,6 +21,7 @@ import {
     type StripeElements,
     type StripeInstance,
 } from '../lib/stripe';
+import { formatJstDateTime } from '../lib/datetime';
 import type {
     ApiEnvelope,
     BookingDetailRecord,
@@ -39,41 +40,21 @@ function normalizeDuration(value: string | null): number {
 }
 
 function formatDateTime(value: string | null): string {
-    if (!value) {
-        return '未設定';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '未設定';
-    }
-
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatJstDateTime(value, {
         month: 'numeric',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-    }).format(date);
+    }) ?? '未設定';
 }
 
 function formatExpiresAt(value: string | null): string {
-    if (!value) {
-        return '有効期限を確認中';
-    }
-
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '有効期限を確認中';
-    }
-
-    return new Intl.DateTimeFormat('ja-JP', {
+    return formatJstDateTime(value, {
         month: 'numeric',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-    }).format(date);
+    }) ?? '有効期限を確認中';
 }
 
 function friendlyCardError(error: unknown): string {
