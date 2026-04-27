@@ -55,6 +55,55 @@ class BookingNotificationService
         );
     }
 
+    public function notifyAdjustmentProposed(Booking $booking): void
+    {
+        $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);
+
+        $this->create(
+            accountId: $booking->user_account_id,
+            type: 'booking_adjustment_proposed',
+            title: '時間変更の提案が届きました',
+            body: 'セラピストから開始時間または終了時間の調整提案が届いています。内容を確認してください。',
+            data: [
+                'booking_public_id' => $booking->public_id,
+                'status' => $booking->status,
+                'proposed_start_at' => $booking->therapist_adjustment_start_at?->toJSON(),
+                'proposed_end_at' => $booking->therapist_adjustment_end_at?->toJSON(),
+                'proposed_total_amount' => $booking->therapist_adjustment_total_amount,
+            ],
+        );
+
+        $this->sendEmail(
+            email: $booking->userAccount?->email,
+            subject: '時間変更の提案が届きました',
+            body: 'セラピストから開始時間または終了時間の調整提案が届いています。アプリで新しい時間と金額をご確認ください。'
+        );
+    }
+
+    public function notifyAdjustmentAccepted(Booking $booking): void
+    {
+        $booking->loadMissing(['therapistAccount', 'therapistProfile']);
+
+        $this->create(
+            accountId: $booking->therapist_account_id,
+            type: 'booking_adjustment_accepted',
+            title: '利用者が時間変更を承認しました',
+            body: '提案した時間で予約が確定しました。',
+            data: [
+                'booking_public_id' => $booking->public_id,
+                'status' => $booking->status,
+                'scheduled_start_at' => $booking->scheduled_start_at?->toJSON(),
+                'scheduled_end_at' => $booking->scheduled_end_at?->toJSON(),
+            ],
+        );
+
+        $this->sendEmail(
+            email: $booking->therapistAccount?->email,
+            subject: '利用者が時間変更を承認しました',
+            body: '提案した時間で予約が確定しました。アプリで開始時刻と予約詳細をご確認ください。'
+        );
+    }
+
     public function notifyMoving(Booking $booking): void
     {
         $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);

@@ -45,6 +45,7 @@ class PublicAvailabilityWindowCalculator
         ServiceAddress $serviceAddress,
         CarbonImmutable $date,
         ?int $requestedDurationMinutes = null,
+        ?int $excludeBookingId = null,
     ): array {
         return $this->calculateWithAvailableDates(
             profile: $profile,
@@ -54,6 +55,7 @@ class PublicAvailabilityWindowCalculator
             availableDatesStartDate: $date,
             requestedDurationMinutes: $requestedDurationMinutes,
             availableDatesDays: 1,
+            excludeBookingId: $excludeBookingId,
         );
     }
 
@@ -65,6 +67,7 @@ class PublicAvailabilityWindowCalculator
         CarbonImmutable $availableDatesStartDate,
         ?int $requestedDurationMinutes = null,
         int $availableDatesDays = 14,
+        ?int $excludeBookingId = null,
     ): array {
         $availableDatesDays = max(1, $availableDatesDays);
         $durationMinutes = max($requestedDurationMinutes ?? $menu->minimum_duration_minutes, $menu->minimum_duration_minutes);
@@ -76,6 +79,7 @@ class PublicAvailabilityWindowCalculator
             profile: $profile,
             rangeStart: $contextStart,
             rangeEnd: $contextEnd,
+            excludeBookingId: $excludeBookingId,
         );
         $selectedSnapshot = $this->calculateSnapshotForDate(
             profile: $profile,
@@ -157,6 +161,7 @@ class PublicAvailabilityWindowCalculator
         TherapistProfile $profile,
         CarbonImmutable $rangeStart,
         CarbonImmutable $rangeEnd,
+        ?int $excludeBookingId = null,
     ): array {
         /** @var TherapistBookingSetting $bookingSetting */
         $bookingSetting = $profile->relationLoaded('bookingSetting')
@@ -184,6 +189,7 @@ class PublicAvailabilityWindowCalculator
                 ->where('therapist_profile_id', $profile->id)
                 ->where('is_on_demand', false)
                 ->whereIn('status', self::BLOCKING_SCHEDULED_BOOKING_STATUSES)
+                ->when($excludeBookingId !== null, fn ($query) => $query->whereKeyNot($excludeBookingId))
                 ->where(function ($query) use ($rangeStart, $rangeEnd): void {
                     $query
                         ->where(function ($query) use ($rangeEnd): void {

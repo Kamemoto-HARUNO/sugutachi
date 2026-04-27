@@ -6,6 +6,7 @@ use App\Http\Controllers\Controller;
 use App\Http\Resources\BookingResource;
 use App\Models\Booking;
 use App\Services\Bookings\BookingCompletionService;
+use App\Services\Bookings\BookingRequestAdjustmentService;
 use App\Services\Bookings\BookingSettlementService;
 use App\Services\Bookings\BookingStatusTransitionService;
 use App\Services\Bookings\ScheduledBookingPolicy;
@@ -43,6 +44,12 @@ class BookingStatusController extends Controller
         $bufferBeforeMinutes = $validated['buffer_before_minutes'] ?? 0;
         $bufferAfterMinutes = $validated['buffer_after_minutes'] ?? 0;
 
+        abort_if(
+            $booking->hasPendingTherapistAdjustment(),
+            409,
+            '利用者確認待ちの時間変更提案があります。利用者の返答を待つか、提案内容を更新してください。'
+        );
+
         $booking = $transition->transition(
             booking: $booking,
             actor: $request->user(),
@@ -67,6 +74,117 @@ class BookingStatusController extends Controller
         $bookingNotificationService->notifyAccepted($booking->refresh());
 
         return new BookingResource($booking->load('currentQuote'));
+    }
+
+    public function proposeAdjustment(
+        Request $request,
+        Booking $booking,
+        BookingRequestAdjustmentService $bookingRequestAdjustmentService,
+        BookingNotificationService $bookingNotificationService,
+    ): BookingResource {
+        $this->authorizeTherapist($request, $booking);
+
+        abort_unless($booking->status === Booking::STATUS_REQUESTED, 409, 'Only pending booking requests can be adjusted.');
+        abort_unless(! $booking->is_on_demand, 409, 'Only scheduled booking requests can be adjusted.');
+
+        $validated = $request->validate([
+            'scheduled_start_at' => ['required', 'date'],
+            'scheduled_end_at' => ['required', 'date'],
+            'buffer_before_minutes' => ['required', 'integer', 'min:0', 'max:360'],
+            'buffer_after_minutes' => ['required', 'integer', 'min:0', 'max:360'],
+        ]);
+
+        $attributes = $bookingRequestAdjustmentService->buildProposal(
+            booking: $booking,
+            proposedStartAt: $this->parseInputDateTime($validated['scheduled_start_at']),
+            proposedEndAt: $this->parseInputDateTime($validated['scheduled_end_at']),
+            bufferBeforeMinutes: (int) $validated['buffer_before_minutes'],
+            bufferAfterMinutes: (int) $validated['buffer_after_minutes'],
+        );
+
+        $booking->forceFill($attributes)->save();
+        $booking->statusLogs()->create([
+            'from_status' => $booking->status,
+            'to_status' => $booking->status,
+            'actor_account_id' => $request->user()->id,
+            'actor_role' => 'therapist',
+            'reason_code' => 'therapist_proposed_adjustment',
+        ]);
+
+        $bookingNotificationService->notifyAdjustmentProposed($booking->refresh()->loadMissing(['userAccount', 'therapistProfile']));
+
+        return new BookingResource($booking->load('currentQuote'));
+    }
+
+    public function acceptAdjustment(
+        Request $request,
+        Booking $booking,
+        BookingRequestAdjustmentService $bookingRequestAdjustmentService,
+        BookingStatusTransitionService $transition,
+        BookingNotificationService $bookingNotificationService,
+    ): BookingResource {
+        abort_unless($booking->user_account_id === $request->user()->id, 404);
+        abort_unless($booking->status === Booking::STATUS_REQUESTED, 409, 'Only pending booking requests can be confirmed.');
+
+        $attributes = $bookingRequestAdjustmentService->acceptedProposalAttributes($booking);
+
+        $booking = $transition->transition(
+            booking: $booking,
+            actor: $request->user(),
+            actorRole: 'user',
+            allowedFromStatuses: [Booking::STATUS_REQUESTED],
+            toStatus: Booking::STATUS_ACCEPTED,
+            reasonCode: 'user_accepted_adjustment',
+            attributes: $attributes,
+        );
+
+        $bookingNotificationService->notifyAccepted($booking->refresh()->loadMissing(['userAccount', 'therapistProfile']));
+        $bookingNotificationService->notifyAdjustmentAccepted($booking->refresh()->loadMissing(['therapistAccount', 'therapistProfile']));
+
+        return new BookingResource($booking->load('currentQuote'));
+    }
+
+    public function rejectAdjustment(
+        Request $request,
+        Booking $booking,
+        BookingRequestAdjustmentService $bookingRequestAdjustmentService,
+        BookingStatusTransitionService $transition,
+        BookingPaymentIntentCancellationService $paymentIntentCancellationService,
+        BookingNotificationService $bookingNotificationService,
+    ): BookingResource {
+        abort_unless($booking->user_account_id === $request->user()->id, 404);
+        abort_unless($booking->status === Booking::STATUS_REQUESTED, 409, 'Only pending booking requests can be declined.');
+        abort_unless($booking->hasPendingTherapistAdjustment(), 409, 'There is no therapist adjustment proposal to decline.');
+
+        $booking = $transition->transition(
+            booking: $booking,
+            actor: $request->user(),
+            actorRole: 'user',
+            allowedFromStatuses: [Booking::STATUS_REQUESTED],
+            toStatus: Booking::STATUS_CANCELED,
+            reasonCode: 'user_rejected_adjustment',
+            attributes: [
+                ...$bookingRequestAdjustmentService->clearProposalAttributes(),
+                'canceled_at' => now(),
+                'canceled_by_account_id' => $request->user()->id,
+                'cancel_reason_code' => 'user_rejected_adjustment',
+                'request_expires_at' => null,
+            ],
+        );
+
+        $paymentIntentCancellationService->cancelCurrentForBooking(
+            booking: $booking,
+            lastStripeEventId: 'system.user_rejected_adjustment',
+        );
+
+        $bookingNotificationService->notifyCanceled($booking->refresh());
+
+        return new BookingResource($booking->load([
+            'currentQuote',
+            'currentPaymentIntent',
+            'canceledBy',
+            'refunds' => fn ($query) => $query->latest('id'),
+        ]));
     }
 
     public function reject(

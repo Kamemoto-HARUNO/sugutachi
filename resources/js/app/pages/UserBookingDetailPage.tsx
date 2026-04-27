@@ -48,6 +48,14 @@ function statusLabel(status: string): string {
     }
 }
 
+function bookingStatusLabel(booking: Pick<BookingDetailRecord, 'status' | 'pending_adjustment_proposal'>): string {
+    if (booking.status === 'requested' && booking.pending_adjustment_proposal) {
+        return '時間変更の確認待ち';
+    }
+
+    return statusLabel(booking.status);
+}
+
 function statusTone(status: string): string {
     switch (status) {
         case 'completed':
@@ -197,6 +205,7 @@ export function UserBookingDetailPage() {
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isConfirmingCompletion, setIsConfirmingCompletion] = useState(false);
+    const [isResolvingAdjustment, setIsResolvingAdjustment] = useState(false);
 
     usePageTitle(booking ? `${booking.therapist_profile?.public_name ?? '予約'}の詳細` : '予約詳細');
     useToastOnMessage(error, 'error');
@@ -273,6 +282,68 @@ export function UserBookingDetailPage() {
         }
     }
 
+    async function handleAcceptAdjustment() {
+        if (!token || !booking?.pending_adjustment_proposal || isResolvingAdjustment) {
+            return;
+        }
+
+        setIsResolvingAdjustment(true);
+        setError(null);
+        setSuccessMessage(null);
+
+        try {
+            await apiRequest<ApiEnvelope<BookingDetailRecord>>(`/bookings/${booking.public_id}/adjustment-accept`, {
+                method: 'POST',
+                token,
+            });
+            await loadBooking();
+            setSuccessMessage('時間変更の内容を確認しました。この条件で予約が確定しています。');
+        } catch (requestError) {
+            const message =
+                requestError instanceof ApiError
+                    ? requestError.message
+                    : '時間変更の確認に失敗しました。';
+
+            setError(message);
+        } finally {
+            setIsResolvingAdjustment(false);
+        }
+    }
+
+    async function handleRejectAdjustment() {
+        if (!token || !booking?.pending_adjustment_proposal || isResolvingAdjustment) {
+            return;
+        }
+
+        const confirmed = window.confirm('この時間変更案を見送ると、この予約リクエストは取り下げになります。よろしいですか？');
+
+        if (!confirmed) {
+            return;
+        }
+
+        setIsResolvingAdjustment(true);
+        setError(null);
+        setSuccessMessage(null);
+
+        try {
+            await apiRequest<ApiEnvelope<BookingDetailRecord>>(`/bookings/${booking.public_id}/adjustment-reject`, {
+                method: 'POST',
+                token,
+            });
+            await loadBooking();
+            setSuccessMessage('時間変更案を見送りました。予約リクエストは取り下げになります。');
+        } catch (requestError) {
+            const message =
+                requestError instanceof ApiError
+                    ? requestError.message
+                    : '時間変更案の見送りに失敗しました。';
+
+            setError(message);
+        } finally {
+            setIsResolvingAdjustment(false);
+        }
+    }
+
     if (isLoading) {
         return <LoadingScreen title="予約詳細を読み込み中" message="決済状態、返金、同意記録、安全確認をまとめています。" />;
     }
@@ -300,7 +371,7 @@ export function UserBookingDetailPage() {
                     <div className="space-y-3">
                         <div className="flex flex-wrap items-center gap-2">
                             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
-                                {statusLabel(booking.status)}
+                                {bookingStatusLabel(booking)}
                             </span>
                         </div>
                         <div className="space-y-2">
@@ -359,6 +430,60 @@ export function UserBookingDetailPage() {
                             </div>
                         </div>
                     </article>
+
+                    {booking.status === 'requested' && booking.pending_adjustment_proposal ? (
+                        <article className="rounded-[28px] border border-[#d7e5ff] bg-[#f6f9ff] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.08)]">
+                            <p className="text-xs font-semibold tracking-wide text-[#5472a0]">時間変更の提案</p>
+                            <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">この条件で進めるか確認してください</h2>
+                            <p className="mt-2 text-sm leading-7 text-[#68707a]">
+                                セラピストから時間調整の提案が届いています。問題なければこの条件で予約を確定できます。
+                            </p>
+                            <div className="mt-5 grid gap-4 md:grid-cols-2">
+                                <div className="rounded-[20px] bg-white px-4 py-4">
+                                    <p className="text-xs font-semibold tracking-wide text-[#7d6852]">あなたの希望時間</p>
+                                    <p className="mt-2 text-sm font-semibold text-[#17202b]">
+                                        {formatDateTime(booking.scheduled_start_at ?? booking.requested_start_at)} - {formatDateTime(booking.scheduled_end_at)}
+                                    </p>
+                                </div>
+                                <div className="rounded-[20px] bg-white px-4 py-4">
+                                    <p className="text-xs font-semibold tracking-wide text-[#7d6852]">セラピストの提案時間</p>
+                                    <p className="mt-2 text-sm font-semibold text-[#17202b]">
+                                        {formatDateTime(booking.pending_adjustment_proposal.scheduled_start_at)} - {formatDateTime(booking.pending_adjustment_proposal.scheduled_end_at)}
+                                    </p>
+                                </div>
+                                <div className="rounded-[20px] bg-white px-4 py-4">
+                                    <p className="text-xs font-semibold tracking-wide text-[#7d6852]">もとの金額</p>
+                                    <p className="mt-2 text-sm font-semibold text-[#17202b]">
+                                        {formatCurrency(booking.total_amount)}
+                                    </p>
+                                </div>
+                                <div className="rounded-[20px] bg-white px-4 py-4">
+                                    <p className="text-xs font-semibold tracking-wide text-[#7d6852]">提案後の金額</p>
+                                    <p className="mt-2 text-sm font-semibold text-[#17202b]">
+                                        {formatCurrency(booking.pending_adjustment_proposal.total_amount)}
+                                    </p>
+                                </div>
+                            </div>
+                            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                                <button
+                                    type="button"
+                                    onClick={() => void handleAcceptAdjustment()}
+                                    disabled={isResolvingAdjustment}
+                                    className="inline-flex items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243140] disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {isResolvingAdjustment ? '確認中...' : 'この条件で進める'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => void handleRejectAdjustment()}
+                                    disabled={isResolvingAdjustment}
+                                    className="inline-flex items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee] disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    今回は見送る
+                                </button>
+                            </div>
+                        </article>
+                    ) : null}
 
                     {booking.status === 'therapist_completed' ? (
                         <article className="rounded-[28px] border border-[#ead8b8] bg-[#fff9ef] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.08)]">

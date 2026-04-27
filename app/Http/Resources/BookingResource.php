@@ -26,6 +26,20 @@ class BookingResource extends JsonResource
             'buffer_before_minutes' => $this->buffer_before_minutes,
             'buffer_after_minutes' => $this->buffer_after_minutes,
             'request_expires_at' => $this->request_expires_at,
+            'pending_adjustment_proposal' => $this->hasPendingTherapistAdjustment()
+                ? [
+                    'proposed_at' => $this->therapist_adjustment_proposed_at,
+                    'scheduled_start_at' => $this->therapist_adjustment_start_at,
+                    'scheduled_end_at' => $this->therapist_adjustment_end_at,
+                    'duration_minutes' => $this->therapist_adjustment_duration_minutes,
+                    'total_amount' => $this->therapist_adjustment_total_amount,
+                    'therapist_net_amount' => $this->therapist_adjustment_therapist_net_amount,
+                    'platform_fee_amount' => $this->therapist_adjustment_platform_fee_amount,
+                    'matching_fee_amount' => $this->therapist_adjustment_matching_fee_amount,
+                    'buffer_before_minutes' => $this->therapist_adjustment_buffer_before_minutes,
+                    'buffer_after_minutes' => $this->therapist_adjustment_buffer_after_minutes,
+                ]
+                : null,
             'accepted_at' => $this->accepted_at,
             'confirmed_at' => $this->confirmed_at,
             'moving_at' => $this->moving_at,

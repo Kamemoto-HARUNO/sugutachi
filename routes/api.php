@@ -231,6 +231,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/bookings/{booking:public_id}/reviews', [ReviewController::class, 'store']);
     Route::get('/refund-requests/{refund:public_id}', [RefundRequestController::class, 'show']);
     Route::post('/bookings/{booking:public_id}/accept', [BookingStatusController::class, 'accept']);
+    Route::post('/bookings/{booking:public_id}/adjustment-proposal', [BookingStatusController::class, 'proposeAdjustment']);
+    Route::post('/bookings/{booking:public_id}/adjustment-accept', [BookingStatusController::class, 'acceptAdjustment']);
+    Route::post('/bookings/{booking:public_id}/adjustment-reject', [BookingStatusController::class, 'rejectAdjustment']);
     Route::post('/bookings/{booking:public_id}/reject', [BookingStatusController::class, 'reject']);
     Route::post('/bookings/{booking:public_id}/moving', [BookingStatusController::class, 'moving']);
     Route::post('/bookings/{booking:public_id}/arrived', [BookingStatusController::class, 'arrived']);

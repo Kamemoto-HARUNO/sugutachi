@@ -501,9 +501,9 @@ class BookingStatusFlowTest extends TestCase
             'service_address_id' => $booking->service_address_id,
             'status' => Booking::STATUS_ACCEPTED,
             'is_on_demand' => false,
-            'requested_start_at' => CarbonImmutable::parse('2030-01-06 15:45:00'),
-            'scheduled_start_at' => CarbonImmutable::parse('2030-01-06 15:45:00'),
-            'scheduled_end_at' => CarbonImmutable::parse('2030-01-06 16:45:00'),
+            'requested_start_at' => $this->jstUtc('2030-01-06 15:45:00'),
+            'scheduled_start_at' => $this->jstUtc('2030-01-06 15:45:00'),
+            'scheduled_end_at' => $this->jstUtc('2030-01-06 16:45:00'),
             'duration_minutes' => 60,
             'buffer_before_minutes' => 30,
             'buffer_after_minutes' => 30,
@@ -525,7 +525,7 @@ class BookingStatusFlowTest extends TestCase
 
     public function test_scheduled_accept_rejects_when_active_on_demand_booking_exists_within_six_hours(): void
     {
-        $this->travelTo(CarbonImmutable::parse('2030-01-06 10:00:00'));
+        $this->travelTo($this->jstUtc('2030-01-06 10:00:00'));
 
         [$user, $therapist, $booking] = $this->createRequestedScheduledBooking();
 
@@ -558,7 +558,7 @@ class BookingStatusFlowTest extends TestCase
 
     public function test_therapist_request_list_includes_operational_context_for_scheduled_request(): void
     {
-        $this->travelTo(CarbonImmutable::parse('2030-01-06 10:00:00'));
+        $this->travelTo($this->jstUtc('2030-01-06 10:00:00'));
 
         [, $therapist, $booking] = $this->createRequestedScheduledBooking();
 
@@ -574,6 +574,128 @@ class BookingStatusFlowTest extends TestCase
             ->assertJsonPath('data.0.service_location.city', '福岡市中央区')
             ->assertJsonPath('data.0.request_expires_in_seconds', 21600)
             ->assertJsonPath('data.0.request_expires_in_minutes', 360);
+    }
+
+    public function test_therapist_can_propose_time_adjustment_for_scheduled_request(): void
+    {
+        $this->travelTo($this->jstUtc('2030-01-06 10:00:00'));
+
+        [, $therapist, $booking] = $this->createRequestedScheduledBooking(withPaymentIntent: true);
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/adjustment-proposal", [
+                'scheduled_start_at' => '2030-01-06T15:00',
+                'scheduled_end_at' => '2030-01-06T16:00',
+                'buffer_before_minutes' => 15,
+                'buffer_after_minutes' => 15,
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', Booking::STATUS_REQUESTED)
+            ->assertJsonPath('data.pending_adjustment_proposal.duration_minutes', 60)
+            ->assertJsonPath('data.pending_adjustment_proposal.buffer_before_minutes', 15)
+            ->assertJsonPath('data.pending_adjustment_proposal.buffer_after_minutes', 15)
+            ->assertJsonPath('data.pending_adjustment_proposal.scheduled_start_at', fn ($value) => str_starts_with((string) $value, '2030-01-06T06:00'));
+
+        $this->assertDatabaseHas('bookings', [
+            'id' => $booking->id,
+            'status' => Booking::STATUS_REQUESTED,
+            'therapist_adjustment_duration_minutes' => 60,
+            'therapist_adjustment_buffer_before_minutes' => 15,
+            'therapist_adjustment_buffer_after_minutes' => 15,
+        ]);
+        $this->assertDatabaseHas('booking_status_logs', [
+            'booking_id' => $booking->id,
+            'reason_code' => 'therapist_proposed_adjustment',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $booking->user_account_id,
+            'notification_type' => 'booking_adjustment_proposed',
+            'channel' => 'in_app',
+        ]);
+    }
+
+    public function test_user_can_accept_therapist_time_adjustment_and_finalize_acceptance(): void
+    {
+        $this->travelTo($this->jstUtc('2030-01-06 10:00:00'));
+
+        [$user, $therapist, $booking] = $this->createRequestedScheduledBooking(withPaymentIntent: true);
+        $booking->forceFill([
+            'therapist_adjustment_proposed_at' => now(),
+            'therapist_adjustment_start_at' => $this->jstUtc('2030-01-06 15:00:00'),
+            'therapist_adjustment_end_at' => $this->jstUtc('2030-01-06 16:30:00'),
+            'therapist_adjustment_duration_minutes' => 90,
+            'therapist_adjustment_total_amount' => 18300,
+            'therapist_adjustment_therapist_net_amount' => 16200,
+            'therapist_adjustment_platform_fee_amount' => 1800,
+            'therapist_adjustment_matching_fee_amount' => 300,
+            'therapist_adjustment_buffer_before_minutes' => 15,
+            'therapist_adjustment_buffer_after_minutes' => 15,
+            'request_expires_at' => now()->addHours(4),
+        ])->save();
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/adjustment-accept")
+            ->assertOk()
+            ->assertJsonPath('data.status', Booking::STATUS_ACCEPTED)
+            ->assertJsonPath('data.duration_minutes', 90)
+            ->assertJsonPath('data.total_amount', 18300)
+            ->assertJsonPath('data.pending_adjustment_proposal', null);
+
+        $this->assertDatabaseHas('bookings', [
+            'id' => $booking->id,
+            'status' => Booking::STATUS_ACCEPTED,
+            'duration_minutes' => 90,
+            'total_amount' => 18300,
+            'buffer_before_minutes' => 15,
+            'buffer_after_minutes' => 15,
+            'therapist_adjustment_proposed_at' => null,
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $user->id,
+            'notification_type' => 'booking_accepted',
+            'channel' => 'in_app',
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $therapist->id,
+            'notification_type' => 'booking_adjustment_accepted',
+            'channel' => 'in_app',
+        ]);
+    }
+
+    public function test_user_can_reject_therapist_time_adjustment_and_cancel_request(): void
+    {
+        $this->travelTo($this->jstUtc('2030-01-06 10:00:00'));
+
+        $gatewayState = (object) ['canceledStripeIds' => [], 'captures' => []];
+        $this->bindPaymentIntentGateway($gatewayState);
+
+        [$user, , $booking, $paymentIntent] = $this->createRequestedScheduledBooking(withPaymentIntent: true);
+        $booking->forceFill([
+            'therapist_adjustment_proposed_at' => now(),
+            'therapist_adjustment_start_at' => $this->jstUtc('2030-01-06 15:00:00'),
+            'therapist_adjustment_end_at' => $this->jstUtc('2030-01-06 16:00:00'),
+            'therapist_adjustment_duration_minutes' => 60,
+            'therapist_adjustment_total_amount' => 12300,
+            'therapist_adjustment_therapist_net_amount' => 10800,
+            'therapist_adjustment_platform_fee_amount' => 1200,
+            'therapist_adjustment_matching_fee_amount' => 300,
+            'therapist_adjustment_buffer_before_minutes' => 15,
+            'therapist_adjustment_buffer_after_minutes' => 15,
+        ])->save();
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/adjustment-reject")
+            ->assertOk()
+            ->assertJsonPath('data.status', Booking::STATUS_CANCELED)
+            ->assertJsonPath('data.cancel_reason_code', 'user_rejected_adjustment');
+
+        $this->assertDatabaseHas('bookings', [
+            'id' => $booking->id,
+            'status' => Booking::STATUS_CANCELED,
+            'cancel_reason_code' => 'user_rejected_adjustment',
+            'therapist_adjustment_proposed_at' => null,
+        ]);
+        $this->assertSame([$paymentIntent->stripe_payment_intent_id], $gatewayState->canceledStripeIds);
     }
 
     private function createRequestedBooking(bool $withPaymentIntent = false): array
@@ -601,8 +723,8 @@ class BookingStatusFlowTest extends TestCase
             'account_id' => $user->id,
             'place_type' => 'hotel',
             'address_line_encrypted' => 'encrypted-address',
-            'lat' => '35.6812360',
-            'lng' => '139.7671250',
+            'lat' => '33.5902000',
+            'lng' => '130.4017000',
         ]);
 
         $booking = Booking::create([
@@ -672,7 +794,7 @@ class BookingStatusFlowTest extends TestCase
         return [$user, $therapist, $booking, $paymentIntent];
     }
 
-    private function createRequestedScheduledBooking(): array
+    private function createRequestedScheduledBooking(bool $withPaymentIntent = false): array
     {
         $user = Account::factory()->create(['public_id' => 'acc_user_sched_'.fake()->unique()->numberBetween(1000, 9999)]);
         $therapist = Account::factory()->create(['public_id' => 'acc_therapist_sched_'.fake()->unique()->numberBetween(1000, 9999)]);
@@ -717,15 +839,15 @@ class BookingStatusFlowTest extends TestCase
             'prefecture' => '福岡県',
             'city' => '福岡市中央区',
             'address_line_encrypted' => 'encrypted-address',
-            'lat' => '35.6812360',
-            'lng' => '139.7671250',
+            'lat' => '33.5902000',
+            'lng' => '130.4017000',
         ]);
 
         $slot = TherapistAvailabilitySlot::create([
             'public_id' => 'slot_sched_'.fake()->unique()->numberBetween(1000, 9999),
             'therapist_profile_id' => $therapistProfile->id,
-            'start_at' => CarbonImmutable::parse('2030-01-06 14:00:00'),
-            'end_at' => CarbonImmutable::parse('2030-01-06 18:00:00'),
+            'start_at' => $this->jstUtc('2030-01-06 14:00:00'),
+            'end_at' => $this->jstUtc('2030-01-06 18:00:00'),
             'status' => TherapistAvailabilitySlot::STATUS_PUBLISHED,
             'dispatch_base_type' => TherapistAvailabilitySlot::DISPATCH_BASE_TYPE_DEFAULT,
             'dispatch_area_label' => '天神周辺',
@@ -741,9 +863,9 @@ class BookingStatusFlowTest extends TestCase
             'availability_slot_id' => $slot->id,
             'status' => Booking::STATUS_REQUESTED,
             'is_on_demand' => false,
-            'requested_start_at' => CarbonImmutable::parse('2030-01-06 14:30:00'),
-            'scheduled_start_at' => CarbonImmutable::parse('2030-01-06 14:30:00'),
-            'scheduled_end_at' => CarbonImmutable::parse('2030-01-06 15:30:00'),
+            'requested_start_at' => $this->jstUtc('2030-01-06 14:30:00'),
+            'scheduled_start_at' => $this->jstUtc('2030-01-06 14:30:00'),
+            'scheduled_end_at' => $this->jstUtc('2030-01-06 15:30:00'),
             'duration_minutes' => 60,
             'buffer_before_minutes' => 0,
             'buffer_after_minutes' => 0,
@@ -754,7 +876,61 @@ class BookingStatusFlowTest extends TestCase
             'matching_fee_amount' => 300,
         ]);
 
-        return [$user, $therapist, $booking];
+        $quote = BookingQuote::create([
+            'public_id' => 'quote_'.$booking->public_id,
+            'booking_id' => $booking->id,
+            'therapist_profile_id' => $therapistProfile->id,
+            'therapist_menu_id' => $menu->id,
+            'duration_minutes' => 60,
+            'base_amount' => 12000,
+            'travel_fee_amount' => 0,
+            'night_fee_amount' => 0,
+            'demand_fee_amount' => 0,
+            'profile_adjustment_amount' => 0,
+            'matching_fee_amount' => 300,
+            'platform_fee_amount' => 1200,
+            'total_amount' => 12300,
+            'therapist_gross_amount' => 12000,
+            'therapist_net_amount' => 10800,
+            'calculation_version' => 'test',
+            'input_snapshot_json' => [
+                'service_address_id' => $address->public_id,
+                'therapist_profile_id' => $therapistProfile->public_id,
+                'therapist_menu_id' => $menu->public_id,
+                'duration_minutes' => 60,
+                'is_on_demand' => false,
+                'requested_start_at' => '2030-01-06T14:30:00+09:00',
+                'availability_slot_id' => $slot->public_id,
+                'dispatch_area_label' => $slot->dispatch_area_label,
+            ],
+            'applied_rules_json' => [],
+            'expires_at' => now()->addMinutes(30),
+        ]);
+
+        $booking->update([
+            'current_quote_id' => $quote->id,
+        ]);
+
+        $paymentIntent = $withPaymentIntent
+            ? PaymentIntent::create([
+                'booking_id' => $booking->id,
+                'payer_account_id' => $user->id,
+                'stripe_payment_intent_id' => 'pi_'.$booking->public_id,
+                'status' => PaymentIntent::STRIPE_STATUS_REQUIRES_CAPTURE,
+                'capture_method' => 'manual',
+                'currency' => 'jpy',
+                'amount' => 24300,
+                'application_fee_amount' => 2700,
+                'transfer_amount' => 21600,
+                'is_current' => true,
+                'authorized_at' => now()->subMinute(),
+                'metadata_json' => [
+                    'authorization_duration_minutes' => 120,
+                ],
+            ])
+            : null;
+
+        return [$user, $therapist, $booking, $paymentIntent];
     }
 
     private function bindPaymentIntentGateway(object $gatewayState): void

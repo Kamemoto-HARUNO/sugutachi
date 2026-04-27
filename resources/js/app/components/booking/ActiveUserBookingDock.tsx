@@ -49,6 +49,7 @@ type DockItemCategory = 'request' | 'booking';
 interface DockItem {
     id: string;
     status: string;
+    hasPendingAdjustment?: boolean;
     title: string;
     subtitle: string;
     path: string;
@@ -57,12 +58,12 @@ interface DockItem {
     category: DockItemCategory;
 }
 
-function statusLabel(status: string): string {
+function statusLabel(status: string, hasPendingAdjustment = false): string {
     switch (status) {
         case 'payment_authorizing':
             return '与信確認中';
         case 'requested':
-            return '承認待ち';
+            return hasPendingAdjustment ? '時間変更の確認待ち' : '承認待ち';
         case 'accepted':
             return '予約確定';
         case 'moving':
@@ -87,11 +88,15 @@ function statusTone(status: string): string {
 }
 
 function bookingActionLabel(status: string): string {
-    return WAITING_STATUSES.has(status) ? '承認待ちを確認' : '予約を開く';
+    return WAITING_STATUSES.has(status) ? '内容を確認' : '予約を開く';
 }
 
-function therapistActionLabel(category: DockItemCategory): string {
-    return category === 'request' ? '依頼を確認' : '予約を開く';
+function therapistActionLabel(category: DockItemCategory, hasPendingAdjustment = false): string {
+    if (category === 'request') {
+        return hasPendingAdjustment ? '提案状況を見る' : '依頼を確認';
+    }
+
+    return '予約を開く';
 }
 
 function bookingActionPath(booking: BookingListRecord): string {
@@ -185,7 +190,7 @@ function summaryLabel(items: DockItem[], mode: DockMode): string {
 }
 
 function buildCollapsedDetail(item: DockItem): string {
-    return `${statusLabel(item.status)} / ${item.actionLabel}`;
+    return `${statusLabel(item.status, item.hasPendingAdjustment)} / ${item.actionLabel}`;
 }
 
 export function ActiveUserBookingDock() {
@@ -229,10 +234,11 @@ export function ActiveUserBookingDock() {
                 const requestItems = unwrapData(requestsPayload).map<DockItem>((request) => ({
                     id: request.public_id,
                     status: request.status,
+                    hasPendingAdjustment: Boolean(request.pending_adjustment_proposal),
                     title: request.menu.name || '予約リクエスト',
                     subtitle: primaryTherapistRequestLabel(request),
                     path: `/therapist/requests/${request.public_id}`,
-                    actionLabel: therapistActionLabel('request'),
+                    actionLabel: therapistActionLabel('request', Boolean(request.pending_adjustment_proposal)),
                     sortTime: new Date(request.request_expires_at ?? request.created_at).getTime(),
                     category: 'request',
                 }));
@@ -242,10 +248,11 @@ export function ActiveUserBookingDock() {
                     .map<DockItem>((booking) => ({
                         id: booking.public_id,
                         status: booking.status,
+                        hasPendingAdjustment: Boolean(booking.pending_adjustment_proposal),
                         title: booking.counterparty?.display_name ?? '利用者',
                         subtitle: primaryUserTimeLabel(booking),
                         path: `/therapist/bookings/${booking.public_id}`,
-                        actionLabel: therapistActionLabel('booking'),
+                        actionLabel: therapistActionLabel('booking', Boolean(booking.pending_adjustment_proposal)),
                         sortTime: new Date(booking.scheduled_start_at ?? booking.created_at).getTime(),
                         category: 'booking',
                     }));
@@ -270,6 +277,7 @@ export function ActiveUserBookingDock() {
                     .map<DockItem>((booking) => ({
                         id: booking.public_id,
                         status: booking.status,
+                        hasPendingAdjustment: Boolean(booking.pending_adjustment_proposal),
                         title: booking.counterparty?.display_name ?? 'セラピスト',
                         subtitle: primaryUserTimeLabel(booking),
                         path: bookingActionPath(booking),
@@ -381,7 +389,7 @@ export function ActiveUserBookingDock() {
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
                                             <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusTone(item.status)}`}>
-                                                {statusLabel(item.status)}
+                                                {statusLabel(item.status, item.hasPendingAdjustment)}
                                             </span>
                                             <p className="mt-3 truncate text-sm font-semibold text-[#17202b]">
                                                 {item.title}
@@ -444,7 +452,7 @@ export function ActiveUserBookingDock() {
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
                                         <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusTone(item.status)}`}>
-                                            {statusLabel(item.status)}
+                                            {statusLabel(item.status, item.hasPendingAdjustment)}
                                         </span>
                                         <p className="mt-3 truncate text-sm font-semibold text-[#17202b]">
                                             {item.title}

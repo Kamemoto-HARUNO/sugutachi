@@ -40,6 +40,14 @@ class Booking extends Model
 
     public const STATUS_COMPLETED = 'completed';
 
+    public function hasPendingTherapistAdjustment(): bool
+    {
+        return $this->therapist_adjustment_proposed_at !== null
+            && $this->therapist_adjustment_start_at !== null
+            && $this->therapist_adjustment_end_at !== null
+            && $this->therapist_adjustment_duration_minutes !== null;
+    }
+
     public function availabilitySlot(): BelongsTo
     {
         return $this->belongsTo(TherapistAvailabilitySlot::class, 'availability_slot_id');
@@ -148,6 +156,13 @@ class Booking extends Model
             'is_on_demand' => 'boolean',
             'buffer_before_minutes' => 'integer',
             'buffer_after_minutes' => 'integer',
+            'therapist_adjustment_duration_minutes' => 'integer',
+            'therapist_adjustment_total_amount' => 'integer',
+            'therapist_adjustment_therapist_net_amount' => 'integer',
+            'therapist_adjustment_platform_fee_amount' => 'integer',
+            'therapist_adjustment_matching_fee_amount' => 'integer',
+            'therapist_adjustment_buffer_before_minutes' => 'integer',
+            'therapist_adjustment_buffer_after_minutes' => 'integer',
             'actual_duration_minutes' => 'integer',
             'settlement_total_amount' => 'integer',
             'settlement_therapist_net_amount' => 'integer',
@@ -158,6 +173,9 @@ class Booking extends Model
             'scheduled_start_at' => 'datetime',
             'scheduled_end_at' => 'datetime',
             'request_expires_at' => 'datetime',
+            'therapist_adjustment_proposed_at' => 'datetime',
+            'therapist_adjustment_start_at' => 'datetime',
+            'therapist_adjustment_end_at' => 'datetime',
             'accepted_at' => 'datetime',
             'confirmed_at' => 'datetime',
             'moving_at' => 'datetime',

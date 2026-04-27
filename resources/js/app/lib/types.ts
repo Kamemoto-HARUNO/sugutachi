@@ -654,6 +654,19 @@ export interface TherapistBookingRequestAmounts {
     matching_fee_amount: number;
 }
 
+export interface BookingPendingAdjustmentProposal {
+    proposed_at: string | null;
+    scheduled_start_at: string;
+    scheduled_end_at: string;
+    duration_minutes: number;
+    total_amount: number;
+    therapist_net_amount: number;
+    platform_fee_amount: number;
+    matching_fee_amount: number;
+    buffer_before_minutes: number | null;
+    buffer_after_minutes: number | null;
+}
+
 export interface TherapistBookingRequestRecord {
     public_id: string;
     status: string;
@@ -668,6 +681,7 @@ export interface TherapistBookingRequestRecord {
     request_expires_at: string | null;
     request_expires_in_seconds: number | null;
     request_expires_in_minutes: number | null;
+    pending_adjustment_proposal: BookingPendingAdjustmentProposal | null;
     menu: TherapistBookingRequestMenuSummary;
     service_location: TherapistBookingRequestServiceLocation | null;
     amounts: TherapistBookingRequestAmounts;
@@ -883,6 +897,7 @@ export interface BookingListRecord {
     buffer_before_minutes: number;
     buffer_after_minutes: number;
     request_expires_at: string | null;
+    pending_adjustment_proposal?: BookingPendingAdjustmentProposal | null;
     accepted_at: string | null;
     confirmed_at: string | null;
     moving_at: string | null;

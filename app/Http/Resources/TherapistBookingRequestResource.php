@@ -39,6 +39,20 @@ class TherapistBookingRequestResource extends JsonResource
             'request_expires_in_minutes' => $remainingSeconds !== null
                 ? (int) ceil($remainingSeconds / 60)
                 : null,
+            'pending_adjustment_proposal' => $booking->hasPendingTherapistAdjustment()
+                ? [
+                    'proposed_at' => $booking->therapist_adjustment_proposed_at,
+                    'scheduled_start_at' => $booking->therapist_adjustment_start_at,
+                    'scheduled_end_at' => $booking->therapist_adjustment_end_at,
+                    'duration_minutes' => $booking->therapist_adjustment_duration_minutes,
+                    'total_amount' => $booking->therapist_adjustment_total_amount,
+                    'therapist_net_amount' => $booking->therapist_adjustment_therapist_net_amount,
+                    'platform_fee_amount' => $booking->therapist_adjustment_platform_fee_amount,
+                    'matching_fee_amount' => $booking->therapist_adjustment_matching_fee_amount,
+                    'buffer_before_minutes' => $booking->therapist_adjustment_buffer_before_minutes,
+                    'buffer_after_minutes' => $booking->therapist_adjustment_buffer_after_minutes,
+                ]
+                : null,
             'menu' => $booking->therapistMenu
                 ? [
                     'public_id' => $booking->therapistMenu->public_id,

@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
-import { buildJstDateValue, formatJstDateTime } from '../lib/datetime';
+import { buildJstDateValue, formatJstDateTime, formatJstDateTimeLocalValue } from '../lib/datetime';
 import { formatCurrency, getServiceAddressLabel } from '../lib/discovery';
 import { formatDateTime } from '../lib/therapist';
 import type {
@@ -168,6 +168,43 @@ function renderRequestTimeRange(request: TherapistBookingRequestRecord) {
     );
 }
 
+function renderScheduledTimeRange(startAt: string | null, endAt: string | null) {
+    if (!startAt || !endAt) {
+        return '開始時刻を確認中';
+    }
+
+    const sameDay = buildJstDateValue(startAt) === buildJstDateValue(endAt);
+    const sameYear = formatRequestYear(startAt) === formatRequestYear(endAt);
+
+    return (
+        <>
+            <span className="block">{formatRequestYear(startAt)}</span>
+            <span className="mt-1 block">
+                {formatRequestDateLabel(startAt)} {formatRequestTimeLabel(startAt)} 〜
+                {sameDay ? ` ${formatRequestTimeLabel(endAt)}` : ''}
+            </span>
+            {!sameDay ? (
+                <span className="block">
+                    {sameYear ? '' : `${formatRequestYear(endAt)} `}
+                    {formatRequestDateLabel(endAt)} {formatRequestTimeLabel(endAt)}
+                </span>
+            ) : null}
+        </>
+    );
+}
+
+function adjustmentTitle(booking: BookingDetailRecord): string {
+    return booking.pending_adjustment_proposal ? '利用者の確認待ちです' : '時間を変更して提案';
+}
+
+function adjustmentDescription(booking: BookingDetailRecord): string {
+    if (booking.pending_adjustment_proposal) {
+        return '提案済みの開始時間・終了時間で利用者の返答を待っています。必要なら時間やバッファを更新できます。';
+    }
+
+    return 'このままでは難しい場合だけ、開始時間と終了時間を調整して利用者へ提案できます。利用者が確認OKを押すまで予約は確定しません。';
+}
+
 export function TherapistRequestsPage() {
     const { token } = useAuth();
     const { publicId } = useParams<{ publicId: string }>();
@@ -178,6 +215,8 @@ export function TherapistRequestsPage() {
     const [selectedBooking, setSelectedBooking] = useState<BookingDetailRecord | null>(null);
     const [bufferBeforeMinutes, setBufferBeforeMinutes] = useState('30');
     const [bufferAfterMinutes, setBufferAfterMinutes] = useState('30');
+    const [proposedStartAt, setProposedStartAt] = useState('');
+    const [proposedEndAt, setProposedEndAt] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -185,6 +224,7 @@ export function TherapistRequestsPage() {
     const [isDetailLoading, setIsDetailLoading] = useState(false);
     const [isAccepting, setIsAccepting] = useState(false);
     const [isRejecting, setIsRejecting] = useState(false);
+    const [isSubmittingAdjustment, setIsSubmittingAdjustment] = useState(false);
     const [now, setNow] = useState(Date.now());
 
     usePageTitle('予約依頼一覧');
@@ -306,8 +346,25 @@ export function TherapistRequestsPage() {
 
                 const nextBooking = unwrapData(payload);
                 setSelectedBooking(nextBooking);
-                setBufferBeforeMinutes(String(nextBooking.buffer_before_minutes || (nextBooking.request_type === 'scheduled' ? 30 : 0)));
-                setBufferAfterMinutes(String(nextBooking.buffer_after_minutes || (nextBooking.request_type === 'scheduled' ? 30 : 0)));
+                const pendingAdjustment = nextBooking.pending_adjustment_proposal ?? null;
+                const nextBufferBeforeMinutes = pendingAdjustment?.buffer_before_minutes
+                    ?? nextBooking.buffer_before_minutes
+                    ?? (nextBooking.request_type === 'scheduled' ? 30 : 0);
+                const nextBufferAfterMinutes = pendingAdjustment?.buffer_after_minutes
+                    ?? nextBooking.buffer_after_minutes
+                    ?? (nextBooking.request_type === 'scheduled' ? 30 : 0);
+
+                setBufferBeforeMinutes(String(nextBufferBeforeMinutes));
+                setBufferAfterMinutes(String(nextBufferAfterMinutes));
+                setProposedStartAt(formatJstDateTimeLocalValue(
+                    pendingAdjustment?.scheduled_start_at
+                    ?? nextBooking.scheduled_start_at
+                    ?? nextBooking.requested_start_at,
+                ));
+                setProposedEndAt(formatJstDateTimeLocalValue(
+                    pendingAdjustment?.scheduled_end_at
+                    ?? nextBooking.scheduled_end_at,
+                ));
                 setError(null);
             } catch (requestError) {
                 if (!isMounted) {
@@ -409,6 +466,42 @@ export function TherapistRequestsPage() {
             setError(message);
         } finally {
             setIsAccepting(false);
+        }
+    }
+
+    async function handleSubmitAdjustment() {
+        if (!token || !selectedBooking || isSubmittingAdjustment) {
+            return;
+        }
+
+        setIsSubmittingAdjustment(true);
+        setError(null);
+        setSuccessMessage(null);
+
+        try {
+            const payload = await apiRequest<ApiEnvelope<BookingDetailRecord>>(`/bookings/${selectedBooking.public_id}/adjustment-proposal`, {
+                method: 'POST',
+                token,
+                body: {
+                    scheduled_start_at: proposedStartAt,
+                    scheduled_end_at: proposedEndAt,
+                    buffer_before_minutes: Number(bufferBeforeMinutes),
+                    buffer_after_minutes: Number(bufferAfterMinutes),
+                },
+            });
+
+            const nextBooking = unwrapData(payload);
+            setSelectedBooking(nextBooking);
+            setSuccessMessage('利用者へ時間変更の提案を送りました。利用者が確認すると、この条件で予約が確定します。');
+        } catch (requestError) {
+            const message =
+                requestError instanceof ApiError
+                    ? requestError.message
+                    : '時間変更の提案に失敗しました。';
+
+            setError(message);
+        } finally {
+            setIsSubmittingAdjustment(false);
         }
     }
 
@@ -589,46 +682,120 @@ export function TherapistRequestsPage() {
                             </div>
 
                             {selectedBooking.request_type === 'scheduled' ? (
-                                <section className="rounded-[24px] border border-[#f0d6a4] bg-[#fff7e8] px-5 py-5 text-[#17202b]">
-                                    <div className="space-y-2">
-                                        <h3 className="text-lg font-semibold">承諾時バッファ</h3>
-                                        <p className="text-sm leading-7 text-[#475569]">
-                                            予定予約は、前後の移動や準備時間をここで確定してから承諾します。
-                                            同時間帯の他予約と重なる場合は API 側で承諾できません。
-                                        </p>
-                                    </div>
+                                <>
+                                    {selectedBooking.pending_adjustment_proposal ? (
+                                        <section className="rounded-[24px] border border-[#9ec5ff] bg-[#eef5ff] px-5 py-5 text-[#17202b]">
+                                            <div className="space-y-2">
+                                                <h3 className="text-lg font-semibold">提案中の時間変更</h3>
+                                                <p className="text-sm leading-7 text-[#475569]">
+                                                    利用者がこの提案を確認すると、そのまま予約確定に進みます。必要なら開始時間、終了時間、バッファを更新できます。
+                                                </p>
+                                            </div>
 
-                                    <div className="mt-4 grid gap-4 sm:grid-cols-2">
-                                        <label className="space-y-2">
-                                            <span className="text-sm font-semibold text-[#17202b]">前のバッファ（分）</span>
-                                            <input
-                                                type="number"
-                                                min={0}
-                                                max={360}
-                                                step={5}
-                                                value={bufferBeforeMinutes}
-                                                onChange={(event) => {
-                                                    setBufferBeforeMinutes(event.target.value);
+                                            <div className="mt-4 grid gap-4 md:grid-cols-2">
+                                                <div className="rounded-2xl border border-[#d3e3ff] bg-white px-4 py-4">
+                                                    <p className="text-xs font-semibold tracking-wide text-[#5b6b7f]">提案中の時間</p>
+                                                    <div className="mt-2 text-sm font-semibold leading-7 text-[#17202b]">
+                                                        {renderScheduledTimeRange(
+                                                            selectedBooking.pending_adjustment_proposal.scheduled_start_at,
+                                                            selectedBooking.pending_adjustment_proposal.scheduled_end_at,
+                                                        )}
+                                                    </div>
+                                                </div>
+                                                <div className="rounded-2xl border border-[#d3e3ff] bg-white px-4 py-4">
+                                                    <p className="text-xs font-semibold tracking-wide text-[#5b6b7f]">提案後の金額</p>
+                                                    <p className="mt-2 text-xl font-semibold text-[#17202b]">
+                                                        {formatCurrency(selectedBooking.pending_adjustment_proposal.total_amount)}
+                                                    </p>
+                                                    <p className="mt-2 text-xs text-[#5b6b7f]">
+                                                        受取 {formatCurrency(selectedBooking.pending_adjustment_proposal.therapist_net_amount)}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        </section>
+                                    ) : null}
+
+                                    <section className="rounded-[24px] border border-[#f0d6a4] bg-[#fff7e8] px-5 py-5 text-[#17202b]">
+                                        <div className="space-y-2">
+                                            <h3 className="text-lg font-semibold">{adjustmentTitle(selectedBooking)}</h3>
+                                            <p className="text-sm leading-7 text-[#475569]">
+                                                {adjustmentDescription(selectedBooking)}
+                                            </p>
+                                        </div>
+
+                                        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                                            <label className="space-y-2">
+                                                <span className="text-sm font-semibold text-[#17202b]">開始時間</span>
+                                                <input
+                                                    type="datetime-local"
+                                                    step={900}
+                                                    value={proposedStartAt}
+                                                    onChange={(event) => {
+                                                        setProposedStartAt(event.target.value);
+                                                    }}
+                                                    className="w-full rounded-2xl border border-[#d8c39b] bg-white px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b38a44]"
+                                                />
+                                            </label>
+                                            <label className="space-y-2">
+                                                <span className="text-sm font-semibold text-[#17202b]">終了時間</span>
+                                                <input
+                                                    type="datetime-local"
+                                                    step={900}
+                                                    value={proposedEndAt}
+                                                    onChange={(event) => {
+                                                        setProposedEndAt(event.target.value);
+                                                    }}
+                                                    className="w-full rounded-2xl border border-[#d8c39b] bg-white px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b38a44]"
+                                                />
+                                            </label>
+                                            <label className="space-y-2">
+                                                <span className="text-sm font-semibold text-[#17202b]">前のバッファ（分）</span>
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    max={360}
+                                                    step={5}
+                                                    value={bufferBeforeMinutes}
+                                                    onChange={(event) => {
+                                                        setBufferBeforeMinutes(event.target.value);
+                                                    }}
+                                                    className="w-full rounded-2xl border border-[#d8c39b] bg-white px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b38a44]"
+                                                />
+                                            </label>
+                                            <label className="space-y-2">
+                                                <span className="text-sm font-semibold text-[#17202b]">後のバッファ（分）</span>
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    max={360}
+                                                    step={5}
+                                                    value={bufferAfterMinutes}
+                                                    onChange={(event) => {
+                                                        setBufferAfterMinutes(event.target.value);
+                                                    }}
+                                                    className="w-full rounded-2xl border border-[#d8c39b] bg-white px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b38a44]"
+                                                />
+                                            </label>
+                                        </div>
+
+                                        <div className="mt-5 flex flex-wrap gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    void handleSubmitAdjustment();
                                                 }}
-                                                className="w-full rounded-2xl border border-[#d8c39b] bg-white px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b38a44]"
-                                            />
-                                        </label>
-                                        <label className="space-y-2">
-                                            <span className="text-sm font-semibold text-[#17202b]">後のバッファ（分）</span>
-                                            <input
-                                                type="number"
-                                                min={0}
-                                                max={360}
-                                                step={5}
-                                                value={bufferAfterMinutes}
-                                                onChange={(event) => {
-                                                    setBufferAfterMinutes(event.target.value);
-                                                }}
-                                                className="w-full rounded-2xl border border-[#d8c39b] bg-white px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b38a44]"
-                                            />
-                                        </label>
-                                    </div>
-                                </section>
+                                                disabled={isSubmittingAdjustment || isAccepting || isRejecting || (selectedRemainingSeconds != null && selectedRemainingSeconds <= 0)}
+                                                className="inline-flex items-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243140] disabled:cursor-not-allowed disabled:opacity-60"
+                                            >
+                                                {isSubmittingAdjustment
+                                                    ? '提案を送信中...'
+                                                    : selectedBooking.pending_adjustment_proposal
+                                                        ? '提案内容を更新する'
+                                                        : 'この条件で利用者へ提案する'}
+                                            </button>
+                                        </div>
+                                    </section>
+                                </>
                             ) : (
                                 <section className="rounded-[24px] border border-white/10 bg-[#17202b] px-5 py-5">
                                     <h3 className="text-lg font-semibold text-white">今すぐ予約メモ</h3>
@@ -639,22 +806,24 @@ export function TherapistRequestsPage() {
                             )}
 
                             <section className="flex flex-wrap gap-3">
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        void handleAccept();
-                                    }}
-                                    disabled={isAccepting || isRejecting || (selectedRemainingSeconds != null && selectedRemainingSeconds <= 0)}
-                                    className="inline-flex items-center rounded-full bg-[#f6e7cb] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#f3ddb2] disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                    {isAccepting ? '承諾中...' : 'この依頼を承諾'}
-                                </button>
+                                {!selectedBooking.pending_adjustment_proposal ? (
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            void handleAccept();
+                                        }}
+                                        disabled={isAccepting || isRejecting || isSubmittingAdjustment || (selectedRemainingSeconds != null && selectedRemainingSeconds <= 0)}
+                                        className="inline-flex items-center rounded-full bg-[#f6e7cb] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#f3ddb2] disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        {isAccepting ? '承諾中...' : 'この依頼を承諾'}
+                                    </button>
+                                ) : null}
                                 <button
                                     type="button"
                                     onClick={() => {
                                         void handleReject();
                                     }}
-                                    disabled={isAccepting || isRejecting}
+                                    disabled={isAccepting || isRejecting || isSubmittingAdjustment}
                                     className="inline-flex items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/6 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                     {isRejecting ? '辞退中...' : '辞退する'}

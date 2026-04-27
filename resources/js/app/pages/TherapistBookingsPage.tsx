@@ -53,12 +53,12 @@ function normalizeSort(value: string | null): SortMode {
     return value === 'recent' ? 'recent' : 'upcoming';
 }
 
-function statusLabel(status: string): string {
-    switch (status) {
+function statusLabel(booking: Pick<BookingListRecord, 'status' | 'pending_adjustment_proposal'>): string {
+    switch (booking.status) {
         case 'payment_authorizing':
             return '与信確認中';
         case 'requested':
-            return '承諾待ち';
+            return booking.pending_adjustment_proposal ? '利用者の確認待ち' : '承諾待ち';
         case 'accepted':
             return '予約確定';
         case 'moving':
@@ -82,7 +82,7 @@ function statusLabel(status: string): string {
         case 'interrupted':
             return '中断';
         default:
-            return status;
+            return booking.status;
     }
 }
 
@@ -190,7 +190,7 @@ function matchesGroup(booking: BookingListRecord, group: BookingGroup): boolean 
 
 function buildAttentionLabel(booking: BookingListRecord): string | null {
     if (booking.status === 'requested') {
-        return '承諾判断が必要';
+        return booking.pending_adjustment_proposal ? '利用者の確認待ち' : '承諾判断が必要';
     }
 
     if (booking.status === 'therapist_completed') {
@@ -506,7 +506,7 @@ export function TherapistBookingsPage() {
                                     <div className="space-y-4">
                                         <div className="flex flex-wrap items-center gap-2">
                                             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
-                                                {statusLabel(booking.status)}
+                                                {statusLabel(booking)}
                                             </span>
                                             <span className="rounded-full bg-[#f5efe4] px-3 py-1 text-xs font-semibold text-[#48505a]">
                                                 {requestTypeLabel(booking.request_type)}
@@ -601,7 +601,9 @@ export function TherapistBookingsPage() {
                                                         : `/therapist/bookings/${booking.public_id}`}
                                                     className="inline-flex w-full items-center justify-center rounded-full bg-[#17202b] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#243447]"
                                                 >
-                                                    {booking.status === 'requested' ? '依頼内容を確認' : '詳細を見る'}
+                                                    {booking.status === 'requested'
+                                                        ? (booking.pending_adjustment_proposal ? '提案内容を確認' : '依頼内容を確認')
+                                                        : '詳細を見る'}
                                                 </Link>
                                                 <Link
                                                     to={booking.status === 'requested'
@@ -609,7 +611,9 @@ export function TherapistBookingsPage() {
                                                         : `/therapist/bookings/${booking.public_id}/messages`}
                                                     className="inline-flex w-full items-center justify-center rounded-full border border-[#d6c3a6] px-4 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#efe5d7]"
                                                 >
-                                                    {booking.status === 'requested' ? '承諾・辞退へ' : 'メッセージへ'}
+                                                    {booking.status === 'requested'
+                                                        ? (booking.pending_adjustment_proposal ? '利用者確認待ちへ' : '承諾・辞退へ')
+                                                        : 'メッセージへ'}
                                                 </Link>
                                             </div>
                                         </div>
