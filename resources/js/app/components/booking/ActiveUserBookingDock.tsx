@@ -193,6 +193,7 @@ export function ActiveUserBookingDock() {
     const location = useLocation();
     const [items, setItems] = useState<DockItem[]>([]);
     const [isExpanded, setIsExpanded] = useState(false);
+    const [isHiddenAtPageBottom, setIsHiddenAtPageBottom] = useState(false);
 
     const mode: DockMode | null = useMemo(() => {
         if (!isAuthenticated) {
@@ -320,9 +321,36 @@ export function ActiveUserBookingDock() {
         setIsExpanded(false);
     }, [location.pathname, location.search]);
 
+    useEffect(() => {
+        if (!shouldShow) {
+            setIsHiddenAtPageBottom(false);
+            return;
+        }
+
+        const updateVisibility = () => {
+            const documentHeight = document.documentElement.scrollHeight;
+            const viewportHeight = window.innerHeight;
+            const scrollTop = window.scrollY;
+            const maxScrollTop = Math.max(0, documentHeight - viewportHeight);
+            const isScrollable = maxScrollTop > 120;
+            const reachedBottom = scrollTop + viewportHeight >= documentHeight - 24;
+
+            setIsHiddenAtPageBottom(isScrollable && reachedBottom);
+        };
+
+        updateVisibility();
+        window.addEventListener('scroll', updateVisibility, { passive: true });
+        window.addEventListener('resize', updateVisibility);
+
+        return () => {
+            window.removeEventListener('scroll', updateVisibility);
+            window.removeEventListener('resize', updateVisibility);
+        };
+    }, [shouldShow]);
+
     const summary = useMemo(() => (mode ? summaryLabel(items, mode) : ''), [items, mode]);
 
-    if (!shouldShow || items.length === 0 || !mode) {
+    if (!shouldShow || items.length === 0 || !mode || isHiddenAtPageBottom) {
         return null;
     }
 

@@ -500,10 +500,10 @@ export function TherapistRequestsPage() {
                             onClick={() => {
                                 setRequestType(option.key as RequestTypeFilter);
                             }}
-                            className={`rounded-full px-4 py-2 text-sm font-semibold transition ${
+                            className={`inline-flex min-h-10 items-center rounded-full border px-4 py-2 text-sm font-semibold transition ${
                                 isActive
-                                    ? 'bg-[#f6e7cb] text-[#17202b]'
-                                    : 'border border-white/10 bg-white/5 text-slate-200 hover:bg-white/8'
+                                    ? 'border-[#f6e7cb] bg-[#f6e7cb] text-[#17202b]'
+                                    : 'border-white/10 bg-white/5 text-slate-200 hover:bg-white/8'
                             }`}
                         >
                             {option.label}
@@ -544,6 +544,7 @@ export function TherapistRequestsPage() {
                             const remainingMinutes = remainingSeconds != null
                                 ? Math.max(0, Math.ceil(remainingSeconds / 60))
                                 : request.request_expires_in_minutes;
+                            const cardLabelTone = isSelected ? 'text-[#697789]' : 'text-slate-400';
 
                             return (
                                 <Link
@@ -582,19 +583,19 @@ export function TherapistRequestsPage() {
 
                                     <div className={`mt-4 grid gap-3 text-sm sm:grid-cols-2 ${isSelected ? 'text-[#415162]' : 'text-slate-300'}`}>
                                         <div>
-                                            <p className="text-xs font-semibold tracking-wide text-inherit/70">希望時間</p>
+                                            <p className={`text-xs font-semibold tracking-wide ${cardLabelTone}`}>希望時間</p>
                                             <p className="mt-1">{buildRequestTimeLine(request)}</p>
                                         </div>
                                         <div>
-                                            <p className="text-xs font-semibold tracking-wide text-inherit/70">希望エリア</p>
+                                            <p className={`text-xs font-semibold tracking-wide ${cardLabelTone}`}>希望エリア</p>
                                             <p className="mt-1">{buildServiceLocationLabel(request)}</p>
                                         </div>
                                         <div>
-                                            <p className="text-xs font-semibold tracking-wide text-inherit/70">場所種別</p>
+                                            <p className={`text-xs font-semibold tracking-wide ${cardLabelTone}`}>場所種別</p>
                                             <p className="mt-1">{placeTypeLabel(request.service_location?.place_type)}</p>
                                         </div>
                                         <div>
-                                            <p className="text-xs font-semibold tracking-wide text-inherit/70">受付番号</p>
+                                            <p className={`text-xs font-semibold tracking-wide ${cardLabelTone}`}>受付番号</p>
                                             <p className="mt-1 font-mono text-xs">{request.public_id}</p>
                                         </div>
                                     </div>
