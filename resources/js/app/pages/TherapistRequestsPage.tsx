@@ -199,7 +199,7 @@ function adjustmentTitle(booking: BookingDetailRecord): string {
 
 function adjustmentDescription(booking: BookingDetailRecord): string {
     if (booking.pending_adjustment_proposal) {
-        return '提案済みの開始時間・終了時間で利用者の返答を待っています。必要なら時間やバッファを更新できます。';
+        return '提案済みの開始時間・終了時間で利用者の返答を待っています。必要なら時間や予約前後の移動・準備時間を更新できます。';
     }
 
     return 'このままでは難しい場合だけ、開始時間と終了時間を調整して利用者へ提案できます。利用者が確認OKを押すまで予約は確定しません。';
@@ -714,7 +714,7 @@ export function TherapistRequestsPage() {
                                             <div className="space-y-2">
                                                 <h3 className="text-lg font-semibold">提案中の時間変更</h3>
                                                 <p className="text-sm leading-7 text-[#475569]">
-                                                    利用者がこの提案を確認すると、そのまま予約確定に進みます。必要なら開始時間、終了時間、バッファを更新できます。
+                                                    利用者がこの提案を確認すると、そのまま予約確定に進みます。必要なら開始時間、終了時間、予約前後の移動・準備時間を更新できます。
                                                 </p>
                                             </div>
 
@@ -747,6 +747,37 @@ export function TherapistRequestsPage() {
                                             <p className="text-sm leading-7 text-[#475569]">
                                                 {adjustmentDescription(selectedBooking)}
                                             </p>
+                                        </div>
+
+                                        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+                                            <label className="space-y-2">
+                                                <span className="text-sm font-semibold text-[#17202b]">開始前の移動・準備時間（分）</span>
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    max={360}
+                                                    step={5}
+                                                    value={bufferBeforeMinutes}
+                                                    onChange={(event) => {
+                                                        setBufferBeforeMinutes(event.target.value);
+                                                    }}
+                                                    className="w-full rounded-2xl border border-[#d8c39b] bg-white px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b38a44]"
+                                                />
+                                            </label>
+                                            <label className="space-y-2">
+                                                <span className="text-sm font-semibold text-[#17202b]">終了後の移動・準備時間（分）</span>
+                                                <input
+                                                    type="number"
+                                                    min={0}
+                                                    max={360}
+                                                    step={5}
+                                                    value={bufferAfterMinutes}
+                                                    onChange={(event) => {
+                                                        setBufferAfterMinutes(event.target.value);
+                                                    }}
+                                                    className="w-full rounded-2xl border border-[#d8c39b] bg-white px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b38a44]"
+                                                />
+                                            </label>
                                         </div>
 
                                         {!isAdjustmentFormOpen ? (
@@ -840,34 +871,12 @@ export function TherapistRequestsPage() {
                                                             </button>
                                                         </div>
                                                     </label>
-                                                    <label className="space-y-2">
-                                                        <span className="text-sm font-semibold text-[#17202b]">前のバッファ（分）</span>
-                                                        <input
-                                                            type="number"
-                                                            min={0}
-                                                            max={360}
-                                                            step={5}
-                                                            value={bufferBeforeMinutes}
-                                                            onChange={(event) => {
-                                                                setBufferBeforeMinutes(event.target.value);
-                                                            }}
-                                                            className="w-full rounded-2xl border border-[#d8c39b] bg-white px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b38a44]"
-                                                        />
-                                                    </label>
-                                                    <label className="space-y-2">
-                                                        <span className="text-sm font-semibold text-[#17202b]">後のバッファ（分）</span>
-                                                        <input
-                                                            type="number"
-                                                            min={0}
-                                                            max={360}
-                                                            step={5}
-                                                            value={bufferAfterMinutes}
-                                                            onChange={(event) => {
-                                                                setBufferAfterMinutes(event.target.value);
-                                                            }}
-                                                            className="w-full rounded-2xl border border-[#d8c39b] bg-white px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b38a44]"
-                                                        />
-                                                    </label>
+                                                    <div className="space-y-2 sm:col-span-2">
+                                                        <span className="text-sm font-semibold text-[#17202b]">変更後の開始時間と終了時間を確認してください</span>
+                                                        <p className="rounded-2xl border border-dashed border-[#d8c39b] bg-white/70 px-4 py-3 text-sm leading-7 text-[#475569]">
+                                                            ここで変更するのは時間だけです。予約前後の移動・準備時間は上の項目でそのまま設定できます。
+                                                        </p>
+                                                    </div>
                                                 </div>
 
                                                 <div className="mt-5 flex flex-wrap gap-3">
