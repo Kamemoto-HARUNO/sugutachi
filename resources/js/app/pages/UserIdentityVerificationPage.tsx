@@ -222,6 +222,17 @@ export function UserIdentityVerificationPage() {
                         </p>
                     </div>
 
+                    <div className="mt-5 rounded-[24px] border border-[#e7c382] bg-[linear-gradient(180deg,rgba(210,177,121,0.18)_0%,rgba(210,177,121,0.1)_100%)] px-5 py-5 shadow-[0_16px_36px_rgba(0,0,0,0.14)]">
+                        <p className="text-xs font-semibold tracking-wide text-[#f3dec0]">予約前に必須の確認です</p>
+                        <h3 className="mt-2 text-lg font-semibold text-white">
+                            18歳以上の確認と本人確認が完了しないと予約リクエストは送れません
+                        </h3>
+                        <p className="mt-3 text-sm leading-7 text-slate-100">
+                            提出した氏名、生年月日、本人確認書類、セルフィーは、年齢確認と本人確認の審査にだけ使います。
+                            審査用途以外では使用せず、未成年利用の防止とトラブル時の安全運用のために扱います。
+                        </p>
+                    </div>
+
 
 
                     {!allowsSubmission ? (

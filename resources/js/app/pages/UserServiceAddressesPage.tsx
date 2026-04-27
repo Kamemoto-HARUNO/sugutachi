@@ -68,6 +68,8 @@ function formatDateTime(value: string | null): string {
     }) ?? '未更新';
 }
 
+const addressInputClass = 'w-full rounded-[18px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 text-sm text-[#17202b] outline-none transition placeholder:text-[#9b8d78] focus:border-[#c6a16a]';
+
 export function UserServiceAddressesPage() {
     const { token } = useAuth();
     const [addresses, setAddresses] = useState<ServiceAddress[]>([]);
@@ -464,7 +466,7 @@ export function UserServiceAddressesPage() {
                                     onChange={(event) => {
                                         setDraft((current) => ({ ...current, label: event.target.value }));
                                     }}
-                                    className="w-full rounded-[18px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 text-sm outline-none transition focus:border-[#c6a16a]"
+                                    className={addressInputClass}
                                     placeholder="例: 新宿のホテル / 自宅"
                                 />
                             </div>
@@ -477,7 +479,7 @@ export function UserServiceAddressesPage() {
                                     onChange={(event) => {
                                         setDraft((current) => ({ ...current, postal_code: event.target.value }));
                                     }}
-                                    className="w-full rounded-[18px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 text-sm outline-none transition focus:border-[#c6a16a]"
+                                    className={addressInputClass}
                                     placeholder="160-0022"
                                 />
                             </div>
@@ -490,7 +492,7 @@ export function UserServiceAddressesPage() {
                                     onChange={(event) => {
                                         setDraft((current) => ({ ...current, prefecture: event.target.value }));
                                     }}
-                                    className="w-full rounded-[18px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 text-sm outline-none transition focus:border-[#c6a16a]"
+                                    className={addressInputClass}
                                     placeholder="東京都"
                                 />
                             </div>
@@ -503,7 +505,7 @@ export function UserServiceAddressesPage() {
                                     onChange={(event) => {
                                         setDraft((current) => ({ ...current, city: event.target.value }));
                                     }}
-                                    className="w-full rounded-[18px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 text-sm outline-none transition focus:border-[#c6a16a]"
+                                    className={addressInputClass}
                                     placeholder="新宿区新宿"
                                 />
                             </div>
@@ -517,7 +519,7 @@ export function UserServiceAddressesPage() {
                                 onChange={(event) => {
                                     setDraft((current) => ({ ...current, address_line: event.target.value }));
                                 }}
-                                className="w-full rounded-[18px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 text-sm outline-none transition focus:border-[#c6a16a]"
+                                className={addressInputClass}
                                 placeholder="1-2-3"
                                 required
                             />
@@ -532,7 +534,7 @@ export function UserServiceAddressesPage() {
                                     onChange={(event) => {
                                         setDraft((current) => ({ ...current, building: event.target.value }));
                                     }}
-                                    className="w-full rounded-[18px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 text-sm outline-none transition focus:border-[#c6a16a]"
+                                    className={addressInputClass}
                                     placeholder="サンプルホテル 1203"
                                 />
                             </div>
@@ -545,7 +547,7 @@ export function UserServiceAddressesPage() {
                                     onChange={(event) => {
                                         setDraft((current) => ({ ...current, access_notes: event.target.value }));
                                     }}
-                                    className="w-full rounded-[18px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 text-sm outline-none transition focus:border-[#c6a16a]"
+                                    className={addressInputClass}
                                     placeholder="フロントに着いたら連絡してほしい など"
                                 />
                             </div>
