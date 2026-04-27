@@ -838,71 +838,6 @@ export function TherapistBookingDetailPage() {
                         </div>
                     </article>
 
-                    <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">PAYMENT & REFUND</p>
-                        <div className="mt-5 grid gap-4 md:grid-cols-2">
-                            <div className="rounded-[22px] bg-[#f8f4ed] p-4">
-                                <p className="text-sm font-semibold text-[#17202b]">決済</p>
-                                <div className="mt-3 space-y-3">
-                                    <div className="rounded-[18px] bg-white/70 px-4 py-3">
-                                        <p className="text-xs font-semibold tracking-wide text-[#7d6852]">受取予定額</p>
-                                        <p className="mt-2 text-2xl font-semibold text-[#17202b]">
-                                            {formatCurrency(booking.therapist_net_amount)}
-                                        </p>
-                                    </div>
-                                    <div className="space-y-2 text-sm text-[#48505a]">
-                                        <div className="flex items-center justify-between gap-4">
-                                            <span>セラピスト謝礼</span>
-                                            <span className="font-semibold text-[#17202b]">{formatCurrency(therapistRewardAmount(booking))}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between gap-4">
-                                            <span>プラットフォーム料金</span>
-                                            <span className="font-semibold text-[#9a4b35]">{formatNegativeCurrency(booking.platform_fee_amount)}</span>
-                                        </div>
-                                    </div>
-                                </div>
-                            </div>
-
-                            <div className="rounded-[22px] bg-[#f8f4ed] p-4">
-                                <p className="text-sm font-semibold text-[#17202b]">返金</p>
-                                <div className="mt-3 space-y-2 text-sm text-[#48505a]">
-                                    <div className="flex items-center justify-between gap-4">
-                                        <span>件数</span>
-                                        <span className="font-semibold text-[#17202b]">{booking.refund_breakdown?.refund_count ?? 0}件</span>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-4">
-                                        <span>申請総額</span>
-                                        <span className="font-semibold text-[#17202b]">
-                                            {formatCurrency(booking.refund_breakdown?.requested_amount_total ?? 0)}
-                                        </span>
-                                    </div>
-                                    <div className="flex items-center justify-between gap-4">
-                                        <span>処理済み総額</span>
-                                        <span className="font-semibold text-[#17202b]">
-                                            {formatCurrency(booking.refund_breakdown?.processed_amount_total ?? 0)}
-                                        </span>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-
-                        {booking.refunds.length > 0 ? (
-                            <div className="mt-5 grid gap-3">
-                                {booking.refunds.map((refund) => (
-                                    <div key={refund.public_id} className="rounded-[20px] border border-[#ebe2d3] px-4 py-4">
-                                        <div className="flex flex-wrap items-center justify-between gap-3">
-                                            <div>
-                                                <p className="text-sm font-semibold text-[#17202b]">{renderRefundSummary(refund)}</p>
-                                                <p className="mt-1 text-sm text-[#68707a]">理由: {refund.reason_code ?? '未設定'}</p>
-                                            </div>
-                                            <p className="text-sm text-[#68707a]">{formatDateTime(refund.processed_at ?? refund.created_at)}</p>
-                                        </div>
-                                    </div>
-                                ))}
-                            </div>
-                        ) : null}
-                    </article>
-
                     {(booking.consents.length > 0 || booking.health_checks.length > 0) ? (
                         <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                             <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">安全記録</p>
@@ -1092,6 +1027,71 @@ export function TherapistBookingDetailPage() {
                                 </div>
                             ) : null}
                         </div>
+                    </section>
+
+                    <section className="rounded-[28px] bg-[#fffcf7] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.1)]">
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">決済と返金</p>
+                        <div className="mt-5 grid gap-4">
+                            <div className="rounded-[22px] bg-[#f8f4ed] p-4">
+                                <p className="text-sm font-semibold text-[#17202b]">決済</p>
+                                <div className="mt-3 space-y-3">
+                                    <div className="rounded-[18px] bg-white/70 px-4 py-3">
+                                        <p className="text-xs font-semibold tracking-wide text-[#7d6852]">受取予定額</p>
+                                        <p className="mt-2 text-2xl font-semibold text-[#17202b]">
+                                            {formatCurrency(booking.therapist_net_amount)}
+                                        </p>
+                                    </div>
+                                    <div className="space-y-2 text-sm text-[#48505a]">
+                                        <div className="flex items-center justify-between gap-4">
+                                            <span>セラピスト謝礼</span>
+                                            <span className="font-semibold text-[#17202b]">{formatCurrency(therapistRewardAmount(booking))}</span>
+                                        </div>
+                                        <div className="flex items-center justify-between gap-4">
+                                            <span>プラットフォーム料金</span>
+                                            <span className="font-semibold text-[#9a4b35]">{formatNegativeCurrency(booking.platform_fee_amount)}</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div className="rounded-[22px] bg-[#f8f4ed] p-4">
+                                <p className="text-sm font-semibold text-[#17202b]">返金</p>
+                                <div className="mt-3 space-y-2 text-sm text-[#48505a]">
+                                    <div className="flex items-center justify-between gap-4">
+                                        <span>件数</span>
+                                        <span className="font-semibold text-[#17202b]">{booking.refund_breakdown?.refund_count ?? 0}件</span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-4">
+                                        <span>申請総額</span>
+                                        <span className="font-semibold text-[#17202b]">
+                                            {formatCurrency(booking.refund_breakdown?.requested_amount_total ?? 0)}
+                                        </span>
+                                    </div>
+                                    <div className="flex items-center justify-between gap-4">
+                                        <span>処理済み総額</span>
+                                        <span className="font-semibold text-[#17202b]">
+                                            {formatCurrency(booking.refund_breakdown?.processed_amount_total ?? 0)}
+                                        </span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+
+                        {booking.refunds.length > 0 ? (
+                            <div className="mt-5 grid gap-3">
+                                {booking.refunds.map((refund) => (
+                                    <div key={refund.public_id} className="rounded-[20px] border border-[#ebe2d3] px-4 py-4">
+                                        <div className="flex flex-wrap items-center justify-between gap-3">
+                                            <div>
+                                                <p className="text-sm font-semibold text-[#17202b]">{renderRefundSummary(refund)}</p>
+                                                <p className="mt-1 text-sm text-[#68707a]">理由: {refund.reason_code ?? '未設定'}</p>
+                                            </div>
+                                            <p className="text-sm text-[#68707a]">{formatDateTime(refund.processed_at ?? refund.created_at)}</p>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : null}
                     </section>
 
                     <section className="rounded-[28px] bg-[#fffcf7] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.1)]">
