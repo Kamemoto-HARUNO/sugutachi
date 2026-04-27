@@ -185,6 +185,38 @@ class TherapistDiscoveryApiTest extends TestCase
             ->assertJsonPath('data.0.public_comment', '落ち着いて受けられました。');
     }
 
+    public function test_therapist_can_view_own_public_detail_preview_while_authenticated(): void
+    {
+        [, , $nearbyProfile, , $nearbyTherapist] = $this->createDiscoveryFixture();
+
+        $this->withToken($nearbyTherapist->createToken('api')->plainTextToken)
+            ->getJson("/api/therapists/{$nearbyProfile->public_id}")
+            ->assertOk()
+            ->assertJsonPath('data.public_id', $nearbyProfile->public_id)
+            ->assertJsonPath('data.public_name', $nearbyProfile->public_name);
+    }
+
+    public function test_therapist_can_view_own_public_reviews_while_authenticated(): void
+    {
+        [$user, , $nearbyProfile, , $nearbyTherapist, $booking] = $this->createDiscoveryFixture();
+
+        Review::create([
+            'booking_id' => $booking->id,
+            'reviewer_account_id' => $user->id,
+            'reviewee_account_id' => $nearbyTherapist->id,
+            'reviewer_role' => 'user',
+            'rating_overall' => 5,
+            'public_comment' => 'またお願いしたいです。',
+            'status' => Review::STATUS_VISIBLE,
+        ]);
+
+        $this->withToken($nearbyTherapist->createToken('api')->plainTextToken)
+            ->getJson("/api/therapists/{$nearbyProfile->public_id}/reviews")
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.public_comment', 'またお願いしたいです。');
+    }
+
     public function test_blocked_or_unverified_therapists_are_hidden(): void
     {
         [$user, $address, $nearbyProfile] = $this->createDiscoveryFixture();

@@ -25,9 +25,16 @@ class ReviewController extends Controller
 
     public function therapistReviews(Request $request, TherapistProfile $therapistProfile): AnonymousResourceCollection
     {
+        $viewer = $request->user() ?? Auth::guard('sanctum')->user();
+
         $profile = TherapistProfile::query()
-            ->visibleTo($request->user() ?? Auth::guard('sanctum')->user())
-            ->whereKey($therapistProfile->id)
+            ->when(
+                $viewer && $therapistProfile->account_id === $viewer->id,
+                fn ($query) => $query->whereKey($therapistProfile->id),
+                fn ($query) => $query
+                    ->visibleTo($viewer)
+                    ->whereKey($therapistProfile->id),
+            )
             ->firstOrFail();
 
         return ReviewResource::collection(

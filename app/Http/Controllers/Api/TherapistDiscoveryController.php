@@ -189,9 +189,7 @@ class TherapistDiscoveryController extends Controller
         $viewer = $this->authenticatedViewer($request);
         [$validated, $serviceAddress] = $this->validatedDiscoveryContext($request, requireServiceAddress: false, viewer: $viewer);
 
-        $profile = $this->detailProfilesQuery($viewer)
-            ->whereKey($therapistProfile->id)
-            ->firstOrFail();
+        $profile = $this->detailProfileForViewer($therapistProfile, $viewer);
 
         return new PublicTherapistDetailResource(
             $this->buildDetailResult(
@@ -242,6 +240,36 @@ class TherapistDiscoveryController extends Controller
                     ->orderBy('sort_order')
                     ->orderBy('id'),
             ]);
+    }
+
+    private function ownDetailProfileQuery(TherapistProfile $therapistProfile): Builder
+    {
+        return TherapistProfile::query()
+            ->whereKey($therapistProfile->id)
+            ->with([
+                'account.latestIdentityVerification',
+                'location',
+                'menus' => fn ($query) => $query
+                    ->where('is_active', true)
+                    ->orderBy('sort_order')
+                    ->orderBy('id'),
+                'pricingRules',
+                'photos' => fn ($query) => $query
+                    ->where('status', ProfilePhoto::STATUS_APPROVED)
+                    ->orderBy('sort_order')
+                    ->orderBy('id'),
+            ]);
+    }
+
+    private function detailProfileForViewer(TherapistProfile $therapistProfile, ?Account $viewer): TherapistProfile
+    {
+        if ($viewer && $therapistProfile->account_id === $viewer->id) {
+            return $this->ownDetailProfileQuery($therapistProfile)->firstOrFail();
+        }
+
+        return $this->detailProfilesQuery($viewer)
+            ->whereKey($therapistProfile->id)
+            ->firstOrFail();
     }
 
     private function buildSearchResults(
