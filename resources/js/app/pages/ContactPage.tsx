@@ -43,10 +43,13 @@ export function ContactPage() {
     const [requestError, setRequestError] = useState<unknown>(null);
     const [metaError, setMetaError] = useState<string | null>(null);
     const [successRecord, setSuccessRecord] = useState<ContactInquirySubmissionRecord | null>(null);
+    const [successMessage, setSuccessMessage] = useState<string | null>(null);
+    const [lastSubmittedReplyEmail, setLastSubmittedReplyEmail] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
     usePageTitle('お問い合わせ');
     useToastOnMessage(error, 'error');
+    useToastOnMessage(successMessage, 'success');
 
     useEffect(() => {
         let isMounted = true;
@@ -96,6 +99,7 @@ export function ContactPage() {
         setError(null);
         setRequestError(null);
         setSuccessRecord(null);
+        setSuccessMessage(null);
 
         try {
             const payload = await apiRequest<ApiEnvelope<ContactInquirySubmissionRecord>>('/contact', {
@@ -109,7 +113,13 @@ export function ContactPage() {
                 },
             });
 
-            setSuccessRecord(unwrapData(payload));
+            const nextRecord = unwrapData(payload);
+            setSuccessRecord(nextRecord);
+            setLastSubmittedReplyEmail(effectiveReplyEmail);
+            setSuccessMessage(`お問い合わせを受け付けました。受付番号: ${nextRecord.public_id}`);
+            setName('');
+            setEmail('');
+            setCategory('service');
             setMessage('');
         } catch (requestError) {
             const message = requestError instanceof ApiError ? requestError.message : 'お問い合わせの送信に失敗しました。';
@@ -158,20 +168,6 @@ export function ContactPage() {
                             {isAuthenticated ? ' ログイン中のメールアドレスは自動で反映されます。' : ' 返信先メールアドレスを忘れずに入力してください。'}
                         </p>
                     </div>
-
-                    {successRecord ? (
-                        <div className="mt-6 rounded-[24px] border border-emerald-300/30 bg-emerald-300/10 px-5 py-4 text-sm text-emerald-100">
-                            <p className="font-semibold">お問い合わせを受け付けました。</p>
-                            <p className="mt-2 leading-7">
-                                受付番号: {successRecord.public_id}
-                                <br />
-                                内容: {categoryLabel(successRecord.category)}
-                                <br />
-                                返信先: {effectiveReplyEmail}
-                            </p>
-                        </div>
-                    ) : null}
-
 
                     {!isFormEnabled ? (
                         <div className="mt-6 rounded-[24px] border border-white/10 bg-[#111923] px-5 py-4 text-sm leading-7 text-slate-300">
@@ -275,10 +271,20 @@ export function ContactPage() {
                         <p className="text-xs font-semibold tracking-wide text-slate-400">返信について</p>
                         <p className="mt-2 text-lg font-semibold text-white">{replyChannel}でご案内します</p>
                         <p className="mt-2 text-sm leading-7 text-slate-300">
-                            送信後は運営で内容を確認し、必要に応じて返信します。
+                            送信後は運営の問い合わせ管理に入り、内容確認、メモ追加、解決対応が進みます。必要に応じて返信します。
                             {supportEmail ? ` 連絡先: ${supportEmail}` : ''}
                         </p>
                     </div>
+
+                    {successRecord ? (
+                        <div className="rounded-[24px] border border-white/10 bg-white/5 p-5">
+                            <p className="text-xs font-semibold tracking-wide text-slate-400">直近の受付</p>
+                            <p className="mt-2 text-lg font-semibold text-white">{successRecord.public_id}</p>
+                            <p className="mt-2 text-sm leading-7 text-slate-300">
+                                {categoryLabel(successRecord.category)} として受け付けました。返信先は {lastSubmittedReplyEmail ?? '未設定'} です。
+                            </p>
+                        </div>
+                    ) : null}
 
                     <div className="rounded-[24px] border border-white/10 bg-white/5 p-5">
                         <p className="text-xs font-semibold tracking-wide text-slate-400">相談しやすい内容</p>

@@ -30,7 +30,7 @@ class ContactController extends Controller
 
         if (blank($email)) {
             throw ValidationException::withMessages([
-                'email' => 'An email address is required to submit an inquiry.',
+                'email' => 'お問い合わせを受け付けるには返信先メールアドレスが必要です。',
             ]);
         }
 
