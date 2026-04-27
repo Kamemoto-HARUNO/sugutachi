@@ -37,6 +37,12 @@ class ServiceMetaController extends Controller
                 'payment' => [
                     'stripe_publishable_key' => config('services.stripe.publishable_key'),
                 ],
+                'push' => [
+                    'web_push_public_key' => config('services.web_push.public_key'),
+                    'web_push_enabled' => filled(config('services.web_push.public_key'))
+                        && filled(config('services.web_push.private_key'))
+                        && filled(config('services.web_push.subject')),
+                ],
                 'commerce_notice' => [
                     'operator_name' => config('service_meta.commerce.operator_name'),
                     'representative_name' => config('service_meta.commerce.representative_name'),

@@ -10,6 +10,7 @@
         "laravel/framework": "^13.0",
         "laravel/sanctum": "^4.3",
         "laravel/tinker": "^3.0",
+        "minishlink/web-push": "^10.0",
         "stripe/stripe-php": "^20.0"
     },
     "require-dev": {

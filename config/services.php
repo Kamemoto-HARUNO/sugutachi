@@ -50,4 +50,10 @@ return [
         'user_agent' => env('NOMINATIM_USER_AGENT', sprintf('%s location-search', (string) env('APP_NAME', 'Sugutachi'))),
     ],
 
+    'web_push' => [
+        'public_key' => env('WEB_PUSH_VAPID_PUBLIC_KEY'),
+        'private_key' => env('WEB_PUSH_VAPID_PRIVATE_KEY'),
+        'subject' => env('WEB_PUSH_VAPID_SUBJECT'),
+    ],
+
 ];

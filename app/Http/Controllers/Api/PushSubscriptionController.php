@@ -53,4 +53,27 @@ class PushSubscriptionController extends Controller
 
         return response()->json(status: 204);
     }
+
+    public function destroyCurrent(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'endpoint' => ['required', 'url', 'max:2048'],
+        ]);
+
+        $endpointHash = hash('sha256', $validated['endpoint']);
+
+        $subscription = PushSubscription::query()
+            ->where('account_id', $request->user()->id)
+            ->where('endpoint_hash', $endpointHash)
+            ->first();
+
+        if ($subscription) {
+            $subscription->forceFill([
+                'permission_status' => 'denied',
+                'revoked_at' => now(),
+            ])->save();
+        }
+
+        return response()->json(status: 204);
+    }
 }

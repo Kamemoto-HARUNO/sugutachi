@@ -13,6 +13,9 @@
 
         <link rel="icon" href="/favicon.ico" sizes="any">
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">
+        <link rel="manifest" href="/manifest.webmanifest">
+        <meta name="apple-mobile-web-app-capable" content="yes">
+        <meta name="apple-mobile-web-app-status-bar-style" content="default">
         <meta property="og:image" content="/logo-horizontal.png">
         <meta name="twitter:image" content="/logo-horizontal.png">
 

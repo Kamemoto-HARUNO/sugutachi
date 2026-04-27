@@ -6,6 +6,8 @@ use App\Contracts\Payments\ConnectGateway;
 use App\Contracts\Payments\PaymentIntentGateway;
 use App\Contracts\Payments\PayoutGateway;
 use App\Contracts\Payments\RefundGateway;
+use App\Models\AppNotification;
+use App\Observers\AppNotificationObserver;
 use App\Services\Payments\StripeConnectGateway;
 use App\Services\Payments\StripePaymentIntentGateway;
 use App\Services\Payments\StripePayoutGateway;
@@ -33,6 +35,8 @@ class AppServiceProvider extends ServiceProvider
      */
     public function boot(): void
     {
+        AppNotification::observe(AppNotificationObserver::class);
+
         RateLimiter::for('therapist-search', function (Request $request): Limit {
             return Limit::perMinutes(10, 30)->by((string) ($request->user()?->id ?? $request->ip()));
         });

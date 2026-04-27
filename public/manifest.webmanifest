@@ -1,0 +1,19 @@
+{
+  "name": "すぐタチ",
+  "short_name": "すぐタチ",
+  "description": "近くのセラピスト探しから予約、通知確認までをまとめて行えるマッチングサービスです。",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "background_color": "#17202b",
+  "theme_color": "#17202b",
+  "lang": "ja",
+  "icons": [
+    {
+      "src": "/apple-touch-icon.png",
+      "sizes": "800x800",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

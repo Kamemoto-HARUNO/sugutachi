@@ -13,6 +13,7 @@ import {
     isRoleName,
     type RoleName,
 } from '../lib/account';
+import { unsubscribeBrowserPushSubscription } from '../lib/push';
 import type { Account, ApiEnvelope, LoginResponse } from '../lib/types';
 
 interface LoginPayload {
@@ -167,9 +168,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
 
     const logout = useCallback(async () => {
         const currentToken = token ?? window.localStorage.getItem(ACCESS_TOKEN_STORAGE_KEY);
+        const currentAccountPublicId = account?.public_id ?? null;
 
         try {
             if (currentToken) {
+                await unsubscribeBrowserPushSubscription(currentToken, currentAccountPublicId, { rememberOptOut: false });
                 await apiRequest<null>('/auth/logout', {
                     method: 'POST',
                     token: currentToken,
@@ -178,7 +181,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
         } finally {
             clearSession();
         }
-    }, [clearSession, token]);
+    }, [account?.public_id, clearSession, token]);
 
     const addRole = useCallback(
         async (role: 'user' | 'therapist'): Promise<Account> => {

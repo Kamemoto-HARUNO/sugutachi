@@ -5,7 +5,9 @@ namespace Tests\Feature;
 use App\Models\Account;
 use App\Models\AppNotification;
 use App\Models\PushSubscription;
+use App\Services\Notifications\WebPushDeliveryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Mockery;
 use Tests\TestCase;
 
 class NotificationApiTest extends TestCase
@@ -184,10 +186,44 @@ class NotificationApiTest extends TestCase
             ->assertJsonPath('data.permission_status', 'default');
 
         $this->withToken($token)
+            ->deleteJson('/api/push-subscriptions/current', [
+                'endpoint' => 'https://push.example.test/subscription/123',
+            ])
+            ->assertNoContent();
+
+        $this->assertSame('denied', PushSubscription::query()->findOrFail($subscriptionId)->permission_status);
+        $this->assertNotNull(PushSubscription::query()->findOrFail($subscriptionId)->revoked_at);
+
+        $this->withToken($token)
             ->deleteJson("/api/push-subscriptions/{$subscriptionId}")
             ->assertNoContent();
 
         $this->assertSame('denied', PushSubscription::query()->findOrFail($subscriptionId)->permission_status);
         $this->assertNotNull(PushSubscription::query()->findOrFail($subscriptionId)->revoked_at);
+    }
+
+    public function test_creating_notification_triggers_web_push_delivery_service(): void
+    {
+        $account = Account::factory()->create(['public_id' => 'acc_push_delivery']);
+
+        $mock = Mockery::mock(WebPushDeliveryService::class);
+        $mock->shouldReceive('deliverForNotification')
+            ->once()
+            ->withArgs(function (AppNotification $notification) use ($account): bool {
+                return $notification->account_id === $account->id
+                    && $notification->notification_type === 'booking_requested';
+            });
+
+        $this->app->instance(WebPushDeliveryService::class, $mock);
+
+        AppNotification::create([
+            'account_id' => $account->id,
+            'notification_type' => 'booking_requested',
+            'channel' => 'in_app',
+            'title' => '新しい予約があります',
+            'body' => '内容を確認してください。',
+            'status' => AppNotification::STATUS_SENT,
+            'sent_at' => now(),
+        ]);
     }
 }

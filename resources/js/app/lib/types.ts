@@ -74,6 +74,10 @@ export interface ServiceMeta {
     payment?: {
         stripe_publishable_key: string | null;
     };
+    push?: {
+        web_push_public_key: string | null;
+        web_push_enabled: boolean;
+    };
     commerce_notice: {
         operator_name: string | null;
         representative_name: string | null;

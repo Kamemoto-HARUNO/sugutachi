@@ -34,7 +34,18 @@ function filterButtonClass(isActive: boolean, tone: 'dark' | 'role' = 'dark'): s
 
 export function NotificationsPage() {
     const { account, activeRole, token } = useAuth();
-    const { refreshNotificationSummary } = useNotifications();
+    const {
+        disablePushNotifications,
+        enablePushNotifications,
+        isPushConfigReady,
+        isPushConfigured,
+        isPushEnabled,
+        isPushLoading,
+        isPushSupported,
+        pushPermission,
+        refreshNotificationSummary,
+        refreshPushSubscription,
+    } = useNotifications();
     const [notifications, setNotifications] = useState<AppNotificationRecord[]>([]);
     const [meta, setMeta] = useState<NotificationListMeta | null>(null);
     const [readFilter, setReadFilter] = useState<ReadFilter>('all');
@@ -86,6 +97,30 @@ export function NotificationsPage() {
     useEffect(() => {
         void loadNotifications();
     }, [loadNotifications]);
+
+    const pushSummary = useMemo(() => {
+        if (!isPushSupported) {
+            return 'この端末やブラウザでは Push 通知を利用できません。通知一覧で最新状況をご確認ください。';
+        }
+
+        if (isPushConfigReady && !isPushConfigured) {
+            return 'Push通知のサーバ設定はまだ準備中です。設定が完了するまで、最新状況はこの通知一覧でご確認ください。';
+        }
+
+        if (pushPermission === 'denied') {
+            return 'Push通知はブラウザまたは端末側で拒否されています。設定画面から通知を許可すると有効にできます。';
+        }
+
+        if (isPushConfigReady && !isPushEnabled && pushPermission === 'default') {
+            return 'Push通知を有効にすると、予約進行や運営からのお知らせをホーム画面の PWA にも届けられます。';
+        }
+
+        if (isPushEnabled) {
+            return 'Push通知は有効です。アプリを閉じていても、予約やお知らせの更新を受け取れます。';
+        }
+
+        return 'Push通知は現在オフです。必要な更新だけを端末へ受け取りたいときに有効化できます。';
+    }, [isPushConfigReady, isPushConfigured, isPushEnabled, isPushSupported, pushPermission]);
 
     const unreadCount = meta?.unread_count ?? notifications.filter((notification) => !notification.is_read).length;
 
@@ -192,6 +227,29 @@ export function NotificationsPage() {
         }
     }
 
+    async function handleEnablePush() {
+        try {
+            setError(null);
+            setSuccessMessage(null);
+            await enablePushNotifications();
+            await refreshPushSubscription();
+            setSuccessMessage('Push通知を有効にしました。');
+        } catch (requestError) {
+            setError(requestError instanceof Error ? requestError.message : 'Push通知の有効化に失敗しました。');
+        }
+    }
+
+    async function handleDisablePush() {
+        try {
+            setError(null);
+            setSuccessMessage(null);
+            await disablePushNotifications();
+            setSuccessMessage('Push通知を停止しました。');
+        } catch (requestError) {
+            setError(requestError instanceof Error ? requestError.message : 'Push通知の停止に失敗しました。');
+        }
+    }
+
     if (isLoading) {
         return <LoadingScreen title="通知を読み込み中" message="未読件数と最新の通知をまとめています。" />;
     }
@@ -234,6 +292,53 @@ export function NotificationsPage() {
                         >
                             {isMarkingAllRead ? '既読にしています...' : 'すべて既読'}
                         </button>
+                    </div>
+                </div>
+            </section>
+
+            <section className="rounded-[32px] border border-[#e7dccd] bg-[#fffaf2] p-5 shadow-[0_18px_40px_rgba(23,32,43,0.06)] sm:p-6">
+                <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                    <div className="space-y-2">
+                        <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-xs font-semibold tracking-[0.14em] text-[#8f7a58]">PWA の Push 通知</span>
+                            <span
+                                className={[
+                                    'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold',
+                                    isPushEnabled
+                                        ? 'bg-emerald-100 text-emerald-700'
+                                        : 'bg-[#f1e4cf] text-[#8f7a58]',
+                                ].join(' ')}
+                            >
+                                {isPushEnabled ? '有効' : 'オフ'}
+                            </span>
+                        </div>
+                        <p className="max-w-3xl text-sm leading-7 text-[#516072]">{pushSummary}</p>
+                    </div>
+
+                    <div className="flex flex-wrap items-center gap-3">
+                        {isPushEnabled ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    void handleDisablePush();
+                                }}
+                                disabled={isPushLoading}
+                                className="rounded-full border border-[#d8c7ae] px-4 py-2 text-sm font-semibold text-[#17202b] transition hover:bg-[#f1e4cf] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {isPushLoading ? '停止しています...' : 'Push通知を停止'}
+                            </button>
+                        ) : (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    void handleEnablePush();
+                                }}
+                                disabled={isPushLoading || !isPushSupported || (isPushConfigReady && !isPushConfigured)}
+                                className="rounded-full bg-[#17202b] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {isPushLoading ? '有効化しています...' : 'Push通知を有効にする'}
+                            </button>
+                        )}
                     </div>
                 </div>
             </section>
