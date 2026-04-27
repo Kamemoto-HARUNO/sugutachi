@@ -39,6 +39,12 @@ class BookingStatusTransitionService
                 "現在の予約ステータス（{$lockedBooking->status}）からは、{$toStatus} へ進めません。"
             );
 
+            abort_if(
+                $lockedBooking->hasPendingNoShowReport(),
+                409,
+                '未着申告の確認待ちがあります。先にその返答を完了してください。'
+            );
+
             if ($beforeTransition) {
                 $beforeTransition($lockedBooking);
             }

@@ -29,7 +29,13 @@ function formatDateTime(value: string | null): string {
     }) ?? '未設定';
 }
 
-function statusLabel(status: string): string {
+function statusLabel(booking: Pick<BookingDetailRecord, 'status' | 'pending_no_show_report'>): string {
+    if (booking.pending_no_show_report?.reported_by_role === 'therapist') {
+        return '利用者の確認待ち';
+    }
+
+    const status = booking.status;
+
     switch (status) {
         case 'accepted':
             return '予約確定';
@@ -55,7 +61,7 @@ function headingText(actorRole: BookingTroubleActorRole): string {
 function descriptionText(actorRole: BookingTroubleActorRole): string {
     return actorRole === 'user'
         ? '予定時刻を過ぎてもセラピストが来ない、または連絡が取れないときはこちらから記録してください。予約を中断して、与信や通報記録を整理します。'
-        : '待ち合わせ場所に向かったのに利用者と会えない、または連絡が取れないときはこちらから記録してください。予約を中断して、決済と通報記録を整理します。';
+        : '待ち合わせ場所に向かったのに利用者と会えない、または連絡が取れないときはこちらから記録してください。利用者へ確認を送り、返答があるまで請求は確定しません。';
 }
 
 function confirmationLabel(actorRole: BookingTroubleActorRole): string {
@@ -67,7 +73,7 @@ function confirmationLabel(actorRole: BookingTroubleActorRole): string {
 function outcomeSummary(actorRole: BookingTroubleActorRole): string {
     return actorRole === 'user'
         ? 'この操作で予約は「中断」になり、与信は取り消されます。必要な記録は運営確認用に残ります。'
-        : 'この操作で予約は「中断」になり、利用者都合の未着として現在の予約金額を確定します。必要な記録は運営確認用に残ります。';
+        : 'この操作で利用者へ未着申告を送信します。返答があるまで請求は確定せず、予約詳細でも確認待ちの状態として表示されます。';
 }
 
 function reasonCode(actorRole: BookingTroubleActorRole): string {
@@ -190,11 +196,14 @@ export function BookingNoShowPage({ actorRole }: BookingNoShowPageProps) {
                 },
             });
 
-            setBooking(unwrapData(payload).booking);
+            const next = unwrapData(payload);
+            setBooking(next.booking);
             setSuccessMessage(
                 actorRole === 'user'
                     ? '未着トラブルを記録しました。予約は中断となり、与信を解除しています。'
-                    : '未着トラブルを記録しました。予約は中断となり、決済と運営確認記録を更新しています。',
+                    : next.interruption.payment_action === 'awaiting_user_confirmation'
+                        ? '未着申告を送信しました。利用者の返答があるまで請求は確定しません。'
+                        : '未着トラブルを記録しました。予約は中断となり、決済と運営確認記録を更新しています。',
             );
         } catch (requestError) {
             const message = requestError instanceof ApiError
@@ -250,7 +259,7 @@ export function BookingNoShowPage({ actorRole }: BookingNoShowPageProps) {
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                         <div>
                             <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">現在の状態</p>
-                            <p className="mt-2 text-2xl font-semibold text-[#17202b]">{statusLabel(booking.status)}</p>
+                            <p className="mt-2 text-2xl font-semibold text-[#17202b]">{statusLabel(booking)}</p>
                         </div>
                         <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3 text-sm text-[#48505a]">
                             <p className="text-xs font-semibold tracking-wide text-[#7d6852]">予約ID</p>
@@ -320,7 +329,7 @@ export function BookingNoShowPage({ actorRole }: BookingNoShowPageProps) {
                     </div>
                     <div className="rounded-[22px] border border-white/10 bg-white/5 px-5 py-4 text-sm text-slate-200">
                         <p className="text-xs font-semibold tracking-wide text-slate-400">現在の状態</p>
-                        <p className="mt-2 text-lg font-semibold text-white">{statusLabel(booking.status)}</p>
+                        <p className="mt-2 text-lg font-semibold text-white">{statusLabel(booking)}</p>
                     </div>
                 </div>
             </section>

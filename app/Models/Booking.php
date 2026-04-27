@@ -48,6 +48,43 @@ class Booking extends Model
             && $this->therapist_adjustment_duration_minutes !== null;
     }
 
+    public function hasPendingNoShowReport(): bool
+    {
+        return $this->pending_no_show_reported_at !== null
+            && $this->pending_no_show_reported_by_account_id !== null
+            && filled($this->pending_no_show_reason_code);
+    }
+
+    public function hasPendingTherapistNoShowReport(): bool
+    {
+        return $this->hasPendingNoShowReport()
+            && $this->pending_no_show_reported_by_account_id === $this->therapist_account_id
+            && $this->pending_no_show_reason_code === 'user_no_show';
+    }
+
+    public function pendingNoShowReportedByRole(): ?string
+    {
+        if (! $this->hasPendingNoShowReport()) {
+            return null;
+        }
+
+        return match ($this->pending_no_show_reported_by_account_id) {
+            $this->user_account_id => 'user',
+            $this->therapist_account_id => 'therapist',
+            default => 'admin',
+        };
+    }
+
+    public function clearPendingNoShowReportAttributes(): array
+    {
+        return [
+            'pending_no_show_reported_at' => null,
+            'pending_no_show_reported_by_account_id' => null,
+            'pending_no_show_reason_code' => null,
+            'pending_no_show_note_encrypted' => null,
+        ];
+    }
+
     public function availabilitySlot(): BelongsTo
     {
         return $this->belongsTo(TherapistAvailabilitySlot::class, 'availability_slot_id');
@@ -188,6 +225,7 @@ class Booking extends Model
             'completion_confirmation_reminder_sent_at' => 'datetime',
             'canceled_at' => 'datetime',
             'interrupted_at' => 'datetime',
+            'pending_no_show_reported_at' => 'datetime',
             'user_snapshot_json' => 'array',
             'therapist_snapshot_json' => 'array',
         ];

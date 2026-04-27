@@ -37,7 +37,15 @@ const cancelReasonOptions = [
     { value: 'other', label: 'その他' },
 ];
 
-function statusLabel(status: string): string {
+function statusLabel(
+    booking: Pick<BookingDetailRecord, 'status' | 'pending_no_show_report'>,
+): string {
+    if (booking.pending_no_show_report?.reported_by_role === 'therapist') {
+        return '利用者の返答待ち';
+    }
+
+    const status = booking.status;
+
     switch (status) {
         case 'payment_authorizing':
             return '与信確認中';
@@ -70,7 +78,13 @@ function statusLabel(status: string): string {
     }
 }
 
-function statusTone(status: string): string {
+function statusTone(booking: Pick<BookingDetailRecord, 'status' | 'pending_no_show_report'>): string {
+    if (booking.pending_no_show_report?.reported_by_role === 'therapist') {
+        return 'bg-[#fff2dd] text-[#8b5a16]';
+    }
+
+    const status = booking.status;
+
     switch (status) {
         case 'completed':
             return 'bg-[#e9f4ea] text-[#24553a]';
@@ -479,7 +493,7 @@ export function TherapistBookingDetailPage() {
         let isMounted = true;
 
         async function loadCancelPreview() {
-            if (!token || !booking || !canTherapistCancel(booking.status)) {
+            if (!token || !booking || !canTherapistCancel(booking.status) || booking.pending_no_show_report) {
                 setCancellationPreview(null);
                 return;
             }
@@ -524,6 +538,10 @@ export function TherapistBookingDetailPage() {
     }, [booking, token]);
 
     const timeline = useMemo(() => (booking ? buildTimeline(booking) : []), [booking]);
+    const pendingTherapistNoShowReport = useMemo(
+        () => (booking?.pending_no_show_report?.reported_by_role === 'therapist' ? booking.pending_no_show_report : null),
+        [booking],
+    );
     const canOpenNoShowFlow = useMemo(
         () => (booking ? canOpenBookingNoShowFlow(booking, 'therapist') : false),
         [booking],
@@ -749,8 +767,8 @@ export function TherapistBookingDetailPage() {
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                     <div className="space-y-3">
                         <div className="flex flex-wrap items-center gap-2">
-                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
-                                {statusLabel(booking.status)}
+                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking)}`}>
+                                {statusLabel(booking)}
                             </span>
                         </div>
                         <div className="space-y-2">
@@ -1143,6 +1161,19 @@ export function TherapistBookingDetailPage() {
                         </div>
 
                         <div className="mt-6 space-y-3">
+                            {pendingTherapistNoShowReport ? (
+                                <div className="rounded-[20px] border border-[#ead8b8] bg-[#fff9ef] px-4 py-4 text-sm text-[#48505a]">
+                                    <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">未着申告の確認待ち</p>
+                                    <p className="mt-2 leading-7">
+                                        利用者へ未着申告を送信済みです。返答があるまで請求は確定しません。
+                                    </p>
+                                    {pendingTherapistNoShowReport.reason_note ? (
+                                        <p className="mt-2 text-sm leading-7 text-[#48505a]">
+                                            送信したメモ: {pendingTherapistNoShowReport.reason_note}
+                                        </p>
+                                    ) : null}
+                                </div>
+                            ) : null}
                             {canOpenNoShowFlow ? (
                                 <Link
                                     to={`/therapist/bookings/${booking.public_id}/no-show`}
@@ -1166,7 +1197,7 @@ export function TherapistBookingDetailPage() {
                         </div>
                     </section>
 
-                    {canTherapistCancel(booking.status) ? (
+                    {canTherapistCancel(booking.status) && !pendingTherapistNoShowReport ? (
                         <section className="rounded-[28px] border border-[#f0d6a4] bg-[#fff7e8] p-6">
                             <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">セラピスト都合キャンセル</p>
                             <div className="mt-4 space-y-4">

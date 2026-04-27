@@ -170,7 +170,7 @@ class BookingSafetyTest extends TestCase
         $this->assertSame([$paymentIntent->stripe_payment_intent_id], $gatewayState->canceledStripeIds);
     }
 
-    public function test_therapist_can_interrupt_moving_booking_when_user_does_not_show(): void
+    public function test_therapist_user_no_show_report_waits_for_user_confirmation(): void
     {
         $gatewayState = $this->bindPaymentGateways();
 
@@ -186,11 +186,121 @@ class BookingSafetyTest extends TestCase
                 'responsibility' => 'user',
             ])
             ->assertOk()
+            ->assertJsonPath('data.booking.status', Booking::STATUS_MOVING)
+            ->assertJsonPath('data.booking.pending_no_show_report.reason_code', 'user_no_show')
+            ->assertJsonPath('data.booking.pending_no_show_report.reported_by_role', 'therapist')
+            ->assertJsonPath('data.interruption.payment_action', 'awaiting_user_confirmation');
+
+        $this->assertDatabaseHas('bookings', [
+            'id' => $booking->id,
+            'status' => Booking::STATUS_MOVING,
+            'pending_no_show_reason_code' => 'user_no_show',
+            'pending_no_show_reported_by_account_id' => $therapist->id,
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $user->id,
+            'notification_type' => 'booking_no_show_reported',
+            'channel' => 'in_app',
+            'status' => 'sent',
+        ]);
+        $this->assertSame([], $gatewayState->capturedStripeIds);
+        $this->assertSame([], $gatewayState->canceledStripeIds);
+        $this->assertDatabaseHas('payment_intents', [
+            'id' => $paymentIntent->id,
+            'status' => PaymentIntent::STRIPE_STATUS_REQUIRES_CAPTURE,
+        ]);
+    }
+
+    public function test_user_can_confirm_pending_no_show_and_capture_full_amount(): void
+    {
+        $gatewayState = $this->bindPaymentGateways();
+
+        [$user, $therapist, $booking, $paymentIntent] = $this->createSafetyBookingFixture(
+            status: Booking::STATUS_MOVING,
+            withPaymentIntent: true,
+        );
+
+        $booking->forceFill([
+            'pending_no_show_reported_at' => now(),
+            'pending_no_show_reported_by_account_id' => $therapist->id,
+            'pending_no_show_reason_code' => 'user_no_show',
+        ])->save();
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/no-show-confirm")
+            ->assertOk()
             ->assertJsonPath('data.booking.status', Booking::STATUS_INTERRUPTED)
             ->assertJsonPath('data.booking.current_payment_intent.status', PaymentIntent::STRIPE_STATUS_SUCCEEDED)
             ->assertJsonPath('data.interruption.payment_action', 'capture_full_amount');
 
+        $this->assertDatabaseHas('bookings', [
+            'id' => $booking->id,
+            'status' => Booking::STATUS_INTERRUPTED,
+            'pending_no_show_reason_code' => null,
+            'cancel_reason_code' => 'user_no_show',
+            'canceled_by_account_id' => $therapist->id,
+        ]);
+        $this->assertDatabaseHas('reports', [
+            'booking_id' => $booking->id,
+            'reporter_account_id' => $therapist->id,
+            'target_account_id' => $user->id,
+            'category' => 'booking_interrupted',
+            'status' => Report::STATUS_RESOLVED,
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $therapist->id,
+            'notification_type' => 'booking_no_show_confirmed',
+            'channel' => 'in_app',
+            'status' => 'sent',
+        ]);
         $this->assertSame([$paymentIntent->stripe_payment_intent_id], $gatewayState->capturedStripeIds);
+    }
+
+    public function test_user_can_dispute_pending_no_show_and_void_authorization(): void
+    {
+        $gatewayState = $this->bindPaymentGateways();
+
+        [$user, $therapist, $booking, $paymentIntent] = $this->createSafetyBookingFixture(
+            status: Booking::STATUS_MOVING,
+            withPaymentIntent: true,
+        );
+
+        $booking->forceFill([
+            'pending_no_show_reported_at' => now(),
+            'pending_no_show_reported_by_account_id' => $therapist->id,
+            'pending_no_show_reason_code' => 'user_no_show',
+        ])->save();
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/no-show-dispute", [
+                'reason_note' => '現地に到着しており、メッセージも送信していました。',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.booking.status', Booking::STATUS_INTERRUPTED)
+            ->assertJsonPath('data.booking.current_payment_intent.status', PaymentIntent::STRIPE_STATUS_CANCELED)
+            ->assertJsonPath('data.interruption.payment_action', 'void_authorization');
+
+        $this->assertDatabaseHas('bookings', [
+            'id' => $booking->id,
+            'status' => Booking::STATUS_INTERRUPTED,
+            'pending_no_show_reason_code' => null,
+            'cancel_reason_code' => 'user_no_show_disputed',
+            'canceled_by_account_id' => $user->id,
+        ]);
+        $this->assertDatabaseHas('reports', [
+            'booking_id' => $booking->id,
+            'reporter_account_id' => $user->id,
+            'target_account_id' => $therapist->id,
+            'category' => 'booking_interrupted',
+            'status' => Report::STATUS_OPEN,
+        ]);
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $therapist->id,
+            'notification_type' => 'booking_no_show_disputed',
+            'channel' => 'in_app',
+            'status' => 'sent',
+        ]);
+        $this->assertSame([$paymentIntent->stripe_payment_intent_id], $gatewayState->canceledStripeIds);
     }
 
     public function test_user_interrupt_can_capture_full_amount(): void

@@ -18,6 +18,12 @@ export function formatNotificationTypeLabel(type: string | null | undefined): st
             return '時間変更の提案';
         case 'booking_adjustment_accepted':
             return '時間変更の承認';
+        case 'booking_no_show_reported':
+            return '未着申告の確認';
+        case 'booking_no_show_confirmed':
+            return '未着申告の確定';
+        case 'booking_no_show_disputed':
+            return '未着申告への異議';
         case 'booking_moving':
             return '移動開始';
         case 'booking_arrived':
@@ -70,6 +76,7 @@ export function resolveNotificationPath(
             return bookingPublicId ? `/therapist/bookings/${bookingPublicId}` : '/therapist/bookings';
         case 'booking_accepted':
         case 'booking_adjustment_proposed':
+        case 'booking_no_show_reported':
         case 'booking_moving':
         case 'booking_arrived':
         case 'booking_started':
@@ -78,6 +85,9 @@ export function resolveNotificationPath(
         case 'booking_completion_reminder':
         case 'booking_refunded':
             return bookingPublicId ? `/user/bookings/${bookingPublicId}` : '/user/bookings';
+        case 'booking_no_show_confirmed':
+        case 'booking_no_show_disputed':
+            return bookingPublicId ? `/therapist/bookings/${bookingPublicId}` : '/therapist/bookings';
         case 'booking_auto_completed':
         case 'booking_canceled':
         case 'booking_interrupted':

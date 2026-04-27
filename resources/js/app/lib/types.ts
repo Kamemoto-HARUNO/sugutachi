@@ -676,6 +676,13 @@ export interface BookingPendingAdjustmentProposal {
     buffer_after_minutes: number | null;
 }
 
+export interface BookingPendingNoShowReport {
+    reported_at: string | null;
+    reported_by_role: string | null;
+    reason_code: string;
+    reason_note: string | null;
+}
+
 export interface TherapistBookingRequestRecord {
     public_id: string;
     status: string;
@@ -908,6 +915,7 @@ export interface BookingListRecord {
     buffer_after_minutes: number;
     request_expires_at: string | null;
     pending_adjustment_proposal?: BookingPendingAdjustmentProposal | null;
+    pending_no_show_report?: BookingPendingNoShowReport | null;
     accepted_at: string | null;
     confirmed_at: string | null;
     moving_at: string | null;

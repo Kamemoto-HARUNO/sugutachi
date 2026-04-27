@@ -11,10 +11,14 @@ export function getBookingPlannedStartAt(
 }
 
 export function canOpenBookingNoShowFlow(
-    booking: Pick<BookingDetailRecord, 'status' | 'scheduled_start_at' | 'requested_start_at'>,
+    booking: Pick<BookingDetailRecord, 'status' | 'scheduled_start_at' | 'requested_start_at' | 'pending_no_show_report'>,
     _actorRole: BookingTroubleActorRole,
     now: Date = new Date(),
 ): boolean {
+    if (booking.pending_no_show_report) {
+        return false;
+    }
+
     if (!NO_SHOW_ELIGIBLE_STATUSES.includes(booking.status as (typeof NO_SHOW_ELIGIBLE_STATUSES)[number])) {
         return false;
     }
@@ -29,12 +33,18 @@ export function canOpenBookingNoShowFlow(
 }
 
 export function getBookingNoShowUnavailableReason(
-    booking: Pick<BookingDetailRecord, 'status' | 'scheduled_start_at' | 'requested_start_at'>,
+    booking: Pick<BookingDetailRecord, 'status' | 'scheduled_start_at' | 'requested_start_at' | 'pending_no_show_report'>,
     actorRole: BookingTroubleActorRole,
     now: Date = new Date(),
 ): string {
     if (canOpenBookingNoShowFlow(booking, actorRole, now)) {
         return '';
+    }
+
+    if (booking.pending_no_show_report) {
+        return actorRole === 'user'
+            ? 'セラピストから未着申告が届いています。予約詳細で内容を確認し、会えなかったかどうかを選んでください。'
+            : 'すでに利用者の確認待ちになっている未着申告があります。利用者の返答をお待ちください。';
     }
 
     if (NO_SHOW_ELIGIBLE_STATUSES.includes(booking.status as (typeof NO_SHOW_ELIGIBLE_STATUSES)[number])) {

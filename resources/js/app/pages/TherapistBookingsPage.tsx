@@ -53,7 +53,11 @@ function normalizeSort(value: string | null): SortMode {
     return value === 'recent' ? 'recent' : 'upcoming';
 }
 
-function statusLabel(booking: Pick<BookingListRecord, 'status' | 'pending_adjustment_proposal'>): string {
+function statusLabel(booking: Pick<BookingListRecord, 'status' | 'pending_adjustment_proposal' | 'pending_no_show_report'>): string {
+    if (booking.pending_no_show_report?.reported_by_role === 'therapist') {
+        return '利用者の返答待ち';
+    }
+
     switch (booking.status) {
         case 'payment_authorizing':
             return '与信確認中';
@@ -106,6 +110,14 @@ function statusTone(status: string): string {
         default:
             return 'bg-[#f1efe8] text-[#48505a]';
     }
+}
+
+function bookingStatusTone(booking: Pick<BookingListRecord, 'status' | 'pending_no_show_report'>): string {
+    if (booking.pending_no_show_report?.reported_by_role === 'therapist') {
+        return 'bg-[#fff2dd] text-[#8b5a16]';
+    }
+
+    return statusTone(booking.status);
 }
 
 function requestTypeLabel(value: BookingListRecord['request_type']): string {
@@ -189,6 +201,10 @@ function matchesGroup(booking: BookingListRecord, group: BookingGroup): boolean 
 }
 
 function buildAttentionLabel(booking: BookingListRecord): string | null {
+    if (booking.pending_no_show_report?.reported_by_role === 'therapist') {
+        return '未着申告への返答待ち';
+    }
+
     if (booking.status === 'requested') {
         return booking.pending_adjustment_proposal ? '利用者の確認待ち' : '承諾判断が必要';
     }
@@ -505,7 +521,7 @@ export function TherapistBookingsPage() {
                                 <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                                     <div className="space-y-4">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
+                                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${bookingStatusTone(booking)}`}>
                                                 {statusLabel(booking)}
                                             </span>
                                             <span className="rounded-full bg-[#f5efe4] px-3 py-1 text-xs font-semibold text-[#48505a]">
@@ -601,17 +617,23 @@ export function TherapistBookingsPage() {
                                                         : `/therapist/bookings/${booking.public_id}`}
                                                     className="inline-flex w-full items-center justify-center rounded-full bg-[#17202b] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#243447]"
                                                 >
-                                                    {booking.status === 'requested'
-                                                        ? (booking.pending_adjustment_proposal ? '提案内容を確認' : '依頼内容を確認')
-                                                        : '詳細を見る'}
+                                                    {booking.pending_no_show_report?.reported_by_role === 'therapist'
+                                                        ? '未着申告を確認'
+                                                        : booking.status === 'requested'
+                                                            ? (booking.pending_adjustment_proposal ? '提案内容を確認' : '依頼内容を確認')
+                                                            : '詳細を見る'}
                                                 </Link>
                                                 <Link
-                                                    to={booking.status === 'requested'
+                                                    to={booking.pending_no_show_report?.reported_by_role === 'therapist'
+                                                        ? `/therapist/bookings/${booking.public_id}`
+                                                        : booking.status === 'requested'
                                                         ? `/therapist/requests/${booking.public_id}`
                                                         : `/therapist/bookings/${booking.public_id}/messages`}
                                                     className="inline-flex w-full items-center justify-center rounded-full border border-[#d6c3a6] px-4 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#efe5d7]"
                                                 >
-                                                    {booking.status === 'requested'
+                                                    {booking.pending_no_show_report?.reported_by_role === 'therapist'
+                                                        ? '返答状況を見る'
+                                                        : booking.status === 'requested'
                                                         ? (booking.pending_adjustment_proposal ? '利用者確認待ちへ' : '承諾・辞退へ')
                                                         : 'メッセージへ'}
                                                 </Link>

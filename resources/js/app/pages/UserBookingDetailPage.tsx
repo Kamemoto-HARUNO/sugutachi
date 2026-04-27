@@ -49,7 +49,13 @@ function statusLabel(status: string): string {
     }
 }
 
-function bookingStatusLabel(booking: Pick<BookingDetailRecord, 'status' | 'pending_adjustment_proposal'>): string {
+function bookingStatusLabel(
+    booking: Pick<BookingDetailRecord, 'status' | 'pending_adjustment_proposal' | 'pending_no_show_report'>,
+): string {
+    if (booking.pending_no_show_report?.reported_by_role === 'therapist') {
+        return '未着申告の確認待ち';
+    }
+
     if (booking.status === 'requested' && booking.pending_adjustment_proposal) {
         return '時間変更の確認待ち';
     }
@@ -79,6 +85,16 @@ function statusTone(status: string): string {
         default:
             return 'bg-[#f1efe8] text-[#48505a]';
     }
+}
+
+function bookingStatusTone(
+    booking: Pick<BookingDetailRecord, 'status' | 'pending_no_show_report'>,
+): string {
+    if (booking.pending_no_show_report?.reported_by_role === 'therapist') {
+        return 'bg-[#fff2dd] text-[#8b5a16]';
+    }
+
+    return statusTone(booking.status);
 }
 
 function therapistRewardAmount(booking: Pick<BookingDetailRecord, 'total_amount' | 'matching_fee_amount'>): number {
@@ -207,6 +223,8 @@ export function UserBookingDetailPage() {
     const [isLoading, setIsLoading] = useState(true);
     const [isConfirmingCompletion, setIsConfirmingCompletion] = useState(false);
     const [isResolvingAdjustment, setIsResolvingAdjustment] = useState(false);
+    const [isResolvingNoShow, setIsResolvingNoShow] = useState(false);
+    const [noShowDisputeNote, setNoShowDisputeNote] = useState('');
 
     usePageTitle(booking ? `${booking.therapist_profile?.public_name ?? '予約'}の詳細` : '予約詳細');
     useToastOnMessage(error, 'error');
@@ -254,6 +272,10 @@ export function UserBookingDetailPage() {
     }, [loadBooking]);
 
     const timeline = useMemo(() => (booking ? buildTimeline(booking) : []), [booking]);
+    const pendingTherapistNoShowReport = useMemo(
+        () => (booking?.pending_no_show_report?.reported_by_role === 'therapist' ? booking.pending_no_show_report : null),
+        [booking],
+    );
     const canOpenNoShowFlow = useMemo(
         () => (booking ? canOpenBookingNoShowFlow(booking, 'user') : false),
         [booking],
@@ -349,6 +371,85 @@ export function UserBookingDetailPage() {
         }
     }
 
+    async function handleConfirmPendingNoShow() {
+        if (!token || !booking || !pendingTherapistNoShowReport || isResolvingNoShow) {
+            return;
+        }
+
+        const confirmed = window.confirm('今回はセラピストと会えなかったことを認めますか？ 確認すると予約は中断となり、利用者都合として処理されます。');
+
+        if (!confirmed) {
+            return;
+        }
+
+        setIsResolvingNoShow(true);
+        setError(null);
+        setSuccessMessage(null);
+
+        try {
+            const payload = await apiRequest<ApiEnvelope<{ booking: BookingDetailRecord }>>(
+                `/bookings/${booking.public_id}/no-show-confirm`,
+                {
+                    method: 'POST',
+                    token,
+                },
+            );
+
+            setBooking(unwrapData(payload).booking);
+            setSuccessMessage('未着確認を受け付けました。予約は中断となり、今回の処理を更新しています。');
+        } catch (requestError) {
+            const message =
+                requestError instanceof ApiError
+                    ? requestError.message
+                    : '未着確認の処理に失敗しました。';
+
+            setError(message);
+        } finally {
+            setIsResolvingNoShow(false);
+        }
+    }
+
+    async function handleDisputePendingNoShow() {
+        if (!token || !booking || !pendingTherapistNoShowReport || isResolvingNoShow) {
+            return;
+        }
+
+        if (noShowDisputeNote.trim().length === 0) {
+            setError('異議を申し立てる理由を入力してください。');
+            return;
+        }
+
+        setIsResolvingNoShow(true);
+        setError(null);
+        setSuccessMessage(null);
+
+        try {
+            const payload = await apiRequest<ApiEnvelope<{ booking: BookingDetailRecord }>>(
+                `/bookings/${booking.public_id}/no-show-dispute`,
+                {
+                    method: 'POST',
+                    token,
+                    body: {
+                        reason_note: noShowDisputeNote.trim(),
+                    },
+                },
+            );
+
+            setBooking(unwrapData(payload).booking);
+            setNoShowDisputeNote('');
+            setSuccessMessage('異議申し立てを受け付けました。予約は中断し、請求はまだ確定していません。');
+        } catch (requestError) {
+            const message =
+                requestError instanceof ApiError
+                    ? requestError.message
+                    : '異議申し立てに失敗しました。';
+
+            setError(message);
+        } finally {
+            setIsResolvingNoShow(false);
+        }
+    }
+
     if (isLoading) {
         return <LoadingScreen title="予約詳細を読み込み中" message="決済状態、返金、同意記録、安全確認をまとめています。" />;
     }
@@ -375,7 +476,7 @@ export function UserBookingDetailPage() {
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                     <div className="space-y-3">
                         <div className="flex flex-wrap items-center gap-2">
-                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
+                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${bookingStatusTone(booking)}`}>
                                 {bookingStatusLabel(booking)}
                             </span>
                         </div>
@@ -485,6 +586,58 @@ export function UserBookingDetailPage() {
                                     className="inline-flex items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee] disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                     今回は見送る
+                                </button>
+                            </div>
+                        </article>
+                    ) : null}
+
+                    {pendingTherapistNoShowReport ? (
+                        <article className="rounded-[28px] border border-[#f0d6a4] bg-[#fff7e8] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.08)]">
+                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">未着申告の確認</p>
+                            <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">セラピストから未着申告が届いています</h2>
+                            <p className="mt-2 text-sm leading-7 text-[#68707a]">
+                                セラピストから「現地で待機したが会えなかった」という申告が届いています。請求はまだ確定していません。内容を確認して、今回は会えなかったか、または現地にいたかを選んでください。
+                            </p>
+                            <div className="mt-5 grid gap-4 md:grid-cols-2">
+                                <div className="rounded-[20px] bg-white px-4 py-4">
+                                    <p className="text-xs font-semibold tracking-wide text-[#7d6852]">申告された時刻</p>
+                                    <p className="mt-2 text-sm font-semibold text-[#17202b]">
+                                        {formatDateTime(pendingTherapistNoShowReport.reported_at)}
+                                    </p>
+                                </div>
+                                <div className="rounded-[20px] bg-white px-4 py-4">
+                                    <p className="text-xs font-semibold tracking-wide text-[#7d6852]">セラピストのメモ</p>
+                                    <p className="mt-2 text-sm leading-7 text-[#17202b]">
+                                        {pendingTherapistNoShowReport.reason_note || 'メモはありません。'}
+                                    </p>
+                                </div>
+                            </div>
+                            <label className="mt-5 block space-y-2">
+                                <span className="text-sm font-semibold text-[#17202b]">異議がある場合のメモ</span>
+                                <textarea
+                                    value={noShowDisputeNote}
+                                    onChange={(event) => setNoShowDisputeNote(event.target.value)}
+                                    rows={4}
+                                    placeholder="例: 現地に到着しており、メッセージも送っていました。"
+                                    className="w-full rounded-[18px] border border-[#d8c39b] bg-white px-4 py-3 text-sm leading-7 text-[#17202b] outline-none transition focus:border-[#b38a44]"
+                                />
+                            </label>
+                            <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                                <button
+                                    type="button"
+                                    onClick={() => void handleConfirmPendingNoShow()}
+                                    disabled={isResolvingNoShow}
+                                    className="inline-flex items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243140] disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {isResolvingNoShow ? '確認中...' : '今回は会えなかった'}
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => void handleDisputePendingNoShow()}
+                                    disabled={isResolvingNoShow}
+                                    className="inline-flex items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee] disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {isResolvingNoShow ? '送信中...' : '私は現地にいた・異議を申し立てる'}
                                 </button>
                             </div>
                         </article>
@@ -695,7 +848,7 @@ export function UserBookingDetailPage() {
                                     来ない・連絡が取れない
                                 </Link>
                             ) : null}
-                            {['payment_authorizing', 'requested', 'accepted', 'moving', 'arrived'].includes(booking.status) ? (
+                            {['payment_authorizing', 'requested', 'accepted', 'moving', 'arrived'].includes(booking.status) && !pendingTherapistNoShowReport ? (
                                 <Link
                                     to={`/user/bookings/${booking.public_id}/cancel`}
                                     className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"

@@ -40,6 +40,16 @@ class BookingResource extends JsonResource
                     'buffer_after_minutes' => $this->therapist_adjustment_buffer_after_minutes,
                 ]
                 : null,
+            'pending_no_show_report' => $this->hasPendingNoShowReport()
+                ? [
+                    'reported_at' => $this->pending_no_show_reported_at,
+                    'reported_by_role' => $this->pendingNoShowReportedByRole(),
+                    'reason_code' => $this->pending_no_show_reason_code,
+                    'reason_note' => $this->pending_no_show_note_encrypted
+                        ? rescue(fn () => Crypt::decryptString($this->pending_no_show_note_encrypted), null, false)
+                        : null,
+                ]
+                : null,
             'accepted_at' => $this->accepted_at,
             'confirmed_at' => $this->confirmed_at,
             'moving_at' => $this->moving_at,

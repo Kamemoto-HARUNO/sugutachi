@@ -51,7 +51,11 @@ function normalizeSort(value: string | null): SortMode {
     return value === 'recent' ? 'recent' : 'upcoming';
 }
 
-function statusLabel(booking: Pick<BookingListRecord, 'status' | 'pending_adjustment_proposal'>): string {
+function statusLabel(booking: Pick<BookingListRecord, 'status' | 'pending_adjustment_proposal' | 'pending_no_show_report'>): string {
+    if (booking.pending_no_show_report?.reported_by_role === 'therapist') {
+        return '未着申告の確認待ち';
+    }
+
     switch (booking.status) {
         case 'payment_authorizing':
             return '与信確認中';
@@ -106,6 +110,14 @@ function statusTone(status: string): string {
         default:
             return 'bg-[#f1efe8] text-[#48505a]';
     }
+}
+
+function bookingStatusTone(booking: Pick<BookingListRecord, 'status' | 'pending_no_show_report'>): string {
+    if (booking.pending_no_show_report?.reported_by_role === 'therapist') {
+        return 'bg-[#fff2dd] text-[#8b5a16]';
+    }
+
+    return statusTone(booking.status);
 }
 
 function requestTypeLabel(value: BookingListRecord['request_type']): string {
@@ -185,6 +197,10 @@ function matchesGroup(booking: BookingListRecord, group: BookingGroup): boolean 
 }
 
 function buildAttentionLabel(booking: BookingListRecord): string | null {
+    if (booking.pending_no_show_report?.reported_by_role === 'therapist') {
+        return '未着申告の確認が必要です';
+    }
+
     if (booking.status === 'therapist_completed') {
         return '施術完了の確認が必要です';
     }
@@ -454,7 +470,7 @@ export function UserBookingsPage() {
                                 <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
                                     <div className="space-y-4">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
+                                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${bookingStatusTone(booking)}`}>
                                                 {statusLabel(booking)}
                                             </span>
                                             <span className="rounded-full bg-[#f5efe4] px-3 py-1 text-xs font-semibold text-[#48505a]">

@@ -41,6 +41,12 @@ class BookingStatusController extends Controller
             ]);
         }
 
+        abort_if(
+            $booking->hasPendingNoShowReport(),
+            409,
+            '未着申告の確認待ちがあります。利用者の返答を待ってから承諾してください。'
+        );
+
         $bufferBeforeMinutes = $validated['buffer_before_minutes'] ?? 0;
         $bufferAfterMinutes = $validated['buffer_after_minutes'] ?? 0;
 
@@ -86,6 +92,11 @@ class BookingStatusController extends Controller
 
         abort_unless($booking->status === Booking::STATUS_REQUESTED, 409, '承認待ちの予約リクエストだけ時間変更を提案できます。');
         abort_unless(! $booking->is_on_demand, 409, '時間変更の提案は日時指定の予約リクエストだけで利用できます。');
+        abort_if(
+            $booking->hasPendingNoShowReport(),
+            409,
+            '未着申告の確認待ちがあります。利用者の返答を待ってから時間変更を提案してください。'
+        );
 
         $validated = $request->validate([
             'scheduled_start_at' => ['required', 'date'],
@@ -234,6 +245,7 @@ class BookingStatusController extends Controller
     ): BookingResource
     {
         $this->authorizeTherapist($request, $booking);
+        abort_if($booking->hasPendingNoShowReport(), 409, '未着申告の確認待ちがあります。利用者の返答を待ってください。');
 
         $booking = $transition->transition(
             booking: $booking,
@@ -262,6 +274,7 @@ class BookingStatusController extends Controller
     ): BookingResource
     {
         $this->authorizeTherapist($request, $booking);
+        abort_if($booking->hasPendingNoShowReport(), 409, '未着申告の確認待ちがあります。利用者の返答を待ってください。');
 
         if (filled($booking->arrival_confirmation_code)) {
             $validated = $request->validate([
@@ -302,6 +315,7 @@ class BookingStatusController extends Controller
     ): BookingResource
     {
         $this->authorizeTherapist($request, $booking);
+        abort_if($booking->hasPendingNoShowReport(), 409, '未着申告の確認待ちがあります。利用者の返答を待ってください。');
 
         $booking = $transition->transition(
             booking: $booking,
@@ -329,6 +343,7 @@ class BookingStatusController extends Controller
     ): BookingResource
     {
         $this->authorizeTherapist($request, $booking);
+        abort_if($booking->hasPendingNoShowReport(), 409, '未着申告の確認待ちがあります。利用者の返答を待ってください。');
 
         $validated = $request->validate([
             'started_at' => ['required', 'date'],
@@ -370,6 +385,7 @@ class BookingStatusController extends Controller
         $this->authorizeTherapist($request, $booking);
 
         abort_unless($booking->status === Booking::STATUS_THERAPIST_COMPLETED, 409, '施術時間は、利用者の完了確認待ちの間だけ修正できます。');
+        abort_if($booking->hasPendingNoShowReport(), 409, '未着申告の確認待ちがあります。利用者の返答を待ってください。');
 
         $validated = $request->validate([
             'started_at' => ['required', 'date'],

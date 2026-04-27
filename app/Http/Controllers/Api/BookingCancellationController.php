@@ -47,6 +47,12 @@ class BookingCancellationController extends Controller
             'この予約は、現在の状態ではキャンセルできません。'
         );
 
+        abort_if(
+            $booking->hasPendingNoShowReport(),
+            409,
+            '未着申告の確認待ちがあるため、先にその返答を完了してください。'
+        );
+
         return response()->json([
             'data' => $policy->preview($booking, $actorRole),
         ]);
@@ -68,6 +74,12 @@ class BookingCancellationController extends Controller
             'この予約は、現在の状態ではキャンセルできません。'
         );
 
+        abort_if(
+            $booking->hasPendingNoShowReport(),
+            409,
+            '未着申告の確認待ちがあるため、先にその返答を完了してください。'
+        );
+
         $validated = $request->validate([
             'reason_code' => ['required', 'string', 'max:100'],
             'reason_note' => $actorRole === 'therapist'
@@ -85,6 +97,12 @@ class BookingCancellationController extends Controller
                 in_array($lockedBooking->status, $this->cancelableStatuses($actorRole), true),
                 409,
                 'この予約は、現在の状態ではキャンセルできません。'
+            );
+
+            abort_if(
+                $lockedBooking->hasPendingNoShowReport(),
+                409,
+                '未着申告の確認待ちがあるため、先にその返答を完了してください。'
             );
 
             $preview = $policy->preview($lockedBooking, $actorRole);

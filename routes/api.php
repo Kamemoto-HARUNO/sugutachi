@@ -221,6 +221,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/bookings/{booking:public_id}/cancel-preview', [BookingCancellationController::class, 'preview']);
     Route::post('/bookings/{booking:public_id}/cancel', [BookingCancellationController::class, 'store']);
     Route::post('/bookings/{booking:public_id}/interrupt', [BookingSafetyController::class, 'interrupt']);
+    Route::post('/bookings/{booking:public_id}/no-show-confirm', [BookingSafetyController::class, 'confirmPendingNoShow']);
+    Route::post('/bookings/{booking:public_id}/no-show-dispute', [BookingSafetyController::class, 'disputePendingNoShow']);
     Route::post('/bookings/{booking:public_id}/consents', [BookingSafetyController::class, 'consent']);
     Route::post('/bookings/{booking:public_id}/health-checks', [BookingSafetyController::class, 'healthCheck']);
     Route::get('/bookings/{booking:public_id}/refund-requests', [RefundRequestController::class, 'index']);

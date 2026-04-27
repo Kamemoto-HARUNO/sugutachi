@@ -50,6 +50,7 @@ interface DockItem {
     id: string;
     status: string;
     hasPendingAdjustment?: boolean;
+    hasPendingNoShow?: boolean;
     title: string;
     subtitle: string;
     path: string;
@@ -58,7 +59,11 @@ interface DockItem {
     category: DockItemCategory;
 }
 
-function statusLabel(status: string, hasPendingAdjustment = false): string {
+function statusLabel(status: string, hasPendingAdjustment = false, hasPendingNoShow = false, mode: DockMode = 'user'): string {
+    if (hasPendingNoShow) {
+        return mode === 'therapist' ? '利用者の返答待ち' : '未着申告の確認待ち';
+    }
+
     switch (status) {
         case 'payment_authorizing':
             return '与信確認中';
@@ -87,11 +92,19 @@ function statusTone(status: string): string {
     return 'bg-[#e9f4ea] text-[#24553a]';
 }
 
-function bookingActionLabel(status: string): string {
+function bookingActionLabel(status: string, hasPendingNoShow = false): string {
+    if (hasPendingNoShow) {
+        return '内容を確認';
+    }
+
     return WAITING_STATUSES.has(status) ? '内容を確認' : '予約を開く';
 }
 
-function therapistActionLabel(category: DockItemCategory, hasPendingAdjustment = false): string {
+function therapistActionLabel(category: DockItemCategory, hasPendingAdjustment = false, hasPendingNoShow = false): string {
+    if (hasPendingNoShow) {
+        return '返答を確認';
+    }
+
     if (category === 'request') {
         return hasPendingAdjustment ? '提案状況を見る' : '依頼を確認';
     }
@@ -129,6 +142,16 @@ function primaryTherapistRequestLabel(request: TherapistBookingRequestRecord): s
 }
 
 function compareUserBookings(left: BookingListRecord, right: BookingListRecord): number {
+    if (left.pending_no_show_report?.reported_by_role === 'therapist' || right.pending_no_show_report?.reported_by_role === 'therapist') {
+        if (left.pending_no_show_report?.reported_by_role === 'therapist' && right.pending_no_show_report?.reported_by_role !== 'therapist') {
+            return -1;
+        }
+
+        if (right.pending_no_show_report?.reported_by_role === 'therapist' && left.pending_no_show_report?.reported_by_role !== 'therapist') {
+            return 1;
+        }
+    }
+
     const leftPriority = STATUS_PRIORITY[left.status] ?? 99;
     const rightPriority = STATUS_PRIORITY[right.status] ?? 99;
 
@@ -143,6 +166,16 @@ function compareUserBookings(left: BookingListRecord, right: BookingListRecord):
 }
 
 function compareDockItems(left: DockItem, right: DockItem): number {
+    if (left.hasPendingNoShow || right.hasPendingNoShow) {
+        if (left.hasPendingNoShow && !right.hasPendingNoShow) {
+            return -1;
+        }
+
+        if (right.hasPendingNoShow && !left.hasPendingNoShow) {
+            return 1;
+        }
+    }
+
     if (left.category !== right.category) {
         return left.category === 'request' ? -1 : 1;
     }
@@ -160,6 +193,14 @@ function compareDockItems(left: DockItem, right: DockItem): number {
 }
 
 function summaryLabel(items: DockItem[], mode: DockMode): string {
+    const pendingNoShowCount = items.filter((item) => item.hasPendingNoShow).length;
+
+    if (pendingNoShowCount > 0) {
+        return mode === 'therapist'
+            ? (pendingNoShowCount === 1 ? '未着申告の返答待ちがあります' : `未着申告の返答待ち ${pendingNoShowCount}件`)
+            : (pendingNoShowCount === 1 ? '未着申告の確認が必要です' : `未着申告の確認が必要な予約 ${pendingNoShowCount}件`);
+    }
+
     if (mode === 'therapist') {
         const requestCount = items.filter((item) => item.category === 'request').length;
         const progressingCount = items.filter((item) => item.category === 'booking').length;
@@ -189,8 +230,8 @@ function summaryLabel(items: DockItem[], mode: DockMode): string {
     return waitingCount === 1 ? '承認待ちの予約があります' : `承認待ちの予約 ${waitingCount}件`;
 }
 
-function buildCollapsedDetail(item: DockItem): string {
-    return `${statusLabel(item.status, item.hasPendingAdjustment)} / ${item.actionLabel}`;
+function buildCollapsedDetail(item: DockItem, mode: DockMode): string {
+    return `${statusLabel(item.status, item.hasPendingAdjustment, item.hasPendingNoShow, mode)} / ${item.actionLabel}`;
 }
 
 export function ActiveUserBookingDock() {
@@ -235,6 +276,7 @@ export function ActiveUserBookingDock() {
                     id: request.public_id,
                     status: request.status,
                     hasPendingAdjustment: Boolean(request.pending_adjustment_proposal),
+                    hasPendingNoShow: false,
                     title: request.menu.name || '予約リクエスト',
                     subtitle: primaryTherapistRequestLabel(request),
                     path: `/therapist/requests/${request.public_id}`,
@@ -249,10 +291,11 @@ export function ActiveUserBookingDock() {
                         id: booking.public_id,
                         status: booking.status,
                         hasPendingAdjustment: Boolean(booking.pending_adjustment_proposal),
+                        hasPendingNoShow: booking.pending_no_show_report?.reported_by_role === 'therapist',
                         title: booking.counterparty?.display_name ?? '利用者',
                         subtitle: primaryUserTimeLabel(booking),
                         path: `/therapist/bookings/${booking.public_id}`,
-                        actionLabel: therapistActionLabel('booking', Boolean(booking.pending_adjustment_proposal)),
+                        actionLabel: therapistActionLabel('booking', Boolean(booking.pending_adjustment_proposal), booking.pending_no_show_report?.reported_by_role === 'therapist'),
                         sortTime: new Date(booking.scheduled_start_at ?? booking.created_at).getTime(),
                         category: 'booking',
                     }));
@@ -278,10 +321,11 @@ export function ActiveUserBookingDock() {
                         id: booking.public_id,
                         status: booking.status,
                         hasPendingAdjustment: Boolean(booking.pending_adjustment_proposal),
+                        hasPendingNoShow: booking.pending_no_show_report?.reported_by_role === 'therapist',
                         title: booking.counterparty?.display_name ?? 'セラピスト',
                         subtitle: primaryUserTimeLabel(booking),
                         path: bookingActionPath(booking),
-                        actionLabel: bookingActionLabel(booking.status),
+                        actionLabel: bookingActionLabel(booking.status, booking.pending_no_show_report?.reported_by_role === 'therapist'),
                         sortTime: new Date(booking.scheduled_start_at ?? booking.created_at).getTime(),
                         category: 'booking',
                     })),
@@ -388,8 +432,8 @@ export function ActiveUserBookingDock() {
                                 <article key={`${item.category}-${item.id}`} className="rounded-[22px] border border-[#efe4d3] bg-white px-4 py-4">
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
-                                            <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusTone(item.status)}`}>
-                                                {statusLabel(item.status, item.hasPendingAdjustment)}
+                                            <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${item.hasPendingNoShow ? 'bg-[#fff2dd] text-[#8b5a16]' : statusTone(item.status)}`}>
+                                                {statusLabel(item.status, item.hasPendingAdjustment, item.hasPendingNoShow, mode)}
                                             </span>
                                             <p className="mt-3 truncate text-sm font-semibold text-[#17202b]">
                                                 {item.title}
@@ -451,8 +495,8 @@ export function ActiveUserBookingDock() {
                             <article key={`${item.category}-${item.id}`} className="rounded-[24px] border border-[#efe4d3] bg-white px-4 py-4">
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
-                                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusTone(item.status)}`}>
-                                            {statusLabel(item.status, item.hasPendingAdjustment)}
+                                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${item.hasPendingNoShow ? 'bg-[#fff2dd] text-[#8b5a16]' : statusTone(item.status)}`}>
+                                            {statusLabel(item.status, item.hasPendingAdjustment, item.hasPendingNoShow, mode)}
                                         </span>
                                         <p className="mt-3 truncate text-sm font-semibold text-[#17202b]">
                                             {item.title}
@@ -480,7 +524,7 @@ export function ActiveUserBookingDock() {
                         <div className="min-w-0">
                             <p className="truncate text-sm font-semibold text-[#17202b]">{summary}</p>
                             <p className="mt-1 text-xs leading-6 text-[#68707a]">
-                                {items[0] ? buildCollapsedDetail(items[0]) : '予約を確認'}
+                                {items[0] ? buildCollapsedDetail(items[0], mode) : '予約を確認'}
                             </p>
                         </div>
                         <span className="inline-flex shrink-0 items-center rounded-full bg-[#17202b] px-4 py-2 text-xs font-semibold text-white">

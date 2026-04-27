@@ -164,6 +164,76 @@ class BookingSafetyController extends Controller
             ])],
         ]);
 
+        if (
+            $actorRole === 'therapist'
+            && $validated['reason_code'] === 'user_no_show'
+            && $validated['responsibility'] === 'user'
+        ) {
+            $pendingBooking = DB::transaction(function () use ($actor, $actorRole, $booking, $validated): Booking {
+                $lockedBooking = Booking::query()
+                    ->with('currentPaymentIntent')
+                    ->whereKey($booking->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                abort_unless(
+                    in_array($lockedBooking->status, self::INTERRUPT_ALLOWED_STATUSES, true),
+                    409,
+                    'この予約は、現在の状態では未着申告できません。'
+                );
+
+                abort_if(
+                    $lockedBooking->hasPendingNoShowReport(),
+                    409,
+                    'すでに利用者の確認待ちになっている未着申告があります。'
+                );
+
+                $plannedStartAt = $lockedBooking->scheduled_start_at ?? $lockedBooking->requested_start_at;
+
+                if ($plannedStartAt && $plannedStartAt->isFuture()) {
+                    abort(422, '予定時刻になるまでは、この操作はまだ行えません。');
+                }
+
+                $lockedBooking->forceFill([
+                    'pending_no_show_reported_at' => now(),
+                    'pending_no_show_reported_by_account_id' => $actor->id,
+                    'pending_no_show_reason_code' => $validated['reason_code'],
+                    'pending_no_show_note_encrypted' => filled($validated['reason_note'] ?? null)
+                        ? Crypt::encryptString($validated['reason_note'])
+                        : null,
+                ])->save();
+
+                $lockedBooking->statusLogs()->create([
+                    'from_status' => $lockedBooking->status,
+                    'to_status' => $lockedBooking->status,
+                    'actor_account_id' => $actor->id,
+                    'actor_role' => $actorRole,
+                    'reason_code' => 'therapist_reported_user_no_show',
+                    'metadata_json' => [
+                        'reason_note' => $validated['reason_note'] ?? null,
+                        'responsibility' => $validated['responsibility'],
+                    ],
+                ]);
+
+                return $this->loadParticipantBooking($lockedBooking->refresh());
+            });
+
+            $bookingNotificationService->notifyNoShowReported($pendingBooking->fresh());
+
+            return response()->json([
+                'data' => [
+                    'booking' => (new BookingResource($this->loadParticipantBooking($pendingBooking->fresh())))->resolve($request),
+                    'interruption' => [
+                        'reason_code' => $validated['reason_code'],
+                        'reason_note' => $validated['reason_note'] ?? null,
+                        'responsibility' => $validated['responsibility'],
+                        'payment_action' => 'awaiting_user_confirmation',
+                        'pending_user_confirmation' => true,
+                    ],
+                ],
+            ]);
+        }
+
         [$interruptedBooking, $report, $settlement] = DB::transaction(function () use (
             $actor,
             $actorRole,
@@ -180,6 +250,12 @@ class BookingSafetyController extends Controller
                 in_array($lockedBooking->status, self::INTERRUPT_ALLOWED_STATUSES, true),
                 409,
                 'この予約は、現在の状態では中断できません。'
+            );
+
+            abort_if(
+                $lockedBooking->hasPendingNoShowReport(),
+                409,
+                '利用者の確認待ちになっている未着申告があります。先にその返答を確認してください。'
             );
 
             if (in_array($validated['reason_code'], self::NO_SHOW_REASON_CODES, true)) {
@@ -271,6 +347,204 @@ class BookingSafetyController extends Controller
         ]);
     }
 
+    public function confirmPendingNoShow(
+        Request $request,
+        Booking $booking,
+        BookingCancellationSettlementService $settlementService,
+        BookingNotificationService $bookingNotificationService,
+    ): JsonResponse {
+        $actor = $this->authorizeParticipant($request, $booking);
+        $actorRole = $this->actorRole($booking, $actor);
+
+        abort_unless($actorRole === 'user', 404);
+
+        [$interruptedBooking, $report, $settlement] = DB::transaction(function () use ($actor, $booking): array {
+            $lockedBooking = Booking::query()
+                ->with('currentPaymentIntent')
+                ->whereKey($booking->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            abort_unless(
+                $lockedBooking->hasPendingTherapistNoShowReport(),
+                409,
+                '確認できる未着申告がありません。'
+            );
+
+            $reasonNote = $lockedBooking->pending_no_show_note_encrypted
+                ? rescue(fn () => Crypt::decryptString($lockedBooking->pending_no_show_note_encrypted), null, false)
+                : null;
+
+            $reportedByAccountId = $lockedBooking->pending_no_show_reported_by_account_id;
+            $reasonCode = (string) $lockedBooking->pending_no_show_reason_code;
+            $fromStatus = $lockedBooking->status;
+
+            $lockedBooking->forceFill([
+                'status' => Booking::STATUS_INTERRUPTED,
+                'request_expires_at' => null,
+                'interrupted_at' => now(),
+                'canceled_by_account_id' => $reportedByAccountId,
+                'cancel_reason_code' => $reasonCode,
+                'interruption_reason_code' => $reasonCode,
+                'cancel_reason_note_encrypted' => $lockedBooking->pending_no_show_note_encrypted,
+                ...$lockedBooking->clearPendingNoShowReportAttributes(),
+            ])->save();
+
+            $lockedBooking->statusLogs()->create([
+                'from_status' => $fromStatus,
+                'to_status' => Booking::STATUS_INTERRUPTED,
+                'actor_account_id' => $actor->id,
+                'actor_role' => 'user',
+                'reason_code' => 'user_confirmed_no_show',
+                'metadata_json' => [
+                    'reported_by_role' => 'therapist',
+                    'responsibility' => 'user',
+                    'reason_note' => $reasonNote,
+                ],
+            ]);
+
+            $report = $this->createInterruptionReport(
+                booking: $lockedBooking,
+                reporterAccountId: $reportedByAccountId,
+                targetAccountId: $lockedBooking->user_account_id,
+                detail: $reasonNote,
+                severity: Report::SEVERITY_HIGH,
+                status: Report::STATUS_RESOLVED,
+                metadata: [
+                    'source' => 'booking_no_show_confirm_api',
+                    'reason_code' => $reasonCode,
+                    'responsibility' => 'user',
+                ],
+            );
+
+            return [
+                $this->loadParticipantBooking($lockedBooking->refresh()),
+                $report->load(['booking', 'reporter', 'target']),
+                $this->interruptionSettlement($lockedBooking->refresh()->load('currentPaymentIntent'), 'user'),
+            ];
+        });
+
+        $settlementService->settle($interruptedBooking, $settlement);
+        $bookingNotificationService->notifyNoShowConfirmed($interruptedBooking->refresh());
+
+        return response()->json([
+            'data' => [
+                'booking' => (new BookingResource($this->loadParticipantBooking($interruptedBooking->fresh())))->resolve($request),
+                'report' => (new ReportResource($report))->resolve($request),
+                'interruption' => [
+                    'reason_code' => $interruptedBooking->interruption_reason_code,
+                    'reason_note' => $interruptedBooking->cancel_reason_note_encrypted
+                        ? rescue(fn () => Crypt::decryptString($interruptedBooking->cancel_reason_note_encrypted), null, false)
+                        : null,
+                    'responsibility' => 'user',
+                    'payment_action' => $settlement['payment_action'],
+                ],
+            ],
+        ]);
+    }
+
+    public function disputePendingNoShow(
+        Request $request,
+        Booking $booking,
+        BookingCancellationSettlementService $settlementService,
+        BookingNotificationService $bookingNotificationService,
+    ): JsonResponse {
+        $actor = $this->authorizeParticipant($request, $booking);
+        $actorRole = $this->actorRole($booking, $actor);
+
+        abort_unless($actorRole === 'user', 404);
+
+        $validated = $request->validate([
+            'reason_note' => ['required', 'string', 'min:1', 'max:1000'],
+        ]);
+
+        [$interruptedBooking, $report, $settlement] = DB::transaction(function () use ($actor, $booking, $validated): array {
+            $lockedBooking = Booking::query()
+                ->with('currentPaymentIntent')
+                ->whereKey($booking->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            abort_unless(
+                $lockedBooking->hasPendingTherapistNoShowReport(),
+                409,
+                '異議を申し立てられる未着申告がありません。'
+            );
+
+            $pendingReasonNote = $lockedBooking->pending_no_show_note_encrypted
+                ? rescue(fn () => Crypt::decryptString($lockedBooking->pending_no_show_note_encrypted), null, false)
+                : null;
+            $reasonCode = (string) $lockedBooking->pending_no_show_reason_code;
+            $fromStatus = $lockedBooking->status;
+            $combinedReasonNote = trim(implode("\n", array_filter([
+                $pendingReasonNote ? "セラピスト申告: {$pendingReasonNote}" : null,
+                '利用者回答: '.$validated['reason_note'],
+            ])));
+
+            $lockedBooking->forceFill([
+                'status' => Booking::STATUS_INTERRUPTED,
+                'request_expires_at' => null,
+                'interrupted_at' => now(),
+                'canceled_by_account_id' => $actor->id,
+                'cancel_reason_code' => 'user_no_show_disputed',
+                'interruption_reason_code' => 'user_no_show_disputed',
+                'cancel_reason_note_encrypted' => Crypt::encryptString($combinedReasonNote),
+                ...$lockedBooking->clearPendingNoShowReportAttributes(),
+            ])->save();
+
+            $lockedBooking->statusLogs()->create([
+                'from_status' => $fromStatus,
+                'to_status' => Booking::STATUS_INTERRUPTED,
+                'actor_account_id' => $actor->id,
+                'actor_role' => 'user',
+                'reason_code' => 'user_disputed_no_show',
+                'metadata_json' => [
+                    'reported_by_role' => 'therapist',
+                    'responsibility' => 'unknown',
+                    'reason_note' => $combinedReasonNote,
+                ],
+            ]);
+
+            $report = $this->createInterruptionReport(
+                booking: $lockedBooking,
+                reporterAccountId: $actor->id,
+                targetAccountId: $lockedBooking->therapist_account_id,
+                detail: $combinedReasonNote,
+                severity: Report::SEVERITY_HIGH,
+                status: Report::STATUS_OPEN,
+                metadata: [
+                    'source' => 'booking_no_show_dispute_api',
+                    'reason_code' => $reasonCode,
+                    'responsibility' => 'unknown',
+                ],
+            );
+
+            return [
+                $this->loadParticipantBooking($lockedBooking->refresh()),
+                $report->load(['booking', 'reporter', 'target']),
+                $this->interruptionSettlement($lockedBooking->refresh()->load('currentPaymentIntent'), 'unknown'),
+            ];
+        });
+
+        $settlementService->settle($interruptedBooking, $settlement);
+        $bookingNotificationService->notifyNoShowDisputed($interruptedBooking->refresh());
+
+        return response()->json([
+            'data' => [
+                'booking' => (new BookingResource($this->loadParticipantBooking($interruptedBooking->fresh())))->resolve($request),
+                'report' => (new ReportResource($report))->resolve($request),
+                'interruption' => [
+                    'reason_code' => $interruptedBooking->interruption_reason_code,
+                    'reason_note' => $interruptedBooking->cancel_reason_note_encrypted
+                        ? rescue(fn () => Crypt::decryptString($interruptedBooking->cancel_reason_note_encrypted), null, false)
+                        : null,
+                    'responsibility' => 'unknown',
+                    'payment_action' => $settlement['payment_action'],
+                ],
+            ],
+        ]);
+    }
+
     private function interruptionSettlement(Booking $booking, string $responsibility): array
     {
         if ($responsibility === 'user') {
@@ -290,6 +564,38 @@ class BookingSafetyController extends Controller
             'refund_amount' => $booking->total_amount,
             'policy_code' => 'interruption_full_refund',
         ];
+    }
+
+    private function createInterruptionReport(
+        Booking $booking,
+        int $reporterAccountId,
+        int $targetAccountId,
+        ?string $detail,
+        string $severity,
+        string $status,
+        array $metadata,
+    ): Report {
+        $report = Report::create([
+            'public_id' => 'rep_'.Str::ulid(),
+            'booking_id' => $booking->id,
+            'reporter_account_id' => $reporterAccountId,
+            'target_account_id' => $targetAccountId,
+            'category' => 'booking_interrupted',
+            'severity' => $severity,
+            'detail_encrypted' => filled($detail)
+                ? Crypt::encryptString($detail)
+                : null,
+            'status' => $status,
+            'resolved_at' => $status === Report::STATUS_RESOLVED ? now() : null,
+        ]);
+
+        $report->actions()->create([
+            'action_type' => 'report_created',
+            'metadata_json' => $metadata,
+            'created_at' => now(),
+        ]);
+
+        return $report;
     }
 
     private function authorizeParticipant(Request $request, Booking $booking): Account

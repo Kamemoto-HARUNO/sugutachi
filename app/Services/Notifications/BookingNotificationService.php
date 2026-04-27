@@ -108,6 +108,77 @@ class BookingNotificationService
         );
     }
 
+    public function notifyNoShowReported(Booking $booking): void
+    {
+        $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);
+
+        $this->create(
+            accountId: $booking->user_account_id,
+            type: 'booking_no_show_reported',
+            title: '未着申告の確認が必要です',
+            body: 'セラピストから「利用者と会えなかった」という申告が届いています。請求はまだ確定していません。内容を確認してください。',
+            data: [
+                'booking_public_id' => $booking->public_id,
+                'status' => $booking->status,
+                'reported_at' => $booking->pending_no_show_reported_at?->toJSON(),
+                'reason_code' => $booking->pending_no_show_reason_code,
+                'target_path' => $this->userBookingPath($booking),
+            ],
+        );
+
+        $this->sendEmail(
+            email: $booking->userAccount?->email,
+            subject: '未着申告の確認が必要です',
+            body: 'セラピストから未着申告が届いています。請求はまだ確定していません。アプリで内容を確認してください。'
+        );
+    }
+
+    public function notifyNoShowConfirmed(Booking $booking): void
+    {
+        $booking->loadMissing(['therapistAccount', 'therapistProfile']);
+
+        $this->create(
+            accountId: $booking->therapist_account_id,
+            type: 'booking_no_show_confirmed',
+            title: '利用者が未着を認めました',
+            body: '利用者が未着申告を確認しました。予約は中断となり、キャンセル料を反映しています。',
+            data: [
+                'booking_public_id' => $booking->public_id,
+                'status' => $booking->status,
+                'target_path' => $this->therapistBookingPath($booking),
+            ],
+        );
+
+        $this->sendEmail(
+            email: $booking->therapistAccount?->email,
+            subject: '利用者が未着を認めました',
+            body: '利用者が未着申告を確認しました。予約は中断となり、キャンセル料を反映しています。アプリで詳細をご確認ください。'
+        );
+    }
+
+    public function notifyNoShowDisputed(Booking $booking): void
+    {
+        $booking->loadMissing(['therapistAccount', 'therapistProfile']);
+
+        $this->create(
+            accountId: $booking->therapist_account_id,
+            type: 'booking_no_show_disputed',
+            title: '利用者が未着申告に異議を申し立てました',
+            body: '利用者が「現地にいた」と回答しました。予約は中断し、請求は確定していません。必要に応じて運営対応をご確認ください。',
+            data: [
+                'booking_public_id' => $booking->public_id,
+                'status' => $booking->status,
+                'target_path' => $this->therapistBookingPath($booking),
+            ],
+        );
+
+        $this->sendEmail(
+            email: $booking->therapistAccount?->email,
+            subject: '利用者が未着申告に異議を申し立てました',
+            body: '利用者が未着申告に異議を申し立てました。予約は中断し、請求は確定していません。アプリで詳細をご確認ください。'
+        );
+    }
+
     public function notifyMoving(Booking $booking): void
     {
         $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);
