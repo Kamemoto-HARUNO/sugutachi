@@ -6,6 +6,7 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { formatRoleLabel, getActiveRoles, roleBadgeClass } from '../lib/account';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatJstDateTime } from '../lib/datetime';
+import { toDisplayPhoneNumber, toDomesticDigits, toE164PhoneNumber } from '../lib/phone';
 import { formatRejectionReason } from '../lib/therapist';
 import type {
     ApiEnvelope,
@@ -260,42 +261,6 @@ function formatFileSize(sizeBytes: number): string {
     }
 
     return `${(sizeBytes / (1024 * 1024)).toFixed(1)}MB`;
-}
-
-function toDisplayPhoneNumber(value: string | null): string {
-    if (!value) {
-        return '';
-    }
-
-    const digits = value.replace(/\D/g, '');
-
-    if (value.startsWith('+81') && digits.startsWith('81')) {
-        return `0${digits.slice(2)}`;
-    }
-
-    return digits;
-}
-
-function toDomesticDigits(value: string): string {
-    return value.replace(/\D/g, '').slice(0, 11);
-}
-
-function isDomesticPhoneNumber(value: string): boolean {
-    return /^0\d{9,10}$/.test(value);
-}
-
-function toE164PhoneNumber(value: string): string | null {
-    const digits = toDomesticDigits(value);
-
-    if (digits === '') {
-        return null;
-    }
-
-    if (!isDomesticPhoneNumber(digits)) {
-        return null;
-    }
-
-    return `+81${digits.slice(1)}`;
 }
 
 function formatPlaceType(placeType: ServiceAddress['place_type']): string {

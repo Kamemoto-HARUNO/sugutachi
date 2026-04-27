@@ -6,6 +6,7 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { getPostAuthPath, inferRoleFromPath, sanitizeAppPath } from '../lib/account';
 import { ApiError, apiRequest, getFieldError, unwrapData } from '../lib/api';
+import { toDomesticDigits, toE164PhoneNumber } from '../lib/phone';
 import type { ApiEnvelope, LegalDocumentSummary } from '../lib/types';
 
 type InitialRole = 'user' | 'therapist';
@@ -104,12 +105,19 @@ export function RegisterPage() {
             return;
         }
 
+        const normalizedPhone = toE164PhoneNumber(phone);
+
+        if (phone.trim() !== '' && !normalizedPhone) {
+            setError('電話番号は 08012345678 のように、先頭の 0 を含む数字だけで入力してください。');
+            return;
+        }
+
         setIsSubmitting(true);
 
         try {
             const account = await register({
                 email,
-                phone_e164: phone || undefined,
+                phone_e164: normalizedPhone ?? undefined,
                 password,
                 password_confirmation: passwordConfirmation,
                 display_name: displayName || undefined,
@@ -229,10 +237,13 @@ export function RegisterPage() {
                                     <input
                                         type="tel"
                                         value={phone}
-                                        onChange={(event) => setPhone(event.target.value)}
+                                        onChange={(event) => setPhone(toDomesticDigits(event.target.value))}
                                         className="w-full rounded-[18px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 text-sm outline-none transition focus:border-[#c6a16a]"
-                                        placeholder="+819012345678"
+                                        inputMode="numeric"
+                                        autoComplete="tel-national"
+                                        placeholder="08012345678"
                                     />
+                                    <p className="text-xs leading-6 text-[#68707a]">数字のみ入力してください。国番号の入力は不要です。</p>
                                 </label>
                             </div>
 
