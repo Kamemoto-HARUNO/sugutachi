@@ -707,7 +707,7 @@ export function TherapistProfilePage() {
                             onChange={(event) => setBio(event.target.value)}
                             rows={6}
                             className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                            placeholder="施術の雰囲気や得意なケア、安心してもらうための自己紹介を入力"
+                            placeholder="対応の雰囲気や得意なケア、安心してもらうための自己紹介を入力"
                         />
                     </label>
 

@@ -54,9 +54,9 @@ function bookingStatusLabel(status: string): string {
         case 'arrived':
             return '到着';
         case 'in_progress':
-            return '施術中';
+            return '対応中';
         case 'therapist_completed':
-            return '施術完了報告';
+            return '対応終了報告';
         case 'completed':
             return '完了';
         case 'interrupted':

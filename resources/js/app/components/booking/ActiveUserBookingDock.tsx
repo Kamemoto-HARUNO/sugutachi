@@ -76,7 +76,7 @@ function statusLabel(status: string, hasPendingAdjustment = false, hasPendingNoS
         case 'arrived':
             return '到着';
         case 'in_progress':
-            return '施術中';
+            return '対応中';
         case 'therapist_completed':
             return '完了確認待ち';
         default:

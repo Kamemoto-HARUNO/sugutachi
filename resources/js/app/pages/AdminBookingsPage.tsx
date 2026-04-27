@@ -103,9 +103,9 @@ function bookingStatusLabel(status: string): string {
         case 'arrived':
             return '到着';
         case 'in_progress':
-            return '施術中';
+            return '対応中';
         case 'therapist_completed':
-            return '施術完了報告';
+            return '対応終了報告';
         case 'completed':
             return '完了';
         default:
@@ -410,7 +410,7 @@ export function AdminBookingsPage() {
                 {[
                     { label: '総件数', value: summary.total, hint: '現在の表示対象' },
                     { label: '承諾待ち', value: summary.requested, hint: 'セラピスト応答待ち' },
-                    { label: '進行中', value: summary.inProgress, hint: '移動・到着・施術中' },
+                    { label: '進行中', value: summary.inProgress, hint: '移動・到着・対応中' },
                     { label: '中断', value: summary.interrupted, hint: '安全確認が必要' },
                     { label: '要メッセージ確認', value: summary.flagged, hint: '危険メッセージあり' },
                     { label: 'チャージバック', value: summary.disputed, hint: '未解決 dispute あり' },
@@ -438,8 +438,8 @@ export function AdminBookingsPage() {
                             <option value="accepted">承諾済み</option>
                             <option value="moving">移動中</option>
                             <option value="arrived">到着</option>
-                            <option value="in_progress">施術中</option>
-                            <option value="therapist_completed">施術完了報告</option>
+                            <option value="in_progress">対応中</option>
+                            <option value="therapist_completed">対応終了報告</option>
                             <option value="completed">完了</option>
                             <option value="interrupted">中断</option>
                             <option value="canceled">キャンセル</option>

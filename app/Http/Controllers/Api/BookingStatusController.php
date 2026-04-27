@@ -384,7 +384,7 @@ class BookingStatusController extends Controller
     {
         $this->authorizeTherapist($request, $booking);
 
-        abort_unless($booking->status === Booking::STATUS_THERAPIST_COMPLETED, 409, '施術時間は、利用者の完了確認待ちの間だけ修正できます。');
+        abort_unless($booking->status === Booking::STATUS_THERAPIST_COMPLETED, 409, '対応時間は、利用者の完了確認待ちの間だけ修正できます。');
         abort_if($booking->hasPendingNoShowReport(), 409, '未着申告の確認待ちがあります。利用者の返答を待ってください。');
 
         $validated = $request->validate([

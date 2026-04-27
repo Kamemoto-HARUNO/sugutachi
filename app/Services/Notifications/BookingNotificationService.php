@@ -233,8 +233,8 @@ class BookingNotificationService
         $this->create(
             accountId: $booking->user_account_id,
             type: 'booking_started',
-            title: '施術が開始されました',
-            body: 'セラピストが施術開始を記録しました。',
+            title: '対応が開始されました',
+            body: 'セラピストが対応開始を記録しました。',
             data: [
                 'booking_public_id' => $booking->public_id,
                 'status' => $booking->status,
@@ -244,8 +244,8 @@ class BookingNotificationService
 
         $this->sendEmail(
             email: $booking->userAccount?->email,
-            subject: '施術が開始されました',
-            body: '施術が開始されました。何かあればアプリからメッセージや通報をご利用ください。'
+            subject: '対応が開始されました',
+            body: '対応が開始されました。何かあればアプリからメッセージや通報をご利用ください。'
         );
     }
 
@@ -256,8 +256,8 @@ class BookingNotificationService
         $this->create(
             accountId: $booking->user_account_id,
             type: 'booking_therapist_completed',
-            title: '施術終了の確認をお願いします',
-            body: 'セラピストが施術終了を記録しました。レビュー送信または完了確認をお願いします。',
+            title: '対応終了の確認をお願いします',
+            body: 'セラピストが対応終了を記録しました。レビュー送信または完了確認をお願いします。',
             data: [
                 'booking_public_id' => $booking->public_id,
                 'status' => $booking->status,
@@ -268,8 +268,8 @@ class BookingNotificationService
 
         $this->sendEmail(
             email: $booking->userAccount?->email,
-            subject: '施術終了の確認をお願いします',
-            body: 'セラピストが施術終了を記録しました。アプリでレビュー送信、または完了確認をお願いします。'
+            subject: '対応終了の確認をお願いします',
+            body: 'セラピストが対応終了を記録しました。アプリでレビュー送信、または完了確認をお願いします。'
         );
     }
 
@@ -280,7 +280,7 @@ class BookingNotificationService
         $this->create(
             accountId: $booking->user_account_id,
             type: 'booking_completion_window_updated',
-            title: '施術時間が更新されました',
+            title: '対応時間が更新されました',
             body: 'セラピストが開始時刻または終了時刻を更新しました。最終金額をご確認ください。',
             data: [
                 'booking_public_id' => $booking->public_id,
@@ -295,8 +295,8 @@ class BookingNotificationService
 
         $this->sendEmail(
             email: $booking->userAccount?->email,
-            subject: '施術時間が更新されました',
-            body: 'セラピストが施術時間を更新しました。アプリから開始時刻、終了時刻、最終金額をご確認ください。'
+            subject: '対応時間が更新されました',
+            body: 'セラピストが対応時間を更新しました。アプリから開始時刻、終了時刻、最終金額をご確認ください。'
         );
     }
 
@@ -307,8 +307,8 @@ class BookingNotificationService
         $this->create(
             accountId: $booking->user_account_id,
             type: 'booking_completion_reminder',
-            title: '施術完了の確認がまだです',
-            body: '施術終了の確認がまだ完了していません。レビュー送信または完了確認をお願いします。',
+            title: '対応終了の確認がまだです',
+            body: '対応終了の確認がまだ完了していません。レビュー送信または完了確認をお願いします。',
             data: [
                 'booking_public_id' => $booking->public_id,
                 'status' => $booking->status,
@@ -318,7 +318,7 @@ class BookingNotificationService
 
         $this->sendEmail(
             email: $booking->userAccount?->email,
-            subject: '施術完了の確認がまだです',
+            subject: '対応終了の確認がまだです',
             body: 'レビュー送信または完了確認を行うと、予約が完了します。アプリからご対応ください。'
         );
     }
@@ -449,7 +449,7 @@ class BookingNotificationService
                 ? $booking->therapist_account_id
                 : $booking->user_account_id),
             type: 'booking_interrupted',
-            title: '施術が中断されました',
+            title: '対応が中断されました',
             body: $this->interruptionBody($responsibility, $reasonNote),
             data: [
                 'booking_public_id' => $booking->public_id,
@@ -542,11 +542,11 @@ class BookingNotificationService
     private function interruptionBody(string $responsibility, ?string $reasonNote): string
     {
         $base = match ($responsibility) {
-            'user' => 'ユーザー都合で施術が中断されました。',
-            'therapist' => 'セラピスト都合で施術が中断されました。',
-            'force_majeure' => '不可抗力のため施術が中断されました。',
-            'shared' => '双方確認のうえ施術が中断されました。',
-            default => '施術が中断されました。',
+            'user' => 'ユーザー都合で対応が中断されました。',
+            'therapist' => 'セラピスト都合で対応が中断されました。',
+            'force_majeure' => '不可抗力のため対応が中断されました。',
+            'shared' => '双方確認のうえ対応が中断されました。',
+            default => '対応が中断されました。',
         };
 
         return $reasonNote ? "{$base} {$reasonNote}" : $base;

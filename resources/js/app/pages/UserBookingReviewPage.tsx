@@ -38,7 +38,7 @@ function statusLabel(status: string): string {
         case 'arrived':
             return '到着';
         case 'in_progress':
-            return '施術中';
+            return '対応中';
         case 'therapist_completed':
             return 'あなたの完了確認待ち';
         case 'completed':
@@ -245,10 +245,10 @@ export function UserBookingReviewPage() {
         if (isReviewable) {
             return booking.status === 'therapist_completed'
                 ? 'レビューを送ると、この予約はそのまま完了になります。'
-                : '施術後の感想を共有して、今後の利用者の判断材料にできます。';
+                : '利用後の感想を共有して、今後の利用者の判断材料にできます。';
         }
 
-        return 'レビューは施術完了後に送信できます。完了確認前はまだ投稿できません。';
+        return 'レビューは対応終了後に送信できます。完了確認前はまだ投稿できません。';
     }, [booking, existingReview, isReviewable]);
 
     async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -385,7 +385,7 @@ export function UserBookingReviewPage() {
                                 {[
                                     ['総合', existingReview.rating_overall],
                                     ['やり取り', existingReview.rating_manners],
-                                    ['施術', existingReview.rating_skill],
+                                    ['対応', existingReview.rating_skill],
                                     ['清潔感', existingReview.rating_cleanliness],
                                     ['安心感', existingReview.rating_safety],
                                 ].map(([label, value]) => (
@@ -428,7 +428,7 @@ export function UserBookingReviewPage() {
 
                             <div className="grid gap-5 md:grid-cols-2">
                                 <RatingField label="やり取りのしやすさ" value={ratingManners} onChange={setRatingManners} />
-                                <RatingField label="施術の満足度" value={ratingSkill} onChange={setRatingSkill} />
+                                <RatingField label="対応の満足度" value={ratingSkill} onChange={setRatingSkill} />
                                 <RatingField label="清潔感" value={ratingCleanliness} onChange={setRatingCleanliness} />
                                 <RatingField label="安心感" value={ratingSafety} onChange={setRatingSafety} />
                             </div>

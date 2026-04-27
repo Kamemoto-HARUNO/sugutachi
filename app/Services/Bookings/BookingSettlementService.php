@@ -68,7 +68,7 @@ class BookingSettlementService
 
         if ($endedAt->gt($upperBound) || $endedAt->gt(CarbonImmutable::now())) {
             throw ValidationException::withMessages([
-                'ended_at' => ['終了時刻は施術終了を記録した時刻より後、または現在時刻より未来には設定できません。'],
+                'ended_at' => ['終了時刻は対応終了を記録した時刻より後、または現在時刻より未来には設定できません。'],
             ]);
         }
 
@@ -82,7 +82,7 @@ class BookingSettlementService
 
         if ($roundedDurationMinutes <= 0) {
             throw ValidationException::withMessages([
-                'ended_at' => ['施術時間を計算できませんでした。開始時刻と終了時刻を確認してください。'],
+                'ended_at' => ['対応時間を計算できませんでした。開始時刻と終了時刻を確認してください。'],
             ]);
         }
 

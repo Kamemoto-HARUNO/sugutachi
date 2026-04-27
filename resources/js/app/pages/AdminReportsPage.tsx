@@ -97,7 +97,7 @@ function categoryLabel(category: string): string {
         case 'boundary_violation':
             return '境界違反';
         case 'booking_interrupted':
-            return '施術中断';
+            return '対応中断';
         case 'contact_exchange':
             return '連絡先交換';
         default:

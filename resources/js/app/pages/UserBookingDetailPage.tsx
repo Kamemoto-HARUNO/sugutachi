@@ -29,7 +29,7 @@ function statusLabel(status: string): string {
         case 'arrived':
             return '到着';
         case 'in_progress':
-            return '施術中';
+            return '対応中';
         case 'therapist_completed':
             return 'あなたの完了確認待ち';
         case 'completed':
@@ -176,8 +176,8 @@ function buildTimeline(booking: BookingDetailRecord): Array<{ key: string; label
         { key: 'accepted', label: '予約確定', value: booking.accepted_at, isActive: Boolean(booking.accepted_at) },
         { key: 'moving', label: '移動中', value: booking.moving_at, isActive: Boolean(booking.moving_at) },
         { key: 'arrived', label: '到着', value: booking.arrived_at, isActive: Boolean(booking.arrived_at) },
-        { key: 'started', label: '施術開始', value: booking.started_at, isActive: Boolean(booking.started_at) },
-        { key: 'ended', label: '施術終了', value: booking.ended_at, isActive: Boolean(booking.ended_at) },
+        { key: 'started', label: '対応開始', value: booking.started_at, isActive: Boolean(booking.started_at) },
+        { key: 'ended', label: '対応終了', value: booking.ended_at, isActive: Boolean(booking.ended_at) },
         { key: 'completed', label: '完了', value: booking.completed_at ?? null, isActive: Boolean(booking.completed_at) },
     ];
 }
@@ -296,7 +296,7 @@ export function UserBookingDetailPage() {
                 token,
             });
             await loadBooking();
-            setSuccessMessage('施術完了を確認しました。予約は完了になりました。');
+            setSuccessMessage('対応終了を確認しました。予約は完了になりました。');
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -646,9 +646,9 @@ export function UserBookingDetailPage() {
                     {booking.status === 'therapist_completed' ? (
                         <article className="rounded-[28px] border border-[#ead8b8] bg-[#fff9ef] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.08)]">
                             <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">完了確認</p>
-                            <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">施術完了の確認</h2>
+                            <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">対応終了の確認</h2>
                             <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                セラピストが施術完了を報告しています。問題がなければ、レビュー送信または完了確認でこの予約を完了にできます。
+                                セラピストが対応終了を報告しています。問題がなければ、レビュー送信または完了確認でこの予約を完了にできます。
                             </p>
                             <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                                 <Link

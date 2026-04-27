@@ -1022,7 +1022,7 @@ export function UserProfilePage() {
                             <div className="space-y-1">
                                 <p className="text-sm font-semibold text-[#17202b]">センシティブ項目をセラピストへ開示する</p>
                                 <p className="text-sm leading-7 text-[#68707a]">
-                                    性的指向・性自認・体調メモなど、施術前に共有したい内容をセラピスト側に表示できるようにします。
+                                    性的指向・性自認・体調メモなど、予約前に共有したい内容をセラピスト側に表示できるようにします。
                                 </p>
                             </div>
                         </label>

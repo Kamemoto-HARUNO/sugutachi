@@ -101,7 +101,7 @@ function statusLabel(
         case 'arrived':
             return '到着';
         case 'in_progress':
-            return '施術中';
+            return '対応中';
         case 'therapist_completed':
             return '利用者の完了確認待ち';
         case 'completed':
@@ -376,8 +376,8 @@ function buildTimeline(booking: BookingDetailRecord): Array<{ key: string; label
         { key: 'accepted', label: '予約確定', value: booking.accepted_at, isActive: Boolean(booking.accepted_at) },
         { key: 'moving', label: '移動開始', value: booking.moving_at, isActive: Boolean(booking.moving_at) },
         { key: 'arrived', label: '到着', value: booking.arrived_at, isActive: Boolean(booking.arrived_at) },
-        { key: 'started', label: '施術開始', value: booking.started_at, isActive: Boolean(booking.started_at) },
-        { key: 'ended', label: '施術終了', value: booking.ended_at, isActive: Boolean(booking.ended_at) },
+        { key: 'started', label: '対応開始', value: booking.started_at, isActive: Boolean(booking.started_at) },
+        { key: 'ended', label: '対応終了', value: booking.ended_at, isActive: Boolean(booking.ended_at) },
         { key: 'completed', label: '完了', value: booking.completed_at ?? null, isActive: Boolean(booking.completed_at) },
     ];
 }
@@ -417,7 +417,7 @@ function nextStageAction(booking: BookingDetailRecord): { label: string; path: s
         case 'moving':
             return { label: '到着を記録', path: 'arrived' };
         case 'arrived':
-            return { label: '施術開始を記録', path: 'start' };
+            return { label: '対応開始を記録', path: 'start' };
         default:
             return null;
     }
@@ -428,7 +428,7 @@ function canManageCompletionWindow(status: string): boolean {
 }
 
 function completionActionLabel(status: string): string {
-    return status === 'therapist_completed' ? '施術時間を更新する' : '施術完了を記録';
+    return status === 'therapist_completed' ? '対応時間を更新する' : '対応終了を記録';
 }
 
 function formatDateTimeLocalValue(value: string | null): string {
@@ -493,12 +493,12 @@ function validateCompletionWindowInputs(
     );
 
     if (startedAt > completionUpperBound) {
-        return '開始時刻は施術完了を記録した時刻より後にできません。';
+        return '開始時刻は対応終了を記録した時刻より後にできません。';
     }
 
     if (endedAt > completionUpperBound) {
         return booking.status === 'therapist_completed'
-            ? '終了時刻は、最初に施術終了を記録した時刻より後にできません。'
+            ? '終了時刻は、最初に対応終了を記録した時刻より後にできません。'
             : '終了時刻は現在時刻より後にできません。';
     }
 
@@ -728,8 +728,8 @@ export function TherapistBookingDetailPage() {
             const messageMap: Record<string, string> = {
                 moving: '移動開始を記録しました。利用者の画面に到着確認コードを表示しています。',
                 arrived: '到着を記録しました。',
-                start: '施術開始を記録しました。',
-                complete: '施術完了を記録しました。利用者の確認待ちになります。',
+                start: '対応開始を記録しました。',
+                complete: '対応終了を記録しました。利用者の確認待ちになります。',
             };
 
             await reloadAfterMutation(messageMap[nextAction.path] ?? '予約状態を更新しました。');
@@ -782,7 +782,7 @@ export function TherapistBookingDetailPage() {
                     },
                 });
 
-                await reloadAfterMutation('施術時間を更新しました。利用者へ最新の金額を通知しています。');
+                await reloadAfterMutation('対応時間を更新しました。利用者へ最新の金額を通知しています。');
             } else {
                 await apiRequest<ApiEnvelope<BookingDetailRecord>>(`/bookings/${booking.public_id}/complete`, {
                     method: 'POST',
@@ -793,13 +793,13 @@ export function TherapistBookingDetailPage() {
                     },
                 });
 
-                await reloadAfterMutation('施術完了を記録しました。利用者の確認待ちになります。');
+                await reloadAfterMutation('対応終了を記録しました。利用者の確認待ちになります。');
             }
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
                     ? requestError.message
-                    : '施術時間の更新に失敗しました。';
+                    : '対応時間の更新に失敗しました。';
 
             setError(message);
         } finally {
@@ -1030,7 +1030,7 @@ export function TherapistBookingDetailPage() {
                             {canEditCompletionWindow ? (
                                 <div className="rounded-[22px] bg-[#f8f4ed] px-4 py-4">
                                     <p className="text-sm font-semibold text-[#17202b]">
-                                        {booking.status === 'therapist_completed' ? '施術時間を見直す' : '施術完了を記録する'}
+                                        {booking.status === 'therapist_completed' ? '対応時間を見直す' : '対応終了を記録する'}
                                     </p>
                                     <p className="mt-2 text-sm leading-7 text-[#68707a]">
                                         開始時刻と終了時刻から15分単位で切り捨てて最終金額を計算します。延長は予約時間に対して最大60分までです。
@@ -1112,7 +1112,7 @@ export function TherapistBookingDetailPage() {
                                     </div>
 
                                     <p className="mt-3 text-xs leading-6 text-[#7d6852]">
-                                        入力欄右のカレンダーから日時を選べます。開始時刻は到着時刻より前にできません。終了時刻は、最初に施術終了を記録した時刻より後にはできません。
+                                        入力欄右のカレンダーから日時を選べます。開始時刻は到着時刻より前にできません。終了時刻は、最初に対応終了を記録した時刻より後にはできません。
                                     </p>
 
                                     <button

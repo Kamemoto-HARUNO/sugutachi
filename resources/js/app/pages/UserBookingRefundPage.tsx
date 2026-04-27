@@ -14,8 +14,8 @@ import type {
 } from '../lib/types';
 
 const refundReasonOptions = [
-    { value: 'service_not_delivered', label: '施術が提供されなかった' },
-    { value: 'service_issue', label: '施術内容に問題があった' },
+    { value: 'service_not_delivered', label: 'サービスが提供されなかった' },
+    { value: 'service_issue', label: '対応内容に問題があった' },
     { value: 'billing_issue', label: '請求内容を確認したい' },
     { value: 'therapist_cancel', label: 'セラピスト都合キャンセル分の確認' },
     { value: 'other', label: 'その他' },
@@ -64,7 +64,7 @@ function bookingStatusLabel(status: string): string {
         case 'arrived':
             return '到着';
         case 'in_progress':
-            return '施術中';
+            return '対応中';
         case 'therapist_completed':
             return 'あなたの完了確認待ち';
         case 'completed':

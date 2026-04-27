@@ -186,7 +186,7 @@ export function TherapistReviewsPage() {
     }), [sortedReceivedReviews]);
     const categoryAverages = useMemo(() => ([
         { label: '接客', value: metrics.averageManners },
-        { label: '施術', value: metrics.averageSkill },
+        { label: '対応', value: metrics.averageSkill },
         { label: '清潔感', value: metrics.averageCleanliness },
         { label: '安心感', value: metrics.averageSafety },
     ]), [metrics.averageCleanliness, metrics.averageManners, metrics.averageSafety, metrics.averageSkill]);
@@ -386,7 +386,7 @@ export function TherapistReviewsPage() {
                                             {[
                                                 { label: '総合', value: review.rating_overall },
                                                 { label: '接客', value: review.rating_manners },
-                                                { label: '施術', value: review.rating_skill },
+                                                { label: '対応', value: review.rating_skill },
                                                 { label: '清潔感', value: review.rating_cleanliness },
                                                 { label: '安心感', value: review.rating_safety },
                                             ].map((item) => (
@@ -426,7 +426,7 @@ export function TherapistReviewsPage() {
                             <p className="mt-3 text-sm leading-7 text-slate-300">
                                 {error && sortedReceivedReviews.length === 0
                                     ? '通信状況を確認して、もう一度読み込み直してください。'
-                                    : '施術後のレビューが増えると、ここで接客や施術の傾向を見返せるようになります。まずは進行中の予約やプロフィールの見え方を整えておくと、次の評価につながりやすくなります。'}
+                                    : '利用後のレビューが増えると、ここで接客や対応の傾向を見返せるようになります。まずは進行中の予約やプロフィールの見え方を整えておくと、次の評価につながりやすくなります。'}
                             </p>
                             <div className="mt-5 flex flex-wrap gap-3">
                                 <button
@@ -485,7 +485,7 @@ export function TherapistReviewsPage() {
                         <div className="mt-5 space-y-3">
                             {[
                                 { label: '接客', value: metrics.averageManners },
-                                { label: '施術', value: metrics.averageSkill },
+                                { label: '対応', value: metrics.averageSkill },
                                 { label: '清潔感', value: metrics.averageCleanliness },
                                 { label: '安心感', value: metrics.averageSafety },
                             ].map((item) => (

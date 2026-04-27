@@ -29,11 +29,11 @@ export function formatNotificationTypeLabel(type: string | null | undefined): st
         case 'booking_arrived':
             return '到着';
         case 'booking_started':
-            return '施術開始';
+            return '対応開始';
         case 'booking_therapist_completed':
-            return '施術終了確認';
+            return '対応終了確認';
         case 'booking_completion_window_updated':
-            return '施術時間更新';
+            return '対応時間更新';
         case 'booking_completion_reminder':
             return '完了確認リマインド';
         case 'booking_auto_completed':
@@ -43,7 +43,7 @@ export function formatNotificationTypeLabel(type: string | null | undefined): st
         case 'booking_refunded':
             return '返金結果';
         case 'booking_interrupted':
-            return '施術中断';
+            return '対応中断';
         case 'travel_request_received':
             return '出張リクエスト受信';
         case 'travel_request_warning':

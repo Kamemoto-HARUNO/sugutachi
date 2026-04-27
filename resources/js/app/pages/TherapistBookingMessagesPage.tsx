@@ -41,7 +41,7 @@ function statusLabel(status: string): string {
         case 'arrived':
             return '到着';
         case 'in_progress':
-            return '施術中';
+            return '対応中';
         case 'therapist_completed':
             return '利用者の完了確認待ち';
         case 'completed':
@@ -128,7 +128,7 @@ function stageHint(status: string): string {
         case 'arrived':
             return '入室や開始前の確認に使います。';
         case 'in_progress':
-            return '施術中の連絡履歴です。';
+            return '対応中の連絡履歴です。';
         case 'therapist_completed':
             return '利用者の完了確認待ちです。';
         case 'completed':

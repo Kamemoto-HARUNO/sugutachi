@@ -68,7 +68,7 @@ function statusLabel(booking: Pick<BookingListRecord, 'status' | 'pending_adjust
         case 'arrived':
             return '到着';
         case 'in_progress':
-            return '施術中';
+            return '対応中';
         case 'therapist_completed':
             return 'あなたの完了確認待ち';
         case 'completed':
@@ -202,7 +202,7 @@ function buildAttentionLabel(booking: BookingListRecord): string | null {
     }
 
     if (booking.status === 'therapist_completed') {
-        return '施術完了の確認が必要です';
+        return '対応終了の確認が必要です';
     }
 
     if (booking.status === 'requested') {
@@ -341,7 +341,7 @@ export function UserBookingsPage() {
 
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {[
-                    { label: '進行中', value: summary.active, hint: '承諾待ちや施術中を含む' },
+                    { label: '進行中', value: summary.active, hint: '承諾待ちや対応中を含む' },
                     { label: '承諾待ち', value: summary.requested, hint: 'セラピストの応答待ち' },
                     { label: '未読', value: summary.unread, hint: 'メッセージ未読件数' },
                     { label: '完了', value: summary.completed, hint: 'レビュー導線の対象' },

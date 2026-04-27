@@ -79,7 +79,7 @@ function formatReviewDate(value: string): string {
 function buildReviewMeta(review: ReviewSummary): string {
     const labels = [
         review.rating_manners ? `対応 ${review.rating_manners}/5` : null,
-        review.rating_skill ? `施術 ${review.rating_skill}/5` : null,
+        review.rating_skill ? `対応 ${review.rating_skill}/5` : null,
         review.rating_cleanliness ? `清潔感 ${review.rating_cleanliness}/5` : null,
         review.rating_safety ? `安心感 ${review.rating_safety}/5` : null,
     ].filter(Boolean);

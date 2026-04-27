@@ -70,7 +70,7 @@ function statusLabel(booking: Pick<BookingListRecord, 'status' | 'pending_adjust
         case 'arrived':
             return '到着';
         case 'in_progress':
-            return '施術中';
+            return '対応中';
         case 'therapist_completed':
             return '利用者の完了確認待ち';
         case 'completed':
@@ -222,11 +222,11 @@ function buildAttentionLabel(booking: BookingListRecord): string | null {
     }
 
     if (booking.status === 'arrived') {
-        return '施術開始前';
+        return '対応開始前';
     }
 
     if (booking.status === 'in_progress') {
-        return '施術中';
+        return '対応中';
     }
 
     if (booking.unread_message_count > 0) {

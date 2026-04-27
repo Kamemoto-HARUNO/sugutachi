@@ -53,7 +53,7 @@ export const userPlaceholderRoutes: PlaceholderRouteDefinition[] = [
     { path: 'bookings', title: '予約一覧', description: '予約ステータスや未読メッセージを一覧で確認します。', apiPath: '/api/bookings' },
     { path: 'bookings/:publicId', title: '予約詳細', description: '決済、返金、同意、体調確認まで含めた詳細画面です。', apiPath: '/api/bookings/{public_id}' },
     { path: 'bookings/:publicId/messages', title: '予約メッセージ', description: '予約ごとのメッセージ履歴と未読状況を扱います。', apiPath: '/api/bookings/{public_id}/messages' },
-    { path: 'bookings/:publicId/review', title: 'レビュー投稿', description: '施術後レビューを送信する画面です。', apiPath: '/api/bookings/{public_id}/reviews' },
+    { path: 'bookings/:publicId/review', title: 'レビュー投稿', description: '利用後レビューを送信する画面です。', apiPath: '/api/bookings/{public_id}/reviews' },
     { path: 'bookings/:publicId/cancel', title: '予約キャンセル', description: 'キャンセル条件と決済内訳を確認して手続きを進めます。', apiPath: '/api/bookings/{public_id}/cancel-preview' },
     { path: 'bookings/:publicId/refund', title: '返金申請', description: '返金申請の理由入力と履歴確認を行います。', apiPath: '/api/bookings/{public_id}/refund-requests' },
     { path: 'bookings/:publicId/report', title: '通報送信', description: '予約に紐づく通報や安全報告を送る画面です。', apiPath: '/api/reports' },

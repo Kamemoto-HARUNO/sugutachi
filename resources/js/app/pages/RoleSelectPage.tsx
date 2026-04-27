@@ -136,7 +136,7 @@ function roleGuides(): Record<RoleName, RoleGuide> {
         },
         therapist: {
             label: 'セラピスト',
-            eyebrow: '施術を提供する側',
+            eyebrow: 'サービスを提供する側',
             title: '公開プロフィールを整えて、依頼と売上を管理する',
             description: 'プロフィール公開の準備から依頼対応、レビュー確認、売上管理までを、このマイページからまとめて行えます。',
             bullets: [

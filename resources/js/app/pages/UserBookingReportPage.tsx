@@ -14,7 +14,7 @@ import type {
 } from '../lib/types';
 
 const reportCategoryOptions = [
-    { value: 'boundary_violation', label: '施術範囲・境界の違反' },
+    { value: 'boundary_violation', label: '対応範囲・境界の違反' },
     { value: 'prohibited_request', label: '禁止行為の要求' },
     { value: 'prohibited_contact_exchange', label: '連絡先交換の誘導' },
     { value: 'violence', label: '暴力・威圧・脅し' },

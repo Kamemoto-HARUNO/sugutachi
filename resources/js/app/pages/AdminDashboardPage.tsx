@@ -234,7 +234,7 @@ export function AdminDashboardPage() {
                 key: 'in_progress',
                 label: '進行中予約',
                 count: dashboard.bookings.in_progress,
-                description: '現在施術進行中の件数です。',
+                description: '現在進行中の対応件数です。',
                 target: dashboard.navigation.bookings.in_progress,
             },
             {
