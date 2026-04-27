@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { buildJstDateValue, formatJstDateTime } from '../lib/datetime';
 import { formatCurrency, getServiceAddressLabel } from '../lib/discovery';
 import { formatDateTime } from '../lib/therapist';
 import type {
@@ -12,16 +13,6 @@ import type {
     BookingDetailRecord,
     TherapistBookingRequestRecord,
 } from '../lib/types';
-
-type RequestTypeFilter = 'all' | 'on_demand' | 'scheduled';
-
-function normalizeRequestType(value: RequestTypeFilter): RequestTypeFilter {
-    if (value === 'on_demand' || value === 'scheduled') {
-        return value;
-    }
-
-    return 'all';
-}
 
 function requestTypeLabel(value: 'on_demand' | 'scheduled'): string {
     return value === 'scheduled' ? '予定予約' : '今すぐ';
@@ -39,19 +30,6 @@ function placeTypeLabel(value: string | null | undefined): string {
             return 'その他';
         default:
             return '場所未設定';
-    }
-}
-
-function paymentStatusLabel(value: string | null | undefined): string {
-    switch (value) {
-        case 'requires_capture':
-            return '与信確保済み';
-        case 'succeeded':
-            return '決済完了';
-        case 'canceled':
-            return '与信取消';
-        default:
-            return '未作成';
     }
 }
 
@@ -96,32 +74,6 @@ function formatRemainingLabel(seconds: number | null): string {
     return `残り${hours}時間${remainingMinutes}分`;
 }
 
-function buildRequestTimeLine(request: TherapistBookingRequestRecord): string {
-    if (request.request_type === 'on_demand') {
-        return `受付 ${formatDateTime(request.created_at)}`;
-    }
-
-    if (!request.scheduled_start_at) {
-        return '開始時刻を確認中';
-    }
-
-    return `${formatDateTime(request.scheduled_start_at)} - ${formatDateTime(request.scheduled_end_at)}`;
-}
-
-function buildServiceLocationLabel(request: TherapistBookingRequestRecord): string {
-    const parts = [
-        request.dispatch_area_label,
-        request.service_location?.prefecture,
-        request.service_location?.city,
-    ].filter(Boolean);
-
-    if (parts.length > 0) {
-        return parts.join(' / ');
-    }
-
-    return 'エリア確認中';
-}
-
 function buildRequestDetailPath(publicId: string, search: string): string {
     return search ? `/therapist/requests/${publicId}${search}` : `/therapist/requests/${publicId}`;
 }
@@ -136,15 +88,79 @@ function buildRequestListPath(search: string): string {
     return query ? `/therapist/bookings?${query}` : '/therapist/bookings?group=requested';
 }
 
-function filterRequests(
-    requests: TherapistBookingRequestRecord[],
-    requestType: RequestTypeFilter,
-): TherapistBookingRequestRecord[] {
-    if (requestType === 'all') {
-        return requests;
+function buildRequestMeetingPlace(address: BookingDetailRecord['service_address']): string {
+    if (!address) {
+        return '未設定';
     }
 
-    return requests.filter((request) => request.request_type === requestType);
+    const parts = [address.prefecture, address.address_line].filter(Boolean);
+
+    return parts.length > 0 ? parts.join(' ') : getServiceAddressLabel(address);
+}
+
+function formatRequestYear(value: string): string {
+    return `${new Intl.DateTimeFormat('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+        year: 'numeric',
+    }).format(new Date(value))}年`;
+}
+
+function formatRequestDateLabel(value: string): string {
+    const parts = new Intl.DateTimeFormat('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+        month: 'numeric',
+        day: 'numeric',
+        weekday: 'short',
+    }).formatToParts(new Date(value));
+
+    const month = parts.find((part) => part.type === 'month')?.value ?? '';
+    const day = parts.find((part) => part.type === 'day')?.value ?? '';
+    const weekday = parts.find((part) => part.type === 'weekday')?.value ?? '';
+
+    return `${month}月${day}日(${weekday})`;
+}
+
+function formatRequestTimeLabel(value: string): string {
+    return new Intl.DateTimeFormat('ja-JP', {
+        timeZone: 'Asia/Tokyo',
+        hour: '2-digit',
+        minute: '2-digit',
+        hour12: false,
+    }).format(new Date(value));
+}
+
+function renderRequestTimeRange(request: TherapistBookingRequestRecord) {
+    if (request.request_type === 'on_demand') {
+        return (
+            <>
+                <span className="block">{formatRequestYear(request.created_at)}</span>
+                <span className="mt-1 block">{formatRequestDateLabel(request.created_at)} {formatRequestTimeLabel(request.created_at)}</span>
+            </>
+        );
+    }
+
+    if (!request.scheduled_start_at || !request.scheduled_end_at) {
+        return '開始時刻を確認中';
+    }
+
+    const sameDay = buildJstDateValue(request.scheduled_start_at) === buildJstDateValue(request.scheduled_end_at);
+    const sameYear = formatRequestYear(request.scheduled_start_at) === formatRequestYear(request.scheduled_end_at);
+
+    return (
+        <>
+            <span className="block">{formatRequestYear(request.scheduled_start_at)}</span>
+            <span className="mt-1 block">
+                {formatRequestDateLabel(request.scheduled_start_at)} {formatRequestTimeLabel(request.scheduled_start_at)} 〜
+                {sameDay ? ` ${formatRequestTimeLabel(request.scheduled_end_at)}` : ''}
+            </span>
+            {!sameDay ? (
+                <span className="block">
+                    {sameYear ? '' : `${formatRequestYear(request.scheduled_end_at)} `}
+                    {formatRequestDateLabel(request.scheduled_end_at)} {formatRequestTimeLabel(request.scheduled_end_at)}
+                </span>
+            ) : null}
+        </>
+    );
 }
 
 export function TherapistRequestsPage() {
@@ -155,7 +171,6 @@ export function TherapistRequestsPage() {
     const [requests, setRequests] = useState<TherapistBookingRequestRecord[]>([]);
     const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
     const [selectedBooking, setSelectedBooking] = useState<BookingDetailRecord | null>(null);
-    const [requestType, setRequestType] = useState<RequestTypeFilter>('all');
     const [bufferBeforeMinutes, setBufferBeforeMinutes] = useState('30');
     const [bufferAfterMinutes, setBufferAfterMinutes] = useState('30');
     const [error, setError] = useState<string | null>(null);
@@ -226,17 +241,12 @@ export function TherapistRequestsPage() {
         void loadRequests();
     }, [token]);
 
-    const filteredRequests = useMemo(
-        () => filterRequests(requests, normalizeRequestType(requestType)),
-        [requestType, requests],
-    );
-
     useEffect(() => {
         if (isLoading) {
             return;
         }
 
-        if (filteredRequests.length === 0) {
+        if (requests.length === 0) {
             setSelectedRequestId(null);
 
             if (publicId) {
@@ -247,7 +257,7 @@ export function TherapistRequestsPage() {
         }
 
         if (publicId) {
-            const matchedRequest = filteredRequests.find((request) => request.public_id === publicId);
+            const matchedRequest = requests.find((request) => request.public_id === publicId);
 
             if (matchedRequest) {
                 if (selectedRequestId !== matchedRequest.public_id) {
@@ -257,16 +267,16 @@ export function TherapistRequestsPage() {
                 return;
             }
 
-            const fallbackId = filteredRequests[0].public_id;
+            const fallbackId = requests[0].public_id;
             setSelectedRequestId(fallbackId);
             navigate(buildRequestDetailPath(fallbackId, location.search), { replace: true });
             return;
         }
 
-        if (!selectedRequestId || !filteredRequests.some((request) => request.public_id === selectedRequestId)) {
-            setSelectedRequestId(filteredRequests[0].public_id);
+        if (!selectedRequestId || !requests.some((request) => request.public_id === selectedRequestId)) {
+            setSelectedRequestId(requests[0].public_id);
         }
-    }, [filteredRequests, isLoading, location.search, navigate, publicId, selectedRequestId]);
+    }, [isLoading, location.search, navigate, publicId, requests, selectedRequestId]);
 
     useEffect(() => {
         let isMounted = true;
@@ -499,133 +509,34 @@ export function TherapistRequestsPage() {
                 </div>
             </section>
 
-            <section className="flex flex-wrap gap-3">
-                {[
-                    { key: 'all', label: 'すべて' },
-                    { key: 'on_demand', label: '今すぐ予約' },
-                    { key: 'scheduled', label: '予定予約' },
-                ].map((option) => {
-                    const isActive = requestType === option.key;
-
-                    return (
-                        <button
-                            key={option.key}
-                            type="button"
-                            onClick={() => {
-                                setRequestType(option.key as RequestTypeFilter);
-                            }}
-                            className={`inline-flex min-h-10 items-center rounded-full border px-4 py-2 text-sm font-semibold transition ${
-                                isActive
-                                    ? 'border-[#f6e7cb] bg-[#f6e7cb] text-[#17202b]'
-                                    : 'border-white/10 bg-white/5 text-slate-200 hover:bg-white/8'
-                            }`}
-                        >
-                            {option.label}
-                        </button>
-                    );
-                })}
-            </section>
-
-            <section className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(360px,0.85fr)]">
-                <div className="space-y-4">
-                    {filteredRequests.length === 0 ? (
-                        <div className="rounded-[28px] border border-dashed border-white/10 bg-white/5 px-6 py-10 text-center">
-                            <p className="text-sm font-semibold text-white">承諾待ちの予約依頼はありません。</p>
-                            <p className="mt-3 text-sm leading-7 text-slate-300">
-                                空き枠を調整したり、プロフィールの写真や料金ルールを整えて次の依頼に備えられます。
-                            </p>
-                            <div className="mt-5 flex flex-wrap justify-center gap-3">
-                                <Link
-                                    to="/therapist/availability"
-                                    className="inline-flex items-center rounded-full bg-[#f6e7cb] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#f3ddb2]"
-                                >
-                                    空き枠を管理
-                                </Link>
-                                <Link
-                                    to="/therapist/profile"
-                                    className="inline-flex items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/6"
-                                >
-                                    プロフィールを確認
-                                </Link>
-                            </div>
+            <section className="space-y-4">
+                {requests.length === 0 ? (
+                    <div className="rounded-[28px] border border-dashed border-white/10 bg-white/5 px-6 py-10 text-center">
+                        <p className="text-sm font-semibold text-white">承諾待ちの予約依頼はありません。</p>
+                        <p className="mt-3 text-sm leading-7 text-slate-300">
+                            空き枠を調整したり、プロフィールの写真や料金ルールを整えて次の依頼に備えられます。
+                        </p>
+                        <div className="mt-5 flex flex-wrap justify-center gap-3">
+                            <Link
+                                to="/therapist/availability"
+                                className="inline-flex items-center rounded-full bg-[#f6e7cb] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#f3ddb2]"
+                            >
+                                空き枠を管理
+                            </Link>
+                            <Link
+                                to="/therapist/profile"
+                                className="inline-flex items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/6"
+                            >
+                                プロフィールを確認
+                            </Link>
                         </div>
-                    ) : (
-                        filteredRequests.map((request) => {
-                            const isSelected = request.public_id === selectedRequestId;
-                            const remainingSeconds = request.request_expires_at
-                                ? Math.floor((new Date(request.request_expires_at).getTime() - now) / 1000)
-                                : request.request_expires_in_seconds;
-                            const remainingMinutes = remainingSeconds != null
-                                ? Math.max(0, Math.ceil(remainingSeconds / 60))
-                                : request.request_expires_in_minutes;
-                            const cardLabelTone = isSelected ? 'text-[#697789]' : 'text-slate-400';
-
-                            return (
-                                <Link
-                                    key={request.public_id}
-                                    to={buildRequestDetailPath(request.public_id, location.search)}
-                                    onClick={() => {
-                                        setSelectedRequestId(request.public_id);
-                                        setSuccessMessage(null);
-                                    }}
-                                    className={`block w-full overflow-hidden rounded-[28px] border px-6 py-5 text-left transition ${
-                                        isSelected
-                                            ? 'border-[#f4cf8f] bg-[#fff6ea] text-[#17202b] shadow-[0_20px_45px_rgba(14,19,27,0.12)]'
-                                            : 'border-white/10 bg-white/5 text-white hover:bg-white/8'
-                                    }`}
-                                >
-                                    <div className="flex flex-wrap items-start justify-between gap-3">
-                                        <div className="space-y-2">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${isSelected ? 'bg-[#17202b] text-white' : 'bg-white/10 text-slate-100'}`}>
-                                                    {requestTypeLabel(request.request_type)}
-                                                </span>
-                                                <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${countdownTone(remainingMinutes)}`}>
-                                                    {formatRemainingLabel(remainingSeconds)}
-                                                </span>
-                                            </div>
-                                            <h2 className={`text-lg font-semibold ${isSelected ? 'text-[#17202b]' : 'text-white'}`}>
-                                                {request.menu.name ?? 'メニュー確認中'}
-                                            </h2>
-                                        </div>
-
-                                        <div className={`text-right text-sm ${isSelected ? 'text-[#415162]' : 'text-slate-300'}`}>
-                                            <p>{formatCurrency(request.amounts.total_amount)}</p>
-                                            <p className="mt-1 text-xs">受取 {formatCurrency(request.amounts.therapist_net_amount)}</p>
-                                        </div>
-                                    </div>
-
-                                    <div className={`mt-4 grid gap-3 text-sm sm:grid-cols-2 ${isSelected ? 'text-[#415162]' : 'text-slate-300'}`}>
-                                        <div>
-                                            <p className={`text-xs font-semibold tracking-wide ${cardLabelTone}`}>希望時間</p>
-                                            <p className="mt-1">{buildRequestTimeLine(request)}</p>
-                                        </div>
-                                        <div>
-                                            <p className={`text-xs font-semibold tracking-wide ${cardLabelTone}`}>希望エリア</p>
-                                            <p className="mt-1">{buildServiceLocationLabel(request)}</p>
-                                        </div>
-                                        <div>
-                                            <p className={`text-xs font-semibold tracking-wide ${cardLabelTone}`}>場所種別</p>
-                                            <p className="mt-1">{placeTypeLabel(request.service_location?.place_type)}</p>
-                                        </div>
-                                        <div>
-                                            <p className={`text-xs font-semibold tracking-wide ${cardLabelTone}`}>受付番号</p>
-                                            <p className="mt-1 font-mono text-xs">{request.public_id}</p>
-                                        </div>
-                                    </div>
-                                </Link>
-                            );
-                        })
-                    )}
-                </div>
-
-                <div className="space-y-4">
-                    {isDetailLoading ? (
-                        <div className="rounded-[28px] border border-white/10 bg-white/5 px-6 py-8">
-                            <LoadingScreen title="依頼詳細を読み込み中" message="利用者情報、待ち合わせ場所、決済状態を確認しています。" />
-                        </div>
-                    ) : selectedBooking && selectedRequest ? (
-                        <section className="space-y-5 rounded-[28px] border border-white/10 bg-white/5 p-6">
+                    </div>
+                ) : isDetailLoading ? (
+                    <div className="rounded-[28px] border border-white/10 bg-white/5 px-6 py-8">
+                        <LoadingScreen title="依頼詳細を読み込み中" message="利用者情報、待ち合わせ場所、承諾条件を確認しています。" />
+                    </div>
+                ) : selectedBooking && selectedRequest ? (
+                    <section className="space-y-5 rounded-[28px] border border-white/10 bg-white/5 p-6">
                             <div className="flex flex-wrap items-start justify-between gap-4">
                                 <div className="space-y-3">
                                     <div className="flex flex-wrap items-center gap-2">
@@ -656,7 +567,7 @@ export function TherapistRequestsPage() {
                             <div className="grid gap-4 md:grid-cols-2">
                                 <div className="rounded-2xl border border-white/10 bg-[#17202b] px-5 py-4">
                                     <p className="text-xs font-semibold tracking-wide text-slate-400">希望時間</p>
-                                    <p className="mt-2 text-sm text-white">{buildRequestTimeLine(selectedRequest)}</p>
+                                    <div className="mt-2 text-sm font-semibold leading-7 text-white">{renderRequestTimeRange(selectedRequest)}</div>
                                     {selectedBooking.request_expires_at ? (
                                         <p className="mt-2 text-xs text-slate-400">
                                             承諾期限 {formatDateTime(selectedBooking.request_expires_at)}
@@ -665,27 +576,9 @@ export function TherapistRequestsPage() {
                                 </div>
                                 <div className="rounded-2xl border border-white/10 bg-[#17202b] px-5 py-4">
                                     <p className="text-xs font-semibold tracking-wide text-slate-400">待ち合わせ場所</p>
-                                    <p className="mt-2 text-sm text-white">{getServiceAddressLabel(selectedBooking.service_address)}</p>
+                                    <p className="mt-2 text-sm font-semibold text-white">{buildRequestMeetingPlace(selectedBooking.service_address)}</p>
                                     <p className="mt-2 text-xs text-slate-400">
-                                        {selectedRequest.dispatch_area_label ?? '公開エリア未設定'} / {placeTypeLabel(selectedBooking.service_address?.place_type)}
-                                    </p>
-                                </div>
-                                <div className="rounded-2xl border border-white/10 bg-[#17202b] px-5 py-4">
-                                    <p className="text-xs font-semibold tracking-wide text-slate-400">決済状態</p>
-                                    <p className="mt-2 text-sm text-white">
-                                        {paymentStatusLabel(selectedBooking.current_payment_intent?.status)}
-                                    </p>
-                                    <p className="mt-2 text-xs text-slate-400">
-                                        手数料 {formatCurrency(selectedBooking.platform_fee_amount + selectedBooking.matching_fee_amount)}
-                                    </p>
-                                </div>
-                                <div className="rounded-2xl border border-white/10 bg-[#17202b] px-5 py-4">
-                                    <p className="text-xs font-semibold tracking-wide text-slate-400">利用者状態</p>
-                                    <p className="mt-2 text-sm text-white">
-                                        {selectedBooking.counterparty?.account_status ?? '確認中'}
-                                    </p>
-                                    <p className="mt-2 text-xs text-slate-400">
-                                        未読 {selectedBooking.unread_message_count}件 / 通報 {selectedBooking.open_report_count}件
+                                        {selectedBooking.service_address?.city ?? '市区町村未設定'} / {placeTypeLabel(selectedBooking.service_address?.place_type)}
                                     </p>
                                 </div>
                             </div>
@@ -768,16 +661,15 @@ export function TherapistRequestsPage() {
                                     メッセージを見る
                                 </Link>
                             </section>
-                        </section>
-                    ) : (
-                        <section className="rounded-[28px] border border-dashed border-white/10 bg-white/5 px-6 py-10 text-center">
-                            <p className="text-sm font-semibold text-white">確認する依頼を選んでください。</p>
-                            <p className="mt-3 text-sm leading-7 text-slate-300">
-                                左側の依頼カードを選ぶと、利用者情報、待ち合わせ場所、承諾バッファの確認まで進められます。
-                            </p>
-                        </section>
-                    )}
-                </div>
+                    </section>
+                ) : (
+                    <section className="rounded-[28px] border border-dashed border-white/10 bg-white/5 px-6 py-10 text-center">
+                        <p className="text-sm font-semibold text-white">対象の依頼を確認できません。</p>
+                        <p className="mt-3 text-sm leading-7 text-slate-300">
+                            依頼が取り下げられたか、承諾・辞退済みの可能性があります。予約管理へ戻って最新状態を確認してください。
+                        </p>
+                    </section>
+                )}
             </section>
         </div>
     );
