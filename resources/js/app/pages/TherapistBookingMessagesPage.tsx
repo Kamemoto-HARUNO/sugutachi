@@ -370,15 +370,15 @@ export function TherapistBookingMessagesPage() {
                 <section className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                     <div className="flex flex-col gap-4 border-b border-[#efe5d7] pb-5 md:flex-row md:items-end md:justify-between">
                         <div>
-                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">メッセージ履歴</p>
-                            <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">やり取り一覧</h2>
+                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">やりとり</p>
+                            <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">やりとり一覧</h2>
                         </div>
 
                         <div className="flex flex-wrap gap-2">
                             {[
                                 ['all', 'すべて'],
-                                ['unread', '未読のみ'],
-                                ['read', '既読のみ'],
+                                ['unread', '未読'],
+                                ['read', '既読'],
                             ].map(([value, label]) => (
                                 <button
                                     key={value}
@@ -416,50 +416,48 @@ export function TherapistBookingMessagesPage() {
                             return (
                                 <article
                                     key={message.id}
-                                    className={`rounded-[24px] px-5 py-4 ${
-                                        message.is_own
-                                            ? 'bg-[#17202b] text-white'
-                                            : 'bg-[#f8f4ed] text-[#17202b]'
-                                    }`}
+                                    className={[
+                                        'flex',
+                                        message.is_own ? 'justify-end' : 'justify-start',
+                                    ].join(' ')}
                                 >
-                                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                                        <div className="space-y-1">
-                                            <p className={`text-sm font-semibold ${message.is_own ? 'text-white' : 'text-[#17202b]'}`}>
-                                                {message.sender?.display_name ?? (message.is_own ? 'あなた' : '利用者')}
-                                            </p>
-                                            <p className={`text-sm leading-7 ${message.is_own ? 'text-slate-200' : 'text-[#48505a]'}`}>
-                                                {message.body}
-                                            </p>
+                                    <div className="max-w-[min(100%,38rem)] space-y-2">
+                                        <div
+                                            className={[
+                                                'rounded-[24px] px-4 py-4 shadow-[0_10px_24px_rgba(23,32,43,0.08)]',
+                                                message.is_own
+                                                    ? 'bg-[#17202b] text-white'
+                                                    : 'bg-[#f8f4ed] text-[#17202b]',
+                                            ].join(' ')}
+                                        >
+                                            <p className="text-sm leading-7">{message.body}</p>
                                         </div>
 
-                                        <div className={`flex flex-col items-start gap-2 text-xs sm:items-end ${message.is_own ? 'text-slate-300' : 'text-[#68707a]'}`}>
+                                        <div className={`flex flex-wrap items-center gap-3 px-1 text-xs ${message.is_own ? 'justify-end text-slate-400' : 'text-[#7a7066]'}`}>
+                                            <span>
+                                                {message.sender?.display_name ?? (message.is_own ? 'あなた' : counterpartyName)}
+                                            </span>
                                             <span>{formatDateTime(message.sent_at)}</span>
-                                            {!message.is_own && (
+                                            <span>{message.is_read ? '既読' : '未読'}</span>
+                                            {!message.is_own && !message.is_read ? (
                                                 <button
                                                     type="button"
                                                     onClick={() => {
                                                         void markAsRead(message.id);
                                                     }}
-                                                    disabled={message.is_read || isPendingRead}
-                                                    className={`rounded-full px-3 py-1 font-semibold transition ${
-                                                        message.is_read
-                                                            ? 'bg-white/70 text-[#68707a]'
-                                                            : 'bg-[#17202b] text-white hover:bg-[#243447]'
-                                                    } disabled:cursor-not-allowed disabled:opacity-60`}
+                                                    disabled={isPendingRead}
+                                                    className="rounded-full border border-[#d7c7ab] px-3 py-1 font-semibold text-[#17202b] transition hover:bg-[#fff8ee] disabled:cursor-not-allowed disabled:opacity-60"
                                                 >
-                                                    {message.is_read ? '既読' : isPendingRead ? '更新中...' : '既読にする'}
+                                                    {isPendingRead ? '更新中...' : '既読にする'}
                                                 </button>
-                                            )}
+                                            ) : null}
                                         </div>
                                     </div>
                                 </article>
                             );
                         }) : (
-                            <div className="rounded-[24px] border border-dashed border-[#e4d7c2] bg-[#fffaf3] px-5 py-8 text-center">
-                                <p className="text-sm font-semibold text-[#17202b]">メッセージはまだありません。</p>
-                                <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                    待ち合わせ場所や待ち合わせ方法の確認が必要なら、ここから最初の連絡を送れます。
-                                </p>
+                            <div className="rounded-[24px] bg-[#f8f4ed] px-5 py-6 text-sm leading-7 text-[#68707a]">
+                                この予約ではまだメッセージがありません。必要な連絡があれば下のフォームから送れます。
                             </div>
                         )}
                     </div>

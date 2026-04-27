@@ -352,8 +352,8 @@ export function UserBookingMessagesPage() {
                 <section className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                     <div className="flex flex-col gap-4 border-b border-[#efe5d7] pb-5 md:flex-row md:items-end md:justify-between">
                         <div>
-                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">THREAD</p>
-                            <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">やり取り一覧</h2>
+                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">やりとり</p>
+                            <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">やりとり一覧</h2>
                         </div>
 
                         <div className="flex flex-wrap gap-2">
@@ -447,7 +447,7 @@ export function UserBookingMessagesPage() {
 
                 <aside className="space-y-5">
                     <section className="rounded-[28px] bg-[#fffcf7] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.1)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">COMPOSER</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">メッセージ送信</p>
                         <h2 className="mt-2 text-xl font-semibold text-[#17202b]">メッセージ送信</h2>
 
                         <form onSubmit={handleSendMessage} className="mt-5 space-y-4">
@@ -485,7 +485,7 @@ export function UserBookingMessagesPage() {
                     </section>
 
                     <section className="rounded-[28px] bg-[#fffcf7] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.1)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">BOOKING CONTEXT</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予約情報</p>
                         <div className="mt-4 space-y-4 text-sm text-[#48505a]">
                             <div>
                                 <p className="text-xs font-semibold text-[#7d6852]">予約日時</p>

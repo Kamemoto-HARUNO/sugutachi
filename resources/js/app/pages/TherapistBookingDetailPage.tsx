@@ -827,27 +827,6 @@ export function TherapistBookingDetailPage() {
                                 <p className="mt-2 text-2xl font-semibold text-[#17202b]">{formatCurrency(booking.therapist_net_amount)}</p>
                             </div>
                         </div>
-
-                        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                            <div>
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">決済状態</p>
-                                <p className="mt-2 text-sm font-semibold text-[#17202b]">
-                                    {paymentStatusLabel(booking.current_payment_intent?.status)}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">未読メッセージ</p>
-                                <p className="mt-2 text-sm font-semibold text-[#17202b]">{booking.unread_message_count}件</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">返金件数</p>
-                                <p className="mt-2 text-sm font-semibold text-[#17202b]">{booking.refund_count}件</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">未解決通報</p>
-                                <p className="mt-2 text-sm font-semibold text-[#17202b]">{booking.open_report_count}件</p>
-                            </div>
-                        </div>
                     </article>
 
                     <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">

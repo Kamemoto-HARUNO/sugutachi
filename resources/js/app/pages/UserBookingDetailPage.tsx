@@ -356,7 +356,7 @@ export function UserBookingDetailPage() {
                     <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                             <div className="space-y-2">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">BOOKING SUMMARY</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予約サマリー</p>
                                 <h2 className="text-2xl font-semibold text-[#17202b]">{buildPrimaryTime(booking)}</h2>
                                 <p className="text-sm leading-7 text-[#68707a]">
                                     待ち合わせ場所: {booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
@@ -364,36 +364,15 @@ export function UserBookingDetailPage() {
                             </div>
 
                             <div className="rounded-[22px] bg-[#f8f4ed] px-5 py-4">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">TOTAL</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">支払い予定額</p>
                                 <p className="mt-2 text-2xl font-semibold text-[#17202b]">{formatCurrency(booking.total_amount)}</p>
-                            </div>
-                        </div>
-
-                        <div className="mt-6 grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                            <div>
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">決済状態</p>
-                                <p className="mt-2 text-sm font-semibold text-[#17202b]">
-                                    {paymentStatusLabel(booking.current_payment_intent?.status)}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">未読メッセージ</p>
-                                <p className="mt-2 text-sm font-semibold text-[#17202b]">{booking.unread_message_count}件</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">返金件数</p>
-                                <p className="mt-2 text-sm font-semibold text-[#17202b]">{booking.refund_count}件</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">未解決通報</p>
-                                <p className="mt-2 text-sm font-semibold text-[#17202b]">{booking.open_report_count}件</p>
                             </div>
                         </div>
                     </article>
 
                     {booking.status === 'therapist_completed' ? (
                         <article className="rounded-[28px] border border-[#ead8b8] bg-[#fff9ef] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.08)]">
-                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">FINAL CONFIRMATION</p>
+                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">完了確認</p>
                             <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">施術完了の確認</h2>
                             <p className="mt-2 text-sm leading-7 text-[#68707a]">
                                 セラピストが施術完了を報告しています。問題がなければ、レビュー送信または完了確認でこの予約を完了にできます。
@@ -419,7 +398,7 @@ export function UserBookingDetailPage() {
 
                     {booking.status === 'moving' && booking.arrival_confirmation_code ? (
                         <article className="rounded-[28px] border border-[#cfdff8] bg-[#f6f9ff] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.08)]">
-                            <p className="text-xs font-semibold tracking-wide text-[#5472a0]">ARRIVAL CODE</p>
+                            <p className="text-xs font-semibold tracking-wide text-[#5472a0]">到着確認コード</p>
                             <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">到着確認コード</h2>
                             <p className="mt-2 text-sm leading-7 text-[#68707a]">
                                 セラピストが到着したら、この4桁コードを伝えてください。コードが一致すると到着ステータスに進みます。
@@ -433,7 +412,7 @@ export function UserBookingDetailPage() {
                     ) : null}
 
                     <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">TIMELINE</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">進行状況</p>
                         <div className="mt-5 grid gap-4">
                             {timeline.map((item) => (
                                 <div key={item.key} className="flex items-start gap-4">
@@ -448,7 +427,7 @@ export function UserBookingDetailPage() {
                     </article>
 
                     <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">PAYMENT & REFUND</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">決済と返金</p>
                         <div className="mt-5 grid gap-4 md:grid-cols-2">
                             <div className="rounded-[22px] bg-[#f8f4ed] p-4">
                                 <p className="text-sm font-semibold text-[#17202b]">決済</p>
@@ -519,7 +498,7 @@ export function UserBookingDetailPage() {
 
                     {(booking.consents.length > 0 || booking.health_checks.length > 0) ? (
                         <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">SAFETY RECORDS</p>
+                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">安全記録</p>
                             <div className="mt-5 grid gap-5 md:grid-cols-2">
                                 <div className="space-y-3">
                                     <h3 className="text-lg font-semibold text-[#17202b]">同意記録</h3>
@@ -554,7 +533,7 @@ export function UserBookingDetailPage() {
 
                 <aside className="space-y-5">
                     <section className="rounded-[28px] bg-[#fffcf7] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.1)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">DETAILS</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">詳細情報</p>
                         <div className="mt-4 space-y-4 text-sm text-[#48505a]">
                             <div>
                                 <p className="text-xs font-semibold text-[#7d6852]">相手</p>
