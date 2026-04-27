@@ -58,8 +58,9 @@ class BookingSettlementService
         CarbonImmutable $upperBound,
     ): array {
         $arrivedAt = $booking->arrived_at ? CarbonImmutable::instance($booking->arrived_at) : null;
+        $startedAtMinute = $startedAt->startOfMinute();
 
-        if ($arrivedAt && $startedAt->lt($arrivedAt)) {
+        if ($arrivedAt && $startedAtMinute->lt($arrivedAt->startOfMinute())) {
             throw ValidationException::withMessages([
                 'started_at' => ['開始時刻は到着時刻より前に設定できません。'],
             ]);

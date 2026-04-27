@@ -333,6 +333,18 @@ function parseDateTimeInputValue(value: string): Date | null {
     return Number.isNaN(date.getTime()) ? null : date;
 }
 
+function floorDateToMinute(date: Date): Date {
+    return new Date(
+        date.getFullYear(),
+        date.getMonth(),
+        date.getDate(),
+        date.getHours(),
+        date.getMinutes(),
+        0,
+        0,
+    );
+}
+
 function openDateTimePicker(input: HTMLInputElement | null) {
     if (!input) {
         return;
@@ -365,9 +377,9 @@ function validateCompletionWindowInputs(
     }
 
     if (booking.arrived_at) {
-        const arrivedAt = new Date(booking.arrived_at);
+        const arrivedAt = floorDateToMinute(new Date(booking.arrived_at));
 
-        if (startedAt < arrivedAt) {
+        if (floorDateToMinute(startedAt) < arrivedAt) {
             return '開始時刻は到着時刻より前にできません。';
         }
     }

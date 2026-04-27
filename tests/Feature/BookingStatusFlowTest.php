@@ -309,6 +309,28 @@ class BookingStatusFlowTest extends TestCase
             ->assertJsonValidationErrors(['ended_at']);
     }
 
+    public function test_therapist_can_set_start_time_to_same_minute_as_arrival(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2030-01-06 12:00:00'));
+
+        [$user, $therapist, $booking] = $this->createRequestedBooking();
+        $therapistToken = $therapist->createToken('api')->plainTextToken;
+
+        $booking->forceFill([
+            'status' => Booking::STATUS_ARRIVED,
+            'arrived_at' => CarbonImmutable::parse('2030-01-06 10:15:42'),
+        ])->save();
+
+        $this->withToken($therapistToken)
+            ->postJson("/api/bookings/{$booking->public_id}/complete", [
+                'started_at' => '2030-01-06T10:15',
+                'ended_at' => '2030-01-06T10:45',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', Booking::STATUS_THERAPIST_COMPLETED)
+            ->assertJsonPath('data.started_at', fn ($value) => str_starts_with((string) $value, '2030-01-06T10:15'));
+    }
+
     public function test_scheduled_accept_requires_buffers(): void
     {
         [, $therapist, $booking] = $this->createRequestedScheduledBooking();
