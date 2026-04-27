@@ -3,14 +3,26 @@ import { Link, useLocation } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { ApiError, apiRequest, unwrapData } from '../../lib/api';
 import { formatJstDateTime } from '../../lib/datetime';
-import type { ApiEnvelope, BookingListRecord } from '../../lib/types';
+import type {
+    ApiEnvelope,
+    BookingListRecord,
+    TherapistBookingRequestRecord,
+} from '../../lib/types';
 
 const REFRESH_INTERVAL_MS = 30_000;
-const MAX_VISIBLE_BOOKINGS = 2;
+const MAX_VISIBLE_ITEMS = 2;
 
-const TRACKED_STATUSES = new Set([
+const USER_TRACKED_STATUSES = new Set([
     'payment_authorizing',
     'requested',
+    'accepted',
+    'moving',
+    'arrived',
+    'in_progress',
+    'therapist_completed',
+]);
+
+const THERAPIST_ACTIVE_STATUSES = new Set([
     'accepted',
     'moving',
     'arrived',
@@ -29,6 +41,21 @@ const STATUS_PRIORITY: Record<string, number> = {
     payment_authorizing: 5,
     requested: 6,
 };
+
+type DockMode = 'user' | 'therapist';
+
+type DockItemCategory = 'request' | 'booking';
+
+interface DockItem {
+    id: string;
+    status: string;
+    title: string;
+    subtitle: string;
+    path: string;
+    actionLabel: string;
+    sortTime: number;
+    category: DockItemCategory;
+}
 
 function statusLabel(status: string): string {
     switch (status) {
@@ -63,29 +90,40 @@ function bookingActionLabel(status: string): string {
     return WAITING_STATUSES.has(status) ? '承認待ちを確認' : '予約を開く';
 }
 
+function therapistActionLabel(category: DockItemCategory): string {
+    return category === 'request' ? '依頼を確認' : '予約を開く';
+}
+
 function bookingActionPath(booking: BookingListRecord): string {
     return `/user/bookings/${booking.public_id}`;
 }
 
-function primaryTimeLabel(booking: BookingListRecord): string {
-    if (booking.scheduled_start_at) {
-        return `開始 ${formatJstDateTime(booking.scheduled_start_at, {
-            month: 'numeric',
-            day: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit',
-        }) ?? '未設定'}`;
-    }
-
-    return `受付 ${formatJstDateTime(booking.created_at, {
+function formatScheduleDateTime(value: string | null): string {
+    return formatJstDateTime(value, {
         month: 'numeric',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit',
-    }) ?? '未設定'}`;
+    }) ?? '未設定';
 }
 
-function compareBookings(left: BookingListRecord, right: BookingListRecord): number {
+function primaryUserTimeLabel(booking: BookingListRecord): string {
+    if (booking.scheduled_start_at) {
+        return `開始 ${formatScheduleDateTime(booking.scheduled_start_at)}`;
+    }
+
+    return `受付 ${formatScheduleDateTime(booking.created_at)}`;
+}
+
+function primaryTherapistRequestLabel(request: TherapistBookingRequestRecord): string {
+    if (request.scheduled_start_at) {
+        return `開始 ${formatScheduleDateTime(request.scheduled_start_at)}`;
+    }
+
+    return `受付 ${formatScheduleDateTime(request.created_at)}`;
+}
+
+function compareUserBookings(left: BookingListRecord, right: BookingListRecord): number {
     const leftPriority = STATUS_PRIORITY[left.status] ?? 99;
     const rightPriority = STATUS_PRIORITY[right.status] ?? 99;
 
@@ -99,9 +137,41 @@ function compareBookings(left: BookingListRecord, right: BookingListRecord): num
     return leftTime - rightTime;
 }
 
-function summaryLabel(bookings: BookingListRecord[]): string {
-    const waitingCount = bookings.filter((booking) => WAITING_STATUSES.has(booking.status)).length;
-    const progressingCount = bookings.length - waitingCount;
+function compareDockItems(left: DockItem, right: DockItem): number {
+    if (left.category !== right.category) {
+        return left.category === 'request' ? -1 : 1;
+    }
+
+    if (left.category === 'booking' && right.category === 'booking') {
+        const leftPriority = STATUS_PRIORITY[left.status] ?? 99;
+        const rightPriority = STATUS_PRIORITY[right.status] ?? 99;
+
+        if (leftPriority !== rightPriority) {
+            return leftPriority - rightPriority;
+        }
+    }
+
+    return left.sortTime - right.sortTime;
+}
+
+function summaryLabel(items: DockItem[], mode: DockMode): string {
+    if (mode === 'therapist') {
+        const requestCount = items.filter((item) => item.category === 'request').length;
+        const progressingCount = items.filter((item) => item.category === 'booking').length;
+
+        if (requestCount > 0 && progressingCount > 0) {
+            return `承認待ち${requestCount}件・進行中${progressingCount}件`;
+        }
+
+        if (requestCount > 0) {
+            return requestCount === 1 ? '承認待ちのリクエストがあります' : `承認待ちのリクエスト ${requestCount}件`;
+        }
+
+        return progressingCount === 1 ? '進行中の予約があります' : `進行中の予約 ${progressingCount}件`;
+    }
+
+    const waitingCount = items.filter((item) => WAITING_STATUSES.has(item.status)).length;
+    const progressingCount = items.length - waitingCount;
 
     if (progressingCount > 0 && waitingCount > 0) {
         return `進行中${progressingCount}件・承認待ち${waitingCount}件`;
@@ -114,58 +184,125 @@ function summaryLabel(bookings: BookingListRecord[]): string {
     return waitingCount === 1 ? '承認待ちの予約があります' : `承認待ちの予約 ${waitingCount}件`;
 }
 
+function buildCollapsedDetail(item: DockItem): string {
+    return `${statusLabel(item.status)} / ${item.actionLabel}`;
+}
+
 export function ActiveUserBookingDock() {
-    const { token, hasRole, isAuthenticated, isBootstrapping } = useAuth();
+    const { token, activeRole, hasRole, isAuthenticated, isBootstrapping } = useAuth();
     const location = useLocation();
-    const [bookings, setBookings] = useState<BookingListRecord[]>([]);
+    const [items, setItems] = useState<DockItem[]>([]);
     const [isExpanded, setIsExpanded] = useState(false);
 
-    const shouldShow = isAuthenticated && hasRole('user');
+    const mode: DockMode | null = useMemo(() => {
+        if (!isAuthenticated) {
+            return null;
+        }
 
-    const loadBookings = useCallback(async () => {
-        if (!token || !shouldShow) {
-            setBookings([]);
+        if (activeRole === 'therapist' && hasRole('therapist')) {
+            return 'therapist';
+        }
+
+        if (hasRole('user')) {
+            return 'user';
+        }
+
+        return null;
+    }, [activeRole, hasRole, isAuthenticated]);
+
+    const shouldShow = mode !== null;
+
+    const loadItems = useCallback(async () => {
+        if (!token || !shouldShow || !mode) {
+            setItems([]);
             return;
         }
 
         try {
+            if (mode === 'therapist') {
+                const [requestsPayload, bookingsPayload] = await Promise.all([
+                    apiRequest<ApiEnvelope<TherapistBookingRequestRecord[]>>('/me/therapist/booking-requests', { token }),
+                    apiRequest<ApiEnvelope<BookingListRecord[]>>('/bookings?role=therapist&sort=scheduled_start_at&direction=asc', { token }),
+                ]);
+
+                const requestItems = unwrapData(requestsPayload).map<DockItem>((request) => ({
+                    id: request.public_id,
+                    status: request.status,
+                    title: request.menu.name || '予約リクエスト',
+                    subtitle: primaryTherapistRequestLabel(request),
+                    path: `/therapist/requests/${request.public_id}`,
+                    actionLabel: therapistActionLabel('request'),
+                    sortTime: new Date(request.request_expires_at ?? request.created_at).getTime(),
+                    category: 'request',
+                }));
+
+                const activeBookingItems = unwrapData(bookingsPayload)
+                    .filter((booking) => THERAPIST_ACTIVE_STATUSES.has(booking.status))
+                    .map<DockItem>((booking) => ({
+                        id: booking.public_id,
+                        status: booking.status,
+                        title: booking.counterparty?.display_name ?? '利用者',
+                        subtitle: primaryUserTimeLabel(booking),
+                        path: `/therapist/bookings/${booking.public_id}`,
+                        actionLabel: therapistActionLabel('booking'),
+                        sortTime: new Date(booking.scheduled_start_at ?? booking.created_at).getTime(),
+                        category: 'booking',
+                    }));
+
+                setItems(
+                    [...requestItems, ...activeBookingItems]
+                        .sort(compareDockItems)
+                        .slice(0, MAX_VISIBLE_ITEMS),
+                );
+                return;
+            }
+
             const payload = await apiRequest<ApiEnvelope<BookingListRecord[]>>('/bookings?role=user&sort=scheduled_start_at&direction=asc', {
                 token,
             });
 
-            const nextBookings = unwrapData(payload)
-                .filter((booking) => TRACKED_STATUSES.has(booking.status))
-                .sort(compareBookings)
-                .slice(0, MAX_VISIBLE_BOOKINGS);
-
-            setBookings(nextBookings);
+            setItems(
+                unwrapData(payload)
+                    .filter((booking) => USER_TRACKED_STATUSES.has(booking.status))
+                    .sort(compareUserBookings)
+                    .slice(0, MAX_VISIBLE_ITEMS)
+                    .map<DockItem>((booking) => ({
+                        id: booking.public_id,
+                        status: booking.status,
+                        title: booking.counterparty?.display_name ?? 'セラピスト',
+                        subtitle: primaryUserTimeLabel(booking),
+                        path: bookingActionPath(booking),
+                        actionLabel: bookingActionLabel(booking.status),
+                        sortTime: new Date(booking.scheduled_start_at ?? booking.created_at).getTime(),
+                        category: 'booking',
+                    })),
+            );
         } catch (error) {
             if (error instanceof ApiError && error.status === 401) {
-                setBookings([]);
-                return;
+                setItems([]);
             }
         }
-    }, [shouldShow, token]);
+    }, [mode, shouldShow, token]);
 
     useEffect(() => {
         if (!shouldShow || isBootstrapping) {
-            setBookings([]);
+            setItems([]);
             return;
         }
 
-        void loadBookings();
+        void loadItems();
 
         const intervalHandle = window.setInterval(() => {
-            void loadBookings();
+            void loadItems();
         }, REFRESH_INTERVAL_MS);
 
         const handleFocus = () => {
-            void loadBookings();
+            void loadItems();
         };
 
         const handleVisibilityChange = () => {
             if (document.visibilityState === 'visible') {
-                void loadBookings();
+                void loadItems();
             }
         };
 
@@ -177,15 +314,15 @@ export function ActiveUserBookingDock() {
             window.removeEventListener('focus', handleFocus);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
         };
-    }, [isBootstrapping, loadBookings, shouldShow]);
+    }, [isBootstrapping, loadItems, shouldShow]);
 
     useEffect(() => {
         setIsExpanded(false);
     }, [location.pathname, location.search]);
 
-    const summary = useMemo(() => summaryLabel(bookings), [bookings]);
+    const summary = useMemo(() => (mode ? summaryLabel(items, mode) : ''), [items, mode]);
 
-    if (!shouldShow || bookings.length === 0) {
+    if (!shouldShow || items.length === 0 || !mode) {
         return null;
     }
 
@@ -211,23 +348,23 @@ export function ActiveUserBookingDock() {
                         </div>
 
                         <div className="space-y-3">
-                            {bookings.map((booking) => (
-                                <article key={booking.public_id} className="rounded-[22px] border border-[#efe4d3] bg-white px-4 py-4">
+                            {items.map((item) => (
+                                <article key={`${item.category}-${item.id}`} className="rounded-[22px] border border-[#efe4d3] bg-white px-4 py-4">
                                     <div className="flex items-start justify-between gap-3">
                                         <div className="min-w-0">
-                                            <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
-                                                {statusLabel(booking.status)}
+                                            <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusTone(item.status)}`}>
+                                                {statusLabel(item.status)}
                                             </span>
                                             <p className="mt-3 truncate text-sm font-semibold text-[#17202b]">
-                                                {booking.counterparty?.display_name ?? 'セラピスト'}
+                                                {item.title}
                                             </p>
-                                            <p className="mt-1 text-xs leading-6 text-[#68707a]">{primaryTimeLabel(booking)}</p>
+                                            <p className="mt-1 text-xs leading-6 text-[#68707a]">{item.subtitle}</p>
                                         </div>
                                         <Link
-                                            to={bookingActionPath(booking)}
+                                            to={item.path}
                                             className="inline-flex shrink-0 items-center rounded-full bg-[#17202b] px-4 py-2 text-xs font-semibold text-white"
                                         >
-                                            {bookingActionLabel(booking.status)}
+                                            {item.actionLabel}
                                         </Link>
                                     </div>
                                 </article>
@@ -256,7 +393,11 @@ export function ActiveUserBookingDock() {
                         <div className="flex items-start justify-between gap-3">
                             <div className="space-y-1">
                                 <p className="text-sm font-semibold text-[#17202b]">{summary}</p>
-                                <p className="text-xs leading-6 text-[#68707a]">どの画面からでも、利用者予約の状態をここから確認できます。</p>
+                                <p className="text-xs leading-6 text-[#68707a]">
+                                    {mode === 'therapist'
+                                        ? 'どの画面からでも、承認待ちの依頼や進行中の予約をここから確認できます。'
+                                        : 'どの画面からでも、利用者予約の状態をここから確認できます。'}
+                                </p>
                             </div>
                             <button
                                 type="button"
@@ -270,23 +411,23 @@ export function ActiveUserBookingDock() {
                             </button>
                         </div>
 
-                        {bookings.map((booking) => (
-                            <article key={booking.public_id} className="rounded-[24px] border border-[#efe4d3] bg-white px-4 py-4">
+                        {items.map((item) => (
+                            <article key={`${item.category}-${item.id}`} className="rounded-[24px] border border-[#efe4d3] bg-white px-4 py-4">
                                 <div className="flex items-start justify-between gap-3">
                                     <div className="min-w-0">
-                                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
-                                            {statusLabel(booking.status)}
+                                        <span className={`inline-flex rounded-full px-3 py-1 text-xs font-semibold ${statusTone(item.status)}`}>
+                                            {statusLabel(item.status)}
                                         </span>
                                         <p className="mt-3 truncate text-sm font-semibold text-[#17202b]">
-                                            {booking.counterparty?.display_name ?? 'セラピスト'}
+                                            {item.title}
                                         </p>
-                                        <p className="mt-1 text-xs leading-6 text-[#68707a]">{primaryTimeLabel(booking)}</p>
+                                        <p className="mt-1 text-xs leading-6 text-[#68707a]">{item.subtitle}</p>
                                     </div>
                                     <Link
-                                        to={bookingActionPath(booking)}
+                                        to={item.path}
                                         className="inline-flex shrink-0 items-center rounded-full bg-[#17202b] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#243140]"
                                     >
-                                        {bookingActionLabel(booking.status)}
+                                        {item.actionLabel}
                                     </Link>
                                 </div>
                             </article>
@@ -303,7 +444,7 @@ export function ActiveUserBookingDock() {
                         <div className="min-w-0">
                             <p className="truncate text-sm font-semibold text-[#17202b]">{summary}</p>
                             <p className="mt-1 text-xs leading-6 text-[#68707a]">
-                                {bookings[0] ? `${statusLabel(bookings[0].status)} / ${bookingActionLabel(bookings[0].status)}` : '予約を確認'}
+                                {items[0] ? buildCollapsedDetail(items[0]) : '予約を確認'}
                             </p>
                         </div>
                         <span className="inline-flex shrink-0 items-center rounded-full bg-[#17202b] px-4 py-2 text-xs font-semibold text-white">
