@@ -17,6 +17,8 @@ use Illuminate\Validation\ValidationException;
 
 class BookingStatusController extends Controller
 {
+    private const INPUT_TIMEZONE = 'Asia/Tokyo';
+
     public function accept(
         Request $request,
         Booking $booking,
@@ -216,8 +218,8 @@ class BookingStatusController extends Controller
         ]);
 
         $reportedAt = CarbonImmutable::now();
-        $startedAt = CarbonImmutable::parse($validated['started_at']);
-        $endedAt = CarbonImmutable::parse($validated['ended_at']);
+        $startedAt = $this->parseInputDateTime($validated['started_at']);
+        $endedAt = $this->parseInputDateTime($validated['ended_at']);
         $attributes = $bookingSettlementService->buildCompletionAttributes(
             booking: $booking,
             startedAt: $startedAt,
@@ -258,8 +260,8 @@ class BookingStatusController extends Controller
 
         $booking = $bookingSettlementService->updateTherapistCompletedWindow(
             booking: $booking,
-            startedAt: CarbonImmutable::parse($validated['started_at']),
-            endedAt: CarbonImmutable::parse($validated['ended_at']),
+            startedAt: $this->parseInputDateTime($validated['started_at']),
+            endedAt: $this->parseInputDateTime($validated['ended_at']),
         );
 
         $bookingNotificationService->notifyCompletionWindowUpdated($booking->loadMissing(['userAccount', 'therapistProfile']));
@@ -288,5 +290,10 @@ class BookingStatusController extends Controller
     private function authorizeTherapist(Request $request, Booking $booking): void
     {
         abort_unless($booking->therapist_account_id === $request->user()->id, 404);
+    }
+
+    private function parseInputDateTime(string $value): CarbonImmutable
+    {
+        return CarbonImmutable::parse($value, self::INPUT_TIMEZONE)->utc();
     }
 }

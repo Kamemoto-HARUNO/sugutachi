@@ -16,6 +16,7 @@ use App\Models\TherapistAvailabilitySlot;
 use App\Models\TherapistBookingSetting;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
+use Carbon\CarbonInterface;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Laravel\Sanctum\Sanctum;
@@ -24,6 +25,16 @@ use Tests\TestCase;
 class BookingStatusFlowTest extends TestCase
 {
     use RefreshDatabase;
+
+    private function jstInput(CarbonInterface $dateTime): string
+    {
+        return $dateTime->setTimezone('Asia/Tokyo')->format('Y-m-d\TH:i');
+    }
+
+    private function jstUtc(string $dateTime): CarbonImmutable
+    {
+        return CarbonImmutable::parse($dateTime, 'Asia/Tokyo')->utc();
+    }
 
     public function test_therapist_and_user_can_advance_booking_statuses(): void
     {
@@ -93,8 +104,8 @@ class BookingStatusFlowTest extends TestCase
 
         $this->withToken($therapistToken)
             ->postJson("/api/bookings/{$booking->public_id}/complete", [
-                'started_at' => now()->subMinutes(15)->format('Y-m-d\TH:i'),
-                'ended_at' => now()->format('Y-m-d\TH:i'),
+                'started_at' => $this->jstInput(now()->subMinutes(15)),
+                'ended_at' => $this->jstInput(now()),
             ])
             ->assertOk()
             ->assertJsonPath('data.status', Booking::STATUS_THERAPIST_COMPLETED)
@@ -207,7 +218,7 @@ class BookingStatusFlowTest extends TestCase
 
     public function test_therapist_can_complete_and_adjust_service_window_before_user_completion(): void
     {
-        $this->travelTo(CarbonImmutable::parse('2030-01-06 10:00:00'));
+        $this->travelTo(CarbonImmutable::parse('2030-01-06 01:00:00'));
 
         $gatewayState = (object) ['canceledStripeIds' => [], 'captures' => []];
         $this->bindPaymentIntentGateway($gatewayState);
@@ -232,7 +243,7 @@ class BookingStatusFlowTest extends TestCase
             ])
             ->assertOk();
 
-        $this->travelTo(CarbonImmutable::parse('2030-01-06 11:40:00'));
+        $this->travelTo(CarbonImmutable::parse('2030-01-06 02:40:00'));
 
         $this->withToken($therapistToken)
             ->postJson("/api/bookings/{$booking->public_id}/complete", [
@@ -286,17 +297,17 @@ class BookingStatusFlowTest extends TestCase
 
     public function test_therapist_cannot_set_completion_end_after_recorded_completion_time(): void
     {
-        $this->travelTo(CarbonImmutable::parse('2030-01-06 12:00:00'));
+        $this->travelTo(CarbonImmutable::parse('2030-01-06 03:00:00'));
 
         [$user, $therapist, $booking] = $this->createRequestedBooking();
         $therapistToken = $therapist->createToken('api')->plainTextToken;
 
         $booking->forceFill([
             'status' => Booking::STATUS_THERAPIST_COMPLETED,
-            'arrived_at' => CarbonImmutable::parse('2030-01-06 10:00:00'),
-            'started_at' => CarbonImmutable::parse('2030-01-06 10:15:00'),
-            'ended_at' => CarbonImmutable::parse('2030-01-06 11:00:00'),
-            'service_completion_reported_at' => CarbonImmutable::parse('2030-01-06 11:00:00'),
+            'arrived_at' => $this->jstUtc('2030-01-06 10:00:00'),
+            'started_at' => $this->jstUtc('2030-01-06 10:15:00'),
+            'ended_at' => $this->jstUtc('2030-01-06 11:00:00'),
+            'service_completion_reported_at' => $this->jstUtc('2030-01-06 11:00:00'),
             'actual_duration_minutes' => 45,
         ])->save();
 
@@ -311,14 +322,14 @@ class BookingStatusFlowTest extends TestCase
 
     public function test_therapist_can_set_start_time_to_same_minute_as_arrival(): void
     {
-        $this->travelTo(CarbonImmutable::parse('2030-01-06 12:00:00'));
+        $this->travelTo(CarbonImmutable::parse('2030-01-06 03:00:00'));
 
         [$user, $therapist, $booking] = $this->createRequestedBooking();
         $therapistToken = $therapist->createToken('api')->plainTextToken;
 
         $booking->forceFill([
             'status' => Booking::STATUS_ARRIVED,
-            'arrived_at' => CarbonImmutable::parse('2030-01-06 10:15:42'),
+            'arrived_at' => $this->jstUtc('2030-01-06 10:15:42'),
         ])->save();
 
         $this->withToken($therapistToken)
@@ -328,7 +339,30 @@ class BookingStatusFlowTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('data.status', Booking::STATUS_THERAPIST_COMPLETED)
-            ->assertJsonPath('data.started_at', fn ($value) => str_starts_with((string) $value, '2030-01-06T10:15'));
+            ->assertJsonPath('data.started_at', fn ($value) => str_starts_with((string) $value, '2030-01-06T01:15'));
+    }
+
+    public function test_therapist_can_complete_using_current_japan_time_input(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2030-01-06 07:00:00'));
+
+        [$user, $therapist, $booking] = $this->createRequestedBooking();
+        $therapistToken = $therapist->createToken('api')->plainTextToken;
+
+        $booking->forceFill([
+            'status' => Booking::STATUS_ARRIVED,
+            'arrived_at' => CarbonImmutable::parse('2030-01-06 06:45:00'),
+        ])->save();
+
+        $this->withToken($therapistToken)
+            ->postJson("/api/bookings/{$booking->public_id}/complete", [
+                'started_at' => '2030-01-06T15:45',
+                'ended_at' => '2030-01-06T16:00',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.status', Booking::STATUS_THERAPIST_COMPLETED)
+            ->assertJsonPath('data.started_at', fn ($value) => str_starts_with((string) $value, '2030-01-06T06:45'))
+            ->assertJsonPath('data.ended_at', fn ($value) => str_starts_with((string) $value, '2030-01-06T07:00'));
     }
 
     public function test_scheduled_accept_requires_buffers(): void
