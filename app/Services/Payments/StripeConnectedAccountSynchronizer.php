@@ -30,6 +30,7 @@ class StripeConnectedAccountSynchronizer
         $connectedAccount->forceFill([
             'stripe_account_id' => $stripeAccountId,
             'account_type' => (string) ($stripeAccount['type'] ?? $connectedAccount->account_type ?? 'express'),
+            'payout_method' => StripeConnectedAccount::PAYOUT_METHOD_STRIPE_CONNECT,
             'status' => $this->connectedAccountStatus(
                 chargesEnabled: $chargesEnabled,
                 payoutsEnabled: $payoutsEnabled,

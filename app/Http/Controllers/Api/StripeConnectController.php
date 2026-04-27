@@ -12,6 +12,8 @@ use App\Services\Payments\StripeConnectedAccountSynchronizer;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 
 class StripeConnectController extends Controller
 {
@@ -19,9 +21,71 @@ class StripeConnectController extends Controller
     {
         $this->therapistProfileFor($request);
 
+        $connectedAccount = $request->user()->stripeConnectedAccount()->first();
+
+        if ($connectedAccount?->usesManualBankTransfer()) {
+            $connectedAccount = $connectedAccount->syncManualPayoutState();
+        }
+
         return new StripeConnectedAccountResource(
-            $request->user()->stripeConnectedAccount()->first()
+            $connectedAccount
         );
+    }
+
+    public function update(Request $request): StripeConnectedAccountResource
+    {
+        $therapistProfile = $this->therapistProfileFor($request);
+        $validated = $request->validate([
+            'bank_name' => ['required', 'string', 'max:120'],
+            'bank_branch_name' => ['required', 'string', 'max:120'],
+            'bank_account_type' => ['required', Rule::in(['ordinary', 'checking', 'savings'])],
+            'bank_account_number' => ['required', 'regex:/^[0-9]{4,8}$/'],
+            'bank_account_holder_name' => ['required', 'string', 'max:120'],
+        ], [
+            'bank_name.required' => '銀行名を入力してください。',
+            'bank_branch_name.required' => '支店名を入力してください。',
+            'bank_account_type.required' => '口座種別を選択してください。',
+            'bank_account_type.in' => '口座種別を正しく選択してください。',
+            'bank_account_number.required' => '口座番号を入力してください。',
+            'bank_account_number.regex' => '口座番号は数字4〜8桁で入力してください。',
+            'bank_account_holder_name.required' => '口座名義を入力してください。',
+        ]);
+
+        $connectedAccount = DB::transaction(function () use ($request, $therapistProfile, $validated): StripeConnectedAccount {
+            $connectedAccount = StripeConnectedAccount::query()
+                ->where('account_id', $request->user()->id)
+                ->lockForUpdate()
+                ->first();
+
+            if (! $connectedAccount) {
+                $connectedAccount = StripeConnectedAccount::create([
+                    'account_id' => $request->user()->id,
+                    'therapist_profile_id' => $therapistProfile->id,
+                    'stripe_account_id' => $this->manualPlaceholderStripeAccountId($request->user()->id),
+                    'account_type' => StripeConnectedAccount::ACCOUNT_TYPE_MANUAL,
+                    'payout_method' => StripeConnectedAccount::PAYOUT_METHOD_MANUAL_BANK_TRANSFER,
+                    'status' => StripeConnectedAccount::STATUS_PENDING,
+                ]);
+            } elseif ($connectedAccount->therapist_profile_id !== $therapistProfile->id) {
+                $connectedAccount->forceFill([
+                    'therapist_profile_id' => $therapistProfile->id,
+                ])->save();
+            }
+
+            $connectedAccount->forceFill([
+                'payout_method' => StripeConnectedAccount::PAYOUT_METHOD_MANUAL_BANK_TRANSFER,
+                'account_type' => StripeConnectedAccount::ACCOUNT_TYPE_MANUAL,
+                'bank_name' => trim($validated['bank_name']),
+                'bank_branch_name' => trim($validated['bank_branch_name']),
+                'bank_account_type' => $validated['bank_account_type'],
+                'bank_account_number' => $validated['bank_account_number'],
+                'bank_account_holder_name' => trim($validated['bank_account_holder_name']),
+            ])->save();
+
+            return $connectedAccount->syncManualPayoutState();
+        });
+
+        return new StripeConnectedAccountResource($connectedAccount);
     }
 
     public function createAccount(
@@ -85,6 +149,11 @@ class StripeConnectController extends Controller
         StripeConnectedAccountSynchronizer $synchronizer,
     ): StripeConnectedAccountResource {
         $connectedAccount = $this->connectedAccountFor($request);
+
+        if ($connectedAccount->usesManualBankTransfer()) {
+            return new StripeConnectedAccountResource($connectedAccount->syncManualPayoutState());
+        }
+
         $stripeAccount = $gateway->retrieveAccount($connectedAccount->stripe_account_id);
 
         $connectedAccount = DB::transaction(function () use ($connectedAccount, $stripeAccount, $synchronizer): StripeConnectedAccount {
@@ -113,6 +182,11 @@ class StripeConnectController extends Controller
         abort_unless($connectedAccount, 409, 'Stripe Connected Account is missing.');
 
         return $connectedAccount;
+    }
+
+    private function manualPlaceholderStripeAccountId(int $accountId): string
+    {
+        return sprintf('manual_%d_%s', $accountId, Str::lower((string) Str::ulid()));
     }
 
     private function connectReturnUrl(Request $request): string

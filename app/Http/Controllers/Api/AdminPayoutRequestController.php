@@ -139,6 +139,35 @@ class AdminPayoutRequestController extends Controller
         $this->assertPayoutReady($payoutRequest->stripeConnectedAccount);
 
         $before = $this->snapshot($payoutRequest);
+        $connectedAccount = $payoutRequest->stripeConnectedAccount;
+
+        if ($connectedAccount?->usesManualBankTransfer()) {
+            DB::transaction(function () use ($admin, $payoutRequest): void {
+                $lockedPayoutRequest = PayoutRequest::query()
+                    ->whereKey($payoutRequest->id)
+                    ->lockForUpdate()
+                    ->firstOrFail();
+
+                abort_unless($lockedPayoutRequest->status === PayoutRequest::STATUS_REQUESTED, 409, 'Only requested payouts can be processed.');
+
+                $lockedPayoutRequest->forceFill([
+                    'status' => PayoutRequest::STATUS_PAID,
+                    'failure_reason' => null,
+                    'reviewed_by_account_id' => $admin->id,
+                    'processed_at' => now(),
+                ])->save();
+
+                $lockedPayoutRequest->ledgerEntries()->update([
+                    'status' => TherapistLedgerEntry::STATUS_PAID,
+                    'updated_at' => now(),
+                ]);
+            });
+
+            $this->recordAdminAudit($request, 'payout.process', $payoutRequest, $before, $this->snapshot($payoutRequest->refresh()));
+
+            return new PayoutRequestResource($payoutRequest->load(['therapistAccount', 'stripeConnectedAccount', 'ledgerEntries']));
+        }
+
         $createdPayout = $gateway->create($payoutRequest);
         $status = $this->statusForStripePayout($createdPayout->status);
 
@@ -173,7 +202,14 @@ class AdminPayoutRequestController extends Controller
 
     private function assertPayoutReady(?StripeConnectedAccount $connectedAccount): void
     {
-        abort_unless($connectedAccount, 409, 'Stripe Connected Account is missing.');
+        abort_unless($connectedAccount, 409, '受取設定が見つかりません。');
+
+        if ($connectedAccount->usesManualBankTransfer()) {
+            abort_unless($connectedAccount->isPayoutReady(), 409, '受取口座の設定が完了していません。');
+
+            return;
+        }
+
         abort_unless($connectedAccount->status === StripeConnectedAccount::STATUS_ACTIVE, 409, 'Stripe Connected Account is not active.');
         abort_unless($connectedAccount->payouts_enabled, 409, 'Stripe payouts are not enabled.');
     }

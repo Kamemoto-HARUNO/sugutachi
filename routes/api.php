@@ -207,6 +207,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/me/therapist/payout-requests', [TherapistPayoutRequestController::class, 'store']);
     Route::get('/me/therapist/payout-requests/{payoutRequest:public_id}', [TherapistPayoutRequestController::class, 'show']);
     Route::get('/me/stripe-connect', [StripeConnectController::class, 'show']);
+    Route::put('/me/stripe-connect', [StripeConnectController::class, 'update']);
     Route::post('/me/stripe-connect/accounts', [StripeConnectController::class, 'createAccount']);
     Route::post('/me/stripe-connect/account-link', [StripeConnectController::class, 'createAccountLink']);
     Route::post('/me/stripe-connect/refresh', [StripeConnectController::class, 'refresh']);

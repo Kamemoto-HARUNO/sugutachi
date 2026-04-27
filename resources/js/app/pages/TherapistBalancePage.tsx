@@ -83,11 +83,11 @@ function buildPayoutHint(
     balance: TherapistBalanceRecord | null,
 ): string {
     if (!stripeStatus?.has_account) {
-        return 'まずは Stripe Connect を開始して受取口座を登録します。';
+        return 'まずは受取口座を登録して、振込先を設定します。';
     }
 
-    if (!stripeStatus.payouts_enabled || stripeStatus.status !== 'active') {
-        return '受取設定がまだ完了していません。Stripe 画面で追加提出が必要な場合があります。';
+    if (!stripeStatus.is_payout_ready || stripeStatus.status !== 'active') {
+        return '受取口座の入力がまだ完了していません。銀行名、支店名、口座情報を確認してください。';
     }
 
     if ((balance?.active_payout_request_count ?? 0) > 0) {
@@ -163,7 +163,7 @@ export function TherapistBalancePage() {
 
     const canRequestPayout = Boolean(
         stripeStatus?.has_account
-        && stripeStatus.payouts_enabled
+        && stripeStatus.is_payout_ready
         && stripeStatus.status === 'active'
         && (balance?.requestable_amount ?? 0) > 0
         && (balance?.active_payout_request_count ?? 0) === 0,
@@ -235,7 +235,7 @@ export function TherapistBalancePage() {
                             to="/therapist/stripe-connect"
                             className="inline-flex items-center rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8"
                         >
-                            Stripe設定へ
+                            受取設定へ
                         </Link>
                         <button
                             type="button"
@@ -289,7 +289,7 @@ export function TherapistBalancePage() {
                             <div className="rounded-[24px] bg-[#fffaf3] p-4">
                                 <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">受取設定</p>
                                 <p className="mt-2 text-sm font-semibold text-[#17202b]">
-                                    {stripeStatus?.payouts_enabled ? '出金可能' : '追加設定が必要'}
+                                    {stripeStatus?.is_payout_ready ? '出金申請に進めます' : '口座入力が必要です'}
                                 </p>
                                 <p className="mt-2 text-sm leading-7 text-[#68707a]">{buildPayoutHint(stripeStatus, balance)}</p>
                             </div>
@@ -418,7 +418,7 @@ export function TherapistBalancePage() {
                         <div className="mt-3 space-y-3">
                             <h2 className="text-2xl font-semibold text-white">売上まわりの次の一手</h2>
                             <p className="text-sm leading-7 text-slate-300">
-                                出金できない場合は Stripe Connect の提出状況か、売上の解放待ちが主な原因です。必要なら受取設定と予約完了状況を見直します。
+                                出金できない場合は受取口座の入力不足か、売上の解放待ちが主な原因です。必要なら受取設定と予約完了状況を見直します。
                             </p>
                         </div>
 
@@ -427,7 +427,7 @@ export function TherapistBalancePage() {
                                 to="/therapist/stripe-connect"
                                 className="inline-flex items-center justify-center rounded-full bg-white px-4 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#f6ead6]"
                             >
-                                Stripe設定を確認
+                                受取設定を確認
                             </Link>
                             <Link
                                 to="/therapist/bookings"

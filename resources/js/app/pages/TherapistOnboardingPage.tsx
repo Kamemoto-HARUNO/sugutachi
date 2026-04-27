@@ -138,8 +138,7 @@ export function TherapistOnboardingPage() {
         const isIdentityApproved = identityVerification?.status === 'approved';
         const isStripeReady = Boolean(
             stripeStatus?.has_account
-            && stripeStatus.details_submitted
-            && (stripeStatus.payouts_enabled || stripeStatus.charges_enabled),
+            && stripeStatus.is_payout_ready,
         );
         const hasPublishedSlots = availabilitySlots.some((slot) => slot.status === 'published');
         const hasActivePricingRule = pricingRules.some((rule) => rule.is_active);
@@ -176,11 +175,11 @@ export function TherapistOnboardingPage() {
             {
                 key: 'stripe',
                 title: '売上受取設定',
-                description: '受取設定で本人情報と受取口座を登録します。',
+                description: '受取設定で振込先の口座情報を登録します。',
                 value: formatStripeStatus(stripeStatus?.status),
                 isComplete: isStripeReady,
                 to: '/therapist/stripe-connect',
-                actionLabel: stripeStatus?.has_account ? '状態を確認' : '連携を始める',
+                actionLabel: stripeStatus?.has_account ? '状態を確認' : '口座を登録する',
             },
             {
                 key: 'availability',

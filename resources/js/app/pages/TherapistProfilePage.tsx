@@ -777,7 +777,7 @@ export function TherapistProfilePage() {
                     </button>
 
                     <p className="text-sm leading-7 text-slate-300">
-                        本人確認承認と公開中の対応内容が揃うと審査提出できます。写真審査や Stripe Connect は公開準備としてこのあと続けて整えます。
+                        本人確認承認と公開中の対応内容が揃うと審査提出できます。写真審査や受取口座設定は公開準備としてこのあと続けて整えます。
                     </p>
                 </article>
             </section>

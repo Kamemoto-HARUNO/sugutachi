@@ -552,17 +552,27 @@ export interface TherapistReviewStatus {
 
 export interface StripeConnectedAccountStatus {
     has_account: boolean;
+    payout_method: string | null;
     stripe_account_id: string | null;
     account_type: string | null;
     status: string | null;
     charges_enabled: boolean;
     payouts_enabled: boolean;
     details_submitted: boolean;
+    is_payout_ready: boolean;
     requirements_currently_due: string[];
     requirements_past_due: string[];
     disabled_reason: string | null;
     onboarding_completed_at: string | null;
     last_synced_at: string | null;
+    bank_account: {
+        bank_name: string | null;
+        branch_name: string | null;
+        account_type: string | null;
+        account_number: string | null;
+        account_number_masked: string | null;
+        account_holder_name: string | null;
+    } | null;
 }
 
 export interface StripeAccountLink {
@@ -1438,9 +1448,16 @@ export interface AdminPayoutRequestRecord extends PayoutRequestRecord {
         display_name: string | null;
     } | null;
     stripe_connected_account?: {
+        payout_method: string | null;
         stripe_account_id: string | null;
         status: string | null;
         payouts_enabled: boolean | null;
+        bank_name: string | null;
+        bank_branch_name: string | null;
+        bank_account_type: string | null;
+        bank_account_number: string | null;
+        bank_account_number_masked: string | null;
+        bank_account_holder_name: string | null;
     } | null;
     ledger_entries?: TherapistLedgerEntryRecord[];
 }

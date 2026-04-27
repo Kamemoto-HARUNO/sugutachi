@@ -184,7 +184,7 @@ export function RegisterPage() {
                                 {
                                     value: 'therapist' as const,
                                     label: '最初はセラピストとしてはじめる',
-                                    body: '本人確認、Stripe Connect、プロフィール審査、空き枠公開の準備へ進みます。',
+                                    body: '本人確認、受取口座設定、プロフィール審査、空き枠公開の準備へ進みます。',
                                     active: initialRole === 'therapist',
                                 },
                             ].map((item) => (

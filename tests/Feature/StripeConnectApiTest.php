@@ -215,6 +215,43 @@ class StripeConnectApiTest extends TestCase
         ]);
     }
 
+    public function test_therapist_can_save_manual_payout_account_settings(): void
+    {
+        [$therapist, $token] = $this->createTherapistFixture();
+
+        $this->withToken($token)
+            ->putJson('/api/me/stripe-connect', [
+                'bank_name' => '三井住友銀行',
+                'bank_branch_name' => '新宿支店',
+                'bank_account_type' => 'ordinary',
+                'bank_account_number' => '1234567',
+                'bank_account_holder_name' => 'ヤマダ タロウ',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.has_account', true)
+            ->assertJsonPath('data.payout_method', StripeConnectedAccount::PAYOUT_METHOD_MANUAL_BANK_TRANSFER)
+            ->assertJsonPath('data.status', StripeConnectedAccount::STATUS_ACTIVE)
+            ->assertJsonPath('data.is_payout_ready', true)
+            ->assertJsonPath('data.payouts_enabled', true)
+            ->assertJsonPath('data.bank_account.bank_name', '三井住友銀行')
+            ->assertJsonPath('data.bank_account.branch_name', '新宿支店')
+            ->assertJsonPath('data.bank_account.account_type', 'ordinary')
+            ->assertJsonPath('data.bank_account.account_number', '1234567')
+            ->assertJsonPath('data.bank_account.account_number_masked', '•••4567')
+            ->assertJsonPath('data.bank_account.account_holder_name', 'ヤマダ タロウ');
+
+        $connectedAccount = StripeConnectedAccount::query()->where('account_id', $therapist->id)->firstOrFail();
+
+        $this->assertSame(StripeConnectedAccount::PAYOUT_METHOD_MANUAL_BANK_TRANSFER, $connectedAccount->payout_method);
+        $this->assertSame(StripeConnectedAccount::ACCOUNT_TYPE_MANUAL, $connectedAccount->account_type);
+        $this->assertSame(StripeConnectedAccount::STATUS_ACTIVE, $connectedAccount->status);
+        $this->assertTrue($connectedAccount->payouts_enabled);
+        $this->assertFalse($connectedAccount->charges_enabled);
+        $this->assertStringStartsWith('manual_', $connectedAccount->stripe_account_id);
+        $this->assertSame('1234567', $connectedAccount->bank_account_number);
+        $this->assertSame('ヤマダ タロウ', $connectedAccount->bank_account_holder_name);
+    }
+
     private function createTherapistFixture(): array
     {
         $therapist = Account::factory()->create([

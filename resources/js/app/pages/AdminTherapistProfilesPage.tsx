@@ -325,7 +325,7 @@ export function AdminTherapistProfilesPage() {
     }
 
     if (isLoading) {
-        return <LoadingScreen title="セラピスト審査一覧を読み込み中" message="本人確認、写真審査、Stripe 状態をまとめています。" />;
+        return <LoadingScreen title="セラピスト審査一覧を読み込み中" message="本人確認、写真審査、受取設定をまとめています。" />;
     }
 
     const detailProfile = selectedProfile ?? selectedListProfile;
@@ -338,7 +338,7 @@ export function AdminTherapistProfilesPage() {
                         <p className="text-xs font-semibold tracking-wide text-[#d2b179]">THERAPIST REVIEW</p>
                         <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">セラピストプロフィール審査</h2>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                            プロフィール、写真、本人確認、Stripe 連携まで横断して確認し、承認や停止の判断を進められます。
+                            プロフィール、写真、本人確認、受取設定まで横断して確認し、承認や停止の判断を進められます。
                         </p>
                     </div>
 
@@ -432,7 +432,7 @@ export function AdminTherapistProfilesPage() {
                         </label>
 
                         <label className="space-y-2">
-                            <span className="text-sm font-semibold text-[#17202b]">Stripe</span>
+                            <span className="text-sm font-semibold text-[#17202b]">受取設定</span>
                             <select
                                 value={stripeStatusFilter}
                                 onChange={(event) => updateFilters({ stripe_connected_account_status: event.target.value })}
@@ -584,7 +584,7 @@ export function AdminTherapistProfilesPage() {
                                         本人確認 {profile.latest_identity_verification_status ? formatIdentityVerificationStatus(profile.latest_identity_verification_status) : '未提出'}
                                     </span>
                                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${badgeTone(profile.stripe_connected_account_status ?? 'none')}`}>
-                                        Stripe {profile.stripe_connected_account_status ? formatStripeStatus(profile.stripe_connected_account_status) : '未連携'}
+                                        受取設定 {profile.stripe_connected_account_status ? formatStripeStatus(profile.stripe_connected_account_status) : '未連携'}
                                     </span>
                                 </div>
 
@@ -685,7 +685,7 @@ export function AdminTherapistProfilesPage() {
                                         ) : null}
                                     </div>
                                     <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3">
-                                        <p className="text-xs font-semibold tracking-wide text-[#7d6852]">Stripe Connect</p>
+                                        <p className="text-xs font-semibold tracking-wide text-[#7d6852]">受取設定</p>
                                         <p className="mt-1 font-semibold text-[#17202b]">
                                             {detailProfile.stripe_connected_account_status
                                                 ? formatStripeStatus(detailProfile.stripe_connected_account_status)

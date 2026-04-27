@@ -276,8 +276,7 @@ export function RoleSelectPage() {
         const profileApproved = therapistSnapshot?.reviewStatus?.profile.profile_status === 'approved';
         const stripeReady = Boolean(
             therapistSnapshot?.stripeStatus?.has_account
-            && therapistSnapshot.stripeStatus.details_submitted
-            && (therapistSnapshot.stripeStatus.payouts_enabled || therapistSnapshot.stripeStatus.charges_enabled),
+            && therapistSnapshot.stripeStatus.is_payout_ready,
         );
 
         return identityStatus === 'approved' && profileApproved && stripeReady;

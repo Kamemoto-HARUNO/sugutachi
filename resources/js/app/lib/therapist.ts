@@ -51,6 +51,19 @@ export function formatStripeStatus(status: string | null | undefined): string {
     }
 }
 
+export function formatBankAccountType(value: string | null | undefined): string {
+    switch (value) {
+        case 'ordinary':
+            return '普通';
+        case 'checking':
+            return '当座';
+        case 'savings':
+            return '貯蓄';
+        default:
+            return '未設定';
+    }
+}
+
 export function formatRejectionReason(code: string | null | undefined): string {
     if (!code) {
         return '理由は未設定です。';
@@ -92,6 +105,16 @@ export function formatTherapistRequirementKey(key: string | null | undefined): s
 
 export function formatStripeRequirementField(key: string | null | undefined): string {
     switch (key) {
+        case 'bank_name':
+            return '銀行名';
+        case 'bank_branch_name':
+            return '支店名';
+        case 'bank_account_type':
+            return '口座種別';
+        case 'bank_account_number':
+            return '口座番号';
+        case 'bank_account_holder_name':
+            return '口座名義';
         case 'business_profile.mcc':
             return '業種カテゴリの確認';
         case 'business_profile.product_description':

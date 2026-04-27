@@ -301,7 +301,7 @@ export function TherapistSettingsPage() {
                     { label: '受付状態', value: summary.online, hint: '現在の稼働状況' },
                     { label: '未読通知', value: `${summary.unreadNotifications}件`, hint: 'アプリ内通知の未読数' },
                     { label: '審査条件', value: summary.reviewProgress, hint: '公開審査の充足数' },
-                    { label: '受取設定', value: summary.stripe, hint: 'Stripe Connect の状態' },
+                    { label: '受取設定', value: summary.stripe, hint: '受取口座の準備状況' },
                 ].map((item) => (
                     <article
                         key={item.label}
@@ -400,10 +400,10 @@ export function TherapistSettingsPage() {
                             </div>
 
                             <div className="rounded-[24px] bg-[#fffaf3] p-4">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">Stripe Connect</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">受取設定</p>
                                 <p className="mt-2 text-sm font-semibold text-[#17202b]">{formatStripeStatus(stripeStatus?.status)}</p>
                                 <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                    {stripeStatus?.payouts_enabled ? '出金まで進める状態です。' : '追加提出が必要な項目があります。'}
+                                    {stripeStatus?.is_payout_ready ? '出金申請まで進める状態です。' : '口座情報の追加入力が必要です。'}
                                 </p>
                                 <Link
                                     to="/therapist/stripe-connect"
@@ -446,7 +446,7 @@ export function TherapistSettingsPage() {
 
                         {activeStripeRequirements.length > 0 ? (
                             <section className="mt-5 rounded-[24px] border border-[#e5d7c0] bg-[#fffaf3] p-5">
-                                <p className="text-sm font-semibold text-[#17202b]">Stripe で追加提出が必要な項目</p>
+                                <p className="text-sm font-semibold text-[#17202b]">受取設定で追加入力が必要な項目</p>
                                 <ul className="mt-3 grid gap-2 text-sm text-[#68707a]">
                                     {activeStripeRequirements.slice(0, 6).map((requirement) => (
                                         <li key={requirement}>- {formatStripeRequirementField(requirement)}</li>
@@ -546,7 +546,7 @@ export function TherapistSettingsPage() {
                                 className="rounded-[22px] border border-white/10 bg-[#17202b] px-4 py-4 transition hover:bg-[#1d2a36]"
                             >
                                 <p className="text-sm font-semibold text-white">売上と出金を確認する</p>
-                                <p className="mt-2 text-sm leading-6 text-slate-300">Stripe の準備状況や出金申請の進み具合を見直せます。</p>
+                                <p className="mt-2 text-sm leading-6 text-slate-300">受取口座の準備状況や出金申請の進み具合を見直せます。</p>
                             </Link>
                         </div>
                     </article>

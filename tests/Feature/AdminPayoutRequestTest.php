@@ -101,6 +101,25 @@ class AdminPayoutRequestTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_mark_manual_payout_request_as_paid_without_stripe_gateway(): void
+    {
+        [$admin, $payoutRequest, $ledgerEntry] = $this->createAdminPayoutFixture(manual: true);
+
+        $this->withToken($admin->createToken('api')->plainTextToken)
+            ->postJson("/api/admin/payout-requests/{$payoutRequest->public_id}/process")
+            ->assertOk()
+            ->assertJsonPath('data.status', PayoutRequest::STATUS_PAID)
+            ->assertJsonPath('data.stripe_payout_id', null);
+
+        $this->assertDatabaseHas('payout_requests', [
+            'id' => $payoutRequest->id,
+            'status' => PayoutRequest::STATUS_PAID,
+            'stripe_payout_id' => null,
+            'reviewed_by_account_id' => $admin->id,
+        ]);
+        $this->assertSame(TherapistLedgerEntry::STATUS_PAID, $ledgerEntry->refresh()->status);
+    }
+
     public function test_non_admin_cannot_access_payout_admin_api(): void
     {
         [, $payoutRequest, , $therapist] = $this->createAdminPayoutFixture();
@@ -110,7 +129,7 @@ class AdminPayoutRequestTest extends TestCase
             ->assertForbidden();
     }
 
-    private function createAdminPayoutFixture(): array
+    private function createAdminPayoutFixture(bool $manual = false): array
     {
         $admin = Account::factory()->create(['public_id' => 'acc_admin_payout']);
         $admin->roleAssignments()->create([
@@ -130,12 +149,20 @@ class AdminPayoutRequestTest extends TestCase
         $connectedAccount = StripeConnectedAccount::create([
             'account_id' => $therapist->id,
             'therapist_profile_id' => $therapistProfile->id,
-            'stripe_account_id' => 'acct_admin_payout',
-            'account_type' => 'express',
+            'stripe_account_id' => $manual ? 'manual_admin_payout' : 'acct_admin_payout',
+            'account_type' => $manual ? StripeConnectedAccount::ACCOUNT_TYPE_MANUAL : 'express',
+            'payout_method' => $manual
+                ? StripeConnectedAccount::PAYOUT_METHOD_MANUAL_BANK_TRANSFER
+                : StripeConnectedAccount::PAYOUT_METHOD_STRIPE_CONNECT,
             'status' => StripeConnectedAccount::STATUS_ACTIVE,
-            'charges_enabled' => true,
+            'charges_enabled' => ! $manual,
             'payouts_enabled' => true,
             'details_submitted' => true,
+            'bank_name' => $manual ? '三井住友銀行' : null,
+            'bank_branch_name' => $manual ? '新宿支店' : null,
+            'bank_account_type' => $manual ? 'ordinary' : null,
+            'bank_account_number' => $manual ? '1234567' : null,
+            'bank_account_holder_name' => $manual ? 'ヤマダ タロウ' : null,
         ]);
 
         $payoutRequest = PayoutRequest::create([

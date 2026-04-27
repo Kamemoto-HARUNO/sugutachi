@@ -104,9 +104,20 @@ class TherapistPayoutRequestController extends Controller
 
     private function assertPayoutReady(?StripeConnectedAccount $connectedAccount): void
     {
-        abort_unless($connectedAccount, 409, 'Stripe Connected Account is missing.');
-        abort_unless($connectedAccount->status === StripeConnectedAccount::STATUS_ACTIVE, 409, 'Stripe Connected Account is not active.');
-        abort_unless($connectedAccount->payouts_enabled, 409, 'Stripe payouts are not enabled.');
+        abort_unless($connectedAccount, 409, '受取口座が未設定です。先に受取設定を完了してください。');
+
+        if ($connectedAccount->usesManualBankTransfer()) {
+            abort_unless(
+                $connectedAccount->isPayoutReady(),
+                409,
+                '受取口座の入力が完了していません。銀行名、支店名、口座種別、口座番号、口座名義を確認してください。'
+            );
+
+            return;
+        }
+
+        abort_unless($connectedAccount->status === StripeConnectedAccount::STATUS_ACTIVE, 409, '受取設定がまだ有効になっていません。');
+        abort_unless($connectedAccount->payouts_enabled, 409, '出金を受け付けるには追加の受取設定が必要です。');
     }
 
     private function availableAmount(int $accountId): int

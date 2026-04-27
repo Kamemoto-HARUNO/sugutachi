@@ -146,6 +146,42 @@ class TherapistLedgerAndPayoutTest extends TestCase
         ]);
     }
 
+    public function test_therapist_can_request_payout_with_manual_bank_account_settings(): void
+    {
+        [, $therapist, $booking, $connectedAccount] = $this->createPayoutFixture();
+
+        $connectedAccount->forceFill([
+            'payout_method' => StripeConnectedAccount::PAYOUT_METHOD_MANUAL_BANK_TRANSFER,
+            'account_type' => StripeConnectedAccount::ACCOUNT_TYPE_MANUAL,
+            'stripe_account_id' => 'manual_fixture_payout',
+            'charges_enabled' => false,
+            'payouts_enabled' => true,
+            'details_submitted' => true,
+            'status' => StripeConnectedAccount::STATUS_ACTIVE,
+            'bank_name' => '三井住友銀行',
+            'bank_branch_name' => '新宿支店',
+            'bank_account_type' => 'ordinary',
+            'bank_account_number' => '7654321',
+            'bank_account_holder_name' => 'ヤマダ タロウ',
+        ])->save();
+
+        TherapistLedgerEntry::create([
+            'therapist_account_id' => $therapist->id,
+            'booking_id' => $booking->id,
+            'entry_type' => TherapistLedgerEntry::TYPE_BOOKING_SALE,
+            'amount_signed' => 10800,
+            'status' => TherapistLedgerEntry::STATUS_AVAILABLE,
+            'available_at' => now()->subMinute(),
+        ]);
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->postJson('/api/me/therapist/payout-requests', [
+                'requested_amount' => 10800,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.status', PayoutRequest::STATUS_REQUESTED);
+    }
+
     public function test_payout_requires_active_connected_account(): void
     {
         [, $therapist] = $this->createPayoutFixture(connectedAccountStatus: StripeConnectedAccount::STATUS_REQUIREMENTS_DUE);

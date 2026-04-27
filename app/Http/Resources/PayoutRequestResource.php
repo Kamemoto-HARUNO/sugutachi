@@ -25,9 +25,18 @@ class PayoutRequestResource extends JsonResource
                 'display_name' => $this->therapistAccount?->display_name,
             ]),
             'stripe_connected_account' => $this->whenLoaded('stripeConnectedAccount', fn () => [
-                'stripe_account_id' => $this->stripeConnectedAccount?->stripe_account_id,
+                'payout_method' => $this->stripeConnectedAccount?->payout_method,
+                'stripe_account_id' => $this->stripeConnectedAccount?->usesStripeConnect()
+                    ? $this->stripeConnectedAccount?->stripe_account_id
+                    : null,
                 'status' => $this->stripeConnectedAccount?->status,
                 'payouts_enabled' => $this->stripeConnectedAccount?->payouts_enabled,
+                'bank_name' => $this->stripeConnectedAccount?->bank_name,
+                'bank_branch_name' => $this->stripeConnectedAccount?->bank_branch_name,
+                'bank_account_type' => $this->stripeConnectedAccount?->bank_account_type,
+                'bank_account_number' => $this->stripeConnectedAccount?->bank_account_number,
+                'bank_account_number_masked' => $this->stripeConnectedAccount?->maskedBankAccountNumber(),
+                'bank_account_holder_name' => $this->stripeConnectedAccount?->bank_account_holder_name,
             ]),
             'ledger_entries' => TherapistLedgerEntryResource::collection($this->whenLoaded('ledgerEntries')),
             'created_at' => $this->created_at,

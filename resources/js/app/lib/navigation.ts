@@ -64,7 +64,7 @@ export const userPlaceholderRoutes: PlaceholderRouteDefinition[] = [
 export const therapistPlaceholderRoutes: PlaceholderRouteDefinition[] = [
     { path: 'onboarding', title: 'オンボーディング', description: '本人確認、規約同意、公開準備の入口です。', apiPath: '/api/me/therapist-profile/review-status' },
     { path: 'identity-verification', title: '本人確認', description: '本人確認と年齢確認の提出・再提出を行います。', apiPath: '/api/me/identity-verification' },
-    { path: 'stripe-connect', title: 'Stripe Connect', description: '受取口座の連携と審査状態を管理します。', apiPath: '/api/me/stripe-connect' },
+    { path: 'stripe-connect', title: '受取設定', description: '受取口座の登録と出金準備状況を管理します。', apiPath: '/api/me/stripe-connect' },
     { path: 'profile', title: 'セラピストプロフィール', description: '公開プロフィールの編集と審査提出を行います。', apiPath: '/api/me/therapist-profile' },
     { path: 'photos', title: 'プロフィール写真', description: '写真アップロードと審査状態を管理します。', apiPath: '/api/me/profile/photos' },
     { path: 'pricing', title: '料金ルール', description: '動的料金やメニューごとの調整ルールを設定します。', apiPath: '/api/me/therapist/pricing-rules' },
@@ -87,7 +87,7 @@ export const adminPlaceholderRoutes: PlaceholderRouteDefinition[] = [
     { path: 'accounts/:publicId', title: 'アカウント詳細', description: '停止や復旧判断のための詳細確認画面です。', apiPath: '/api/admin/accounts/{public_id}' },
     { path: 'identity-verifications', title: '本人確認審査', description: '本人確認・年齢確認の審査一覧です。', apiPath: '/api/admin/identity-verifications' },
     { path: 'therapist-profiles', title: 'セラピストプロフィール審査', description: 'プロフィール審査や停止中プロフィールを扱います。', apiPath: '/api/admin/therapist-profiles' },
-    { path: 'therapist-profiles/:publicId', title: 'セラピストプロフィール詳細', description: '写真、位置、Stripe 状態まで確認できる詳細画面です。', apiPath: '/api/admin/therapist-profiles/{public_id}' },
+    { path: 'therapist-profiles/:publicId', title: 'セラピストプロフィール詳細', description: '写真、位置、受取設定まで確認できる詳細画面です。', apiPath: '/api/admin/therapist-profiles/{public_id}' },
     { path: 'profile-photos', title: '写真審査', description: 'プロフィール写真の審査一覧です。', apiPath: '/api/admin/profile-photos' },
     { path: 'bookings', title: '予約管理', description: '予約一覧、決済、返金、メッセージ監視を扱います。', apiPath: '/api/admin/bookings' },
     { path: 'bookings/:publicId', title: '予約詳細監視', description: '予約進行、安全記録、返金状況を確認します。', apiPath: '/api/admin/bookings/{public_id}' },

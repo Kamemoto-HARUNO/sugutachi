@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
-import { formatDate, formatDateTime, formatStripeStatus } from '../lib/therapist';
+import { formatBankAccountType, formatDate, formatDateTime, formatStripeStatus } from '../lib/therapist';
 import type {
     AdminPayoutRequestRecord,
     ApiEnvelope,
@@ -77,6 +77,24 @@ function displayTherapistName(payout: AdminPayoutRequestRecord): string {
     return payout.therapist_account?.display_name?.trim()
         || payout.therapist_account?.public_id
         || payout.public_id;
+}
+
+function payoutMethodLabel(payout: AdminPayoutRequestRecord): string {
+    return payout.stripe_connected_account?.payout_method === 'manual_bank_transfer'
+        ? '手動振込'
+        : 'Stripe送金';
+}
+
+function payoutDestinationSummary(payout: AdminPayoutRequestRecord): string {
+    if (payout.stripe_connected_account?.payout_method === 'manual_bank_transfer') {
+        const bankName = payout.stripe_connected_account.bank_name ?? '銀行名未設定';
+        const branchName = payout.stripe_connected_account.bank_branch_name ?? '支店名未設定';
+        const masked = payout.stripe_connected_account.bank_account_number_masked ?? '口座番号未設定';
+
+        return `${bankName} ${branchName} / ${masked}`;
+    }
+
+    return payout.stripe_connected_account?.stripe_account_id ?? '未設定';
 }
 
 function buildSelectedLink(searchParams: URLSearchParams, publicId: string): string {
@@ -272,7 +290,11 @@ export function AdminPayoutRequestsPage() {
 
             const updated = unwrapData(payload);
             setPayouts((current) => current.map((payout) => payout.public_id === updated.public_id ? updated : payout));
-            setSuccessMessage('出金処理を実行しました。');
+            setSuccessMessage(
+                selectedPayout.stripe_connected_account?.payout_method === 'manual_bank_transfer'
+                    ? '振込済みとして記録しました。'
+                    : '出金処理を実行しました。'
+            );
         } catch (requestError) {
             const message = requestError instanceof ApiError
                 ? requestError.message
@@ -293,10 +315,10 @@ export function AdminPayoutRequestsPage() {
             <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_16px_34px_rgba(2,6,23,0.14)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">PAYOUT OPERATIONS</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">出金運用</p>
                         <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">出金申請管理</h2>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                            セラピストの出金申請を確認し、保留、解除、Stripe 送金処理までを進められます。
+                            セラピストの出金申請を確認し、保留、解除、振込完了の記録までを進められます。
                         </p>
                     </div>
 
@@ -324,7 +346,7 @@ export function AdminPayoutRequestsPage() {
                     { label: '総件数', value: summary.total, hint: '現在の表示対象' },
                     { label: '申請中', value: summary.requested, hint: '処理待ち' },
                     { label: '保留中', value: summary.held, hint: '要レビュー' },
-                    { label: '処理中', value: summary.processing, hint: 'Stripe 送金中' },
+                    { label: '処理中', value: summary.processing, hint: '振込処理中' },
                     { label: '純支払総額', value: `${summary.totalNet.toLocaleString('ja-JP')}円`, hint: '一覧の net_amount 合計' },
                 ].map((item) => (
                     <article key={item.label} className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
@@ -456,8 +478,8 @@ export function AdminPayoutRequestsPage() {
                                         <p className="mt-1 text-sm font-semibold text-[#17202b]">{formatDate(payout.scheduled_process_date)}</p>
                                     </div>
                                     <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3">
-                                        <p className="text-xs font-semibold tracking-wide text-[#7d6852]">Stripe</p>
-                                        <p className="mt-1 text-sm font-semibold text-[#17202b]">{formatStripeStatus(payout.stripe_connected_account?.status)}</p>
+                                        <p className="text-xs font-semibold tracking-wide text-[#7d6852]">{payoutMethodLabel(payout)}</p>
+                                        <p className="mt-1 text-sm font-semibold text-[#17202b]">{payoutDestinationSummary(payout)}</p>
                                     </div>
                                     <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3">
                                         <p className="text-xs font-semibold tracking-wide text-[#7d6852]">処理日時</p>
@@ -485,7 +507,7 @@ export function AdminPayoutRequestsPage() {
                             <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                                 <div className="flex flex-wrap items-start justify-between gap-4">
                                     <div>
-                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">PAYOUT DETAIL</p>
+                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">出金詳細</p>
                                         <h3 className="mt-2 text-2xl font-semibold text-[#17202b]">{displayTherapistName(selectedPayout)}</h3>
                                         <p className="mt-2 text-sm text-[#68707a]">申請ID {selectedPayout.public_id}</p>
                                         <p className="mt-1 text-xs text-[#7d6852]">{selectedPayout.therapist_account?.public_id ?? '未設定'}</p>
@@ -503,10 +525,23 @@ export function AdminPayoutRequestsPage() {
                                         <p className="mt-1">純支払額 {amountLabel(selectedPayout.net_amount)}</p>
                                     </div>
                                     <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3 text-sm text-[#48505a]">
-                                        <p className="text-xs font-semibold tracking-wide text-[#7d6852]">Stripe 接続</p>
-                                        <p className="mt-1 font-semibold text-[#17202b]">{selectedPayout.stripe_connected_account?.stripe_account_id ?? '未設定'}</p>
-                                        <p className="mt-1">状態 {formatStripeStatus(selectedPayout.stripe_connected_account?.status)}</p>
-                                        <p className="mt-1">payouts enabled {selectedPayout.stripe_connected_account?.payouts_enabled ? 'yes' : 'no'}</p>
+                                        <p className="text-xs font-semibold tracking-wide text-[#7d6852]">受取先</p>
+                                        <p className="mt-1 font-semibold text-[#17202b]">{payoutMethodLabel(selectedPayout)}</p>
+                                        {selectedPayout.stripe_connected_account?.payout_method === 'manual_bank_transfer' ? (
+                                            <>
+                                                <p className="mt-1">銀行 {selectedPayout.stripe_connected_account?.bank_name ?? '未設定'}</p>
+                                                <p className="mt-1">支店 {selectedPayout.stripe_connected_account?.bank_branch_name ?? '未設定'}</p>
+                                                <p className="mt-1">
+                                                    口座 {formatBankAccountType(selectedPayout.stripe_connected_account?.bank_account_type)} / {selectedPayout.stripe_connected_account?.bank_account_number ?? '未設定'}
+                                                </p>
+                                                <p className="mt-1">名義 {selectedPayout.stripe_connected_account?.bank_account_holder_name ?? '未設定'}</p>
+                                            </>
+                                        ) : (
+                                            <>
+                                                <p className="mt-1">{selectedPayout.stripe_connected_account?.stripe_account_id ?? '未設定'}</p>
+                                                <p className="mt-1">状態 {formatStripeStatus(selectedPayout.stripe_connected_account?.status)}</p>
+                                            </>
+                                        )}
                                     </div>
                                     <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3 text-sm text-[#48505a]">
                                         <p className="text-xs font-semibold tracking-wide text-[#7d6852]">処理ログ</p>
@@ -540,7 +575,7 @@ export function AdminPayoutRequestsPage() {
                             </article>
 
                             <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">PAYOUT ACTION</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">出金アクション</p>
                                 <div className="mt-4 space-y-4">
                                     {selectedPayout.status === 'payout_requested' ? (
                                         <>
@@ -573,7 +608,11 @@ export function AdminPayoutRequestsPage() {
                                                 disabled={isSubmittingProcess}
                                                 className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243140] disabled:cursor-not-allowed disabled:opacity-60"
                                             >
-                                                {isSubmittingProcess ? '処理中...' : '出金処理を実行'}
+                                                {isSubmittingProcess
+                                                    ? '処理中...'
+                                                    : selectedPayout.stripe_connected_account?.payout_method === 'manual_bank_transfer'
+                                                        ? '振込済みにする'
+                                                        : 'Stripe送金を実行'}
                                             </button>
                                         </>
                                     ) : selectedPayout.status === 'held' ? (
