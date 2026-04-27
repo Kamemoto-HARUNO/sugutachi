@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
@@ -323,6 +323,78 @@ function formatDateTimeLocalValue(value: string | null): string {
     return localDate.toISOString().slice(0, 16);
 }
 
+function parseDateTimeInputValue(value: string): Date | null {
+    if (value.trim().length === 0) {
+        return null;
+    }
+
+    const date = new Date(value);
+
+    return Number.isNaN(date.getTime()) ? null : date;
+}
+
+function openDateTimePicker(input: HTMLInputElement | null) {
+    if (!input) {
+        return;
+    }
+
+    input.focus();
+
+    if (typeof input.showPicker === 'function') {
+        try {
+            input.showPicker();
+            return;
+        } catch {
+            // Fall back to the native click behavior when showPicker is unavailable.
+        }
+    }
+
+    input.click();
+}
+
+function validateCompletionWindowInputs(
+    booking: BookingDetailRecord,
+    startedAtInput: string,
+    endedAtInput: string,
+): string | null {
+    const startedAt = parseDateTimeInputValue(startedAtInput);
+    const endedAt = parseDateTimeInputValue(endedAtInput);
+
+    if (!startedAt || !endedAt) {
+        return '開始時刻と終了時刻を正しく入力してください。';
+    }
+
+    if (booking.arrived_at) {
+        const arrivedAt = new Date(booking.arrived_at);
+
+        if (startedAt < arrivedAt) {
+            return '開始時刻は到着時刻より前にできません。';
+        }
+    }
+
+    const completionUpperBound = new Date(
+        booking.status === 'therapist_completed'
+            ? booking.service_completion_reported_at ?? booking.ended_at ?? new Date().toISOString()
+            : new Date().toISOString(),
+    );
+
+    if (startedAt > completionUpperBound) {
+        return '開始時刻は施術完了を記録した時刻より後にできません。';
+    }
+
+    if (endedAt > completionUpperBound) {
+        return booking.status === 'therapist_completed'
+            ? '終了時刻は、最初に施術終了を記録した時刻より後にできません。'
+            : '終了時刻は現在時刻より後にできません。';
+    }
+
+    if (endedAt <= startedAt) {
+        return '終了時刻は開始時刻より後にしてください。';
+    }
+
+    return null;
+}
+
 function canTherapistCancel(status: string): boolean {
     return ['accepted', 'moving', 'arrived'].includes(status);
 }
@@ -357,6 +429,8 @@ export function TherapistBookingDetailPage() {
     const [completionEndedAtInput, setCompletionEndedAtInput] = useState('');
     const [isLoadingCancelPreview, setIsLoadingCancelPreview] = useState(false);
     const [isCanceling, setIsCanceling] = useState(false);
+    const completionStartedAtRef = useRef<HTMLInputElement | null>(null);
+    const completionEndedAtRef = useRef<HTMLInputElement | null>(null);
 
     usePageTitle(booking ? `${booking.counterparty?.display_name ?? '予約'}の詳細` : 'セラピスト予約詳細');
     useToastOnMessage(successMessage, 'success');
@@ -453,6 +527,29 @@ export function TherapistBookingDetailPage() {
     const timeline = useMemo(() => (booking ? buildTimeline(booking) : []), [booking]);
     const nextAction = booking ? nextStageAction(booking) : null;
     const canEditCompletionWindow = booking ? canManageCompletionWindow(booking.status) : false;
+    const completionWindowBounds = useMemo(() => {
+        if (!booking || !canManageCompletionWindow(booking.status)) {
+            return null;
+        }
+
+        const lowerBound = booking.arrived_at ? formatDateTimeLocalValue(booking.arrived_at) : '';
+        const upperBound = formatDateTimeLocalValue(
+            booking.status === 'therapist_completed'
+                ? booking.service_completion_reported_at ?? booking.ended_at ?? new Date().toISOString()
+                : new Date().toISOString(),
+        );
+
+        return {
+            startedAtMin: lowerBound || undefined,
+            startedAtMax: completionEndedAtInput.trim() || upperBound || undefined,
+            endedAtMin: completionStartedAtInput.trim() || lowerBound || undefined,
+            endedAtMax: upperBound || undefined,
+        };
+    }, [
+        booking,
+        completionEndedAtInput,
+        completionStartedAtInput,
+    ]);
 
     useEffect(() => {
         if (!booking || !canManageCompletionWindow(booking.status)) {
@@ -534,6 +631,17 @@ export function TherapistBookingDetailPage() {
 
         if (completionStartedAtInput.trim().length === 0 || completionEndedAtInput.trim().length === 0) {
             setError('開始時刻と終了時刻を入力してください。');
+            return;
+        }
+
+        const validationMessage = validateCompletionWindowInputs(
+            booking,
+            completionStartedAtInput,
+            completionEndedAtInput,
+        );
+
+        if (validationMessage) {
+            setError(validationMessage);
             return;
         }
 
@@ -891,26 +999,80 @@ export function TherapistBookingDetailPage() {
                                     <div className="mt-4 grid gap-3">
                                         <label className="space-y-2">
                                             <span className="text-xs font-semibold tracking-wide text-[#7d6852]">開始時刻</span>
-                                            <input
-                                                type="datetime-local"
-                                                value={completionStartedAtInput}
-                                                onChange={(event) => setCompletionStartedAtInput(event.target.value)}
-                                                className="w-full rounded-[16px] border border-[#e4d7c2] bg-white px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#c6a16a]"
-                                            />
+                                            <div className="relative">
+                                                <input
+                                                    ref={completionStartedAtRef}
+                                                    type="datetime-local"
+                                                    value={completionStartedAtInput}
+                                                    min={completionWindowBounds?.startedAtMin}
+                                                    max={completionWindowBounds?.startedAtMax}
+                                                    onChange={(event) => setCompletionStartedAtInput(event.target.value)}
+                                                    className="w-full rounded-[16px] border border-[#e4d7c2] bg-white px-4 py-3 pr-12 text-sm text-[#17202b] outline-none transition focus:border-[#c6a16a]"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openDateTimePicker(completionStartedAtRef.current)}
+                                                    className="absolute inset-y-0 right-3 inline-flex items-center justify-center text-[#7d6852] transition hover:text-[#17202b]"
+                                                    aria-label="開始時刻の日時ピッカーを開く"
+                                                >
+                                                    <svg
+                                                        aria-hidden="true"
+                                                        viewBox="0 0 24 24"
+                                                        className="h-5 w-5"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        strokeWidth="1.8"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                    >
+                                                        <path d="M8 2v4" />
+                                                        <path d="M16 2v4" />
+                                                        <rect x="3" y="5" width="18" height="16" rx="3" />
+                                                        <path d="M3 10h18" />
+                                                    </svg>
+                                                </button>
+                                            </div>
                                         </label>
                                         <label className="space-y-2">
                                             <span className="text-xs font-semibold tracking-wide text-[#7d6852]">終了時刻</span>
-                                            <input
-                                                type="datetime-local"
-                                                value={completionEndedAtInput}
-                                                onChange={(event) => setCompletionEndedAtInput(event.target.value)}
-                                                className="w-full rounded-[16px] border border-[#e4d7c2] bg-white px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#c6a16a]"
-                                            />
+                                            <div className="relative">
+                                                <input
+                                                    ref={completionEndedAtRef}
+                                                    type="datetime-local"
+                                                    value={completionEndedAtInput}
+                                                    min={completionWindowBounds?.endedAtMin}
+                                                    max={completionWindowBounds?.endedAtMax}
+                                                    onChange={(event) => setCompletionEndedAtInput(event.target.value)}
+                                                    className="w-full rounded-[16px] border border-[#e4d7c2] bg-white px-4 py-3 pr-12 text-sm text-[#17202b] outline-none transition focus:border-[#c6a16a]"
+                                                />
+                                                <button
+                                                    type="button"
+                                                    onClick={() => openDateTimePicker(completionEndedAtRef.current)}
+                                                    className="absolute inset-y-0 right-3 inline-flex items-center justify-center text-[#7d6852] transition hover:text-[#17202b]"
+                                                    aria-label="終了時刻の日時ピッカーを開く"
+                                                >
+                                                    <svg
+                                                        aria-hidden="true"
+                                                        viewBox="0 0 24 24"
+                                                        className="h-5 w-5"
+                                                        fill="none"
+                                                        stroke="currentColor"
+                                                        strokeWidth="1.8"
+                                                        strokeLinecap="round"
+                                                        strokeLinejoin="round"
+                                                    >
+                                                        <path d="M8 2v4" />
+                                                        <path d="M16 2v4" />
+                                                        <rect x="3" y="5" width="18" height="16" rx="3" />
+                                                        <path d="M3 10h18" />
+                                                    </svg>
+                                                </button>
+                                            </div>
                                         </label>
                                     </div>
 
                                     <p className="mt-3 text-xs leading-6 text-[#7d6852]">
-                                        開始時刻は到着時刻より前にできません。終了時刻は、最初に施術終了を記録した時刻より後にはできません。
+                                        入力欄右のカレンダーから日時を選べます。開始時刻は到着時刻より前にできません。終了時刻は、最初に施術終了を記録した時刻より後にはできません。
                                     </p>
 
                                     <button
