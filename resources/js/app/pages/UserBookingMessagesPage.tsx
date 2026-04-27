@@ -435,9 +435,6 @@ export function UserBookingMessagesPage() {
                         <div>
                             <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">やりとり</p>
                             <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">やりとり一覧</h2>
-                            {meta?.counterparty_typing ? (
-                                <p className="mt-2 text-sm text-[#68707a]">{counterpartyName}がメッセージを入力しています。</p>
-                            ) : null}
                         </div>
 
                         <div className="flex flex-wrap gap-2">
@@ -521,11 +518,32 @@ export function UserBookingMessagesPage() {
                                     </div>
                                 </article>
                             );
-                        }) : (
+                        }) : !meta?.counterparty_typing ? (
                             <div className="rounded-[24px] bg-[#f8f4ed] px-5 py-6 text-sm leading-7 text-[#68707a]">
                                 この予約ではまだメッセージがありません。必要な連絡があれば右側のフォームから送れます。
                             </div>
-                        )}
+                        ) : null}
+
+                        {meta?.counterparty_typing ? (
+                            <article className="flex justify-start">
+                                <div className="max-w-[min(100%,38rem)] space-y-2">
+                                    <div className="rounded-[24px] bg-[#f8f4ed] px-4 py-4 text-[#17202b] shadow-[0_10px_24px_rgba(23,32,43,0.08)]">
+                                        <div className="flex items-center gap-3">
+                                            <div className="flex items-center gap-1.5 text-[#7a7066]">
+                                                <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#c6a16a]" />
+                                                <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#d5b888] [animation-delay:120ms]" />
+                                                <span className="h-2.5 w-2.5 animate-pulse rounded-full bg-[#e2cda8] [animation-delay:240ms]" />
+                                            </div>
+                                            <p className="text-sm leading-7 text-[#7a7066]">メッセージ入力中...</p>
+                                        </div>
+                                    </div>
+
+                                    <div className="flex flex-wrap items-center gap-3 px-1 text-xs text-[#7a7066]">
+                                        <span>{counterpartyName}</span>
+                                    </div>
+                                </div>
+                            </article>
+                        ) : null}
                     </div>
                 </section>
 
