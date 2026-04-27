@@ -9,7 +9,7 @@ import { buildCurrentJstDateValue, buildJstDateValue, formatJstDateTime } from '
 import { formatCurrency, getServiceAddressLabel } from '../lib/discovery';
 import type { ApiEnvelope, BookingListRecord } from '../lib/types';
 
-type BookingGroup = 'all' | 'active' | 'completed' | 'closed';
+type BookingGroup = 'all' | 'requested' | 'active' | 'completed' | 'closed';
 type RequestTypeFilter = 'all' | 'on_demand' | 'scheduled';
 type SortMode = 'upcoming' | 'recent';
 
@@ -21,6 +21,10 @@ const activeStatuses = new Set([
     'therapist_completed',
 ]);
 
+const requestedStatuses = new Set([
+    'requested',
+]);
+
 const closedStatuses = new Set([
     'rejected',
     'expired',
@@ -30,7 +34,7 @@ const closedStatuses = new Set([
 ]);
 
 function normalizeGroup(value: string | null): BookingGroup {
-    if (value === 'all' || value === 'active' || value === 'completed' || value === 'closed') {
+    if (value === 'all' || value === 'requested' || value === 'active' || value === 'completed' || value === 'closed') {
         return value;
     }
 
@@ -169,6 +173,10 @@ function matchesGroup(booking: BookingListRecord, group: BookingGroup): boolean 
         return true;
     }
 
+    if (group === 'requested') {
+        return requestedStatuses.has(booking.status);
+    }
+
     if (group === 'active') {
         return activeStatuses.has(booking.status);
     }
@@ -181,6 +189,10 @@ function matchesGroup(booking: BookingListRecord, group: BookingGroup): boolean 
 }
 
 function buildAttentionLabel(booking: BookingListRecord): string | null {
+    if (booking.status === 'requested') {
+        return '承諾判断が必要';
+    }
+
     if (booking.status === 'therapist_completed') {
         return '利用者の完了確認待ち';
     }
@@ -220,6 +232,19 @@ function isTodayBooking(booking: BookingListRecord): boolean {
     return buildJstDateValue(booking.scheduled_start_at) === buildCurrentJstDateValue();
 }
 
+function formatRequestDeadline(value: string | null): string {
+    if (!value) {
+        return '期限未設定';
+    }
+
+    return formatJstDateTime(value, {
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    }) ?? '期限未設定';
+}
+
 export function TherapistBookingsPage() {
     const { token } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -232,7 +257,7 @@ export function TherapistBookingsPage() {
     const requestType = normalizeRequestType(searchParams.get('request_type'));
     const sortMode = normalizeSort(searchParams.get('sort'));
 
-    usePageTitle('セラピスト予約一覧');
+    usePageTitle('予約管理');
     useToastOnMessage(error, 'error');
 
     async function loadBookings(nextIsRefresh = false) {
@@ -251,7 +276,7 @@ export function TherapistBookingsPage() {
                 token,
             });
 
-            const nextBookings = unwrapData(payload).filter((booking) => booking.status !== 'requested');
+            const nextBookings = unwrapData(payload);
 
             setBookings(nextBookings);
             setError(null);
@@ -273,10 +298,10 @@ export function TherapistBookingsPage() {
     }, [token]);
 
     const summary = useMemo(() => ({
+        requested: bookings.filter((booking) => requestedStatuses.has(booking.status)).length,
         active: bookings.filter((booking) => activeStatuses.has(booking.status)).length,
         today: bookings.filter((booking) => activeStatuses.has(booking.status) && isTodayBooking(booking)).length,
         awaitingConfirmation: bookings.filter((booking) => booking.status === 'therapist_completed').length,
-        unread: bookings.reduce((total, booking) => total + booking.unread_message_count, 0),
     }), [bookings]);
 
     const filteredBookings = useMemo(() => {
@@ -298,7 +323,7 @@ export function TherapistBookingsPage() {
     const visibleCountLabel = `${filteredBookings.length}件表示`;
 
     if (isLoading) {
-        return <LoadingScreen title="予約一覧を読み込み中" message="進行中、完了、キャンセルの予約をまとめています。" />;
+        return <LoadingScreen title="予約管理を読み込み中" message="承諾待ち、進行中、完了履歴をまとめています。" />;
     }
 
     return (
@@ -306,12 +331,12 @@ export function TherapistBookingsPage() {
             <section className="rounded-[32px] bg-[linear-gradient(117deg,#17202b_0%,#243447_52%,#2b4158_100%)] p-7 text-white shadow-[0_24px_60px_rgba(15,23,42,0.22)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">予約一覧</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">予約管理</p>
                         <div className="space-y-2">
-                            <h1 className="text-3xl font-semibold">予約一覧</h1>
+                            <h1 className="text-3xl font-semibold">予約管理</h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                                予約確定後の進行中案件、完了待ち、終了履歴をここでまとめて確認します。
-                                承諾待ちの依頼は別ページに分けて、ここでは施術の進行と振り返りに集中できるようにしています。
+                                承諾待ちの依頼から進行中、完了待ち、終了履歴までをここでまとめて確認します。
+                                まず承諾判断が必要な依頼を見て、そのまま進行中の予約へ戻れる構成です。
                             </p>
                         </div>
                     </div>
@@ -327,12 +352,20 @@ export function TherapistBookingsPage() {
                         >
                             {isRefreshing ? '更新中...' : '更新'}
                         </button>
-                        <Link
-                            to="/therapist/requests"
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSearchParams((previous) => {
+                                    const next = new URLSearchParams(previous);
+                                    next.set('group', 'requested');
+
+                                    return next;
+                                });
+                            }}
                             className="inline-flex items-center rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8"
                         >
-                            予約依頼を見る
-                        </Link>
+                            承諾待ちを見る
+                        </button>
                         <Link
                             to="/therapist/balance"
                             className="inline-flex items-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105"
@@ -345,10 +378,10 @@ export function TherapistBookingsPage() {
 
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {[
+                    { label: '承諾待ち', value: summary.requested, hint: 'まず確認したい新規依頼' },
                     { label: '進行中', value: summary.active, hint: '予約確定後から確認待ちまで' },
                     { label: '本日分', value: summary.today, hint: '今日対応する予約' },
                     { label: '完了確認待ち', value: summary.awaitingConfirmation, hint: '利用者の確認待ち' },
-                    { label: '未読', value: summary.unread, hint: 'メッセージ未読件数' },
                 ].map((item) => (
                     <article
                         key={item.label}
@@ -372,6 +405,7 @@ export function TherapistBookingsPage() {
                         <div className="flex flex-wrap gap-2">
                             {[
                                 ['all', 'すべて'],
+                                ['requested', '承諾待ち'],
                                 ['active', '進行中'],
                                 ['completed', '完了'],
                                 ['closed', '終了'],
@@ -451,7 +485,7 @@ export function TherapistBookingsPage() {
                 <div className="mt-6 flex items-center justify-between gap-4 border-t border-[#efe5d7] pt-5">
                     <p className="text-sm text-[#68707a]">{visibleCountLabel}</p>
                     <p className="text-sm text-[#68707a]">
-                        利用者名、待ち合わせ場所、受取予定額、未読状況を一覧で確認できます。
+                        利用者名、待ち合わせ場所、受取予定額、承諾期限や未読状況を一覧で確認できます。
                     </p>
                 </div>
             </section>
@@ -495,7 +529,9 @@ export function TherapistBookingsPage() {
 
                                         <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                                             <div>
-                                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">日時</p>
+                                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">
+                                                    {booking.status === 'requested' ? '希望時間' : '日時'}
+                                                </p>
                                                 <p className="mt-2 text-sm font-semibold text-[#17202b]">{buildScheduleLine(booking)}</p>
                                             </div>
                                             <div>
@@ -511,9 +547,13 @@ export function TherapistBookingsPage() {
                                                 </p>
                                             </div>
                                             <div>
-                                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">決済状態</p>
+                                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">
+                                                    {booking.status === 'requested' ? '承諾期限' : '決済状態'}
+                                                </p>
                                                 <p className="mt-2 text-sm font-semibold text-[#17202b]">
-                                                    {paymentStatusLabel(booking.current_payment_intent?.status)}
+                                                    {booking.status === 'requested'
+                                                        ? formatRequestDeadline(booking.request_expires_at)
+                                                        : paymentStatusLabel(booking.current_payment_intent?.status)}
                                                 </p>
                                             </div>
                                         </div>
@@ -527,14 +567,25 @@ export function TherapistBookingsPage() {
                                                     <span>未読メッセージ</span>
                                                     <span className="font-semibold text-[#17202b]">{booking.unread_message_count}</span>
                                                 </div>
-                                                <div className="flex items-center justify-between gap-4">
-                                                    <span>返金件数</span>
-                                                    <span className="font-semibold text-[#17202b]">{booking.refund_count}</span>
-                                                </div>
-                                                <div className="flex items-center justify-between gap-4">
-                                                    <span>未解決通報</span>
-                                                    <span className="font-semibold text-[#17202b]">{booking.open_report_count}</span>
-                                                </div>
+                                                {booking.status === 'requested' ? (
+                                                    <div className="flex items-center justify-between gap-4">
+                                                        <span>決済状態</span>
+                                                        <span className="font-semibold text-[#17202b]">
+                                                            {paymentStatusLabel(booking.current_payment_intent?.status)}
+                                                        </span>
+                                                    </div>
+                                                ) : (
+                                                    <>
+                                                        <div className="flex items-center justify-between gap-4">
+                                                            <span>返金件数</span>
+                                                            <span className="font-semibold text-[#17202b]">{booking.refund_count}</span>
+                                                        </div>
+                                                        <div className="flex items-center justify-between gap-4">
+                                                            <span>未解決通報</span>
+                                                            <span className="font-semibold text-[#17202b]">{booking.open_report_count}</span>
+                                                        </div>
+                                                    </>
+                                                )}
                                                 <div className="flex items-center justify-between gap-4">
                                                     <span>最新メッセージ</span>
                                                     <span className="font-semibold text-[#17202b]">
@@ -545,16 +596,20 @@ export function TherapistBookingsPage() {
 
                                             <div className="mt-5 grid gap-2">
                                                 <Link
-                                                    to={`/therapist/bookings/${booking.public_id}`}
+                                                    to={booking.status === 'requested'
+                                                        ? `/therapist/requests/${booking.public_id}`
+                                                        : `/therapist/bookings/${booking.public_id}`}
                                                     className="inline-flex w-full items-center justify-center rounded-full bg-[#17202b] px-4 py-3 text-sm font-semibold text-white transition hover:bg-[#243447]"
                                                 >
-                                                    詳細を見る
+                                                    {booking.status === 'requested' ? '依頼内容を確認' : '詳細を見る'}
                                                 </Link>
                                                 <Link
-                                                    to={`/therapist/bookings/${booking.public_id}/messages`}
+                                                    to={booking.status === 'requested'
+                                                        ? `/therapist/requests/${booking.public_id}`
+                                                        : `/therapist/bookings/${booking.public_id}/messages`}
                                                     className="inline-flex w-full items-center justify-center rounded-full border border-[#d6c3a6] px-4 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#efe5d7]"
                                                 >
-                                                    メッセージへ
+                                                    {booking.status === 'requested' ? '承諾・辞退へ' : 'メッセージへ'}
                                                 </Link>
                                             </div>
                                         </div>
@@ -568,15 +623,23 @@ export function TherapistBookingsPage() {
                 <section className="rounded-[28px] border border-dashed border-white/15 bg-white/5 p-8 text-center">
                     <h2 className="text-2xl font-semibold text-white">条件に合う予約はありません</h2>
                     <p className="mt-3 text-sm leading-7 text-slate-300">
-                        承諾待ちの依頼は予約依頼一覧にまとまっています。空き枠やプロフィールを整えて次の予約に備えられます。
+                        承諾待ちがないか確認しつつ、空き枠やプロフィールを整えて次の予約に備えられます。
                     </p>
                     <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                        <Link
-                            to="/therapist/requests"
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setSearchParams((previous) => {
+                                    const next = new URLSearchParams(previous);
+                                    next.set('group', 'requested');
+
+                                    return next;
+                                });
+                            }}
                             className="inline-flex items-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105"
                         >
-                            予約依頼を見る
-                        </Link>
+                            承諾待ちを見る
+                        </button>
                         <Link
                             to="/therapist/availability"
                             className="inline-flex items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/6"

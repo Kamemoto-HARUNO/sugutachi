@@ -222,7 +222,7 @@ function AppRoutes() {
                                     { label: '準備状況', to: '/therapist/onboarding', description: '本人確認、プロフィール、Stripe の進み具合を確認します。' },
                                     { label: 'プロフィール編集', to: '/therapist/profile', description: '公開プロフィールと審査状態を確認します。' },
                                     { label: '空き枠管理', to: '/therapist/availability', description: '予定予約設定と公開枠を管理します。' },
-                                    { label: '予約依頼一覧', to: '/therapist/requests', description: '今すぐ予約と予定予約の依頼を確認します。' },
+                                    { label: '予約管理', to: '/therapist/bookings', description: '承諾待ちから進行中、完了まで同じ画面で確認します。' },
                                     { label: '設定', to: '/therapist/settings', description: '稼働状態、現在地、通知をまとめて確認します。' },
                                 ]}
                             />
@@ -235,7 +235,7 @@ function AppRoutes() {
                     <Route path="profile" element={<TherapistProfilePage />} />
                     <Route path="pricing" element={<TherapistPricingPage />} />
                     <Route path="availability" element={<TherapistAvailabilityPage />} />
-                    <Route path="requests" element={<TherapistRequestsPage />} />
+                    <Route path="requests" element={<Navigate to="/therapist/bookings?group=requested" replace />} />
                     <Route path="requests/:publicId" element={<TherapistRequestsPage />} />
                     <Route path="reviews" element={<TherapistReviewsPage />} />
                     <Route path="bookings" element={<TherapistBookingsPage />} />
