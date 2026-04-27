@@ -10,6 +10,8 @@ import {
     formatCurrency,
     formatMenuHourlyRateLabel,
     formatMenuMinimumDurationLabel,
+    getPendingScheduledRequestActionLabel,
+    getPendingScheduledRequestNotice,
     formatWalkingTimeRange,
     getMenuMinimumDurationMinutes,
     getServiceAddressLabel,
@@ -55,6 +57,15 @@ function formatExpiresAt(value: string | null): string {
         hour: '2-digit',
         minute: '2-digit',
     }) ?? '有効期限を確認中';
+}
+
+function formatPendingRequestDateTime(value: string | null): string | null {
+    return formatJstDateTime(value, {
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 }
 
 function friendlyCardError(error: unknown): string {
@@ -131,6 +142,11 @@ export function UserBookingQuotePage() {
     const stripePublishableKey = serviceMeta?.payment?.stripe_publishable_key ?? null;
     const hasAuthorizedRequest = booking != null
         && (booking.status === 'requested' || booking.current_payment_intent?.status === 'requires_capture');
+    const pendingScheduledRequest = therapistDetail?.pending_scheduled_request ?? null;
+    const pendingScheduledRequestLabel = formatPendingRequestDateTime(
+        pendingScheduledRequest?.scheduled_start_at ?? pendingScheduledRequest?.requested_start_at ?? null,
+    );
+    const pendingScheduledRequestPath = pendingScheduledRequest ? `/user/bookings/${pendingScheduledRequest.public_id}` : '/user/bookings';
 
     useEffect(() => {
         let isMounted = true;
@@ -145,30 +161,41 @@ export function UserBookingQuotePage() {
                 const detailRequest = apiRequest<ApiEnvelope<TherapistDetail>>(`/therapists/${therapistId}`, { token });
                 const addressesRequest = apiRequest<ApiEnvelope<ServiceAddress[]>>('/me/service-addresses', { token });
                 const metaRequest = apiRequest<ApiEnvelope<ServiceMeta>>('/service-meta');
+                const [detailPayload, addressPayload, metaPayload] = await Promise.all([
+                    detailRequest,
+                    addressesRequest,
+                    metaRequest,
+                ]);
+
+                if (!isMounted) {
+                    return;
+                }
+
+                const nextDetail = unwrapData(detailPayload);
+                setTherapistDetail(nextDetail);
+                setServiceAddresses(unwrapData(addressPayload));
+                setServiceMeta(unwrapData(metaPayload));
 
                 if (bookingId) {
-                    const bookingRequest = apiRequest<ApiEnvelope<BookingDetailRecord>>(`/bookings/${bookingId}`, { token });
-                    const [detailPayload, addressPayload, metaPayload, bookingPayload] = await Promise.all([
-                        detailRequest,
-                        addressesRequest,
-                        metaRequest,
-                        bookingRequest,
-                    ]);
+                    const bookingPayload = await apiRequest<ApiEnvelope<BookingDetailRecord>>(`/bookings/${bookingId}`, { token });
 
                     if (!isMounted) {
                         return;
                     }
 
                     const nextBooking = unwrapData(bookingPayload);
-                    setTherapistDetail(unwrapData(detailPayload));
-                    setServiceAddresses(unwrapData(addressPayload));
-                    setServiceMeta(unwrapData(metaPayload));
                     setBooking(nextBooking);
                     setQuote(nextBooking.current_quote ?? null);
                     return;
                 }
 
-                const quoteRequest = apiRequest<ApiEnvelope<BookingQuoteRecord>>('/booking-quotes', {
+                if (nextDetail.pending_scheduled_request) {
+                    setBooking(null);
+                    setQuote(null);
+                    return;
+                }
+
+                const quotePayload = await apiRequest<ApiEnvelope<BookingQuoteRecord>>('/booking-quotes', {
                     method: 'POST',
                     token,
                     body: {
@@ -182,20 +209,10 @@ export function UserBookingQuotePage() {
                     },
                 });
 
-                const [detailPayload, addressPayload, metaPayload, quotePayload] = await Promise.all([
-                    detailRequest,
-                    addressesRequest,
-                    metaRequest,
-                    quoteRequest,
-                ]);
-
                 if (!isMounted) {
                     return;
                 }
 
-                setTherapistDetail(unwrapData(detailPayload));
-                setServiceAddresses(unwrapData(addressPayload));
-                setServiceMeta(unwrapData(metaPayload));
                 setBooking(null);
                 setQuote(unwrapData(quotePayload));
             } catch (requestError) {
@@ -320,6 +337,44 @@ export function UserBookingQuotePage() {
 
     if (isLoading) {
         return <LoadingScreen title="見積もりを作成中" message="料金内訳とカード入力の準備を進めています。" />;
+    }
+
+    if (!bookingId && pendingScheduledRequest) {
+        return (
+            <div className="space-y-6">
+                <section className="rounded-[32px] bg-[linear-gradient(117deg,#17202b_0%,#243447_52%,#2b4158_100%)] p-7 text-white shadow-[0_24px_60px_rgba(15,23,42,0.22)]">
+                    <div className="space-y-3">
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">STEP 1</p>
+                        <h1 className="text-3xl font-semibold">現在の予約リクエストをご確認ください</h1>
+                        <p className="max-w-3xl text-sm leading-7 text-slate-300">
+                            {getPendingScheduledRequestNotice(pendingScheduledRequest)}
+                        </p>
+                        {pendingScheduledRequestLabel ? (
+                            <p className="text-sm font-semibold text-white">
+                                現在の予約候補: {pendingScheduledRequestLabel}
+                            </p>
+                        ) : null}
+                    </div>
+                </section>
+
+                <div className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
+                    <div className="flex flex-col gap-3 sm:flex-row">
+                        <Link
+                            to={pendingScheduledRequestPath}
+                            className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243140]"
+                        >
+                            {getPendingScheduledRequestActionLabel(pendingScheduledRequest)}
+                        </Link>
+                        <Link
+                            to={detailPath}
+                            className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
+                        >
+                            プロフィールへ戻る
+                        </Link>
+                    </div>
+                </div>
+            </div>
+        );
     }
 
     async function handleSubmitRequest() {

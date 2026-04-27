@@ -43,7 +43,7 @@ class ScheduledBookingPolicy
         }
 
         throw ValidationException::withMessages([
-            $field => ['The time must align to 15-minute increments.'],
+            $field => ['時刻は15分単位で指定してください。'],
         ]);
     }
 
@@ -54,7 +54,7 @@ class ScheduledBookingPolicy
         }
 
         throw ValidationException::withMessages([
-            $field => ['The duration must align to 15-minute increments.'],
+            $field => ['予約時間は15分単位で指定してください。'],
         ]);
     }
 
@@ -80,7 +80,7 @@ class ScheduledBookingPolicy
         CarbonImmutable $requestedStartAt,
     ): void {
         if ($this->hasActiveOnDemandBooking($therapistProfileId) && $requestedStartAt->lt(CarbonImmutable::now()->addHours(6))) {
-            abort(409, 'Scheduled requests cannot start within 6 hours while the therapist has an active on-demand booking.');
+            abort(409, 'このセラピストは今すぐ予約に対応中のため、6時間以内の予約リクエストは送れません。');
         }
 
         $sameTherapistPendingRequestExists = Booking::query()
@@ -93,7 +93,7 @@ class ScheduledBookingPolicy
         abort_if(
             $sameTherapistPendingRequestExists,
             409,
-            'You already have a pending scheduled request for this therapist.'
+            'このセラピストには、すでに承認待ちの予約リクエストがあります。'
         );
 
         $pendingRequestCount = Booking::query()
@@ -105,7 +105,7 @@ class ScheduledBookingPolicy
         abort_if(
             $pendingRequestCount >= 2,
             409,
-            'You already have the maximum number of pending scheduled requests.'
+            '承認待ちの予約リクエストは2件までです。'
         );
     }
 
@@ -123,7 +123,7 @@ class ScheduledBookingPolicy
 
         if ($this->hasActiveOnDemandBooking($booking->therapist_profile_id, $booking->id)
             && $currentWindow['scheduled_start_at']->lt(CarbonImmutable::now()->addHours(6))) {
-            abort(409, 'Scheduled requests cannot be accepted within 6 hours while the therapist has an active on-demand booking.');
+            abort(409, '今すぐ予約への対応中のため、6時間以内の予約リクエストは承認できません。');
         }
 
         $conflictExists = Booking::query()
@@ -140,7 +140,7 @@ class ScheduledBookingPolicy
         abort_if(
             $conflictExists,
             409,
-            'The booking overlaps another scheduled booking once buffers are applied.'
+            '移動・準備時間を含めると、ほかの予約と重なってしまいます。'
         );
     }
 

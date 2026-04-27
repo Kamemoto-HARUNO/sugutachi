@@ -144,8 +144,8 @@ class BookingController extends Controller
                 ->lockForUpdate()
                 ->firstOrFail();
 
-            abort_if($quote->booking_id !== null, 409, 'The quote has already been used.');
-            abort_if($quote->expires_at && $quote->expires_at->isPast(), 409, 'The quote has expired.');
+            abort_if($quote->booking_id !== null, 409, 'この見積もりは、すでに予約リクエストに使用されています。');
+            abort_if($quote->expires_at && $quote->expires_at->isPast(), 409, 'この見積もりの有効期限が切れています。もう一度見積もりを取り直してください。');
 
             $input = $quote->input_snapshot_json;
             $requestedStartAt = filled($input['requested_start_at'] ?? null)
@@ -159,7 +159,7 @@ class BookingController extends Controller
             if ($isOnDemand) {
                 $this->ensureOnDemandQuoteStillBookable($request->user(), $quote);
             } else {
-                abort_if(! $requestedStartAt, 409, 'The scheduled quote is missing a requested start time.');
+                abort_if(! $requestedStartAt, 409, '日時指定の見積もりに開始時刻が設定されていません。');
 
                 $slot = $this->ensureScheduledQuoteStillBookable(
                     viewer: $request->user(),
@@ -314,7 +314,7 @@ class BookingController extends Controller
         abort_if(
             ! $matchingWindow,
             409,
-            'The requested time is no longer available for that slot.'
+            '選択した時間は、すでに予約できなくなっています。'
         );
 
         return $slot;

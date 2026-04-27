@@ -487,6 +487,14 @@ export interface TherapistMenu {
     estimated_total_amount: number | null;
 }
 
+export interface PendingScheduledRequestSummary {
+    public_id: string;
+    status: 'payment_authorizing' | 'requested';
+    requested_start_at: string | null;
+    scheduled_start_at: string | null;
+    request_expires_at: string | null;
+}
+
 export interface TherapistDetail {
     public_id: string;
     public_name: string;
@@ -502,6 +510,7 @@ export interface TherapistDetail {
     is_online: boolean;
     walking_time_range: string | null;
     lowest_estimated_total_amount: number | null;
+    pending_scheduled_request: PendingScheduledRequestSummary | null;
     menus: TherapistMenu[];
     photos: PublicProfilePhoto[];
 }
@@ -800,6 +809,7 @@ export interface PublicTherapistAvailability {
         min: number;
         max: number;
     } | null;
+    pending_scheduled_request: PendingScheduledRequestSummary | null;
     available_dates: PublicTherapistAvailabilityDateOption[];
     calendar_dates: PublicTherapistAvailabilityCalendarDate[];
     windows: PublicTherapistAvailabilityWindow[];

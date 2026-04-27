@@ -13,6 +13,7 @@ class PublicTherapistAvailabilityResource extends JsonResource
             'date' => data_get($this->resource, 'date'),
             'walking_time_range' => data_get($this->resource, 'walking_time_range'),
             'estimated_total_amount_range' => data_get($this->resource, 'estimated_total_amount_range'),
+            'pending_scheduled_request' => $this->pendingScheduledRequestSummary(),
             'available_dates' => collect(data_get($this->resource, 'available_dates', []))
                 ->map(fn (array $date): array => [
                     'date' => $date['date'],
@@ -69,6 +70,23 @@ class PublicTherapistAvailabilityResource extends JsonResource
                 ])
                 ->values()
                 ->all(),
+        ];
+    }
+
+    private function pendingScheduledRequestSummary(): ?array
+    {
+        $pendingRequest = data_get($this->resource, 'pending_scheduled_request');
+
+        if (! is_array($pendingRequest)) {
+            return null;
+        }
+
+        return [
+            'public_id' => data_get($pendingRequest, 'public_id'),
+            'status' => data_get($pendingRequest, 'status'),
+            'requested_start_at' => data_get($pendingRequest, 'requested_start_at'),
+            'scheduled_start_at' => data_get($pendingRequest, 'scheduled_start_at'),
+            'request_expires_at' => data_get($pendingRequest, 'request_expires_at'),
         ];
     }
 }

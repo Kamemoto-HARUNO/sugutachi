@@ -36,8 +36,8 @@ class BookingStatusController extends Controller
 
         if (! $booking->is_on_demand && (! array_key_exists('buffer_before_minutes', $validated) || ! array_key_exists('buffer_after_minutes', $validated))) {
             throw ValidationException::withMessages([
-                'buffer_before_minutes' => ['The buffer before minutes field is required for scheduled bookings.'],
-                'buffer_after_minutes' => ['The buffer after minutes field is required for scheduled bookings.'],
+                'buffer_before_minutes' => ['日時指定の予約では、開始前の移動・準備時間の入力が必要です。'],
+                'buffer_after_minutes' => ['日時指定の予約では、終了後の移動・準備時間の入力が必要です。'],
             ]);
         }
 
@@ -84,8 +84,8 @@ class BookingStatusController extends Controller
     ): BookingResource {
         $this->authorizeTherapist($request, $booking);
 
-        abort_unless($booking->status === Booking::STATUS_REQUESTED, 409, 'Only pending booking requests can be adjusted.');
-        abort_unless(! $booking->is_on_demand, 409, 'Only scheduled booking requests can be adjusted.');
+        abort_unless($booking->status === Booking::STATUS_REQUESTED, 409, '承認待ちの予約リクエストだけ時間変更を提案できます。');
+        abort_unless(! $booking->is_on_demand, 409, '時間変更の提案は日時指定の予約リクエストだけで利用できます。');
 
         $validated = $request->validate([
             'scheduled_start_at' => ['required', 'date'],
@@ -124,7 +124,7 @@ class BookingStatusController extends Controller
         BookingNotificationService $bookingNotificationService,
     ): BookingResource {
         abort_unless($booking->user_account_id === $request->user()->id, 404);
-        abort_unless($booking->status === Booking::STATUS_REQUESTED, 409, 'Only pending booking requests can be confirmed.');
+        abort_unless($booking->status === Booking::STATUS_REQUESTED, 409, '承認待ちの予約リクエストだけ確認できます。');
 
         $attributes = $bookingRequestAdjustmentService->acceptedProposalAttributes($booking);
 
@@ -153,8 +153,8 @@ class BookingStatusController extends Controller
         BookingNotificationService $bookingNotificationService,
     ): BookingResource {
         abort_unless($booking->user_account_id === $request->user()->id, 404);
-        abort_unless($booking->status === Booking::STATUS_REQUESTED, 409, 'Only pending booking requests can be declined.');
-        abort_unless($booking->hasPendingTherapistAdjustment(), 409, 'There is no therapist adjustment proposal to decline.');
+        abort_unless($booking->status === Booking::STATUS_REQUESTED, 409, '承認待ちの予約リクエストだけ見送りできます。');
+        abort_unless($booking->hasPendingTherapistAdjustment(), 409, '見送りできる時間変更提案がありません。');
 
         $booking = $transition->transition(
             booking: $booking,
@@ -369,7 +369,7 @@ class BookingStatusController extends Controller
     {
         $this->authorizeTherapist($request, $booking);
 
-        abort_unless($booking->status === Booking::STATUS_THERAPIST_COMPLETED, 409, 'Completion timing can only be updated while waiting for user confirmation.');
+        abort_unless($booking->status === Booking::STATUS_THERAPIST_COMPLETED, 409, '施術時間は、利用者の完了確認待ちの間だけ修正できます。');
 
         $validated = $request->validate([
             'started_at' => ['required', 'date'],

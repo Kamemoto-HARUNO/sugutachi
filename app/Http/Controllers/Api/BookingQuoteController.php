@@ -44,13 +44,13 @@ class BookingQuoteController extends Controller
         if (! $isOnDemand) {
             if (! $requestedStartAt) {
                 throw ValidationException::withMessages([
-                    'requested_start_at' => ['The requested start time is required for scheduled bookings.'],
+                    'requested_start_at' => ['日時指定の予約では開始時刻の指定が必要です。'],
                 ]);
             }
 
             if (! filled($validated['availability_slot_id'] ?? null)) {
                 throw ValidationException::withMessages([
-                    'availability_slot_id' => ['The availability slot is required for scheduled bookings.'],
+                    'availability_slot_id' => ['日時指定の予約では空き枠の選択が必要です。'],
                 ]);
             }
 
@@ -76,7 +76,7 @@ class BookingQuoteController extends Controller
 
         if (! $menu->supportsDuration($validated['duration_minutes'])) {
             throw ValidationException::withMessages([
-                'duration_minutes' => ['The requested duration is shorter than the minimum duration for this menu.'],
+                'duration_minutes' => ['この対応内容では、選択した予約時間が最短時間を下回っています。'],
             ]);
         }
 
@@ -113,7 +113,7 @@ class BookingQuoteController extends Controller
             abort_if(
                 ! $matchingWindow,
                 409,
-                'The requested time is no longer available for that slot.'
+                '選択した時間は、すでに予約できなくなっています。'
             );
 
             [$originLat, $originLng] = $this->dispatchCoordinates($therapistProfile, $slot);

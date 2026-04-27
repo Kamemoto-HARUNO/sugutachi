@@ -19,6 +19,8 @@ import {
     formatCurrency,
     formatMenuHourlyRateLabel,
     formatMenuMinimumDurationLabel,
+    getPendingScheduledRequestActionLabel,
+    getPendingScheduledRequestNotice,
     formatWalkingTimeRange,
     getDefaultServiceAddress,
     getMenuMinimumDurationMinutes,
@@ -658,9 +660,15 @@ export function UserTherapistAvailabilityPage() {
 
     const selectedDurationIsValid = durationOptions.some((option) => option.value === displayedDuration);
     const selectedStartIsValid = startOptions.some((option) => option.value === requestedStartAt);
+    const pendingScheduledRequest = availability?.pending_scheduled_request ?? therapistDetail?.pending_scheduled_request ?? null;
+    const pendingScheduledRequestPath = pendingScheduledRequest ? `/user/bookings/${pendingScheduledRequest.public_id}` : '/user/bookings';
+    const pendingScheduledRequestLabel = formatDateTimeLabel(
+        pendingScheduledRequest?.scheduled_start_at ?? pendingScheduledRequest?.requested_start_at ?? null,
+    );
     const requestPath = useMemo(() => {
         if (
-            !publicId
+            pendingScheduledRequest
+            || !publicId
             || !selectedMenu
             || !selectedAddress
             || !selectedWindow
@@ -689,7 +697,19 @@ export function UserTherapistAvailabilityPage() {
         }
 
         return `/user/booking-request/quote?${params.toString()}`;
-    }, [availability?.walking_time_range, displayedDuration, publicId, requestedStartAt, selectedAddress, selectedCalendarDate?.walking_time_range, selectedDurationIsValid, selectedMenu, selectedStartIsValid, selectedWindow]);
+    }, [
+        availability?.walking_time_range,
+        displayedDuration,
+        pendingScheduledRequest,
+        publicId,
+        requestedStartAt,
+        selectedAddress,
+        selectedCalendarDate?.walking_time_range,
+        selectedDurationIsValid,
+        selectedMenu,
+        selectedStartIsValid,
+        selectedWindow,
+    ]);
 
     const hasAnyWindowsThisWeek = calendarDates.some((calendarDate) => calendarDate.window_count > 0);
     const canGoPreviousWeek = weekStart > todayDateValue();
@@ -698,7 +718,7 @@ export function UserTherapistAvailabilityPage() {
         window: PublicTherapistAvailabilityWindow,
         event: ReactMouseEvent<HTMLButtonElement>,
     ) {
-        if (!selectedMenu) {
+        if (pendingScheduledRequest || !selectedMenu) {
             return;
         }
 
@@ -741,7 +761,7 @@ export function UserTherapistAvailabilityPage() {
         event: ReactPointerEvent<HTMLButtonElement>,
         availabilityWindow: PublicTherapistAvailabilityWindow,
     ) {
-        if (!selectedMenu || !requestedStartAt) {
+        if (pendingScheduledRequest || !selectedMenu || !requestedStartAt) {
             return;
         }
 
@@ -1018,6 +1038,36 @@ export function UserTherapistAvailabilityPage() {
                     </section>
                 )}
 
+                {pendingScheduledRequest ? (
+                    <section className="rounded-[28px] border border-[#e7d5b3] bg-[#fff8ec] p-5 shadow-[0_10px_24px_rgba(23,32,43,0.06)] md:p-6">
+                        <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+                            <div className="space-y-2">
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">
+                                    {pendingScheduledRequest.status === 'payment_authorizing' ? '送信中の予約リクエスト' : '承認待ちの予約リクエスト'}
+                                </p>
+                                <h2 className="text-xl font-semibold text-[#17202b]">
+                                    いまはこのセラピストへ新しい予約リクエストを送れません
+                                </h2>
+                                <p className="text-sm leading-7 text-[#6f5a38]">
+                                    {getPendingScheduledRequestNotice(pendingScheduledRequest)}
+                                </p>
+                                {pendingScheduledRequestLabel ? (
+                                    <p className="text-xs text-[#7d6852]">
+                                        現在の予約候補: {pendingScheduledRequestLabel}
+                                    </p>
+                                ) : null}
+                            </div>
+
+                            <Link
+                                to={pendingScheduledRequestPath}
+                                className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243140]"
+                            >
+                                {getPendingScheduledRequestActionLabel(pendingScheduledRequest)}
+                            </Link>
+                        </div>
+                    </section>
+                ) : null}
+
                 {serviceAddresses.length === 0 ? (
                     <section className="rounded-[32px] bg-[#fffdf8] p-6 shadow-[0_10px_24px_rgba(23,32,43,0.08)] md:p-8">
                         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
@@ -1047,7 +1097,9 @@ export function UserTherapistAvailabilityPage() {
                                     <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">WEEKLY CALENDAR</p>
                                     <h2 className="text-2xl font-semibold text-[#17202b]">1週間の空きスケジュール</h2>
                                     <p className="text-sm leading-7 text-[#68707a]">
-                                        予約できる帯をタップすると、その帯を起点に開始時刻と予約時間を調整できます。
+                                        {pendingScheduledRequest
+                                            ? 'いまは空き枠の確認だけできます。新しい予約リクエストは、現在の承認待ちが解消したあとに送れます。'
+                                            : '予約できる帯をタップすると、その帯を起点に開始時刻と予約時間を調整できます。'}
                                     </p>
                                 </div>
 
@@ -1370,7 +1422,28 @@ export function UserTherapistAvailabilityPage() {
                             <section className="rounded-[32px] bg-[#17202b] p-6 text-white shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                                 <p className="text-xs font-semibold tracking-wide text-[#d2b179]">REQUEST SUMMARY</p>
 
-                                {selectedWindow && selectedAddress && selectedMenu && requestedStartAt && selectedDurationIsValid ? (
+                                {pendingScheduledRequest ? (
+                                    <div className="mt-5 space-y-4">
+                                        <div className="rounded-[22px] bg-white/8 px-4 py-4">
+                                            <p className="text-xs font-semibold text-[#d2b179]">
+                                                {pendingScheduledRequest.status === 'payment_authorizing' ? '送信中の予約リクエスト' : '承認待ちの予約リクエスト'}
+                                            </p>
+                                            <p className="mt-2 text-lg font-semibold text-white">
+                                                {pendingScheduledRequestLabel ?? '現在の予約内容を確認してください'}
+                                            </p>
+                                            <p className="mt-2 text-sm leading-7 text-[#d8d3ca]">
+                                                {getPendingScheduledRequestNotice(pendingScheduledRequest)}
+                                            </p>
+                                        </div>
+
+                                        <Link
+                                            to={pendingScheduledRequestPath}
+                                            className="inline-flex min-h-12 w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-bold text-[#1a2430] transition hover:brightness-105"
+                                        >
+                                            {getPendingScheduledRequestActionLabel(pendingScheduledRequest)}
+                                        </Link>
+                                    </div>
+                                ) : selectedWindow && selectedAddress && selectedMenu && requestedStartAt && selectedDurationIsValid ? (
                                     <div className="mt-5 space-y-4">
                                         <div className="rounded-[22px] bg-white/8 px-4 py-4">
                                             <p className="text-xs font-semibold text-[#d2b179]">選択中の枠</p>

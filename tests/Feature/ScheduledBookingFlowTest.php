@@ -103,7 +103,8 @@ class ScheduledBookingFlowTest extends TestCase
 
         $this->withToken($token)
             ->postJson('/api/bookings', ['quote_id' => $secondQuoteId])
-            ->assertConflict();
+            ->assertConflict()
+            ->assertJsonPath('message', 'このセラピストには、すでに承認待ちの予約リクエストがあります。');
     }
 
     public function test_scheduled_booking_rejects_when_user_has_two_pending_requests(): void
@@ -146,7 +147,8 @@ class ScheduledBookingFlowTest extends TestCase
 
         $this->withToken($token)
             ->postJson('/api/bookings', ['quote_id' => $thirdQuoteId])
-            ->assertConflict();
+            ->assertConflict()
+            ->assertJsonPath('message', '承認待ちの予約リクエストは2件までです。');
     }
 
     public function test_scheduled_booking_rechecks_active_on_demand_block_when_creating_booking(): void

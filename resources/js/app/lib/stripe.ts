@@ -42,7 +42,7 @@ export interface StripeInstance {
     ) => Promise<StripePaymentIntentResult>;
 }
 
-type StripeFactory = (publishableKey: string) => StripeInstance;
+type StripeFactory = (publishableKey: string, options?: Record<string, unknown>) => StripeInstance;
 
 declare global {
     interface Window {
@@ -100,5 +100,7 @@ export async function createStripeInstance(publishableKey: string): Promise<Stri
         throw new Error('Stripe.js を初期化できませんでした。');
     }
 
-    return window.Stripe(publishableKey);
+    return window.Stripe(publishableKey, {
+        locale: 'ja',
+    });
 }

@@ -25,12 +25,30 @@ class PublicTherapistDetailResource extends JsonResource
             'is_online' => data_get($this->resource, 'is_online'),
             'walking_time_range' => data_get($this->resource, 'walking_time_range'),
             'lowest_estimated_total_amount' => data_get($this->resource, 'lowest_estimated_total_amount'),
+            'pending_scheduled_request' => $this->pendingScheduledRequestSummary(),
             'menus' => PublicTherapistMenuResource::collection(
                 Collection::make(data_get($this->resource, 'menus', []))
             ),
             'photos' => PublicProfilePhotoResource::collection(
                 Collection::make(data_get($this->resource, 'photos', []))
             ),
+        ];
+    }
+
+    private function pendingScheduledRequestSummary(): ?array
+    {
+        $pendingRequest = data_get($this->resource, 'pending_scheduled_request');
+
+        if (! is_array($pendingRequest)) {
+            return null;
+        }
+
+        return [
+            'public_id' => data_get($pendingRequest, 'public_id'),
+            'status' => data_get($pendingRequest, 'status'),
+            'requested_start_at' => data_get($pendingRequest, 'requested_start_at'),
+            'scheduled_start_at' => data_get($pendingRequest, 'scheduled_start_at'),
+            'request_expires_at' => data_get($pendingRequest, 'request_expires_at'),
         ];
     }
 }

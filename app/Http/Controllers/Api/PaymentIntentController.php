@@ -25,13 +25,13 @@ class PaymentIntentController extends Controller
         abort_unless(
             $booking->status === Booking::STATUS_PAYMENT_AUTHORIZING,
             409,
-            'Payment can only be created before the booking request is sent.'
+            'カード確認は、予約リクエスト送信前にだけ開始できます。'
         );
 
         $booking->load(['currentQuote', 'userAccount', 'therapistAccount', 'therapistProfile.stripeConnectedAccount']);
         $quote = $booking->currentQuote;
 
-        abort_unless($quote, 409, 'Current quote is missing.');
+        abort_unless($quote, 409, '現在の見積もりが見つかりません。');
 
         $authorizationAmounts = $bookingSettlementCalculator->calculateAuthorizationAmounts($quote);
         $authorizationQuote = clone $quote;

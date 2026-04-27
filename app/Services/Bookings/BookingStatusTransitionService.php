@@ -36,7 +36,7 @@ class BookingStatusTransitionService
             abort_unless(
                 in_array($lockedBooking->status, $allowedFromStatuses, true),
                 409,
-                "Booking status [{$lockedBooking->status}] cannot transition to [{$toStatus}]."
+                "現在の予約ステータス（{$lockedBooking->status}）からは、{$toStatus} へ進めません。"
             );
 
             if ($beforeTransition) {

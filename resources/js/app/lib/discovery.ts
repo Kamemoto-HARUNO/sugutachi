@@ -1,5 +1,5 @@
 import { buildCurrentJstDateTimeLocalValue, buildRoundedJstDateTimeLocalValue } from './datetime';
-import type { ServiceAddress, TherapistMenu, TherapistSearchResult } from './types';
+import type { PendingScheduledRequestSummary, ServiceAddress, TherapistMenu, TherapistSearchResult } from './types';
 
 export type BookingStartType = 'now' | 'scheduled';
 export type DiscoverySort = 'recommended' | 'soonest' | 'rating';
@@ -123,6 +123,26 @@ export function formatWalkingTimeRange(range: string | null | undefined): string
     }
 
     return WALKING_TIME_LABELS[range] ?? '徒歩目安を確認';
+}
+
+export function getPendingScheduledRequestActionLabel(
+    pendingRequest: PendingScheduledRequestSummary | null | undefined,
+): string {
+    if (pendingRequest?.status === 'payment_authorizing') {
+        return '送信中の予約を確認';
+    }
+
+    return '承認待ちの予約を確認';
+}
+
+export function getPendingScheduledRequestNotice(
+    pendingRequest: PendingScheduledRequestSummary | null | undefined,
+): string {
+    if (pendingRequest?.status === 'payment_authorizing') {
+        return 'このセラピストには送信中の予約リクエストがあります。カード確認が完了するまでは、新しい予約リクエストを送れません。';
+    }
+
+    return 'このセラピストには承認待ちの予約リクエストがあります。承認・見送り・期限切れのあとに次の予約リクエストを送れます。';
 }
 
 export function sortTherapistSearchResults(

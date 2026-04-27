@@ -7,6 +7,7 @@ use App\Http\Resources\PublicTherapistAvailabilityResource;
 use App\Http\Resources\PublicTherapistDetailResource;
 use App\Http\Resources\PublicTherapistSearchResultResource;
 use App\Models\Account;
+use App\Models\Booking;
 use App\Models\LocationSearchLog;
 use App\Models\ProfilePhoto;
 use App\Models\ServiceAddress;
@@ -119,15 +120,18 @@ class TherapistDiscoveryController extends Controller
             ?? $menu->minimum_duration_minutes);
 
         return new PublicTherapistAvailabilityResource(
-            $calculator->calculateWithAvailableDates(
-                profile: $profile,
-                menu: $menu,
-                serviceAddress: $serviceAddress,
-                date: $selectedDate,
-                availableDatesStartDate: $availableDatesStartDate,
-                requestedDurationMinutes: $requestedDurationMinutes,
-                availableDatesDays: (int) ($validated['calendar_days'] ?? 14),
-            )
+            [
+                ...$calculator->calculateWithAvailableDates(
+                    profile: $profile,
+                    menu: $menu,
+                    serviceAddress: $serviceAddress,
+                    date: $selectedDate,
+                    availableDatesStartDate: $availableDatesStartDate,
+                    requestedDurationMinutes: $requestedDurationMinutes,
+                    availableDatesDays: (int) ($validated['calendar_days'] ?? 14),
+                ),
+                'pending_scheduled_request' => $this->pendingScheduledRequestSummary($request->user(), $profile),
+            ]
         );
     }
 
@@ -192,6 +196,7 @@ class TherapistDiscoveryController extends Controller
         return new PublicTherapistDetailResource(
             $this->buildDetailResult(
                 profile: $profile,
+                viewer: $viewer,
                 serviceAddress: $serviceAddress,
                 calculator: $calculator,
                 requestedDurationMinutes: $validated['menu_duration_minutes'] ?? null,
@@ -324,6 +329,7 @@ class TherapistDiscoveryController extends Controller
 
     private function buildDetailResult(
         TherapistProfile $profile,
+        ?Account $viewer,
         ?ServiceAddress $serviceAddress,
         BookingQuoteCalculator $calculator,
         ?int $requestedDurationMinutes,
@@ -392,6 +398,7 @@ class TherapistDiscoveryController extends Controller
             'is_online' => $profile->is_online,
             'walking_time_range' => $walkingEstimate['walking_time_range'] ?? null,
             'lowest_estimated_total_amount' => $walkingEstimate['total_amount'] ?? null,
+            'pending_scheduled_request' => $this->pendingScheduledRequestSummary($viewer, $profile),
             'menus' => $menuEstimates->all(),
             'photos' => $this->publicPhotos($profile->photos),
         ];
@@ -484,7 +491,7 @@ class TherapistDiscoveryController extends Controller
 
         if ($validated['start_type'] === 'scheduled' && blank($validated['scheduled_start_at'] ?? null)) {
             throw ValidationException::withMessages([
-                'scheduled_start_at' => 'Scheduled start time is required when start_type is scheduled.',
+                'scheduled_start_at' => '日時指定で探す場合は開始日時の指定が必要です。',
             ]);
         }
 
@@ -497,7 +504,7 @@ class TherapistDiscoveryController extends Controller
         if (filled($validated['service_address_id'] ?? null)) {
             if (! $viewer) {
                 throw ValidationException::withMessages([
-                    'service_address_id' => 'Authentication is required to use a saved service address.',
+                    'service_address_id' => '保存した待ち合わせ場所を使うにはログインが必要です。',
                 ]);
             }
 
@@ -513,5 +520,35 @@ class TherapistDiscoveryController extends Controller
     private function authenticatedViewer(Request $request): ?Account
     {
         return $request->user() ?? Auth::guard('sanctum')->user();
+    }
+
+    private function pendingScheduledRequestSummary(?Account $viewer, TherapistProfile $profile): ?array
+    {
+        if (! $viewer) {
+            return null;
+        }
+
+        $booking = Booking::query()
+            ->where('user_account_id', $viewer->id)
+            ->where('therapist_profile_id', $profile->id)
+            ->where('is_on_demand', false)
+            ->whereIn('status', [
+                Booking::STATUS_PAYMENT_AUTHORIZING,
+                Booking::STATUS_REQUESTED,
+            ])
+            ->latest('id')
+            ->first();
+
+        if (! $booking) {
+            return null;
+        }
+
+        return [
+            'public_id' => $booking->public_id,
+            'status' => $booking->status,
+            'requested_start_at' => $booking->requested_start_at?->toIso8601String(),
+            'scheduled_start_at' => $booking->scheduled_start_at?->toIso8601String(),
+            'request_expires_at' => $booking->request_expires_at?->toIso8601String(),
+        ];
     }
 }

@@ -339,6 +339,49 @@ class PublicTherapistAvailabilityApiTest extends TestCase
             ->assertJsonPath('data.windows.0.unavailable_reason', 'outside_service_area');
     }
 
+    public function test_public_availability_includes_pending_scheduled_request_summary_for_same_therapist(): void
+    {
+        [$user, $serviceAddress, $profile, $menu] = $this->createAvailabilityFixture();
+
+        TherapistAvailabilitySlot::create([
+            'public_id' => 'slot_public_pending_same',
+            'therapist_profile_id' => $profile->id,
+            'start_at' => CarbonImmutable::parse('2030-01-06 20:00:00'),
+            'end_at' => CarbonImmutable::parse('2030-01-06 22:00:00'),
+            'status' => TherapistAvailabilitySlot::STATUS_PUBLISHED,
+            'dispatch_base_type' => TherapistAvailabilitySlot::DISPATCH_BASE_TYPE_DEFAULT,
+            'dispatch_area_label' => '天神周辺',
+        ]);
+
+        $pendingBooking = Booking::create([
+            'public_id' => 'book_public_pending_same',
+            'user_account_id' => $user->id,
+            'therapist_account_id' => $profile->account_id,
+            'therapist_profile_id' => $profile->id,
+            'therapist_menu_id' => $menu->id,
+            'service_address_id' => $serviceAddress->id,
+            'status' => Booking::STATUS_REQUESTED,
+            'is_on_demand' => false,
+            'requested_start_at' => CarbonImmutable::parse('2030-01-06 20:00:00'),
+            'scheduled_start_at' => CarbonImmutable::parse('2030-01-06 20:00:00'),
+            'scheduled_end_at' => CarbonImmutable::parse('2030-01-06 21:00:00'),
+            'duration_minutes' => 60,
+            'request_expires_at' => CarbonImmutable::parse('2030-01-06 18:00:00'),
+            'total_amount' => 12300,
+            'therapist_net_amount' => 10800,
+            'platform_fee_amount' => 1200,
+            'matching_fee_amount' => 300,
+        ]);
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->getJson("/api/therapists/{$profile->public_id}/availability?service_address_id={$serviceAddress->public_id}&therapist_menu_id={$menu->public_id}&date=2030-01-06")
+            ->assertOk()
+            ->assertJsonPath('data.pending_scheduled_request.public_id', $pendingBooking->public_id)
+            ->assertJsonPath('data.pending_scheduled_request.status', Booking::STATUS_REQUESTED)
+            ->assertJsonPath('data.pending_scheduled_request.scheduled_start_at', $pendingBooking->scheduled_start_at?->toIso8601String())
+            ->assertJsonPath('data.pending_scheduled_request.request_expires_at', $pendingBooking->request_expires_at?->toIso8601String());
+    }
+
     private function createAvailabilityFixture(): array
     {
         $user = Account::factory()->create(['public_id' => 'acc_public_availability_user_'.fake()->unique()->numerify('###')]);

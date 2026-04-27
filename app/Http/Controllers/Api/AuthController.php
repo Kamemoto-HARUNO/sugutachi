@@ -88,7 +88,7 @@ class AuthController extends Controller
         }
 
         if ($account->status !== 'active') {
-            abort(403, 'This account is not active.');
+            abort(403, 'このアカウントは現在利用できません。');
         }
 
         $account->forceFill(['last_login_at' => now()])->save();
@@ -142,11 +142,11 @@ class AuthController extends Controller
         $errors = [];
 
         if (! $documents->has('terms')) {
-            $errors['accepted_terms_version'] = ['The selected terms version is invalid.'];
+            $errors['accepted_terms_version'] = ['選択された利用規約の版が無効です。'];
         }
 
         if (! $documents->has('privacy')) {
-            $errors['accepted_privacy_version'] = ['The selected privacy version is invalid.'];
+            $errors['accepted_privacy_version'] = ['選択されたプライバシーポリシーの版が無効です。'];
         }
 
         if ($errors !== []) {

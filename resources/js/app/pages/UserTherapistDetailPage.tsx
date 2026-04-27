@@ -11,6 +11,8 @@ import {
     formatMenuMinimumDurationLabel,
     formatWalkingTimeRange,
     getDefaultServiceAddress,
+    getPendingScheduledRequestActionLabel,
+    getPendingScheduledRequestNotice,
     getServiceAddressLabel,
     type BookingStartType,
     type DiscoverySort,
@@ -43,6 +45,19 @@ function formatScheduledLabel(value: string): string {
         hour: '2-digit',
         minute: '2-digit',
     }) ?? '開始日時を未指定';
+}
+
+function formatPendingScheduledRequestLabel(value: string | null): string | null {
+    if (!value) {
+        return null;
+    }
+
+    return formatJstDateTime(value, {
+        month: 'numeric',
+        day: 'numeric',
+        hour: '2-digit',
+        minute: '2-digit',
+    });
 }
 
 function resolveAvailabilityDate(value: string): string {
@@ -152,6 +167,8 @@ export function UserTherapistDetailPage() {
         return `/user/therapists/${therapistDetail.public_id}/travel-request${nextQueryString ? `?${nextQueryString}` : ''}`;
     }, [searchParams, selectedAddress?.prefecture, therapistDetail]);
     const canUseUserFlows = isAuthenticated && hasRole('user');
+    const pendingScheduledRequest = therapistDetail?.pending_scheduled_request ?? null;
+    const pendingScheduledRequestPath = pendingScheduledRequest ? `/user/bookings/${pendingScheduledRequest.public_id}` : '/user/bookings';
     const loginAvailabilityPath = intendedAvailabilityPath
         ? `/login?return_to=${encodeURIComponent(intendedAvailabilityPath)}`
         : '/login';
@@ -182,7 +199,12 @@ export function UserTherapistDetailPage() {
             ? '/role-select?add_role=user&return_to=%2Fuser%2Fservice-addresses'
             : '/register';
     const primaryAction = canUseUserFlows
-        ? { label: '空き時間を見る', to: availabilityPath }
+        ? {
+            label: pendingScheduledRequest
+                ? getPendingScheduledRequestActionLabel(pendingScheduledRequest)
+                : '空き時間を見る',
+            to: pendingScheduledRequest ? pendingScheduledRequestPath : availabilityPath,
+        }
         : isAuthenticated
             ? { label: '利用者モードを追加して空き時間を見る', to: enableUserRolePath }
         : { label: 'ログインして空き時間を見る', to: loginAvailabilityPath };
@@ -391,6 +413,9 @@ export function UserTherapistDetailPage() {
         ? `${formatScheduledLabel(scheduledStartAt)} を起点に空き時間を確認できます。`
         : '空き時間画面で日付と希望時間を選べます。';
     const photoTrackBasePercent = photoSnapDirection === 1 ? -200 : photoSnapDirection === -1 ? 0 : -100;
+    const pendingScheduledRequestLabel = formatPendingScheduledRequestLabel(
+        pendingScheduledRequest?.scheduled_start_at ?? pendingScheduledRequest?.requested_start_at ?? null,
+    );
 
     const animatePhotoSlide = (direction: 1 | -1) => {
         if (!therapistDetail || therapistDetail.photos.length <= 1 || isPhotoTrackAnimating) {
@@ -832,6 +857,21 @@ export function UserTherapistDetailPage() {
                                     </div>
 
                                     <div className="space-y-3">
+                                        {pendingScheduledRequest ? (
+                                            <div className="rounded-[20px] border border-[#e7d5b3] bg-[#fff8ec] p-4 text-sm leading-7 text-[#6f5a38]">
+                                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">
+                                                    {pendingScheduledRequest.status === 'payment_authorizing' ? '送信中の予約リクエスト' : '承認待ちの予約リクエスト'}
+                                                </p>
+                                                <p className="mt-2 font-semibold text-[#17202b]">
+                                                    {getPendingScheduledRequestNotice(pendingScheduledRequest)}
+                                                </p>
+                                                {pendingScheduledRequestLabel ? (
+                                                    <p className="mt-2 text-xs text-[#7d6852]">
+                                                        現在の予約候補: {pendingScheduledRequestLabel}
+                                                    </p>
+                                                ) : null}
+                                            </div>
+                                        ) : null}
                                         <Link
                                             to={primaryAction.to}
                                             className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-bold text-[#1a2430] transition hover:brightness-105"

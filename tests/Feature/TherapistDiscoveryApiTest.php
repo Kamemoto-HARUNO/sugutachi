@@ -127,6 +127,44 @@ class TherapistDiscoveryApiTest extends TestCase
             ->assertJsonPath('data.lowest_estimated_total_amount', null);
     }
 
+    public function test_user_can_view_pending_scheduled_request_summary_on_therapist_detail(): void
+    {
+        [$user, $address, $nearbyProfile, , $nearbyTherapist] = $this->createDiscoveryFixture();
+
+        $menu = TherapistMenu::query()
+            ->where('therapist_profile_id', $nearbyProfile->id)
+            ->orderBy('sort_order')
+            ->firstOrFail();
+
+        $pendingBooking = Booking::create([
+            'public_id' => 'book_pending_same_therapist',
+            'user_account_id' => $user->id,
+            'therapist_account_id' => $nearbyTherapist->id,
+            'therapist_profile_id' => $nearbyProfile->id,
+            'therapist_menu_id' => $menu->id,
+            'service_address_id' => $address->id,
+            'status' => Booking::STATUS_REQUESTED,
+            'is_on_demand' => false,
+            'requested_start_at' => now()->addDay()->startOfHour(),
+            'scheduled_start_at' => now()->addDay()->startOfHour(),
+            'scheduled_end_at' => now()->addDay()->startOfHour()->addMinutes(90),
+            'duration_minutes' => 90,
+            'request_expires_at' => now()->addHours(6),
+            'total_amount' => 15300,
+            'therapist_net_amount' => 13800,
+            'platform_fee_amount' => 1200,
+            'matching_fee_amount' => 300,
+        ]);
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->getJson("/api/therapists/{$nearbyProfile->public_id}?service_address_id={$address->public_id}")
+            ->assertOk()
+            ->assertJsonPath('data.pending_scheduled_request.public_id', $pendingBooking->public_id)
+            ->assertJsonPath('data.pending_scheduled_request.status', Booking::STATUS_REQUESTED)
+            ->assertJsonPath('data.pending_scheduled_request.scheduled_start_at', $pendingBooking->scheduled_start_at?->toIso8601String())
+            ->assertJsonPath('data.pending_scheduled_request.request_expires_at', $pendingBooking->request_expires_at?->toIso8601String());
+    }
+
     public function test_guest_can_view_public_reviews_without_authentication(): void
     {
         [$user, , $nearbyProfile, , $nearbyTherapist, $booking] = $this->createDiscoveryFixture();

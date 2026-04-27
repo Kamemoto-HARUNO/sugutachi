@@ -79,7 +79,7 @@ class BookingSettlementCalculator
         $booking->loadMissing('currentQuote');
 
         if (! $booking->currentQuote) {
-            throw new RuntimeException('Current quote is missing.');
+            throw new RuntimeException('現在の見積もりが見つかりません。');
         }
 
         return $this->calculateFromQuote($booking->currentQuote, $durationMinutes);
