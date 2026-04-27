@@ -104,6 +104,32 @@ function toOptionalNumber(value: string): number | null {
     return Number.isFinite(parsed) ? parsed : null;
 }
 
+function listingStatusLabel(profile: TherapistProfileRecord | null): string {
+    if (!profile) {
+        return '確認中';
+    }
+
+    if (profile.profile_status !== 'approved') {
+        return '公開準備中';
+    }
+
+    return profile.is_listed ? '公開中' : '非公開';
+}
+
+function listingStatusTone(profile: TherapistProfileRecord | null): string {
+    if (!profile) {
+        return 'bg-[#f1efe8] text-[#48505a]';
+    }
+
+    if (profile.profile_status !== 'approved') {
+        return 'bg-[#fff2dd] text-[#8b5a16]';
+    }
+
+    return profile.is_listed
+        ? 'bg-[#e9f4ea] text-[#24553a]'
+        : 'bg-[#f3ece4] text-[#6a5642]';
+}
+
 export function TherapistProfilePage() {
     const { token } = useAuth();
     const [meProfile, setMeProfile] = useState<MeProfileRecord | null>(null);
@@ -125,6 +151,7 @@ export function TherapistProfilePage() {
     const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSavingProfile, setIsSavingProfile] = useState(false);
+    const [isUpdatingListing, setIsUpdatingListing] = useState(false);
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
     const [isDeletingPhotoId, setIsDeletingPhotoId] = useState<number | null>(null);
     const [pendingMenuId, setPendingMenuId] = useState<string | null>(null);
@@ -194,6 +221,8 @@ export function TherapistProfilePage() {
         () => (meProfile?.photos ?? []).filter((photo) => photo.usage_type === 'therapist_profile'),
         [meProfile],
     );
+    const canListProfile = Boolean(profile?.profile_status === 'approved' && !profile.is_listed);
+    const canHideProfile = Boolean(profile?.profile_status === 'approved' && profile.is_listed);
     const approvedOrPendingPhotoCount = useMemo(
         () => therapistPhotos.filter((photo) => photo.status === 'approved' || photo.status === 'pending').length,
         [therapistPhotos],
@@ -240,6 +269,40 @@ export function TherapistProfilePage() {
         setMenuDrafts((current) => current.map((draft) => (
             draft.public_id === publicId ? { ...draft, ...patch } : draft
         )));
+    }
+
+    async function updateListingState(isListed: boolean) {
+        if (!token) {
+            return;
+        }
+
+        setIsUpdatingListing(true);
+        setError(null);
+        setSuccessMessage(null);
+
+        try {
+            const payload = await apiRequest<ApiEnvelope<TherapistProfileRecord>>('/me/therapist/listing', {
+                method: 'PUT',
+                token,
+                body: {
+                    is_listed: isListed,
+                },
+            });
+
+            setProfile(unwrapData(payload));
+            setSuccessMessage(isListed
+                ? 'プロフィールを公開しました。'
+                : 'プロフィールを非公開にしました。');
+            await loadData();
+        } catch (requestError) {
+            const message = requestError instanceof ApiError
+                ? requestError.message
+                : '公開設定の更新に失敗しました。';
+
+            setError(message);
+        } finally {
+            setIsUpdatingListing(false);
+        }
     }
 
     function handlePhotoFileChange(event: ChangeEvent<HTMLInputElement>) {
@@ -553,6 +616,61 @@ export function TherapistProfilePage() {
                         差し戻し理由: {formatRejectionReason(profile.rejected_reason_code)}
                     </div>
                 ) : null}
+            </section>
+
+            <section className="rounded-[24px] border border-white/10 bg-white/5 p-6">
+                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                    <div className="space-y-2">
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">公開設定</p>
+                        <h2 className="text-xl font-semibold text-white">プロフィールを公開するかここで切り替え</h2>
+                        <p className="max-w-3xl text-sm leading-7 text-slate-300">
+                            利用者にこのプロフィールを見せるかどうかを、このページでもすぐ切り替えられます。オンライン受付や現在地の設定は「設定」タブで続けて調整できます。
+                        </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-[#111923] px-5 py-4 text-sm text-slate-200">
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">現在の公開状態</p>
+                        <span className={['mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold', listingStatusTone(profile)].join(' ')}>
+                            {listingStatusLabel(profile)}
+                        </span>
+                        <p className="mt-3 text-xs leading-6 text-slate-400">
+                            {profile?.profile_status === 'approved'
+                                ? profile.is_listed
+                                    ? '公開中は検索結果や詳細ページに表示されます。'
+                                    : '非公開中は検索結果や詳細ページに表示されません。'
+                                : '本人確認・年齢確認と必須情報が揃うと公開できます。'}
+                        </p>
+                    </div>
+                </div>
+
+                <div className="mt-5 flex flex-wrap gap-3">
+                    <button
+                        type="button"
+                        onClick={() => {
+                            void updateListingState(true);
+                        }}
+                        disabled={isUpdatingListing || !canListProfile}
+                        className="inline-flex items-center rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                        {isUpdatingListing && canListProfile ? '切り替え中...' : 'プロフィールを公開する'}
+                    </button>
+                    <button
+                        type="button"
+                        onClick={() => {
+                            void updateListingState(false);
+                        }}
+                        disabled={isUpdatingListing || !canHideProfile}
+                        className="inline-flex items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+                    >
+                        {isUpdatingListing && canHideProfile ? '切り替え中...' : 'プロフィールを非公開にする'}
+                    </button>
+                    <Link
+                        to="/therapist/settings"
+                        className="inline-flex items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/5"
+                    >
+                        オンライン受付や現在地は設定で調整
+                    </Link>
+                </div>
             </section>
 
             <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
