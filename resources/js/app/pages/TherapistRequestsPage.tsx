@@ -568,7 +568,7 @@ export function TherapistRequestsPage() {
                                         setSelectedRequestId(request.public_id);
                                         setSuccessMessage(null);
                                     }}
-                                    className={`w-full rounded-[28px] border px-6 py-5 text-left transition ${
+                                    className={`block w-full overflow-hidden rounded-[28px] border px-6 py-5 text-left transition ${
                                         isSelected
                                             ? 'border-[#f4cf8f] bg-[#fff6ea] text-[#17202b] shadow-[0_20px_45px_rgba(14,19,27,0.12)]'
                                             : 'border-white/10 bg-white/5 text-white hover:bg-white/8'
