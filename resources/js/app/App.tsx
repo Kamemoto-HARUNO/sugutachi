@@ -10,6 +10,7 @@ import {
 } from 'react-router-dom';
 import { ActiveUserBookingDock } from './components/booking';
 import { LoadingScreen } from './components/LoadingScreen';
+import { PushOptInModal } from './components/notifications/PushOptInModal';
 import { PlaceholderScreen } from './components/PlaceholderScreen';
 import { useAuth } from './hooks/useAuth';
 import {
@@ -412,6 +413,7 @@ export function App() {
                 <AuthProvider>
                     <NotificationProvider>
                         <AppRoutes />
+                        <PushOptInModal />
                     </NotificationProvider>
                 </AuthProvider>
             </ToastProvider>
