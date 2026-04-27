@@ -31,11 +31,11 @@ const closedStatuses = new Set([
 ]);
 
 function normalizeGroup(value: string | null): BookingGroup {
-    if (value === 'active' || value === 'completed' || value === 'closed') {
+    if (value === 'all' || value === 'active' || value === 'completed' || value === 'closed') {
         return value;
     }
 
-    return 'all';
+    return 'active';
 }
 
 function normalizeRequestType(value: string | null): RequestTypeFilter {
