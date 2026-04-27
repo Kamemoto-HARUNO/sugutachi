@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
@@ -98,7 +98,63 @@ function buildPayoutHint(
         return 'いま出金できる残高はありません。売上が解放されるとここに反映されます。';
     }
 
-    return '出金可能額の全額をまとめて申請します。MVPでは部分出金は受け付けません。';
+    return 'いま出金できる残高をまとめて申請できます。申請後は次回の処理日まで結果をお待ちください。';
+}
+
+function HelpTooltipButton({
+    label,
+    body,
+}: {
+    label: string;
+    body: string;
+}) {
+    const [isOpen, setIsOpen] = useState(false);
+    const containerRef = useRef<HTMLSpanElement | null>(null);
+
+    useEffect(() => {
+        if (!isOpen) {
+            return;
+        }
+
+        function handlePointerDown(event: MouseEvent) {
+            if (!containerRef.current?.contains(event.target as Node)) {
+                setIsOpen(false);
+            }
+        }
+
+        document.addEventListener('mousedown', handlePointerDown);
+
+        return () => {
+            document.removeEventListener('mousedown', handlePointerDown);
+        };
+    }, [isOpen]);
+
+    return (
+        <span
+            ref={containerRef}
+            className="relative inline-flex items-center"
+            onMouseEnter={() => setIsOpen(true)}
+            onMouseLeave={() => setIsOpen(false)}
+        >
+            <button
+                type="button"
+                aria-label={label}
+                aria-expanded={isOpen}
+                onClick={() => setIsOpen((current) => !current)}
+                className="inline-flex h-5 w-5 items-center justify-center rounded-full border border-[#d2b179]/50 text-[11px] font-semibold text-[#d2b179] transition hover:border-[#d2b179] hover:text-white"
+            >
+                ?
+            </button>
+            <span
+                className={`pointer-events-none absolute bottom-full left-1/2 z-20 mb-2 w-64 -translate-x-1/2 rounded-2xl border border-white/10 bg-[#101824] px-4 py-3 text-left text-xs font-normal leading-6 text-slate-200 shadow-[0_18px_40px_rgba(15,23,42,0.28)] transition ${
+                    isOpen ? 'visible opacity-100' : 'invisible opacity-0'
+                }`}
+                role="tooltip"
+            >
+                {body}
+            </span>
+        </span>
+    );
 }
 
 export function TherapistBalancePage() {
@@ -214,8 +270,8 @@ export function TherapistBalancePage() {
                         <div className="space-y-2">
                             <h1 className="text-3xl font-semibold">売上と出金</h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                                売上の保留、出金可能額、進行中の出金申請をここでまとめて確認します。
-                                MVPでは出金可能額の全額申請のみを受け付け、処理日は 5日・15日・25日 のサイクルで管理します。
+                                予約完了後の売上状況、出金できる金額、進行中の出金申請をここでまとめて確認できます。
+                                出金申請は現在、出金可能額をまとめて受け付けており、処理日は 5日・15日・25日 のサイクルで管理しています。
                             </p>
                         </div>
                     </div>
@@ -253,16 +309,24 @@ export function TherapistBalancePage() {
 
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {[
-                    { label: '出金可能額', value: formatCurrency(balance?.requestable_amount), hint: '今すぐ申請に使える残高' },
-                    { label: '保留中売上', value: formatCurrency(balance?.pending_amount), hint: '完了後の解放待ち' },
-                    { label: '申請中', value: formatCurrency(balance?.payout_requested_amount), hint: '処理待ちの出金申請' },
-                    { label: '累計支払済み', value: formatCurrency(balance?.paid_amount), hint: 'これまでの支払済み総額' },
+                    { label: '出金可能額', value: formatCurrency(balance?.requestable_amount), hint: 'いま出金申請に使える残高' },
+                    { label: '保留中売上', value: formatCurrency(balance?.pending_amount), hint: '完了後3日間の確認期間中', helpBody: '予約が完了した売上は、返金やトラブル確認のため3日間だけ保留されます。期間を過ぎると自動で出金可能額へ移ります。' },
+                    { label: '申請中', value: formatCurrency(balance?.payout_requested_amount), hint: '現在処理を待っている出金申請' },
+                    { label: '累計支払済み', value: formatCurrency(balance?.paid_amount), hint: 'これまでに支払済みになった総額' },
                 ].map((item) => (
                     <article
                         key={item.label}
                         className="rounded-[24px] border border-white/10 bg-white/5 p-5 shadow-[0_12px_28px_rgba(15,23,42,0.08)]"
                     >
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">{item.label}</p>
+                        <div className="flex items-center gap-2">
+                            <p className="text-xs font-semibold tracking-wide text-[#d2b179]">{item.label}</p>
+                            {item.helpBody ? (
+                                <HelpTooltipButton
+                                    label={`${item.label}について`}
+                                    body={item.helpBody}
+                                />
+                            ) : null}
+                        </div>
                         <p className="mt-3 text-3xl font-semibold text-white">{item.value}</p>
                         <p className="mt-2 text-sm leading-6 text-slate-300">{item.hint}</p>
                     </article>
@@ -375,9 +439,6 @@ export function TherapistBalancePage() {
                                         <div className="flex items-start justify-between gap-4">
                                             <div className="space-y-2">
                                                 <p className="text-sm font-semibold text-white">{ledgerEntryTypeLabel(entry.entry_type)}</p>
-                                                <p className="text-xs text-slate-400">
-                                                    {entry.description ?? '台帳メモなし'}
-                                                </p>
                                             </div>
                                             <p className={`text-sm font-semibold ${
                                                 entry.amount_signed >= 0 ? 'text-emerald-200' : 'text-rose-200'
@@ -407,7 +468,7 @@ export function TherapistBalancePage() {
                             <div className="mt-5 rounded-[24px] border border-dashed border-white/10 bg-[#17202b] p-6 text-center">
                                 <p className="text-sm font-semibold text-white">まだ台帳エントリはありません。</p>
                                 <p className="mt-2 text-sm leading-7 text-slate-300">
-                                    予約完了後に売上が発生すると、ここに解放待ちと支払履歴が積み上がっていきます。
+                                    予約完了後に売上が発生すると、ここに保留中・出金可能・支払済みの履歴が積み上がっていきます。
                                 </p>
                             </div>
                         )}

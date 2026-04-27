@@ -58,7 +58,7 @@ class TherapistPayoutRequestController extends Controller
         abort_unless(
             $requestedAmount === $availableAmount,
             422,
-            'MVP payout requests must use the full available balance.'
+            '現在は出金可能額の全額をまとめて申請してください。'
         );
 
         $payoutRequest = DB::transaction(function () use ($account, $connectedAccount, $requestedAmount): PayoutRequest {

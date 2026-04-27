@@ -46,8 +46,8 @@ class BookingCompletionService
                 'therapist_account_id' => $booking->therapist_account_id,
                 'amount_signed' => $booking->therapist_net_amount,
                 'status' => TherapistLedgerEntry::STATUS_PENDING,
-                'available_at' => now()->addDays(7),
-                'description' => 'Booking sale pending release',
+                'available_at' => now()->addDays(3),
+                'description' => null,
                 'metadata_json' => [
                     'booking_public_id' => $booking->public_id,
                 ],
