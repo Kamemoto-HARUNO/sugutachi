@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { canOpenBookingNoShowFlow } from '../lib/bookingTrouble';
 import { formatJstDateTime } from '../lib/datetime';
 import { formatCurrency, getServiceAddressLabel } from '../lib/discovery';
 import type {
@@ -253,6 +254,10 @@ export function UserBookingDetailPage() {
     }, [loadBooking]);
 
     const timeline = useMemo(() => (booking ? buildTimeline(booking) : []), [booking]);
+    const canOpenNoShowFlow = useMemo(
+        () => (booking ? canOpenBookingNoShowFlow(booking, 'user') : false),
+        [booking],
+    );
 
     async function handleCompleteConfirmation() {
         if (!token || !booking || booking.status !== 'therapist_completed' || isConfirmingCompletion) {
@@ -682,6 +687,14 @@ export function UserBookingDetailPage() {
                         </div>
 
                         <div className="mt-6 space-y-3">
+                            {canOpenNoShowFlow ? (
+                                <Link
+                                    to={`/user/bookings/${booking.public_id}/no-show`}
+                                    className="inline-flex w-full items-center justify-center rounded-full border border-[#e6b36d] bg-[#fff8ee] px-5 py-3 text-sm font-semibold text-[#8c5b19] transition hover:bg-[#fff1d9]"
+                                >
+                                    来ない・連絡が取れない
+                                </Link>
+                            ) : null}
                             {['payment_authorizing', 'requested', 'accepted', 'moving', 'arrived'].includes(booking.status) ? (
                                 <Link
                                     to={`/user/bookings/${booking.public_id}/cancel`}

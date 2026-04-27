@@ -45,9 +45,15 @@ class BookingSafetyController extends Controller
     ];
 
     private const INTERRUPT_ALLOWED_STATUSES = [
+        Booking::STATUS_ACCEPTED,
         Booking::STATUS_MOVING,
         Booking::STATUS_ARRIVED,
         Booking::STATUS_IN_PROGRESS,
+    ];
+
+    private const NO_SHOW_REASON_CODES = [
+        'user_no_show',
+        'therapist_no_show',
     ];
 
     public function consent(Request $request, Booking $booking): BookingConsentResource
@@ -57,7 +63,7 @@ class BookingSafetyController extends Controller
         abort_unless(
             in_array($booking->status, self::CONSENT_ALLOWED_STATUSES, true),
             409,
-            'This booking cannot record consent in the current status.'
+            'この予約は、現在の状態では同意記録を登録できません。'
         );
 
         $validated = $request->validate([
@@ -98,7 +104,7 @@ class BookingSafetyController extends Controller
         abort_unless(
             in_array($booking->status, self::HEALTH_CHECK_ALLOWED_STATUSES, true),
             409,
-            'This booking cannot record a health check in the current status.'
+            'この予約は、現在の状態では体調確認を登録できません。'
         );
 
         $validated = $request->validate([
@@ -143,7 +149,7 @@ class BookingSafetyController extends Controller
         abort_unless(
             in_array($booking->status, self::INTERRUPT_ALLOWED_STATUSES, true),
             409,
-            'This booking cannot be interrupted in the current status.'
+            'この予約は、現在の状態では中断できません。'
         );
 
         $validated = $request->validate([
@@ -173,8 +179,16 @@ class BookingSafetyController extends Controller
             abort_unless(
                 in_array($lockedBooking->status, self::INTERRUPT_ALLOWED_STATUSES, true),
                 409,
-                'This booking cannot be interrupted in the current status.'
+                'この予約は、現在の状態では中断できません。'
             );
+
+            if (in_array($validated['reason_code'], self::NO_SHOW_REASON_CODES, true)) {
+                $plannedStartAt = $lockedBooking->scheduled_start_at ?? $lockedBooking->requested_start_at;
+
+                if ($plannedStartAt && $plannedStartAt->isFuture()) {
+                    abort(422, '予定時刻になるまでは、この操作はまだ行えません。');
+                }
+            }
 
             $fromStatus = $lockedBooking->status;
 

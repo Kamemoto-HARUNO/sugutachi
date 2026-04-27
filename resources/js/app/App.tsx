@@ -47,6 +47,7 @@ import { AdminTherapistProfilesPage } from './pages/AdminTherapistProfilesPage';
 import { AdminTravelRequestsPage } from './pages/AdminTravelRequestsPage';
 import { AccountIdentityVerificationPage } from './pages/AccountIdentityVerificationPage';
 import { AccountProfilePage } from './pages/AccountProfilePage';
+import { TherapistBookingNoShowPage, UserBookingNoShowPage } from './pages/BookingNoShowPage';
 import { ContactPage } from './pages/ContactPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { PublicHomePage } from './pages/PublicHomePage';
@@ -160,6 +161,7 @@ function AppRoutes() {
                     <Route path="bookings/:publicId/messages" element={<UserBookingMessagesPage />} />
                     <Route path="bookings/:publicId/review" element={<UserBookingReviewPage />} />
                     <Route path="bookings/:publicId/cancel" element={<UserBookingCancelPage />} />
+                    <Route path="bookings/:publicId/no-show" element={<UserBookingNoShowPage />} />
                     <Route path="bookings/:publicId/refund" element={<UserBookingRefundPage />} />
                     <Route path="bookings/:publicId/report" element={<UserBookingReportPage />} />
                     <Route path="identity-verification" element={<UserIdentityVerificationPage />} />
@@ -245,6 +247,7 @@ function AppRoutes() {
                     <Route path="reviews" element={<TherapistReviewsPage />} />
                     <Route path="bookings" element={<TherapistBookingsPage />} />
                     <Route path="bookings/:publicId" element={<TherapistBookingDetailPage />} />
+                    <Route path="bookings/:publicId/no-show" element={<TherapistBookingNoShowPage />} />
                     <Route path="bookings/:publicId/messages" element={<TherapistBookingMessagesPage />} />
                     <Route path="travel-requests" element={<TherapistTravelRequestsPage />} />
                     <Route path="travel-requests/:publicId" element={<TherapistTravelRequestsPage />} />

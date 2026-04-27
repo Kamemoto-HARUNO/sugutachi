@@ -44,7 +44,7 @@ class BookingCancellationController extends Controller
         abort_unless(
             in_array($booking->status, $this->cancelableStatuses($actorRole), true),
             409,
-            'This booking cannot be canceled.'
+            'この予約は、現在の状態ではキャンセルできません。'
         );
 
         return response()->json([
@@ -65,7 +65,7 @@ class BookingCancellationController extends Controller
         abort_unless(
             in_array($booking->status, $this->cancelableStatuses($actorRole), true),
             409,
-            'This booking cannot be canceled.'
+            'この予約は、現在の状態ではキャンセルできません。'
         );
 
         $validated = $request->validate([
@@ -84,7 +84,7 @@ class BookingCancellationController extends Controller
             abort_unless(
                 in_array($lockedBooking->status, $this->cancelableStatuses($actorRole), true),
                 409,
-                'This booking cannot be canceled.'
+                'この予約は、現在の状態ではキャンセルできません。'
             );
 
             $preview = $policy->preview($lockedBooking, $actorRole);

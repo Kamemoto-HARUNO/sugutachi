@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { canOpenBookingNoShowFlow } from '../lib/bookingTrouble';
 import {
     formatJstDateTime,
     formatJstDateTimeLocalValue,
@@ -523,6 +524,10 @@ export function TherapistBookingDetailPage() {
     }, [booking, token]);
 
     const timeline = useMemo(() => (booking ? buildTimeline(booking) : []), [booking]);
+    const canOpenNoShowFlow = useMemo(
+        () => (booking ? canOpenBookingNoShowFlow(booking, 'therapist') : false),
+        [booking],
+    );
     const nextAction = booking ? nextStageAction(booking) : null;
     const canEditCompletionWindow = booking ? canManageCompletionWindow(booking.status) : false;
     const completionWindowBounds = useMemo(() => {
@@ -1138,6 +1143,14 @@ export function TherapistBookingDetailPage() {
                         </div>
 
                         <div className="mt-6 space-y-3">
+                            {canOpenNoShowFlow ? (
+                                <Link
+                                    to={`/therapist/bookings/${booking.public_id}/no-show`}
+                                    className="inline-flex w-full items-center justify-center rounded-full border border-[#e6b36d] bg-[#fff8ee] px-5 py-3 text-sm font-semibold text-[#8c5b19] transition hover:bg-[#fff1d9]"
+                                >
+                                    来ない・連絡が取れない
+                                </Link>
+                            ) : null}
                             <Link
                                 to={`/therapist/bookings/${booking.public_id}/messages`}
                                 className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105"

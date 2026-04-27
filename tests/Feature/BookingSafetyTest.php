@@ -147,6 +147,52 @@ class BookingSafetyTest extends TestCase
         $this->assertSame('therapist', data_get($notification->data_json, 'interrupted_by_role'));
     }
 
+    public function test_user_can_interrupt_accepted_booking_when_therapist_does_not_show(): void
+    {
+        $gatewayState = $this->bindPaymentGateways();
+
+        [$user, $therapist, $booking, $paymentIntent] = $this->createSafetyBookingFixture(
+            status: Booking::STATUS_ACCEPTED,
+            withPaymentIntent: true,
+        );
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/interrupt", [
+                'reason_code' => 'therapist_no_show',
+                'reason_note' => '予定時刻を過ぎてもセラピストが来ず、連絡もつきませんでした。',
+                'responsibility' => 'therapist',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.booking.status', Booking::STATUS_INTERRUPTED)
+            ->assertJsonPath('data.booking.current_payment_intent.status', PaymentIntent::STRIPE_STATUS_CANCELED)
+            ->assertJsonPath('data.interruption.payment_action', 'void_authorization');
+
+        $this->assertSame([$paymentIntent->stripe_payment_intent_id], $gatewayState->canceledStripeIds);
+    }
+
+    public function test_therapist_can_interrupt_moving_booking_when_user_does_not_show(): void
+    {
+        $gatewayState = $this->bindPaymentGateways();
+
+        [$user, $therapist, $booking, $paymentIntent] = $this->createSafetyBookingFixture(
+            status: Booking::STATUS_MOVING,
+            withPaymentIntent: true,
+        );
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/interrupt", [
+                'reason_code' => 'user_no_show',
+                'reason_note' => '待ち合わせ場所に向かって待機しましたが、利用者と会えませんでした。',
+                'responsibility' => 'user',
+            ])
+            ->assertOk()
+            ->assertJsonPath('data.booking.status', Booking::STATUS_INTERRUPTED)
+            ->assertJsonPath('data.booking.current_payment_intent.status', PaymentIntent::STRIPE_STATUS_SUCCEEDED)
+            ->assertJsonPath('data.interruption.payment_action', 'capture_full_amount');
+
+        $this->assertSame([$paymentIntent->stripe_payment_intent_id], $gatewayState->capturedStripeIds);
+    }
+
     public function test_user_interrupt_can_capture_full_amount(): void
     {
         $gatewayState = $this->bindPaymentGateways();
