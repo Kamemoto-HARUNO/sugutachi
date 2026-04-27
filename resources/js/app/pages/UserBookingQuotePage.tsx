@@ -142,44 +142,62 @@ export function UserBookingQuotePage() {
             }
 
             try {
-                const requests: Promise<unknown>[] = [
-                    apiRequest<ApiEnvelope<TherapistDetail>>(`/therapists/${therapistId}`, { token }),
-                    apiRequest<ApiEnvelope<ServiceAddress[]>>('/me/service-addresses', { token }),
-                    apiRequest<ApiEnvelope<BookingQuoteRecord>>('/booking-quotes', {
-                        method: 'POST',
-                        token,
-                        body: {
-                            therapist_profile_id: therapistId,
-                            therapist_menu_id: therapistMenuId,
-                            service_address_id: serviceAddressId,
-                            duration_minutes: durationMinutes,
-                            is_on_demand: false,
-                            availability_slot_id: availabilitySlotId,
-                            requested_start_at: requestedStartAt,
-                        },
-                    }),
-                    apiRequest<ApiEnvelope<ServiceMeta>>('/service-meta'),
-                ];
+                const detailRequest = apiRequest<ApiEnvelope<TherapistDetail>>(`/therapists/${therapistId}`, { token });
+                const addressesRequest = apiRequest<ApiEnvelope<ServiceAddress[]>>('/me/service-addresses', { token });
+                const metaRequest = apiRequest<ApiEnvelope<ServiceMeta>>('/service-meta');
 
                 if (bookingId) {
-                    requests.push(apiRequest<ApiEnvelope<BookingDetailRecord>>(`/bookings/${bookingId}`, { token }));
+                    const bookingRequest = apiRequest<ApiEnvelope<BookingDetailRecord>>(`/bookings/${bookingId}`, { token });
+                    const [detailPayload, addressPayload, metaPayload, bookingPayload] = await Promise.all([
+                        detailRequest,
+                        addressesRequest,
+                        metaRequest,
+                        bookingRequest,
+                    ]);
+
+                    if (!isMounted) {
+                        return;
+                    }
+
+                    const nextBooking = unwrapData(bookingPayload);
+                    setTherapistDetail(unwrapData(detailPayload));
+                    setServiceAddresses(unwrapData(addressPayload));
+                    setServiceMeta(unwrapData(metaPayload));
+                    setBooking(nextBooking);
+                    setQuote(nextBooking.current_quote ?? null);
+                    return;
                 }
 
-                const [detailPayload, addressPayload, quotePayload, metaPayload, bookingPayload] = await Promise.all(requests);
+                const quoteRequest = apiRequest<ApiEnvelope<BookingQuoteRecord>>('/booking-quotes', {
+                    method: 'POST',
+                    token,
+                    body: {
+                        therapist_profile_id: therapistId,
+                        therapist_menu_id: therapistMenuId,
+                        service_address_id: serviceAddressId,
+                        duration_minutes: durationMinutes,
+                        is_on_demand: false,
+                        availability_slot_id: availabilitySlotId,
+                        requested_start_at: requestedStartAt,
+                    },
+                });
+
+                const [detailPayload, addressPayload, metaPayload, quotePayload] = await Promise.all([
+                    detailRequest,
+                    addressesRequest,
+                    metaRequest,
+                    quoteRequest,
+                ]);
 
                 if (!isMounted) {
                     return;
                 }
 
-                setTherapistDetail(unwrapData(detailPayload as ApiEnvelope<TherapistDetail>));
-                setServiceAddresses(unwrapData(addressPayload as ApiEnvelope<ServiceAddress[]>));
-                setQuote(unwrapData(quotePayload as ApiEnvelope<BookingQuoteRecord>));
-                setServiceMeta(unwrapData(metaPayload as ApiEnvelope<ServiceMeta>));
-
-                if (bookingPayload) {
-                    const nextBooking = unwrapData(bookingPayload as ApiEnvelope<BookingDetailRecord>);
-                    setBooking(nextBooking);
-                }
+                setTherapistDetail(unwrapData(detailPayload));
+                setServiceAddresses(unwrapData(addressPayload));
+                setServiceMeta(unwrapData(metaPayload));
+                setBooking(null);
+                setQuote(unwrapData(quotePayload));
             } catch (requestError) {
                 if (!isMounted) {
                     return;
