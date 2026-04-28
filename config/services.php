@@ -63,4 +63,8 @@ return [
         'preview' => env('GTM_PREVIEW'),
     ],
 
+    'admin_notifications' => [
+        'slack_webhook_url' => env('SLACK_ADMIN_WEBHOOK_URL'),
+    ],
+
 ];

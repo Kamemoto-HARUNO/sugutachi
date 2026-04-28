@@ -12,6 +12,10 @@ use App\Models\Report;
 
 class AdminNotificationService
 {
+    public function __construct(
+        private readonly AdminSlackNotificationService $slackNotificationService,
+    ) {}
+
     public function notifyIdentityVerificationSubmitted(IdentityVerification $verification): void
     {
         $verification->loadMissing('account');
@@ -127,5 +131,12 @@ class AdminNotificationService
                 'sent_at' => now(),
             ]);
         }
+
+        $this->slackNotificationService->send(
+            type: $type,
+            title: $title,
+            body: $body,
+            data: $data,
+        );
     }
 }
