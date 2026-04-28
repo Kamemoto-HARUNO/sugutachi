@@ -103,19 +103,27 @@
 
 #### production
 
-- `MAIL_FROM_ADDRESS=notify@sugutachi.com`
+- `MAIL_FROM_ADDRESS=noreply@sugutachi.com`
 - `SERVICE_SUPPORT_EMAIL=support@sugutachi.com`
 
 #### staging
 
-- `MAIL_FROM_ADDRESS=notify@dev.sugutachi.com` または `staging-notify@sugutachi.com`
-- `SERVICE_SUPPORT_EMAIL=support@sugutachi.com` を基本にしつつ、運用都合で `staging-support@...` を分けてもよい
+- `MAIL_FROM_ADDRESS=noreply-dev@sugutachi.com`
+- `SERVICE_SUPPORT_EMAIL=support@sugutachi.com`
 
 ### 運用注意
 
 - 今回の方針では staging でも実メール送信を行う
 - ただし、事故防止のため staging の件名や本文のどこかに `【開発環境】` を付けるのがおすすめ
 - staging で実送信する場合は、`MAIL_FROM_ADDRESS` と `APP_URL` が本番と混ざらないよう必ず分離する
+
+### 役割ごとの推奨用途
+
+- `noreply@sugutachi.com`: 本番のシステム送信元
+- `noreply-dev@sugutachi.com`: staging のシステム送信元
+- `support@sugutachi.com`: ユーザー向けサポート窓口
+- `contact@sugutachi.com`: 法人・運営への問い合わせ窓口
+- `info@sugutachi.com`: 一般案内や会社情報向け窓口
 
 ## 5. Googleタグマネージャー
 
