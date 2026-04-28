@@ -33,6 +33,7 @@ REMOTE_HOST="hnice2204@sv13399.xserver.jp"
 REMOTE_PORT="10022"
 REMOTE_BASE="/home/hnice2204/sugutachi.com"
 REMOTE_PHP="/usr/bin/php8.5"
+BUILD_DIR="$(mktemp -d)"
 
 case "$ENV_NAME" in
   staging)
@@ -59,8 +60,8 @@ case "$ENV_NAME" in
     ;;
 esac
 
-if [[ ! -d "$ROOT_DIR/vendor" ]]; then
-  echo "vendor/ does not exist. Run composer install first."
+if ! command -v composer >/dev/null 2>&1; then
+  echo "composer command is required on the local machine."
   exit 1
 fi
 
@@ -70,7 +71,7 @@ if [[ ! -d "$ROOT_DIR/public/build" ]]; then
 fi
 
 TMP_ENV="$(mktemp)"
-trap 'rm -f "$TMP_ENV"' EXIT
+trap 'rm -f "$TMP_ENV"; rm -rf "$BUILD_DIR"' EXIT
 cp "$ROOT_DIR/.env.example" "$TMP_ENV"
 
 python3 - "$TMP_ENV" "$APP_ENV_VALUE" "$APP_DEBUG_VALUE" "$APP_URL" "$MAIL_FROM_ADDRESS" "$SUPPORT_EMAIL" <<'PY'
@@ -109,11 +110,34 @@ for line in path.read_text().splitlines():
 path.write_text("\n".join(lines) + "\n")
 PY
 
+echo "Preparing production-ready artifact locally ..."
+rsync -a \
+  --exclude '.git' \
+  --exclude '.env' \
+  --exclude 'node_modules' \
+  --exclude 'vendor' \
+  --exclude 'storage/logs/*' \
+  --exclude 'storage/framework/cache/*' \
+  --exclude 'storage/framework/sessions/*' \
+  --exclude 'storage/framework/views/*' \
+  --exclude 'storage/framework/testing/*' \
+  --exclude 'storage/pail' \
+  --exclude 'public/hot' \
+  --exclude 'public/storage' \
+  --exclude 'tests' \
+  --exclude 'tmp' \
+  --exclude '.codex' \
+  --exclude '.cursor' \
+  --exclude '.idea' \
+  --exclude '.vscode' \
+  "$ROOT_DIR/" "$BUILD_DIR/"
+
+(cd "$BUILD_DIR" && composer install --no-dev --prefer-dist --no-interaction --optimize-autoloader)
+
 echo "Syncing application files to $ENV_NAME ..."
 rsync -az --delete \
   --exclude '.git' \
   --exclude '.env' \
-  --exclude 'node_modules' \
   --exclude 'storage/logs/*' \
   --exclude 'storage/framework/cache/*' \
   --exclude 'storage/framework/sessions/*' \
@@ -129,7 +153,7 @@ rsync -az --delete \
   --exclude '.idea' \
   --exclude '.vscode' \
   -e "ssh -p $REMOTE_PORT" \
-  "$ROOT_DIR/" "$REMOTE_HOST:$APP_DIR/"
+  "$BUILD_DIR/" "$REMOTE_HOST:$APP_DIR/"
 
 echo "Preparing runtime directories on server ..."
 ssh -p "$REMOTE_PORT" "$REMOTE_HOST" "
