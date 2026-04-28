@@ -4,9 +4,13 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\AppNotification;
+use App\Models\ContactInquiry;
 use App\Models\PushSubscription;
+use App\Services\Notifications\AdminNotificationService;
 use App\Services\Notifications\WebPushDeliveryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Http\Client\Request;
+use Illuminate\Support\Facades\Http;
 use Mockery;
 use Tests\TestCase;
 
@@ -225,5 +229,50 @@ class NotificationApiTest extends TestCase
             'status' => AppNotification::STATUS_SENT,
             'sent_at' => now(),
         ]);
+    }
+
+    public function test_admin_notification_service_sends_slack_webhook_when_configured(): void
+    {
+        config()->set('services.admin_notifications.slack_webhook_url', 'https://hooks.slack.com/services/test/admin/webhook');
+        config()->set('app.url', 'https://dev.sugutachi.com');
+
+        Http::fake([
+            'https://hooks.slack.com/*' => Http::response('ok', 200),
+        ]);
+
+        $admin = Account::factory()->create(['public_id' => 'acc_admin_notify_slack']);
+        $admin->roleAssignments()->create([
+            'role' => 'admin',
+            'status' => 'active',
+            'granted_at' => now(),
+        ]);
+
+        $inquiry = ContactInquiry::create([
+            'public_id' => 'cnt_slack_notify',
+            'name' => '問い合わせ太郎',
+            'email' => 'contact@example.test',
+            'category' => 'other',
+            'message' => 'テスト問い合わせです。',
+            'status' => ContactInquiry::STATUS_PENDING,
+            'source' => ContactInquiry::SOURCE_GUEST,
+        ]);
+
+        app(AdminNotificationService::class)->notifyContactInquiryReceived($inquiry);
+
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $admin->id,
+            'notification_type' => 'contact_inquiry_received',
+            'channel' => 'in_app',
+            'status' => AppNotification::STATUS_SENT,
+        ]);
+
+        Http::assertSent(function (Request $request): bool {
+            $payload = $request->data();
+
+            return $request->url() === 'https://hooks.slack.com/services/test/admin/webhook'
+                && str_contains((string) data_get($payload, 'text'), '新しいお問い合わせがあります')
+                && str_contains((string) data_get($payload, 'text'), 'ローカル')
+                && str_contains((string) data_get($payload, 'blocks.1.fields.2.text'), '/admin/contact-inquiries/cnt_slack_notify');
+        });
     }
 }
