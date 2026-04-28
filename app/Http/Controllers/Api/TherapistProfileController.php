@@ -20,8 +20,12 @@ class TherapistProfileController extends Controller
 
     public function show(Request $request): JsonResponse
     {
-        return (new TherapistProfileResource(
+        $profile = $this->publicationService->refreshPublicationState(
             $request->user()->ensureTherapistProfile()->load(['menus', 'account.latestIdentityVerification'])
+        );
+
+        return (new TherapistProfileResource(
+            $profile->load(['menus', 'account.latestIdentityVerification'])
         ))
             ->response()
             ->setStatusCode(200);
@@ -112,9 +116,11 @@ class TherapistProfileController extends Controller
 
     public function reviewStatus(Request $request): JsonResponse
     {
-        $profile = $request->user()
+        $profile = $this->publicationService->refreshPublicationState(
+            $request->user()
             ->ensureTherapistProfile()
-            ->load(['menus', 'account.latestIdentityVerification']);
+            ->load(['menus', 'account.latestIdentityVerification'])
+        );
 
         $requirements = $this->publicationService->requirements($profile);
 

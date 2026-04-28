@@ -193,6 +193,56 @@ class TherapistProfileReviewTest extends TestCase
         ]);
     }
 
+    public function test_show_and_review_status_auto_refresh_publication_state_when_requirements_are_already_met(): void
+    {
+        $therapist = Account::factory()->create(['public_id' => 'acc_therapist_auto_publish']);
+        $token = $therapist->createToken('api')->plainTextToken;
+
+        $profile = TherapistProfile::create([
+            'account_id' => $therapist->id,
+            'public_id' => 'thp_auto_publish',
+            'public_name' => 'Auto Publish Therapist',
+            'bio' => 'Ready to publish profile.',
+            'profile_status' => TherapistProfile::STATUS_DRAFT,
+            'training_status' => 'completed',
+            'photo_review_status' => 'approved',
+            'is_listed' => false,
+        ]);
+
+        IdentityVerification::create([
+            'account_id' => $therapist->id,
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'is_age_verified' => true,
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now(),
+        ]);
+
+        TherapistMenu::create([
+            'public_id' => 'menu_auto_publish_60',
+            'therapist_profile_id' => $profile->id,
+            'name' => 'Body care 60',
+            'duration_minutes' => 60,
+            'base_price_amount' => 12000,
+            'is_active' => true,
+        ]);
+
+        $this->withToken($token)
+            ->getJson('/api/me/therapist-profile')
+            ->assertOk()
+            ->assertJsonPath('data.profile_status', TherapistProfile::STATUS_APPROVED);
+
+        $this->withToken($token)
+            ->getJson('/api/me/therapist-profile/review-status')
+            ->assertOk()
+            ->assertJsonPath('data.profile.profile_status', TherapistProfile::STATUS_APPROVED)
+            ->assertJsonPath('data.can_submit', true);
+
+        $this->assertDatabaseHas('therapist_profiles', [
+            'account_id' => $therapist->id,
+            'profile_status' => TherapistProfile::STATUS_APPROVED,
+        ]);
+    }
+
     public function test_editing_approved_profile_returns_it_to_draft_and_blocks_quote_creation(): void
     {
         $user = Account::factory()->create(['public_id' => 'acc_user_profile_review']);
