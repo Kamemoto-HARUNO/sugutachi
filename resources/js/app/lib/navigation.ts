@@ -48,7 +48,7 @@ export const userPlaceholderRoutes: PlaceholderRouteDefinition[] = [
     { path: 'therapists/:publicId/availability', title: '空き時間', description: '公開中の予定予約ウィンドウを確認してリクエストを送る画面です。', apiPath: '/api/therapists/{public_id}/availability' },
     { path: 'therapists/:publicId/travel-request', title: '出張リクエスト送信', description: '予約できないエリアから需要を届ける画面です。', apiPath: '/api/therapists/{public_id}/travel-requests' },
     { path: 'booking-request', title: '今すぐ予約入力', description: '待ち合わせ場所やメニューを入力して見積もりに進みます。', apiPath: '/api/booking-quotes' },
-    { path: 'booking-request/quote', title: '見積もり確認', description: '料金内訳と徒歩目安を確認する画面です。', apiPath: '/api/booking-quotes' },
+    { path: 'booking-request/quote', title: '見積もり確認', description: '料金内訳と移動時間目安を確認する画面です。', apiPath: '/api/booking-quotes' },
     { path: 'booking-request/payment', title: '支払い確認', description: '与信取得と支払い状態の確認を行う画面です。', apiPath: '/api/bookings/{public_id}/payment-intents' },
     { path: 'booking-request/waiting', title: '予約待機', description: 'タチキャストの応答待ちや与信状態を確認します。', apiPath: '/api/bookings/{public_id}' },
     { path: 'bookings', title: '予約一覧', description: '予約ステータスや未読メッセージを一覧で確認します。', apiPath: '/api/bookings' },

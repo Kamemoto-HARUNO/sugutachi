@@ -19,9 +19,9 @@ import {
     formatCurrency,
     formatMenuHourlyRateLabel,
     formatMenuMinimumDurationLabel,
+    formatTravelTimeEstimate,
     getPendingScheduledRequestActionLabel,
     getPendingScheduledRequestNotice,
-    formatWalkingTimeRange,
     getDefaultServiceAddress,
     getMenuMinimumDurationMinutes,
     getServiceAddressLabel,
@@ -1016,7 +1016,7 @@ export function UserTherapistAvailabilityPage() {
                             </div>
 
                             <div className="min-w-0 space-y-2">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">SCHEDULE</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">スケジュール</p>
                                 <h1 className="text-2xl font-semibold leading-tight text-[#17202b] md:text-3xl">
                                     {therapistDetail.public_name}
                                 </h1>
@@ -1027,7 +1027,9 @@ export function UserTherapistAvailabilityPage() {
                                 ) : null}
                                 <div className="flex flex-wrap items-center gap-2 pt-1">
                                     <span className="rounded-full bg-[#f6f1e7] px-3 py-1 text-xs font-semibold text-[#48505a]">
-                                        {availability ? formatWalkingTimeRange(availability.walking_time_range) : '徒歩目安を確認'}
+                                        {availability
+                                            ? formatTravelTimeEstimate(therapistDetail.travel_mode, availability.walking_time_range)
+                                            : '移動時間目安を確認'}
                                     </span>
                                 </div>
                             </div>
@@ -1099,7 +1101,7 @@ export function UserTherapistAvailabilityPage() {
                     <section className="rounded-[32px] bg-[#fffdf8] p-6 shadow-[0_10px_24px_rgba(23,32,43,0.08)] md:p-8">
                         <div className="flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
                             <div className="space-y-2">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">SERVICE ADDRESS</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">待ち合わせ場所</p>
                                 <h2 className="text-2xl font-semibold text-[#17202b]">先に待ち合わせ場所を登録してください</h2>
                                 <p className="text-sm leading-7 text-[#68707a]">
                                     距離や予約可否は、保存済みの待ち合わせ場所を基準に計算します。
@@ -1121,7 +1123,7 @@ export function UserTherapistAvailabilityPage() {
                         <section className="min-w-0 rounded-[32px] bg-[#fffdf8] p-4 shadow-[0_10px_24px_rgba(23,32,43,0.08)] sm:p-5 md:p-8">
                             <div className="flex flex-col gap-4 border-b border-[#efe5d7] pb-6 md:flex-row md:items-end md:justify-between">
                                 <div className="space-y-2">
-                                    <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">WEEKLY CALENDAR</p>
+                                    <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">週カレンダー</p>
                                     <h2 className="text-2xl font-semibold text-[#17202b]">1週間の空きスケジュール</h2>
                                     <p className="text-sm leading-7 text-[#68707a]">
                                         {pendingScheduledRequest
@@ -1257,13 +1259,15 @@ export function UserTherapistAvailabilityPage() {
                                                                 top: `calc(${getWindowTopPercent(window.start_at)}% + 4px)`,
                                                                 height: `calc(${getWindowHeightPercent(window.start_at, window.end_at)}% - 8px)`,
                                                             }}
-                                                        >
-                                                            <div className="flex h-full items-center justify-center">
-                                                                <p className="text-center text-[9px] font-semibold leading-4 text-[#5d5448] sm:text-[10px] md:text-[11px]">
-                                                                    {window.walking_time_range ? formatWalkingTimeRange(window.walking_time_range) : '徒歩目安を確認'}
-                                                                </p>
-                                                            </div>
-                                                        </button>
+                                                                >
+                                                                    <div className="flex h-full items-center justify-center">
+                                                                        <p className="text-center text-[9px] font-semibold leading-4 text-[#5d5448] sm:text-[10px] md:text-[11px]">
+                                                                            {window.walking_time_range
+                                                                                ? formatTravelTimeEstimate(therapistDetail?.travel_mode, window.walking_time_range)
+                                                                                : '移動時間目安を確認'}
+                                                                        </p>
+                                                                    </div>
+                                                                </button>
                                                     ) : (
                                                         <div
                                                             key={buildWindowKey(window)}
@@ -1322,7 +1326,7 @@ export function UserTherapistAvailabilityPage() {
 
                         <aside className="space-y-5">
                             <section className="rounded-[32px] bg-[#fffcf7] p-6 shadow-[0_10px_24px_rgba(23,32,43,0.08)]">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">BOOKING CONDITIONS</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予約条件</p>
 
                                 <div className="mt-5 space-y-5">
                                     <div className="space-y-2">
@@ -1447,7 +1451,7 @@ export function UserTherapistAvailabilityPage() {
                             </section>
 
                             <section className="rounded-[32px] bg-[#17202b] p-6 text-white shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                                <p className="text-xs font-semibold tracking-wide text-[#d2b179]">REQUEST SUMMARY</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#d2b179]">リクエスト内容</p>
 
                                 {pendingScheduledRequest ? (
                                     <div className="mt-5 space-y-4">
@@ -1501,9 +1505,12 @@ export function UserTherapistAvailabilityPage() {
                                                 </p>
                                             </div>
                                             <div>
-                                                <p className="text-xs font-semibold text-[#d2b179]">徒歩目安</p>
+                                                <p className="text-xs font-semibold text-[#d2b179]">移動時間目安</p>
                                                 <p className="mt-1 font-semibold text-white">
-                                                    {formatWalkingTimeRange(selectedCalendarDate?.walking_time_range ?? availability?.walking_time_range)}
+                                                    {formatTravelTimeEstimate(
+                                                        therapistDetail?.travel_mode,
+                                                        selectedCalendarDate?.walking_time_range ?? availability?.walking_time_range,
+                                                    )}
                                                 </p>
                                             </div>
                                             <div>
@@ -1540,7 +1547,7 @@ export function UserTherapistAvailabilityPage() {
                             </section>
 
                             <section className="rounded-[32px] bg-[#fffcf7] p-6 shadow-[0_10px_24px_rgba(23,32,43,0.08)]">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">ALTERNATIVE</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">別の方法</p>
                                 <p className="mt-4 text-sm leading-7 text-[#68707a]">
                                     希望の帯が見つからないときや、この住所からは距離が遠いときは出張リクエストも使えます。
                                 </p>

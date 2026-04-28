@@ -18,16 +18,16 @@ export const DISCOVERY_BOOKING_TYPE_OPTIONS = {
 } as const;
 export const DISCOVERY_SORT_OPTIONS: Array<{ value: DiscoverySort; label: string }> = [
     { value: 'recommended', label: 'おすすめ順' },
-    { value: 'soonest', label: '徒歩が近い順' },
+    { value: 'soonest', label: '移動時間が短い順' },
     { value: 'rating', label: '評価順' },
 ];
 export const DISCOVERY_FILTER_LABELS = {
     training: '研修済み',
     rating: '星4.5以上',
-    walking: '徒歩30分以内',
+    walking: '移動時間30分以内',
 } as const;
 export const DISCOVERY_DISPLAY_NOTE_LABEL = '表示について';
-export const DISCOVERY_LOCATION_PRIVACY_NOTE = '表示されるのは徒歩目安レンジだけです。正確な位置や住所は公開されません。';
+export const DISCOVERY_LOCATION_PRIVACY_NOTE = '表示されるのは移動時間目安レンジだけです。正確な位置や住所は公開されません。';
 
 export interface DiscoverySearchQueryInput {
     serviceAddressId?: string | null;

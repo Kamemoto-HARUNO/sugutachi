@@ -10,9 +10,9 @@ import {
     formatCurrency,
     formatMenuHourlyRateLabel,
     formatMenuMinimumDurationLabel,
+    formatTravelTimeEstimate,
     getPendingScheduledRequestActionLabel,
     getPendingScheduledRequestNotice,
-    formatWalkingTimeRange,
     getMenuMinimumDurationMinutes,
     getServiceAddressLabel,
 } from '../lib/discovery';
@@ -542,12 +542,6 @@ export function UserBookingQuotePage() {
                         >
                             {isOnDemandRequest ? 'プロフィールへ戻る' : '空き時間へ戻る'}
                         </Link>
-                        <Link
-                            to={detailPath}
-                            className="inline-flex items-center rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8"
-                        >
-                            プロフィールへ戻る
-                        </Link>
                     </div>
                 </div>
             </section>
@@ -559,7 +553,7 @@ export function UserBookingQuotePage() {
                     <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                         <div className="flex flex-col gap-4 md:flex-row md:items-start md:justify-between">
                             <div>
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">BOOKING</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予約内容</p>
                                 <h2 className="mt-3 text-2xl font-semibold text-[#17202b]">
                                     {therapistDetail?.public_name ?? 'タチキャストを確認中'}
                                 </h2>
@@ -572,7 +566,7 @@ export function UserBookingQuotePage() {
                             </div>
                             <div className="rounded-[22px] bg-[#f8f4ed] px-5 py-4">
                                 <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">
-                                    {isOnDemandRequest ? 'REQUEST TYPE' : 'REQUEST START'}
+                                    {isOnDemandRequest ? '依頼方法' : '予約開始'}
                                 </p>
                                 <p className="mt-2 text-lg font-semibold text-[#17202b]">
                                     {isOnDemandRequest ? '今すぐ依頼' : formatDateTime(requestedStartAt)}
@@ -582,7 +576,7 @@ export function UserBookingQuotePage() {
                     </article>
 
                     <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">PRICE BREAKDOWN</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">料金内訳</p>
                         {quote ? (
                             <div className="mt-5 space-y-4">
                                 {[
@@ -607,7 +601,10 @@ export function UserBookingQuotePage() {
                                         </span>
                                     </div>
                                     <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                        徒歩目安: {formatWalkingTimeRange(quote.walking_time_range)}
+                                        移動時間目安: {formatTravelTimeEstimate(
+                                            quote.travel_mode ?? therapistDetail?.travel_mode,
+                                            quote.walking_time_range,
+                                        )}
                                     </p>
                                 </div>
                             </div>
@@ -621,7 +618,7 @@ export function UserBookingQuotePage() {
                     <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                         <div className="space-y-3">
                             <div>
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">CARD</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">カード情報</p>
                                 <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">カード情報を入力</h2>
                                 <p className="mt-2 text-sm leading-7 text-[#68707a]">
                                     依頼を送るときに、このカードへ与信を確保します。承諾前は仮押さえ扱いで、辞退や期限切れなら取消対象です。
@@ -687,7 +684,7 @@ export function UserBookingQuotePage() {
 
                 <aside className="space-y-5">
                     <section className="rounded-[28px] bg-[#fffcf7] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.1)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">SUMMARY</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">確認内容</p>
                         <div className="mt-4 space-y-4 text-sm text-[#48505a]">
                             <div>
                                 <p className="text-xs font-semibold text-[#7d6852]">待ち合わせ場所</p>
@@ -702,9 +699,12 @@ export function UserBookingQuotePage() {
                                 </p>
                             </div>
                             <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">徒歩目安</p>
+                                <p className="text-xs font-semibold text-[#7d6852]">移動時間目安</p>
                                 <p className="mt-1 font-semibold text-[#17202b]">
-                                    {formatWalkingTimeRange(quote?.walking_time_range)}
+                                    {formatTravelTimeEstimate(
+                                        quote?.travel_mode ?? therapistDetail?.travel_mode,
+                                        quote?.walking_time_range,
+                                    )}
                                 </p>
                             </div>
                             <div>

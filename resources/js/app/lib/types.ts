@@ -879,6 +879,7 @@ export interface BookingQuoteRecord {
     is_on_demand: boolean;
     requested_start_at: string | null;
     availability_slot_id: string | null;
+    travel_mode: 'walking' | 'bicycle' | 'transit' | 'car' | null;
     walking_time_range: string | null;
     amounts: BookingQuoteAmounts;
 }

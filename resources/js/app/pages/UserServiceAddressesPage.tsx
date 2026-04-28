@@ -282,7 +282,7 @@ export function UserServiceAddressesPage() {
                         <div className="space-y-2">
                             <h1 className="text-3xl font-semibold">来てほしい場所を管理</h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                                検索や空き時間確認では、ここで登録した待ち合わせ場所を基準に徒歩目安と概算料金を計算します。
+                                検索や空き時間確認では、ここで登録した待ち合わせ場所を基準に移動時間目安と概算料金を計算します。
                                 よく使う場所を既定にしておくと、検索導線がかなり軽くなります。
                             </p>
                         </div>
@@ -557,7 +557,7 @@ export function UserServiceAddressesPage() {
                             <div className="space-y-2">
                                 <p className="text-sm font-semibold text-[#17202b]">地図で位置を設定</p>
                                 <p className="text-sm leading-7 text-[#68707a]">
-                                    徒歩目安の計算に使うため、位置情報も保存します。地図を押してピンを置くか、地名・住所検索から設定してください。
+                                    移動時間目安の計算に使うため、位置情報も保存します。地図を押してピンを置くか、地名・住所検索から設定してください。
                                 </p>
                             </div>
 

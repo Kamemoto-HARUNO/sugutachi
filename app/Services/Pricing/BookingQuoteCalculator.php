@@ -71,6 +71,7 @@ class BookingQuoteCalculator
             'therapist_net_amount' => $therapistNetAmount,
             'walking_time_minutes' => $walking['walking_time_minutes'],
             'walking_time_range' => $walking['walking_time_range'],
+            'travel_mode' => $therapistProfile->bookingSetting?->travel_mode ?: TherapistBookingSetting::TRAVEL_MODE_WALKING,
             'input_snapshot_json' => [
                 'therapist_profile_id' => $therapistProfile->public_id,
                 'therapist_menu_id' => $menu->public_id,
@@ -80,6 +81,7 @@ class BookingQuoteCalculator
                 'requested_start_at' => $requestedStartAt,
                 'walking_time_minutes' => $walking['walking_time_minutes'],
                 'walking_time_range' => $walking['walking_time_range'],
+                'travel_mode' => $therapistProfile->bookingSetting?->travel_mode ?: TherapistBookingSetting::TRAVEL_MODE_WALKING,
                 'user_profile_attributes' => $pricingRuleResult['input_snapshot']['user_profile_attributes'] ?? [],
                 'pricing_rule_context' => $pricingRuleResult['input_snapshot']['pricing_context'] ?? [],
             ],

@@ -387,7 +387,7 @@ export function PublicHomePage() {
         ? serviceAddresses.length > 0
             ? `待ち合わせ場所、予約タイプ、料金目安を変えながら、近さとレビューで候補を絞り込めます。現在 ${filteredPreviewTherapists.length}名を表示しています。`
             : '待ち合わせ場所を追加すると、あなたの条件に合う候補をこの画面で確認できます。'
-        : 'ログイン後は、徒歩目安レンジ、料金、レビューを見ながら自分の条件で比較できます。';
+        : 'ログイン後は、移動時間目安レンジ、料金、レビューを見ながら自分の条件で比較できます。';
     const filterPanel = (
         <DiscoveryFilterPanel
             selectedStartType={selectedStartType}
@@ -416,7 +416,7 @@ export function PublicHomePage() {
                             <span className="inline-block">近くで探せる。</span>
                         </>
                     )}
-                    description="リラクゼーション / ボディケア / もみほぐし目的のマッチングサービスです。徒歩目安、料金、レビューを見ながら、自分に合う相手を落ち着いて探せます。"
+                    description="リラクゼーション / ボディケア / もみほぐし目的のマッチングサービスです。移動時間目安、料金、レビューを見ながら、自分に合う相手を落ち着いて探せます。"
                     topBadge={DISCOVERY_TOP_BADGE}
                     bullets={[...DISCOVERY_HERO_BULLETS]}
                     primaryAction={primaryAction}
@@ -470,7 +470,7 @@ export function PublicHomePage() {
                         {
                             label: '距離表示',
                             title: '表示ロジック',
-                            body: '位置情報は徒歩目安レンジで表示し、正確な地点は非公開。比較しやすさと安全性を両立します。',
+                            body: '位置情報は移動時間目安レンジで表示し、正確な地点は非公開。比較しやすさと安全性を両立します。',
                         },
                         {
                             label: 'ご利用上の注意',

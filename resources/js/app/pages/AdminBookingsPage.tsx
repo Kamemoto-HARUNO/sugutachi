@@ -4,6 +4,7 @@ import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { formatTravelTimeEstimate } from '../lib/discovery';
 import { formatDateTime, formatProfileStatus } from '../lib/therapist';
 import type {
     AdminBookingDetailRecord,
@@ -751,7 +752,9 @@ export function AdminBookingsPage() {
                                             <p className="font-semibold text-white">見積もり</p>
                                             <p className="mt-2">Quote ID: {detail.current_quote.quote_id}</p>
                                             <p className="mt-1">総額: {formatCurrency(detail.current_quote.amounts.total_amount)}</p>
-                                            <p className="mt-1">徒歩目安: {detail.current_quote.walking_time_range ?? '未算出'}</p>
+                                            <p className="mt-1">
+                                                移動時間目安: {formatTravelTimeEstimate(detail.current_quote.travel_mode, detail.current_quote.walking_time_range)}
+                                            </p>
                                         </div>
                                     ) : null}
                                 </article>

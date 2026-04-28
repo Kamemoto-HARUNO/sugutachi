@@ -27,6 +27,7 @@ class BookingQuoteResource extends JsonResource
                 'therapist_gross_amount' => $this->therapist_gross_amount,
                 'therapist_net_amount' => $this->therapist_net_amount,
             ],
+            'travel_mode' => $this->input_snapshot_json['travel_mode'] ?? null,
             'walking_time_range' => $this->input_snapshot_json['walking_time_range'] ?? null,
         ];
     }

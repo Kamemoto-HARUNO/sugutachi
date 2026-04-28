@@ -282,7 +282,7 @@ export function UserTherapistSearchPage() {
                 <DiscoveryHeroShell
                     domain={serviceMeta?.domain ?? 'sugutachi.com'}
                     title={DISCOVERY_HERO_TITLE}
-                    description="デフォルトの待ち合わせ場所を基準に、徒歩目安レンジと概算料金で比較できます。予定予約は日時を入れると、その条件で見積もりを揃えます。"
+                    description="デフォルトの待ち合わせ場所を基準に、移動時間目安レンジと概算料金で比較できます。予定予約は日時を入れると、その条件で見積もりを揃えます。"
                     topBadge={DISCOVERY_TOP_BADGE}
                     bullets={[...DISCOVERY_HERO_BULLETS]}
                     primaryAction={{ label: 'マイページ', to: '/user' }}
@@ -331,7 +331,7 @@ export function UserTherapistSearchPage() {
                         {
                             label: '距離表示',
                             title: '表示ロジック',
-                            body: '一覧では徒歩目安レンジだけを表示し、距離や正確な位置は出しません。比較しやすさと安全性を両立しています。',
+                            body: '一覧では移動時間目安レンジだけを表示し、距離や正確な位置は出しません。比較しやすさと安全性を両立しています。',
                         },
                         {
                             label: '決済の流れ',
@@ -347,7 +347,7 @@ export function UserTherapistSearchPage() {
                             近くのタチキャスト {filteredTherapists.length}名
                         </h2>
                         <p className="text-sm text-[#68707a] md:text-base">
-                            徒歩目安レンジ、料金、レビューを見ながら比較できます。
+                            移動時間目安レンジ、料金、レビューを見ながら比較できます。
                         </p>
                     </div>
 

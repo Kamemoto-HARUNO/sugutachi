@@ -104,7 +104,7 @@ function ruleTypeLabel(ruleType: string): string {
         case 'time_band':
             return '時間帯';
         case 'walking_time_range':
-            return '徒歩目安';
+            return '移動時間';
         case 'demand_level':
             return '需要レベル';
         default:
