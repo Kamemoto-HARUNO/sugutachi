@@ -324,6 +324,12 @@ export function AdminDashboardPage() {
                         >
                             アカウント一覧
                         </Link>
+                        <Link
+                            to="/admin/legal-documents"
+                            className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/5"
+                        >
+                            法務文書管理
+                        </Link>
                     </div>
                 </div>
             </section>

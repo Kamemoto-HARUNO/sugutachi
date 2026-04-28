@@ -1570,6 +1570,8 @@ export interface AdminLegalDocumentRecord {
     effective_at: string | null;
     is_published: boolean;
     acceptances_count?: number;
+    booking_consents_count?: number;
+    consent_count?: number;
     created_at: string;
     updated_at: string;
 }

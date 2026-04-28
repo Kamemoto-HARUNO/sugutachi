@@ -20,6 +20,8 @@ class LegalDocumentResource extends JsonResource
             'effective_at' => $this->effective_at,
             'is_published' => $this->published_at !== null,
             'acceptances_count' => $this->whenCounted('acceptances'),
+            'booking_consents_count' => $this->whenCounted('bookingConsents'),
+            'consent_count' => ($this->acceptances_count ?? 0) + ($this->booking_consents_count ?? 0),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

@@ -11,6 +11,7 @@ use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -31,7 +32,7 @@ class AdminLegalDocumentController extends Controller
 
         return LegalDocumentResource::collection(
             LegalDocument::query()
-                ->withCount('acceptances')
+                ->withCount(['acceptances', 'bookingConsents'])
                 ->when(
                     $validated['document_type'] ?? null,
                     fn ($query, string $documentType) => $query->where('document_type', $documentType)
@@ -75,17 +76,23 @@ class AdminLegalDocumentController extends Controller
             $validated['effective_at'] ?? null
         );
 
-        $document = LegalDocument::create([
-            'public_id' => 'ldoc_'.Str::ulid(),
-            'document_type' => $validated['document_type'],
-            'version' => $validated['version'],
-            'title' => $validated['title'],
-            'body' => $validated['body'],
-            'published_at' => $publishedAt,
-            'effective_at' => $effectiveAt,
-        ]);
+        $document = DB::transaction(function () use ($validated, $publishedAt, $effectiveAt): LegalDocument {
+            $document = LegalDocument::create([
+                'public_id' => 'ldoc_'.Str::ulid(),
+                'document_type' => $validated['document_type'],
+                'version' => $validated['version'],
+                'title' => $validated['title'],
+                'body' => $validated['body'],
+                'published_at' => $publishedAt,
+                'effective_at' => $effectiveAt,
+            ]);
 
-        $document->loadCount('acceptances');
+            $this->unpublishOtherVersions($document->document_type, $document->id);
+
+            return $document;
+        });
+
+        $document->loadCount(['acceptances', 'bookingConsents']);
         $this->recordAdminAudit($request, 'legal_document.create', $document, [], $this->snapshot($document));
 
         return (new LegalDocumentResource($document))
@@ -99,7 +106,7 @@ class AdminLegalDocumentController extends Controller
         abort_if(
             $legalDocument->published_at !== null,
             409,
-            'Published legal documents cannot be updated. Create a new version instead.'
+            '公開中の法務文書は更新できません。新しいバージョンを作成してください。'
         );
 
         $validated = $request->validate([
@@ -111,7 +118,7 @@ class AdminLegalDocumentController extends Controller
 
         if ($validated === []) {
             throw ValidationException::withMessages([
-                'title' => ['At least one field must be provided.'],
+                'title' => ['少なくとも1項目は変更してください。'],
             ]);
         }
 
@@ -125,23 +132,56 @@ class AdminLegalDocumentController extends Controller
         );
         $before = $this->snapshot($legalDocument);
 
-        $legalDocument->forceFill([
-            'title' => $validated['title'] ?? $legalDocument->title,
-            'body' => $validated['body'] ?? $legalDocument->body,
-            'published_at' => $publishedAt,
-            'effective_at' => $effectiveAt,
-        ])->save();
+        DB::transaction(function () use ($validated, $publishedAt, $effectiveAt, $legalDocument): void {
+            $legalDocument->forceFill([
+                'title' => $validated['title'] ?? $legalDocument->title,
+                'body' => $validated['body'] ?? $legalDocument->body,
+                'published_at' => $publishedAt,
+                'effective_at' => $effectiveAt,
+            ])->save();
 
-        $legalDocument->loadCount('acceptances');
+            $this->unpublishOtherVersions($legalDocument->document_type, $legalDocument->id);
+        });
+
+        $legalDocument->loadCount(['acceptances', 'bookingConsents']);
         $this->recordAdminAudit(
             $request,
             'legal_document.update',
             $legalDocument,
             $before,
-            $this->snapshot($legalDocument->refresh()->loadCount('acceptances'))
+            $this->snapshot($legalDocument->refresh()->loadCount(['acceptances', 'bookingConsents']))
         );
 
         return new LegalDocumentResource($legalDocument);
+    }
+
+    public function destroy(Request $request, LegalDocument $legalDocument): JsonResponse
+    {
+        $this->authorizeAdmin($request->user());
+
+        $legalDocument->loadCount(['acceptances', 'bookingConsents']);
+
+        abort_if(
+            (($legalDocument->acceptances_count ?? 0) + ($legalDocument->booking_consents_count ?? 0)) > 0,
+            409,
+            '承諾履歴がある文書は削除できません。'
+        );
+
+        $before = $this->snapshot($legalDocument);
+
+        $legalDocument->delete();
+
+        $this->recordAdminAudit(
+            $request,
+            'legal_document.delete',
+            $legalDocument,
+            $before,
+            []
+        );
+
+        return response()->json([
+            'message' => '法務文書を削除しました。',
+        ]);
     }
 
     private function resolvePublicationWindow(?string $publishedAtInput, ?string $effectiveAtInput): array
@@ -155,11 +195,22 @@ class AdminLegalDocumentController extends Controller
 
         if ($publishedAt && $effectiveAt && $effectiveAt->lt($publishedAt)) {
             throw ValidationException::withMessages([
-                'effective_at' => ['The effective at must be after or equal to published at.'],
+                'effective_at' => ['効力発生日は公開日時以降に設定してください。'],
             ]);
         }
 
         return [$publishedAt, $effectiveAt];
+    }
+
+    private function unpublishOtherVersions(string $documentType, int $currentDocumentId): void
+    {
+        LegalDocument::query()
+            ->where('document_type', $documentType)
+            ->whereKeyNot($currentDocumentId)
+            ->whereNotNull('published_at')
+            ->update([
+                'published_at' => null,
+            ]);
     }
 
     private function snapshot(LegalDocument $document): array

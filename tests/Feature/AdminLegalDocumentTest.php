@@ -86,6 +86,41 @@ class AdminLegalDocumentTest extends TestCase
         ]);
     }
 
+    public function test_creating_new_document_of_same_type_unpublishes_previous_version(): void
+    {
+        [$admin] = $this->createAdminFixture();
+        $token = $admin->createToken('api')->plainTextToken;
+
+        $publishedDocument = LegalDocument::create([
+            'public_id' => 'ldoc_terms_existing',
+            'document_type' => 'terms',
+            'version' => '2026-04-01',
+            'title' => '旧 利用規約',
+            'body' => '公開済みの旧本文',
+            'published_at' => now()->subDay(),
+            'effective_at' => now()->subDay(),
+        ]);
+
+        $createdId = $this->withToken($token)
+            ->postJson('/api/admin/legal-documents', [
+                'document_type' => 'terms',
+                'version' => '2026-05-01',
+                'title' => '新 利用規約',
+                'body' => '新しい本文',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.document_type', 'terms')
+            ->json('data.id');
+
+        $publishedDocument->refresh();
+
+        $this->assertNull($publishedDocument->published_at);
+        $this->assertDatabaseHas('legal_documents', [
+            'id' => $createdId,
+            'document_type' => 'terms',
+        ]);
+    }
+
     public function test_published_legal_document_cannot_be_updated(): void
     {
         [$admin] = $this->createAdminFixture();
@@ -104,6 +139,63 @@ class AdminLegalDocumentTest extends TestCase
                 'title' => '変更しようとした本文',
             ])
             ->assertConflict();
+    }
+
+    public function test_document_can_only_be_deleted_when_consent_count_is_zero(): void
+    {
+        [$admin] = $this->createAdminFixture();
+        $acceptedAccount = Account::factory()->create(['public_id' => 'acc_legal_delete_acceptor']);
+        $token = $admin->createToken('api')->plainTextToken;
+
+        $lockedDocument = LegalDocument::create([
+            'public_id' => 'ldoc_terms_locked',
+            'document_type' => 'terms',
+            'version' => '2026-04-01',
+            'title' => '削除不可 利用規約',
+            'body' => '公開済み本文',
+            'published_at' => now()->subHour(),
+            'effective_at' => now(),
+        ]);
+
+        LegalAcceptance::create([
+            'account_id' => $acceptedAccount->id,
+            'legal_document_id' => $lockedDocument->id,
+            'accepted_at' => now(),
+        ]);
+
+        $deletableDocument = LegalDocument::create([
+            'public_id' => 'ldoc_terms_deletable',
+            'document_type' => 'privacy',
+            'version' => '2026-05-01',
+            'title' => '削除可能 プライバシーポリシー',
+            'body' => 'ドラフト本文',
+            'published_at' => null,
+            'effective_at' => null,
+        ]);
+
+        $this->withToken($token)
+            ->deleteJson("/api/admin/legal-documents/{$lockedDocument->id}")
+            ->assertConflict();
+
+        $this->withToken($token)
+            ->deleteJson("/api/admin/legal-documents/{$deletableDocument->id}")
+            ->assertOk()
+            ->assertJsonPath('message', '法務文書を削除しました。');
+
+        $this->assertDatabaseHas('legal_documents', [
+            'id' => $lockedDocument->id,
+        ]);
+
+        $this->assertDatabaseMissing('legal_documents', [
+            'id' => $deletableDocument->id,
+        ]);
+
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'actor_account_id' => $admin->id,
+            'action' => 'legal_document.delete',
+            'target_type' => LegalDocument::class,
+            'target_id' => $deletableDocument->id,
+        ]);
     }
 
     public function test_non_admin_cannot_access_legal_document_admin_api(): void

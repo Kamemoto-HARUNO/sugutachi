@@ -155,6 +155,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/admin/legal-documents', [AdminLegalDocumentController::class, 'index']);
     Route::post('/admin/legal-documents', [AdminLegalDocumentController::class, 'store']);
     Route::patch('/admin/legal-documents/{legalDocument}', [AdminLegalDocumentController::class, 'update']);
+    Route::delete('/admin/legal-documents/{legalDocument}', [AdminLegalDocumentController::class, 'destroy']);
     Route::get('/admin/contact-inquiries', [AdminContactInquiryController::class, 'index']);
     Route::get('/admin/contact-inquiries/{contactInquiry:public_id}', [AdminContactInquiryController::class, 'show']);
     Route::post('/admin/contact-inquiries/{contactInquiry:public_id}/notes', [AdminContactInquiryController::class, 'note']);

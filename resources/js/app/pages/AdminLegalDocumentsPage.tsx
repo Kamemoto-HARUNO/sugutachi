@@ -63,6 +63,11 @@ function documentTypeLabel(value: string): string {
     return LEGAL_DOCUMENT_TYPE_OPTIONS.find((option) => option.value === value)?.label ?? value;
 }
 
+function getConsentCount(document: AdminLegalDocumentRecord): number {
+    return document.consent_count
+        ?? (document.acceptances_count ?? 0) + (document.booking_consents_count ?? 0);
+}
+
 export function AdminLegalDocumentsPage() {
     const { token } = useAuth();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -84,6 +89,7 @@ export function AdminLegalDocumentsPage() {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isSubmittingCreate, setIsSubmittingCreate] = useState(false);
     const [isSubmittingUpdate, setIsSubmittingUpdate] = useState(false);
+    const [isDeleting, setIsDeleting] = useState(false);
 
     const selectedId = searchParams.get('selected');
     const publishedFilter = normalizePublishedFilter(searchParams.get('is_published'));
@@ -91,6 +97,7 @@ export function AdminLegalDocumentsPage() {
 
     usePageTitle('法務文書管理');
     useToastOnMessage(successMessage, 'success');
+    useToastOnMessage(actionError, 'error');
 
     const selectedDocument = useMemo(
         () => documents.find((document) => String(document.id) === selectedId) ?? null,
@@ -101,7 +108,7 @@ export function AdminLegalDocumentsPage() {
         total: documents.length,
         published: documents.filter((document) => document.is_published).length,
         drafts: documents.filter((document) => !document.is_published).length,
-        accepted: documents.reduce((sum, document) => sum + (document.acceptances_count ?? 0), 0),
+        accepted: documents.reduce((sum, document) => sum + getConsentCount(document), 0),
         uniqueTypes: new Set(documents.map((document) => document.document_type)).size,
     }), [documents]);
 
@@ -260,6 +267,39 @@ export function AdminLegalDocumentsPage() {
         }
     }
 
+    async function handleDelete() {
+        if (!token || !selectedDocument || getConsentCount(selectedDocument) > 0 || isDeleting) {
+            return;
+        }
+
+        if (!window.confirm(`「${selectedDocument.title}」を削除します。よろしいですか？`)) {
+            return;
+        }
+
+        setIsDeleting(true);
+        setActionError(null);
+        setSuccessMessage(null);
+
+        try {
+            await apiRequest(`/admin/legal-documents/${selectedDocument.id}`, {
+                method: 'DELETE',
+                token,
+            });
+
+            setSuccessMessage('法務文書を削除しました。');
+            updateFilters({ selected: null });
+            await loadDocuments(true);
+        } catch (requestError) {
+            const message = requestError instanceof ApiError
+                ? requestError.message
+                : '法務文書の削除に失敗しました。';
+
+            setActionError(message);
+        } finally {
+            setIsDeleting(false);
+        }
+    }
+
     if (isLoading) {
         return <LoadingScreen title="法務文書を読み込み中" message="公開中とドラフトの文書を集約しています。" />;
     }
@@ -379,7 +419,7 @@ export function AdminLegalDocumentsPage() {
 
                                         <div className="mt-3 text-sm text-[#55606d]">
                                             <p>公開日時 <span className="font-medium text-[#17202b]">{formatDateTime(document.published_at)}</span></p>
-                                            <p className="mt-1">承諾件数 <span className="font-medium text-[#17202b]">{document.acceptances_count ?? 0}</span></p>
+                                            <p className="mt-1">承諾件数 <span className="font-medium text-[#17202b]">{getConsentCount(document)}</span></p>
                                         </div>
                                     </Link>
                                 );
@@ -394,7 +434,7 @@ export function AdminLegalDocumentsPage() {
                     <form onSubmit={handleCreate} className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                         <div className="border-b border-[#ece3d4] pb-4">
                             <h3 className="text-lg font-semibold text-[#17202b]">新しい文書を作成</h3>
-                            <p className="mt-1 text-sm text-[#68707a]">新バージョンは公開前ドラフトとして先に作成できます。</p>
+                            <p className="mt-1 text-sm text-[#68707a]">同じ文書タイプで新しく作成すると、以前の公開版は公開状態から外れます。</p>
                         </div>
 
                         {actionError ? (
@@ -502,8 +542,8 @@ export function AdminLegalDocumentsPage() {
 
                                 <article className="rounded-[22px] border border-[#ece3d4] bg-[#fffcf6] p-4 text-sm text-[#55606d]">
                                     <p className="text-xs font-semibold tracking-wide text-[#b5894d]">承諾状況</p>
-                                    <p className="mt-2 font-semibold text-[#17202b]">{selectedDocument.acceptances_count ?? 0}件</p>
-                                    <p className="mt-1">公開済み文書は更新できません。新バージョンを作成してください。</p>
+                                    <p className="mt-2 font-semibold text-[#17202b]">{getConsentCount(selectedDocument)}件</p>
+                                    <p className="mt-1">承諾件数が0件の文書だけ削除できます。</p>
                                 </article>
                             </div>
 
@@ -513,9 +553,23 @@ export function AdminLegalDocumentsPage() {
                             </section>
 
                             {selectedDocument.is_published ? (
-                                <section className="rounded-[24px] border border-[#ece3d4] bg-[#fffdf8] px-5 py-4 text-sm text-[#7d6852]">
-                                    この文書はすでに公開済みです。修正が必要な場合は、新しいバージョンを左下の作成フォームから追加してください。
-                                </section>
+                                <div className="space-y-4">
+                                    <section className="rounded-[24px] border border-[#ece3d4] bg-[#fffdf8] px-5 py-4 text-sm text-[#7d6852]">
+                                        この文書はすでに公開済みです。修正が必要な場合は、新しいバージョンを左下の作成フォームから追加してください。
+                                    </section>
+                                    {getConsentCount(selectedDocument) === 0 ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                void handleDelete();
+                                            }}
+                                            disabled={isDeleting}
+                                            className="inline-flex rounded-full border border-[#d9c9ae] px-5 py-2.5 text-sm font-semibold text-[#7d6852] transition hover:bg-[#fff8ef] disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            {isDeleting ? '削除中...' : 'この文書を削除'}
+                                        </button>
+                                    ) : null}
+                                </div>
                             ) : (
                                 <form onSubmit={handleUpdate} className="rounded-[24px] border border-[#ece3d4] bg-[#fffcf6] p-5">
                                     <div className="border-b border-[#ece3d4] pb-4">
@@ -573,6 +627,18 @@ export function AdminLegalDocumentsPage() {
                                     >
                                         {isSubmittingUpdate ? '更新中...' : 'ドラフトを更新'}
                                     </button>
+                                    {getConsentCount(selectedDocument) === 0 ? (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                void handleDelete();
+                                            }}
+                                            disabled={isDeleting}
+                                            className="mt-5 ml-3 inline-flex rounded-full border border-[#d9c9ae] px-5 py-2.5 text-sm font-semibold text-[#7d6852] transition hover:bg-[#fff8ef] disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            {isDeleting ? '削除中...' : 'この文書を削除'}
+                                        </button>
+                                    ) : null}
                                 </form>
                             )}
                         </div>
