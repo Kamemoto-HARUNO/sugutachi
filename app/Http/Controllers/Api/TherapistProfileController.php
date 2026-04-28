@@ -18,11 +18,13 @@ class TherapistProfileController extends Controller
         private readonly TherapistProfilePublicationService $publicationService,
     ) {}
 
-    public function show(Request $request): TherapistProfileResource
+    public function show(Request $request): JsonResponse
     {
-        return new TherapistProfileResource(
-            $request->user()->therapistProfile()->with(['menus', 'account.latestIdentityVerification'])->firstOrFail()
-        );
+        return (new TherapistProfileResource(
+            $request->user()->ensureTherapistProfile()->load(['menus', 'account.latestIdentityVerification'])
+        ))
+            ->response()
+            ->setStatusCode(200);
     }
 
     public function upsert(Request $request): JsonResponse
@@ -81,9 +83,8 @@ class TherapistProfileController extends Controller
     public function submitReview(Request $request): TherapistProfileResource
     {
         $profile = $request->user()
-            ->therapistProfile()
-            ->with(['menus', 'account.latestIdentityVerification'])
-            ->firstOrFail();
+            ->ensureTherapistProfile()
+            ->load(['menus', 'account.latestIdentityVerification']);
 
         abort_if(
             $profile->profile_status === TherapistProfile::STATUS_SUSPENDED,
@@ -112,9 +113,8 @@ class TherapistProfileController extends Controller
     public function reviewStatus(Request $request): JsonResponse
     {
         $profile = $request->user()
-            ->therapistProfile()
-            ->with(['menus', 'account.latestIdentityVerification'])
-            ->firstOrFail();
+            ->ensureTherapistProfile()
+            ->load(['menus', 'account.latestIdentityVerification']);
 
         $requirements = $this->publicationService->requirements($profile);
 
@@ -138,7 +138,7 @@ class TherapistProfileController extends Controller
 
     public function goOnline(Request $request): TherapistProfileResource
     {
-        $profile = $request->user()->therapistProfile()->firstOrFail();
+        $profile = $request->user()->ensureTherapistProfile();
 
         abort_unless(
             $profile->profile_status === TherapistProfile::STATUS_APPROVED,
@@ -166,7 +166,7 @@ class TherapistProfileController extends Controller
 
     public function goOffline(Request $request): TherapistProfileResource
     {
-        $profile = $request->user()->therapistProfile()->firstOrFail();
+        $profile = $request->user()->ensureTherapistProfile();
 
         $profile->forceFill([
             'is_online' => false,
@@ -182,7 +182,7 @@ class TherapistProfileController extends Controller
             'is_listed' => ['required', 'boolean'],
         ]);
 
-        $profile = $request->user()->therapistProfile()->firstOrFail();
+        $profile = $request->user()->ensureTherapistProfile();
         $isListed = (bool) $validated['is_listed'];
 
         $profile->forceFill([
@@ -203,7 +203,7 @@ class TherapistProfileController extends Controller
             'source' => ['nullable', 'string', 'max:50'],
         ]);
 
-        $profile = $request->user()->therapistProfile()->firstOrFail();
+        $profile = $request->user()->ensureTherapistProfile();
 
         $profile->location()->updateOrCreate(
             ['therapist_profile_id' => $profile->id],

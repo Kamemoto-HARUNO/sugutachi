@@ -58,6 +58,10 @@ class AuthController extends Controller
                 'granted_at' => now(),
             ]);
 
+            if ($role === 'therapist') {
+                $account->ensureTherapistProfile();
+            }
+
             $acceptedDocuments->each(fn (LegalDocument $document) => $account->legalAcceptances()->create([
                 'legal_document_id' => $document->id,
                 'accepted_at' => now(),

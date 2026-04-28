@@ -78,6 +78,33 @@ class TherapistProfileReviewTest extends TestCase
         $this->assertSame(0, $response->json('data.review_count'));
     }
 
+    public function test_show_creates_missing_draft_profile_for_existing_therapist_role(): void
+    {
+        $therapist = Account::factory()->create([
+            'public_id' => 'acc_therapist_missing_profile',
+            'email' => 'missing-profile@example.test',
+            'display_name' => 'Missing Profile Therapist',
+            'last_active_role' => 'therapist',
+        ]);
+        $therapist->roleAssignments()->create([
+            'role' => 'therapist',
+            'status' => 'active',
+            'granted_at' => now(),
+        ]);
+
+        $response = $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->getJson('/api/me/therapist-profile')
+            ->assertOk();
+
+        $this->assertSame('Missing Profile Therapist', $response->json('data.public_name'));
+        $this->assertSame(TherapistProfile::STATUS_DRAFT, $response->json('data.profile_status'));
+        $this->assertDatabaseHas('therapist_profiles', [
+            'account_id' => $therapist->id,
+            'public_name' => 'Missing Profile Therapist',
+            'profile_status' => TherapistProfile::STATUS_DRAFT,
+        ]);
+    }
+
     public function test_show_returns_body_metrics_and_age_derived_from_identity_verification(): void
     {
         $therapist = Account::factory()->create(['public_id' => 'acc_therapist_profile_metrics']);

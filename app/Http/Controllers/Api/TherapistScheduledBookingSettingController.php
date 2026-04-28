@@ -52,7 +52,7 @@ class TherapistScheduledBookingSettingController extends Controller
 
     private function therapistProfile(Request $request): TherapistProfile
     {
-        $profile = $request->user()->therapistProfile()->firstOrFail();
+        $profile = $request->user()->ensureTherapistProfile();
 
         abort_if(
             $profile->profile_status === TherapistProfile::STATUS_SUSPENDED,

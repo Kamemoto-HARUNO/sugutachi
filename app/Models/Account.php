@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
+use Illuminate\Support\Str;
 use Laravel\Sanctum\HasApiTokens;
 
 #[Fillable([
@@ -71,6 +72,22 @@ class Account extends Authenticatable
     public function therapistProfile(): HasOne
     {
         return $this->hasOne(TherapistProfile::class);
+    }
+
+    public function ensureTherapistProfile(): TherapistProfile
+    {
+        return $this->therapistProfile()->firstOrCreate(
+            ['account_id' => $this->id],
+            [
+                'public_id' => 'thp_'.Str::ulid(),
+                'public_name' => $this->draftTherapistPublicName(),
+                'profile_status' => TherapistProfile::STATUS_DRAFT,
+                'training_status' => 'none',
+                'photo_review_status' => 'pending',
+                'is_online' => false,
+                'is_listed' => true,
+            ],
+        );
     }
 
     public function profilePhotos(): HasMany
@@ -254,5 +271,20 @@ class Account extends Authenticatable
     public function sendPasswordResetNotification($token): void
     {
         $this->notify(new AccountPasswordResetNotification($token));
+    }
+
+    private function draftTherapistPublicName(): string
+    {
+        if (filled($this->display_name)) {
+            return Str::limit(trim((string) $this->display_name), 80, '');
+        }
+
+        $emailLocalPart = Str::before((string) $this->email, '@');
+
+        if (filled($emailLocalPart)) {
+            return Str::limit($emailLocalPart, 80, '');
+        }
+
+        return '新規タチキャスト';
     }
 }
