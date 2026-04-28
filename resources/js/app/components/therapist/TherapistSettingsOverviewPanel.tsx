@@ -308,7 +308,7 @@ export function TherapistSettingsOverviewPanel() {
     }
 
     return (
-        <div className="space-y-6">
+        <div id="settings-overview" className="space-y-6">
             <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_16px_34px_rgba(2,6,23,0.14)]">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-2">
