@@ -65,7 +65,7 @@ export function DiscoveryFilterPanel({
                         type="datetime-local"
                         value={scheduledStartAt}
                         onChange={(event) => onScheduledStartAtChange(event.target.value)}
-                        className="w-full rounded-[20px] border border-[#e5d8c4] bg-white px-4 py-3 text-sm text-[#17202b] outline-none"
+                        className="block min-w-0 max-w-full rounded-[20px] border border-[#e5d8c4] bg-white px-4 py-3 text-base text-[#17202b] outline-none sm:text-sm"
                     />
                 ) : null}
             </div>
