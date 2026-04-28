@@ -45,14 +45,14 @@ export function LegalDocumentPage({ documentType, title }: LegalDocumentPageProp
     return (
         <div className="space-y-8">
             <section className="space-y-3 border-b border-white/10 pb-8">
-                <p className="text-sm font-medium tracking-wide text-rose-200">Legal</p>
+                <p className="text-sm font-medium tracking-wide text-rose-200">ご利用案内</p>
                 <h1 className="text-4xl font-semibold text-white">{title}</h1>
                 <p className="text-sm leading-7 text-slate-300">
-                    公開中の最新版を API から表示しています。登録画面の同意バージョンとも連動します。
+                    現在ご利用中のサービスに適用される最新の内容を掲載しています。ご利用前やお問い合わせ前の確認にご活用ください。
                 </p>
                 {documentData ? (
                     <p className="text-sm text-slate-400">
-                        バージョン {documentData.version}
+                        版 {documentData.version}
                         {documentData.effective_at ? ` / 発効 ${formatJstDate(documentData.effective_at) ?? '未設定'}` : ''}
                     </p>
                 ) : null}
