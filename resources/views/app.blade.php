@@ -3,6 +3,7 @@
     $gtmContainerId = trim((string) config('services.gtm.container_id'));
     $gtmAuth = trim((string) config('services.gtm.auth'));
     $gtmPreview = trim((string) config('services.gtm.preview'));
+    $defaultOgpImageUrl = asset('images/ogp/default.jpg');
     $hasGtmEnvironment = $gtmAuth !== '' && $gtmPreview !== '';
     $gtmQuery = http_build_query(array_filter([
         'id' => $gtmContainerId !== '' ? $gtmContainerId : null,
@@ -32,8 +33,12 @@
         <link rel="manifest" href="/manifest.webmanifest">
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="default">
-        <meta property="og:image" content="/logo-horizontal.png">
-        <meta name="twitter:image" content="/logo-horizontal.png">
+        <meta property="og:type" content="website">
+        <meta property="og:site_name" content="{{ config('service_meta.name', config('app.name', 'すぐタチ')) }}">
+        <meta property="og:image" content="{{ $defaultOgpImageUrl }}">
+        <meta property="og:image:secure_url" content="{{ $defaultOgpImageUrl }}">
+        <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:image" content="{{ $defaultOgpImageUrl }}">
 
         <link rel="preconnect" href="https://fonts.bunny.net">
         <link href="https://fonts.bunny.net/css?family=instrument-sans:400,500,600,700" rel="stylesheet" />
