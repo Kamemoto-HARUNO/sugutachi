@@ -11,7 +11,6 @@ interface DiscoveryFooterProps {
     description: string;
     primaryAction: DiscoveryFooterAction;
     secondaryAction: DiscoveryFooterAction;
-    supportEmail?: string | null;
 }
 
 export function DiscoveryFooter({
@@ -19,7 +18,6 @@ export function DiscoveryFooter({
     description,
     primaryAction,
     secondaryAction,
-    supportEmail,
 }: DiscoveryFooterProps) {
     return (
         <footer className="mt-24 bg-[#17202b] px-6 py-16 md:px-10 md:py-20">
@@ -49,9 +47,6 @@ export function DiscoveryFooter({
                             <p className="max-w-2xl text-sm leading-7 text-[#5b6470] md:text-base md:leading-8">
                                 {description}
                             </p>
-                            {supportEmail ? (
-                                <p className="text-xs text-[#68707a]">サポート: {supportEmail}</p>
-                            ) : null}
                         </div>
 
                         <div className="flex flex-col gap-3 md:min-w-[260px]">

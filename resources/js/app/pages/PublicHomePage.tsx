@@ -603,7 +603,6 @@ export function PublicHomePage() {
                 description="リラクゼーション目的の出張タチキャストを、近さ・料金・レビューから比較できる公開トップです。ログイン後は一覧検索、予約、メッセージまでそのまま進めます。"
                 primaryAction={footerPrimaryAction}
                 secondaryAction={footerSecondaryAction}
-                supportEmail={serviceMeta?.support_email ?? account?.email ?? null}
             />
         </div>
     );

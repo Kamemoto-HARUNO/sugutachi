@@ -466,7 +466,6 @@ export function UserTherapistSearchPage() {
                 description="待ち合わせ場所を登録しておけば、近さと料金の見え方をそろえた検索一覧からそのまま予約フローへ進めます。"
                 primaryAction={{ label: 'マイページ', to: '/user' }}
                 secondaryAction={{ label: '予約一覧', to: '/user/bookings' }}
-                supportEmail={serviceMeta?.support_email ?? null}
             />
         </div>
     );

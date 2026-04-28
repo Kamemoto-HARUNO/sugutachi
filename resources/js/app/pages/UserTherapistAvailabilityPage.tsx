@@ -1561,7 +1561,6 @@ export function UserTherapistAvailabilityPage() {
                 description="公開された1週間のスケジュールから帯を選び、開始時刻と予約時間を調整して予約リクエストへ進めます。"
                 primaryAction={{ label: 'プロフィールへ戻る', to: detailPath }}
                 secondaryAction={{ label: '一覧へ戻る', to: listPath }}
-                supportEmail={serviceMeta?.support_email}
             />
         </div>
     );

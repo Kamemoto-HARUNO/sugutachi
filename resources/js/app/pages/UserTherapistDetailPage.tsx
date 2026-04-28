@@ -1046,7 +1046,6 @@ export function UserTherapistDetailPage() {
                     : 'プロフィールとレビューは公開で確認でき、空き時間確認と予約導線はログイン後に続けられます。'}
                 primaryAction={primaryAction}
                 secondaryAction={secondaryAction}
-                supportEmail={serviceMeta?.support_email ?? null}
             />
         </div>
     );
