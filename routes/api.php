@@ -234,6 +234,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/bookings', [BookingController::class, 'store']);
     Route::get('/bookings/{booking:public_id}', [BookingController::class, 'show']);
     Route::post('/bookings/{booking:public_id}/payment-intents', [PaymentIntentController::class, 'store']);
+    Route::post('/bookings/{booking:public_id}/payment-abandon', [PaymentIntentController::class, 'abandon']);
     Route::post('/bookings/{booking:public_id}/payment-sync', [PaymentSyncController::class, 'store']);
     Route::post('/bookings/{booking:public_id}/cancel-preview', [BookingCancellationController::class, 'preview']);
     Route::post('/bookings/{booking:public_id}/cancel', [BookingCancellationController::class, 'store']);
