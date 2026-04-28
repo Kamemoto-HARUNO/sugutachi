@@ -24,18 +24,6 @@ export function DiscoveryFooter({
             <div className="mx-auto flex w-full max-w-[1280px] flex-col items-center gap-8">
                 <BrandMark domain={domain} inverse compact />
 
-                <div className="flex flex-wrap items-center justify-center gap-6 text-sm text-[#e6e1d7]">
-                    <Link to="/privacy" className="transition hover:text-white">
-                        プライバシーポリシー
-                    </Link>
-                    <Link to="/terms" className="transition hover:text-white">
-                        利用規約
-                    </Link>
-                    <Link to="/commerce" className="transition hover:text-white">
-                        特商法に基づく表記
-                    </Link>
-                </div>
-
                 <div className="w-full max-w-4xl rounded-[32px] bg-[#fffdf8] p-8 md:p-10">
                     <div className="flex flex-col gap-6 md:flex-row md:items-center md:justify-between">
                         <div className="space-y-3">
@@ -64,6 +52,21 @@ export function DiscoveryFooter({
                             </Link>
                         </div>
                     </div>
+                </div>
+
+                <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-[#e6e1d7]">
+                    <Link to="/help" className="transition hover:text-white">
+                        ヘルプ
+                    </Link>
+                    <Link to="/privacy" className="transition hover:text-white">
+                        プライバシーポリシー
+                    </Link>
+                    <Link to="/terms" className="transition hover:text-white">
+                        利用規約
+                    </Link>
+                    <Link to="/commerce" className="transition hover:text-white">
+                        特商法に基づく表記
+                    </Link>
                 </div>
             </div>
         </footer>
