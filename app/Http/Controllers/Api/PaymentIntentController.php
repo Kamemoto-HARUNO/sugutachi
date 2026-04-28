@@ -6,8 +6,10 @@ use App\Contracts\Payments\PaymentIntentGateway;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PaymentIntentResource;
 use App\Models\Booking;
+use App\Models\BookingQuote;
 use App\Models\PaymentIntent;
 use App\Services\Bookings\BookingSettlementCalculator;
+use App\Services\Payments\BookingPaymentIntentCancellationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -84,5 +86,77 @@ class PaymentIntentController extends Controller
         return (new PaymentIntentResource($paymentIntent))
             ->response()
             ->setStatusCode(201);
+    }
+
+    public function abandon(
+        Request $request,
+        Booking $booking,
+        BookingPaymentIntentCancellationService $bookingPaymentIntentCancellationService,
+    ): JsonResponse {
+        abort_unless($booking->user_account_id === $request->user()->id, 404);
+        abort_unless(
+            $booking->status === Booking::STATUS_PAYMENT_AUTHORIZING,
+            409,
+            'カード確認中の予約だけ中止できます。'
+        );
+
+        $abandonedBooking = DB::transaction(function () use ($booking, $bookingPaymentIntentCancellationService): Booking {
+            $lockedBooking = Booking::query()
+                ->whereKey($booking->id)
+                ->lockForUpdate()
+                ->firstOrFail();
+
+            abort_unless(
+                $lockedBooking->status === Booking::STATUS_PAYMENT_AUTHORIZING,
+                409,
+                'カード確認中の予約だけ中止できます。'
+            );
+
+            $currentPaymentIntent = $bookingPaymentIntentCancellationService->cancelCurrentForBooking(
+                booking: $lockedBooking,
+                lastStripeEventId: 'system.payment_authorization_abandoned',
+            );
+
+            if ($lockedBooking->current_quote_id) {
+                BookingQuote::query()
+                    ->whereKey($lockedBooking->current_quote_id)
+                    ->lockForUpdate()
+                    ->update([
+                        'booking_id' => null,
+                        'updated_at' => now(),
+                    ]);
+            }
+
+            $lockedBooking->forceFill([
+                'status' => Booking::STATUS_PAYMENT_CANCELED,
+                'current_quote_id' => null,
+                'request_expires_at' => null,
+                'canceled_at' => $lockedBooking->canceled_at ?? now(),
+                'cancel_reason_code' => 'payment_authorization_failed',
+                'canceled_by_account_id' => null,
+            ])->save();
+
+            $lockedBooking->statusLogs()->create([
+                'from_status' => Booking::STATUS_PAYMENT_AUTHORIZING,
+                'to_status' => Booking::STATUS_PAYMENT_CANCELED,
+                'actor_account_id' => $lockedBooking->user_account_id,
+                'actor_role' => 'user',
+                'reason_code' => 'payment_authorization_failed',
+                'metadata_json' => [
+                    'stripe_payment_intent_id' => $currentPaymentIntent?->stripe_payment_intent_id,
+                ],
+            ]);
+
+            return $lockedBooking->refresh()->load([
+                'currentPaymentIntent',
+                'currentQuote',
+                'canceledBy',
+                'refunds' => fn ($query) => $query->latest('id'),
+            ]);
+        });
+
+        return response()->json([
+            'data' => (new \App\Http\Resources\BookingResource($abandonedBooking))->resolve($request),
+        ]);
     }
 }

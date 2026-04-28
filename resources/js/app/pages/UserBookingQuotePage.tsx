@@ -455,10 +455,10 @@ export function UserBookingQuotePage() {
 
         setIsSubmitting(true);
         setCardError(null);
+        let activeBooking = booking;
+        let authorizationConfirmed = false;
 
         try {
-            let activeBooking = booking;
-
             if (!activeBooking) {
                 const bookingPayload = await apiRequest<ApiEnvelope<BookingDetailRecord>>('/bookings', {
                     method: 'POST',
@@ -467,13 +467,6 @@ export function UserBookingQuotePage() {
                 });
 
                 activeBooking = unwrapData(bookingPayload);
-                setBooking(activeBooking);
-                setSearchParams((current) => {
-                    const next = new URLSearchParams(current);
-                    next.set('booking_id', activeBooking?.public_id ?? '');
-
-                    return next;
-                }, { replace: true });
             }
 
             const paymentIntentPayload = await apiRequest<ApiEnvelope<PaymentIntentRecord>>(
@@ -499,6 +492,8 @@ export function UserBookingQuotePage() {
                 throw new Error(confirmation.error.message);
             }
 
+            authorizationConfirmed = true;
+
             const syncPayload = await apiRequest<ApiEnvelope<{ booking: BookingDetailRecord; payment_intent: PaymentIntentRecord | null }>>(
                 `/bookings/${activeBooking.public_id}/payment-sync`,
                 {
@@ -508,9 +503,47 @@ export function UserBookingQuotePage() {
             );
             const synced = unwrapData(syncPayload);
             setBooking(synced.booking);
+            setSearchParams((current) => {
+                const next = new URLSearchParams(current);
+                next.set('booking_id', synced.booking.public_id);
+
+                return next;
+            }, { replace: true });
             navigate(`/user/booking-request/waiting?booking_id=${encodeURIComponent(synced.booking.public_id)}`);
         } catch (submitRequestError) {
             const message = friendlyCardError(submitRequestError);
+
+            if (activeBooking?.public_id && !authorizationConfirmed) {
+                try {
+                    await apiRequest<ApiEnvelope<BookingDetailRecord>>(
+                        `/bookings/${activeBooking.public_id}/payment-abandon`,
+                        {
+                            method: 'POST',
+                            token,
+                        },
+                    );
+                    setBooking(null);
+                    setSearchParams((current) => {
+                        const next = new URLSearchParams(current);
+                        next.delete('booking_id');
+
+                        return next;
+                    }, { replace: true });
+                } catch {
+                    // Keep the original card error as the user-facing message.
+                }
+            } else if (activeBooking?.public_id && authorizationConfirmed) {
+                setBooking(activeBooking);
+                setSearchParams((current) => {
+                    const next = new URLSearchParams(current);
+                    next.set('booking_id', activeBooking?.public_id ?? '');
+
+                    return next;
+                }, { replace: true });
+                navigate(`/user/booking-request/waiting?booking_id=${encodeURIComponent(activeBooking.public_id)}`);
+                return;
+            }
+
             setCardError(message);
             showError(message);
         } finally {

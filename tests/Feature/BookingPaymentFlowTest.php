@@ -189,6 +189,90 @@ class BookingPaymentFlowTest extends TestCase
             ->assertJsonPath('message', '予約リクエストを送るには、本人確認・年齢確認の承認を完了してください。');
     }
 
+    public function test_user_can_abandon_failed_payment_authorization_without_notifying_therapist(): void
+    {
+        $this->app->bind(PaymentIntentGateway::class, fn () => new class implements PaymentIntentGateway
+        {
+            public function create(
+                Booking $booking,
+                BookingQuote $quote,
+                ?StripeConnectedAccount $connectedAccount = null
+            ): CreatedPaymentIntent {
+                return new CreatedPaymentIntent(
+                    id: 'pi_test_'.$booking->public_id,
+                    clientSecret: 'pi_test_secret_'.$booking->public_id,
+                    status: 'requires_payment_method',
+                );
+            }
+
+            public function capture(
+                PaymentIntent $paymentIntent,
+                ?int $amountToCapture = null,
+                ?int $applicationFeeAmount = null,
+                ?int $transferAmount = null,
+            ): string {
+                return PaymentIntent::STRIPE_STATUS_SUCCEEDED;
+            }
+
+            public function cancel(PaymentIntent $paymentIntent): string
+            {
+                return PaymentIntent::STRIPE_STATUS_CANCELED;
+            }
+        });
+
+        [, $therapist, $userToken, $therapistProfileId, $therapistMenuId, $serviceAddressId] = $this->createBookableFixture();
+        $therapistToken = $therapist->createToken('api')->plainTextToken;
+
+        $quoteId = $this->withToken($userToken)
+            ->postJson('/api/booking-quotes', [
+                'therapist_profile_id' => $therapistProfileId,
+                'therapist_menu_id' => $therapistMenuId,
+                'service_address_id' => $serviceAddressId,
+                'duration_minutes' => 60,
+                'is_on_demand' => true,
+            ])
+            ->assertCreated()
+            ->json('data.quote_id');
+
+        $bookingId = $this->withToken($userToken)
+            ->postJson('/api/bookings', [
+                'quote_id' => $quoteId,
+            ])
+            ->assertCreated()
+            ->json('data.public_id');
+
+        $this->withToken($userToken)
+            ->postJson("/api/bookings/{$bookingId}/payment-intents")
+            ->assertCreated();
+
+        $this->withToken($userToken)
+            ->postJson("/api/bookings/{$bookingId}/payment-abandon")
+            ->assertOk()
+            ->assertJsonPath('data.status', Booking::STATUS_PAYMENT_CANCELED);
+
+        $this->assertDatabaseHas('bookings', [
+            'public_id' => $bookingId,
+            'status' => Booking::STATUS_PAYMENT_CANCELED,
+            'current_quote_id' => null,
+            'cancel_reason_code' => 'payment_authorization_failed',
+        ]);
+
+        $this->assertDatabaseHas('payment_intents', [
+            'booking_id' => Booking::query()->where('public_id', $bookingId)->value('id'),
+            'status' => PaymentIntent::STRIPE_STATUS_CANCELED,
+        ]);
+
+        $this->assertDatabaseHas('booking_quotes', [
+            'public_id' => $quoteId,
+            'booking_id' => null,
+        ]);
+
+        $this->withToken($therapistToken)
+            ->getJson('/api/me/therapist/booking-requests')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+    }
+
     private function createBookableFixture(bool $userVerified = true): array
     {
         $user = Account::factory()->create(['public_id' => 'acc_user_flow']);
