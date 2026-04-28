@@ -56,4 +56,11 @@ return [
         'subject' => env('WEB_PUSH_VAPID_SUBJECT'),
     ],
 
+    'gtm' => [
+        'enabled' => filter_var(env('GTM_ENABLED', false), FILTER_VALIDATE_BOOL),
+        'container_id' => env('GTM_CONTAINER_ID'),
+        'auth' => env('GTM_AUTH'),
+        'preview' => env('GTM_PREVIEW'),
+    ],
+
 ];

@@ -8,7 +8,7 @@
 * PHP 8.3+
 * MySQL 8+ / MariaDB 10.6+（ローカル・本番の基本DB）
 * SQLite（自動テストの高速実行用途）
-* Stripe Connect予定
+* Stripe（ユーザー決済）+ アプリ内売上台帳 + 手動出金
 
 ## セットアップ
 
@@ -59,3 +59,4 @@ php artisan db:seed --class=Database\\Seeders\\LocalPreviewSeeder
 * [DB設計](db_design.md)
 * [API設計](api_design.md)
 * [Laravelマイグレーション案](laravel_migrations.md)
+* [環境・リリース運用ガイド](environment_and_release_runbook.md)
