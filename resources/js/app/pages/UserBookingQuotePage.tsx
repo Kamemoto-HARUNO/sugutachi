@@ -113,7 +113,9 @@ export function UserBookingQuotePage() {
     const availabilitySlotId = searchParams.get('availability_slot_id');
     const requestedStartAt = searchParams.get('requested_start_at');
     const bookingId = searchParams.get('booking_id');
+    const startType = searchParams.get('start_type');
     const durationMinutes = normalizeDuration(searchParams.get('menu_duration_minutes'));
+    const isOnDemandRequest = startType === 'now';
 
     usePageTitle('見積もり確認とカード入力');
     useToastOnMessage(error, 'error');
@@ -135,9 +137,11 @@ export function UserBookingQuotePage() {
     }, [durationMinutes, therapistDetail, therapistMenuId]);
 
     const waitingPath = booking ? `/user/booking-request/waiting?booking_id=${encodeURIComponent(booking.public_id)}` : null;
-    const availabilityPath = therapistId
+    const availabilityPath = therapistId && !isOnDemandRequest
         ? `/user/therapists/${therapistId}/availability?${searchParams.toString()}`
-        : '/user/therapists';
+        : therapistId
+            ? `/therapists/${therapistId}?${searchParams.toString()}`
+            : '/user/therapists';
     const detailPath = therapistId ? `/therapists/${therapistId}` : '/user/therapists';
     const stripePublishableKey = serviceMeta?.payment?.stripe_publishable_key ?? null;
     const hasAuthorizedRequest = booking != null
@@ -156,7 +160,13 @@ export function UserBookingQuotePage() {
         let isMounted = true;
 
         async function bootstrap() {
-            if (!token || !therapistId || !therapistMenuId || !serviceAddressId || !availabilitySlotId || !requestedStartAt) {
+            if (
+                !token
+                || !therapistId
+                || !therapistMenuId
+                || !serviceAddressId
+                || (!isOnDemandRequest && (!availabilitySlotId || !requestedStartAt))
+            ) {
                 setIsLoading(false);
                 return;
             }
@@ -207,9 +217,13 @@ export function UserBookingQuotePage() {
                         therapist_menu_id: therapistMenuId,
                         service_address_id: serviceAddressId,
                         duration_minutes: durationMinutes,
-                        is_on_demand: false,
-                        availability_slot_id: availabilitySlotId,
-                        requested_start_at: requestedStartAt,
+                        is_on_demand: isOnDemandRequest,
+                        ...(isOnDemandRequest
+                            ? {}
+                            : {
+                                availability_slot_id: availabilitySlotId,
+                                requested_start_at: requestedStartAt,
+                            }),
                     },
                 });
 
@@ -242,7 +256,7 @@ export function UserBookingQuotePage() {
         return () => {
             isMounted = false;
         };
-    }, [availabilitySlotId, bookingId, durationMinutes, isUserVerificationReady, requestedStartAt, serviceAddressId, therapistId, therapistMenuId, token]);
+    }, [availabilitySlotId, bookingId, durationMinutes, isOnDemandRequest, isUserVerificationReady, requestedStartAt, serviceAddressId, therapistId, therapistMenuId, token]);
 
     useEffect(() => {
         if (!stripePublishableKey || !cardMountNode || isLoading) {
@@ -335,7 +349,12 @@ export function UserBookingQuotePage() {
         return <Navigate to="/login" replace />;
     }
 
-    if (!therapistId || !therapistMenuId || !serviceAddressId || !availabilitySlotId || !requestedStartAt) {
+    if (
+        !therapistId
+        || !therapistMenuId
+        || !serviceAddressId
+        || (!isOnDemandRequest && (!availabilitySlotId || !requestedStartAt))
+    ) {
         return <Navigate to="/user/therapists" replace />;
     }
 
@@ -406,7 +425,7 @@ export function UserBookingQuotePage() {
                             to={availabilityPath}
                             className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
                         >
-                            空き時間へ戻る
+                            {isOnDemandRequest ? 'プロフィールへ戻る' : '空き時間へ戻る'}
                         </Link>
                     </div>
                 </div>
@@ -508,7 +527,10 @@ export function UserBookingQuotePage() {
                         <div className="space-y-2">
                             <h1 className="text-3xl font-semibold">見積もり確認とカード入力</h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                                金額を確認したあと、この画面のままカード情報を入力して依頼を送れます。内容を変えたいときは空き時間画面へ戻って選び直してください。
+                                金額を確認したあと、この画面のままカード情報を入力して依頼を送れます。
+                                {isOnDemandRequest
+                                    ? ' 条件を変えたいときはプロフィールへ戻って待ち合わせ場所を選び直してください。'
+                                    : ' 内容を変えたいときは空き時間画面へ戻って選び直してください。'}
                             </p>
                         </div>
                     </div>
@@ -518,7 +540,7 @@ export function UserBookingQuotePage() {
                             to={availabilityPath}
                             className="inline-flex items-center rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8"
                         >
-                            空き時間へ戻る
+                            {isOnDemandRequest ? 'プロフィールへ戻る' : '空き時間へ戻る'}
                         </Link>
                         <Link
                             to={detailPath}
@@ -549,8 +571,12 @@ export function UserBookingQuotePage() {
                                 </p>
                             </div>
                             <div className="rounded-[22px] bg-[#f8f4ed] px-5 py-4">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">REQUEST START</p>
-                                <p className="mt-2 text-lg font-semibold text-[#17202b]">{formatDateTime(requestedStartAt)}</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">
+                                    {isOnDemandRequest ? 'REQUEST TYPE' : 'REQUEST START'}
+                                </p>
+                                <p className="mt-2 text-lg font-semibold text-[#17202b]">
+                                    {isOnDemandRequest ? '今すぐ依頼' : formatDateTime(requestedStartAt)}
+                                </p>
                             </div>
                         </div>
                     </article>
@@ -671,7 +697,9 @@ export function UserBookingQuotePage() {
                             </div>
                             <div>
                                 <p className="text-xs font-semibold text-[#7d6852]">予約方法</p>
-                                <p className="mt-1 font-semibold text-[#17202b]">予約リクエスト</p>
+                                <p className="mt-1 font-semibold text-[#17202b]">
+                                    {isOnDemandRequest ? '今すぐ依頼' : '予約リクエスト'}
+                                </p>
                             </div>
                             <div>
                                 <p className="text-xs font-semibold text-[#7d6852]">徒歩目安</p>

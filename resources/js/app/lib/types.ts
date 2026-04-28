@@ -595,6 +595,8 @@ export interface IdentityVerificationRecord {
     is_age_verified: boolean;
     self_declared_male: boolean;
     document_type: string | null;
+    document_file_url?: string | null;
+    selfie_file_url?: string | null;
     submitted_at: string | null;
     reviewed_at: string | null;
     rejection_reason_code: string | null;
@@ -1322,6 +1324,8 @@ export interface AdminIdentityVerificationRecord {
     is_age_verified: boolean;
     self_declared_male: boolean;
     document_type: string | null;
+    document_file_url?: string | null;
+    selfie_file_url?: string | null;
     submitted_at: string | null;
     reviewed_by?: {
         public_id: string | null;

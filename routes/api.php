@@ -7,6 +7,7 @@ use App\Http\Controllers\Api\AdminAuditLogController;
 use App\Http\Controllers\Api\AdminBookingController;
 use App\Http\Controllers\Api\AdminContactInquiryController;
 use App\Http\Controllers\Api\AdminDashboardController;
+use App\Http\Controllers\Api\AdminIdentityVerificationFileController;
 use App\Http\Controllers\Api\AdminIdentityVerificationController;
 use App\Http\Controllers\Api\AdminLegalDocumentController;
 use App\Http\Controllers\Api\AdminPayoutRequestController;
@@ -113,6 +114,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/admin/payout-requests/{payoutRequest:public_id}/release', [AdminPayoutRequestController::class, 'release']);
     Route::post('/admin/payout-requests/{payoutRequest:public_id}/process', [AdminPayoutRequestController::class, 'process']);
     Route::get('/admin/identity-verifications', [AdminIdentityVerificationController::class, 'index']);
+    Route::get('/admin/identity-verifications/{identityVerification}/document', [AdminIdentityVerificationFileController::class, 'showDocument']);
+    Route::get('/admin/identity-verifications/{identityVerification}/selfie', [AdminIdentityVerificationFileController::class, 'showSelfie']);
     Route::post('/admin/identity-verifications/{identityVerification}/approve', [AdminIdentityVerificationController::class, 'approve']);
     Route::post('/admin/identity-verifications/{identityVerification}/reject', [AdminIdentityVerificationController::class, 'reject']);
     Route::get('/admin/therapist-profiles', [AdminTherapistProfileController::class, 'index']);

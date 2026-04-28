@@ -22,6 +22,12 @@ class IdentityVerificationResource extends JsonResource
             'is_age_verified' => $this->is_age_verified,
             'self_declared_male' => $this->self_declared_male,
             'document_type' => $this->document_type,
+            'document_file_url' => filled($this->document_storage_key_encrypted)
+                ? url("/api/admin/identity-verifications/{$this->id}/document")
+                : null,
+            'selfie_file_url' => filled($this->selfie_storage_key_encrypted)
+                ? url("/api/admin/identity-verifications/{$this->id}/selfie")
+                : null,
             'submitted_at' => $this->submitted_at,
             'reviewed_by' => $this->whenLoaded('reviewedBy', fn () => [
                 'public_id' => $this->reviewedBy?->public_id,

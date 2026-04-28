@@ -11,6 +11,7 @@ import {
     formatMenuMinimumDurationLabel,
     formatWalkingTimeRange,
     getDefaultServiceAddress,
+    getMenuMinimumDurationMinutes,
     getPendingScheduledRequestActionLabel,
     getPendingScheduledRequestNotice,
     getServiceAddressLabel,
@@ -38,13 +39,10 @@ function normalizeSort(value: string | null): DiscoverySort {
     return 'recommended';
 }
 
-function formatScheduledLabel(value: string): string {
-    return formatJstDateTime(value, {
-        month: 'numeric',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit',
-    }) ?? '開始日時を未指定';
+function normalizeDuration(value: string | null): number {
+    const parsed = Number(value);
+
+    return Number.isFinite(parsed) && parsed > 0 ? parsed : 60;
 }
 
 function formatPendingScheduledRequestLabel(value: string | null): string | null {
@@ -130,14 +128,29 @@ export function UserTherapistDetailPage() {
     const suppressMainPhotoClickRef = useRef(false);
 
     const selectedAddressId = searchParams.get('service_address_id');
+    const selectedMenuId = searchParams.get('therapist_menu_id');
     const selectedStartType = normalizeStartType(searchParams.get('start_type'));
     const selectedSort = normalizeSort(searchParams.get('sort'));
     const scheduledStartAt = searchParams.get('scheduled_start_at') ?? '';
+    const preferredDurationMinutes = normalizeDuration(searchParams.get('menu_duration_minutes'));
 
     const selectedAddress = useMemo(
         () => serviceAddresses.find((address) => address.public_id === selectedAddressId) ?? null,
         [selectedAddressId, serviceAddresses],
     );
+    const selectedMenu = useMemo(() => {
+        if (!therapistDetail) {
+            return null;
+        }
+
+        return therapistDetail.menus.find((menu) => menu.public_id === selectedMenuId)
+            ?? therapistDetail.menus.find((menu) => getMenuMinimumDurationMinutes(menu) <= preferredDurationMinutes)
+            ?? therapistDetail.menus[0]
+            ?? null;
+    }, [preferredDurationMinutes, selectedMenuId, therapistDetail]);
+    const selectedDurationMinutes = selectedMenu
+        ? Math.max(preferredDurationMinutes, getMenuMinimumDurationMinutes(selectedMenu))
+        : preferredDurationMinutes;
     const queryString = searchParams.toString();
     const listPath = isAuthenticated ? `/user/therapists${queryString ? `?${queryString}` : ''}` : '/';
     const intendedAvailabilityPath = useMemo(() => {
@@ -155,6 +168,23 @@ export function UserTherapistDetailPage() {
 
         return `/user/therapists/${therapistDetail.public_id}/availability${nextQueryString ? `?${nextQueryString}` : ''}`;
     }, [scheduledStartAt, searchParams, therapistDetail]);
+    const intendedInstantQuotePath = useMemo(() => {
+        if (!therapistDetail || !selectedMenu || !selectedAddressId) {
+            return null;
+        }
+
+        const nextParams = new URLSearchParams();
+        nextParams.set('therapist_id', therapistDetail.public_id);
+        nextParams.set('therapist_menu_id', selectedMenu.public_id);
+        nextParams.set('service_address_id', selectedAddressId);
+        nextParams.set('menu_duration_minutes', String(selectedDurationMinutes));
+        nextParams.set('start_type', 'now');
+
+        return `/user/booking-request/quote?${nextParams.toString()}`;
+    }, [selectedAddressId, selectedDurationMinutes, selectedMenu, therapistDetail]);
+    const intendedPrimaryActionPath = selectedStartType === 'scheduled'
+        ? intendedAvailabilityPath
+        : intendedInstantQuotePath;
     const intendedTravelRequestPath = useMemo(() => {
         if (!therapistDetail) {
             return null;
@@ -177,16 +207,16 @@ export function UserTherapistDetailPage() {
     );
     const pendingScheduledRequest = therapistDetail?.pending_scheduled_request ?? null;
     const pendingScheduledRequestPath = pendingScheduledRequest ? `/user/bookings/${pendingScheduledRequest.public_id}` : '/user/bookings';
-    const loginAvailabilityPath = intendedAvailabilityPath
-        ? `/login?return_to=${encodeURIComponent(intendedAvailabilityPath)}`
+    const loginAvailabilityPath = intendedPrimaryActionPath
+        ? `/login?return_to=${encodeURIComponent(intendedPrimaryActionPath)}`
         : '/login';
-    const registerAvailabilityPath = intendedAvailabilityPath
-        ? `/register?return_to=${encodeURIComponent(intendedAvailabilityPath)}`
+    const registerAvailabilityPath = intendedPrimaryActionPath
+        ? `/register?return_to=${encodeURIComponent(intendedPrimaryActionPath)}`
         : '/register';
-    const enableUserRolePath = intendedAvailabilityPath
-        ? `/role-select?add_role=user&return_to=${encodeURIComponent(intendedAvailabilityPath)}`
+    const enableUserRolePath = intendedPrimaryActionPath
+        ? `/role-select?add_role=user&return_to=${encodeURIComponent(intendedPrimaryActionPath)}`
         : '/role-select?add_role=user&return_to=%2Fuser';
-    const availabilityPath = canUseUserFlows ? intendedAvailabilityPath ?? '/user/therapists' : loginAvailabilityPath;
+    const availabilityPath = canUseUserFlows ? intendedPrimaryActionPath ?? '/user/therapists' : loginAvailabilityPath;
     const travelRequestLoginPath = intendedTravelRequestPath
         ? `/login?return_to=${encodeURIComponent(intendedTravelRequestPath)}`
         : '/login';
@@ -207,17 +237,31 @@ export function UserTherapistDetailPage() {
             ? '/role-select?add_role=user&return_to=%2Fuser%2Fservice-addresses'
             : '/register';
     const primaryAction = canUseUserFlows
-        ? !isUserVerificationReady
+        ? !selectedAddress
+            ? { label: '待ち合わせ場所を設定する', to: serviceAddressPath }
+            : !isUserVerificationReady
             ? { label: '本人確認・年齢確認を完了する', to: '/user/identity-verification' }
             : {
                 label: pendingScheduledRequest
                     ? getPendingScheduledRequestActionLabel(pendingScheduledRequest)
-                    : '空き時間を見る',
+                    : selectedStartType === 'scheduled'
+                        ? '空き時間を見る'
+                        : '今すぐ依頼を確認する',
                 to: pendingScheduledRequest ? pendingScheduledRequestPath : availabilityPath,
             }
         : isAuthenticated
-            ? { label: '利用者モードを追加して空き時間を見る', to: enableUserRolePath }
-            : { label: 'ログインして空き時間を見る', to: loginAvailabilityPath };
+            ? {
+                label: selectedStartType === 'scheduled'
+                    ? '利用者モードを追加して空き時間を見る'
+                    : '利用者モードを追加して今すぐ依頼を確認する',
+                to: enableUserRolePath,
+            }
+            : {
+                label: selectedStartType === 'scheduled'
+                    ? 'ログインして空き時間を見る'
+                    : 'ログインして今すぐ依頼を確認する',
+                to: loginAvailabilityPath,
+            };
     const secondaryAction = canUseUserFlows
         ? { label: '一覧へ戻る', to: listPath, variant: 'secondary' as const }
         : isAuthenticated
@@ -420,9 +464,6 @@ export function UserTherapistDetailPage() {
             .filter(({ index }) => index !== wrappedActivePhotoIndex)
             .slice(0, 3)
         : [];
-    const bookingTimingNote = selectedStartType === 'scheduled' && scheduledStartAt
-        ? `${formatScheduledLabel(scheduledStartAt)} を起点に空き時間を確認できます。`
-        : '空き時間画面で日付と希望時間を選べます。';
     const photoTrackBasePercent = photoSnapDirection === 1 ? -200 : photoSnapDirection === -1 ? 0 : -100;
     const pendingScheduledRequestLabel = formatPendingScheduledRequestLabel(
         pendingScheduledRequest?.scheduled_start_at ?? pendingScheduledRequest?.requested_start_at ?? null,
@@ -833,9 +874,33 @@ export function UserTherapistDetailPage() {
                                     <div className="space-y-3 text-sm text-[#48505a]">
                                         <div className="rounded-[20px] bg-[#f6f1e7] p-4">
                                             <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">待ち合わせ場所</p>
-                                            <p className="mt-2 font-semibold text-[#17202b]">
-                                                {selectedAddress ? getServiceAddressLabel(selectedAddress) : isAuthenticated ? '未設定' : 'ログイン後に指定'}
-                                            </p>
+                                            {selectedAddress ? (
+                                                <label className="mt-2 block">
+                                                    <span className="sr-only">待ち合わせ場所を選択</span>
+                                                    <select
+                                                        value={selectedAddressId ?? ''}
+                                                        onChange={(event) => {
+                                                            setSearchParams((previous) => {
+                                                                const next = new URLSearchParams(previous);
+                                                                next.set('service_address_id', event.target.value);
+
+                                                                return next;
+                                                            }, { replace: true });
+                                                        }}
+                                                        className="w-full rounded-[16px] border border-[#d8ccb9] bg-white px-4 py-3 text-sm font-semibold text-[#17202b] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] outline-none transition focus:border-[#c7a770] focus:ring-2 focus:ring-[#e2c998]"
+                                                    >
+                                                        {serviceAddresses.map((address) => (
+                                                            <option key={address.public_id} value={address.public_id}>
+                                                                {getServiceAddressLabel(address)}
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </label>
+                                            ) : (
+                                                <p className="mt-2 font-semibold text-[#17202b]">
+                                                    {isAuthenticated ? '未設定' : 'ログイン後に指定'}
+                                                </p>
+                                            )}
                                             {!selectedAddress ? (
                                                 <Link
                                                     to={serviceAddressPath}
@@ -847,22 +912,12 @@ export function UserTherapistDetailPage() {
                                         </div>
 
                                         <div className="rounded-[20px] bg-[#f6f1e7] p-4">
-                                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予約タイプ</p>
+                                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">到着時間</p>
                                             <p className="mt-2 font-semibold text-[#17202b]">
-                                                {selectedStartType === 'scheduled' ? '日時指定' : '今すぐ'}
+                                                {formatWalkingTimeRange(therapistDetail.walking_time_range)}
                                             </p>
                                             <p className="mt-1 text-xs text-[#68707a]">
-                                                {bookingTimingNote}
-                                            </p>
-                                        </div>
-
-                                        <div className="rounded-[20px] bg-[#f6f1e7] p-4">
-                                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">対応内容</p>
-                                            <p className="mt-2 font-semibold text-[#17202b]">
-                                                {therapistDetail.menus.length}件の対応内容を公開中
-                                            </p>
-                                            <p className="mt-1 text-xs text-[#68707a]">
-                                                空き時間の確認後に、希望する内容と予約時間を選べます。
+                                                選択した待ち合わせ場所を基準に、タチキャストの拠点からの徒歩目安を表示しています。
                                             </p>
                                         </div>
                                     </div>

@@ -7,8 +7,15 @@ export function UserBookingRequestPage() {
     const serviceAddressId = searchParams.get('service_address_id');
     const availabilitySlotId = searchParams.get('availability_slot_id');
     const requestedStartAt = searchParams.get('requested_start_at');
+    const startType = searchParams.get('start_type');
+    const isOnDemandRequest = startType === 'now';
 
-    if (!therapistId || !therapistMenuId || !serviceAddressId || !availabilitySlotId || !requestedStartAt) {
+    if (
+        !therapistId
+        || !therapistMenuId
+        || !serviceAddressId
+        || (!isOnDemandRequest && (!availabilitySlotId || !requestedStartAt))
+    ) {
         return <Navigate to="/user/therapists" replace />;
     }
 

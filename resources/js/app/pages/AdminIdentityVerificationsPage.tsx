@@ -436,6 +436,62 @@ export function AdminIdentityVerificationsPage() {
                                     </span>
                                 </div>
 
+                                <div className="mt-5 grid gap-4 md:grid-cols-2">
+                                    <section className="rounded-[20px] border border-[#efe5d7] bg-[#fffdf8] p-4">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className="text-sm font-semibold text-[#17202b]">本人確認書類</p>
+                                            {selectedVerification.document_file_url ? (
+                                                <a
+                                                    href={selectedVerification.document_file_url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="text-xs font-semibold text-[#8f5c22] hover:text-[#6f4718]"
+                                                >
+                                                    別タブで開く
+                                                </a>
+                                            ) : null}
+                                        </div>
+                                        {selectedVerification.document_file_url ? (
+                                            <img
+                                                src={selectedVerification.document_file_url}
+                                                alt="本人確認書類"
+                                                className="mt-3 h-64 w-full rounded-[16px] border border-[#efe5d7] object-contain bg-[#f8f4ed]"
+                                            />
+                                        ) : (
+                                            <div className="mt-3 flex h-64 items-center justify-center rounded-[16px] border border-dashed border-[#d9c9ae] bg-[#f8f4ed] text-sm text-[#68707a]">
+                                                書類画像はまだ確認できません。
+                                            </div>
+                                        )}
+                                    </section>
+
+                                    <section className="rounded-[20px] border border-[#efe5d7] bg-[#fffdf8] p-4">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className="text-sm font-semibold text-[#17202b]">セルフィー</p>
+                                            {selectedVerification.selfie_file_url ? (
+                                                <a
+                                                    href={selectedVerification.selfie_file_url}
+                                                    target="_blank"
+                                                    rel="noreferrer"
+                                                    className="text-xs font-semibold text-[#8f5c22] hover:text-[#6f4718]"
+                                                >
+                                                    別タブで開く
+                                                </a>
+                                            ) : null}
+                                        </div>
+                                        {selectedVerification.selfie_file_url ? (
+                                            <img
+                                                src={selectedVerification.selfie_file_url}
+                                                alt="本人確認セルフィー"
+                                                className="mt-3 h-64 w-full rounded-[16px] border border-[#efe5d7] object-contain bg-[#f8f4ed]"
+                                            />
+                                        ) : (
+                                            <div className="mt-3 flex h-64 items-center justify-center rounded-[16px] border border-dashed border-[#d9c9ae] bg-[#f8f4ed] text-sm text-[#68707a]">
+                                                セルフィー画像はまだ確認できません。
+                                            </div>
+                                        )}
+                                    </section>
+                                </div>
+
                                 <div className="mt-5 grid gap-3">
                                     <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3 text-sm text-[#48505a]">
                                         <p className="text-xs font-semibold tracking-wide text-[#7d6852]">提出情報</p>
