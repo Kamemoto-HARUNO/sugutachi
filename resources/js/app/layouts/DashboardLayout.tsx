@@ -123,15 +123,15 @@ export function DashboardLayout({ role, title, description, navItems }: Dashboar
             <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-8 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
                 <header className="overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(118deg,rgba(23,32,43,0.96)_0%,rgba(31,45,61,0.94)_52%,rgba(42,59,79,0.96)_100%)] shadow-[0_30px_70px_rgba(2,6,23,0.34)]">
                     <div className="space-y-6 p-6 sm:p-7 lg:p-8">
-                        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between">
-                            <div className="space-y-4">
+                        <div className="flex flex-col gap-5 xl:flex-row xl:items-start xl:justify-between xl:gap-8">
+                            <div className="min-w-0 flex-1 space-y-4">
                                 <div className="flex flex-wrap items-center gap-3">
                                     <BrandMark inverse compact />
                                     <RoleModeSwitcher />
                                 </div>
 
                                 <div className="space-y-3">
-                                    <h1 className="max-w-[16ch] text-[2.2rem] font-semibold leading-[1.4] text-white sm:text-[2.5rem]">
+                                    <h1 className="max-w-[16ch] text-[2.2rem] font-semibold leading-[1.4] text-white sm:max-w-[20ch] sm:text-[2.5rem] xl:max-w-none">
                                         {title}
                                     </h1>
                                     <p className="max-w-3xl text-sm leading-7 text-slate-300 sm:text-[0.95rem]">
