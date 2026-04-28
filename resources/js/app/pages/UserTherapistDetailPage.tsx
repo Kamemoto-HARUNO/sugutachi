@@ -7,7 +7,10 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import {
+    DISCOVERY_BOOKING_TYPE_LABEL,
+    DISCOVERY_BOOKING_TYPE_OPTIONS,
     formatCurrency,
+    formatMenuHourlyRateLabel,
     formatMenuMinimumDurationLabel,
     formatWalkingTimeRange,
     getDefaultServiceAddress,
@@ -24,6 +27,7 @@ import type {
     ApiEnvelope,
     ReviewSummary,
     ServiceAddress,
+    TherapistMenu,
     TherapistDetail,
 } from '../lib/types';
 
@@ -89,6 +93,30 @@ function disabledActionClass(): string {
     return 'inline-flex w-full cursor-not-allowed items-center justify-center rounded-full border border-[#ded4c5] bg-[#f4efe6] px-5 py-3 text-sm font-semibold text-[#97a0aa] opacity-80';
 }
 
+function getDurationStepMinutes(menu: TherapistMenu | null): number {
+    return Math.max(15, menu?.duration_step_minutes ?? 15);
+}
+
+function buildDurationValues(
+    minimumDurationMinutes: number,
+    maximumDurationMinutes: number,
+    stepMinutes: number,
+): number[] {
+    if (maximumDurationMinutes < minimumDurationMinutes) {
+        return [];
+    }
+
+    const values = new Set<number>();
+
+    for (let duration = minimumDurationMinutes; duration <= maximumDurationMinutes; duration += stepMinutes) {
+        values.add(duration);
+    }
+
+    values.add(maximumDurationMinutes);
+
+    return Array.from(values).sort((left, right) => left - right);
+}
+
 function wrapPhotoIndex(index: number, count: number): number {
     if (count <= 0) {
         return 0;
@@ -151,6 +179,17 @@ export function UserTherapistDetailPage() {
     const selectedDurationMinutes = selectedMenu
         ? Math.max(preferredDurationMinutes, getMenuMinimumDurationMinutes(selectedMenu))
         : preferredDurationMinutes;
+    const instantDurationOptions = useMemo(() => {
+        if (!selectedMenu) {
+            return [];
+        }
+
+        return buildDurationValues(
+            getMenuMinimumDurationMinutes(selectedMenu),
+            240,
+            getDurationStepMinutes(selectedMenu),
+        );
+    }, [selectedMenu]);
     const queryString = searchParams.toString();
     const listPath = isAuthenticated ? `/user/therapists${queryString ? `?${queryString}` : ''}` : '/';
     const intendedAvailabilityPath = useMemo(() => {
@@ -161,8 +200,6 @@ export function UserTherapistDetailPage() {
         const nextParams = new URLSearchParams(searchParams);
         nextParams.set('start_type', 'scheduled');
         nextParams.set('date', resolveAvailabilityDate(scheduledStartAt));
-        nextParams.delete('therapist_menu_id');
-        nextParams.delete('menu_duration_minutes');
 
         const nextQueryString = nextParams.toString();
 
@@ -246,20 +283,20 @@ export function UserTherapistDetailPage() {
                     ? getPendingScheduledRequestActionLabel(pendingScheduledRequest)
                     : selectedStartType === 'scheduled'
                         ? '空き時間を見る'
-                        : '今すぐ依頼を確認する',
+                        : '依頼をリクエストする',
                 to: pendingScheduledRequest ? pendingScheduledRequestPath : availabilityPath,
             }
         : isAuthenticated
             ? {
                 label: selectedStartType === 'scheduled'
                     ? '利用者モードを追加して空き時間を見る'
-                    : '利用者モードを追加して今すぐ依頼を確認する',
+                    : '利用者モードを追加して依頼をリクエストする',
                 to: enableUserRolePath,
             }
             : {
                 label: selectedStartType === 'scheduled'
                     ? 'ログインして空き時間を見る'
-                    : 'ログインして今すぐ依頼を確認する',
+                    : 'ログインして依頼をリクエストする',
                 to: loginAvailabilityPath,
             };
     const secondaryAction = canUseUserFlows
@@ -873,6 +910,37 @@ export function UserTherapistDetailPage() {
 
                                     <div className="space-y-3 text-sm text-[#48505a]">
                                         <div className="rounded-[20px] bg-[#f6f1e7] p-4">
+                                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">{DISCOVERY_BOOKING_TYPE_LABEL}</p>
+                                            <div className="mt-3 flex flex-nowrap gap-2 text-sm font-semibold">
+                                                {([
+                                                    { value: 'now' as const, label: DISCOVERY_BOOKING_TYPE_OPTIONS.now },
+                                                    { value: 'scheduled' as const, label: DISCOVERY_BOOKING_TYPE_OPTIONS.scheduled },
+                                                ]).map((option) => (
+                                                    <button
+                                                        key={option.value}
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setSearchParams((previous) => {
+                                                                const next = new URLSearchParams(previous);
+                                                                next.set('start_type', option.value);
+
+                                                                return next;
+                                                            }, { replace: true });
+                                                        }}
+                                                        className={[
+                                                            'whitespace-nowrap rounded-full px-3 py-1 transition',
+                                                            selectedStartType === option.value
+                                                                ? 'bg-[#17202b] text-white'
+                                                                : 'bg-white text-[#17202b]',
+                                                        ].join(' ')}
+                                                    >
+                                                        {option.label}
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+
+                                        <div className="rounded-[20px] bg-[#f6f1e7] p-4">
                                             <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">待ち合わせ場所</p>
                                             {selectedAddress ? (
                                                 <label className="mt-2 block">
@@ -920,6 +988,83 @@ export function UserTherapistDetailPage() {
                                                 選択した待ち合わせ場所を基準に、タチキャストの拠点からの徒歩目安を表示しています。
                                             </p>
                                         </div>
+
+                                        {selectedStartType === 'now' ? (
+                                            <>
+                                                <div className="rounded-[20px] bg-[#f6f1e7] p-4">
+                                                    <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">対応内容</p>
+                                                    <div className="mt-3 space-y-2">
+                                                        {therapistDetail.menus.map((menu) => (
+                                                            <button
+                                                                key={menu.public_id}
+                                                                type="button"
+                                                                onClick={() => {
+                                                                    setSearchParams((previous) => {
+                                                                        const next = new URLSearchParams(previous);
+                                                                        next.set('therapist_menu_id', menu.public_id);
+                                                                        next.set(
+                                                                            'menu_duration_minutes',
+                                                                            String(Math.max(selectedDurationMinutes, getMenuMinimumDurationMinutes(menu))),
+                                                                        );
+
+                                                                        return next;
+                                                                    }, { replace: true });
+                                                                }}
+                                                                className={[
+                                                                    'w-full rounded-[18px] border px-4 py-4 text-left transition',
+                                                                    selectedMenu?.public_id === menu.public_id
+                                                                        ? 'border-[#d2b179] bg-[#fff8ee]'
+                                                                        : 'border-[#e8dfd2] bg-white hover:bg-[#fff9f1]',
+                                                                ].join(' ')}
+                                                            >
+                                                                <div className="flex items-start justify-between gap-3">
+                                                                    <div className="space-y-1">
+                                                                        <p className="text-sm font-semibold text-[#17202b]">{menu.name}</p>
+                                                                        <p className="text-xs text-[#68707a]">
+                                                                            {formatMenuMinimumDurationLabel(menu)} / {formatMenuHourlyRateLabel(menu)}
+                                                                        </p>
+                                                                    </div>
+                                                                    {selectedMenu?.public_id === menu.public_id ? (
+                                                                        <span className="rounded-full bg-[#17202b] px-3 py-1 text-[11px] font-semibold text-white">
+                                                                            選択中
+                                                                        </span>
+                                                                    ) : null}
+                                                                </div>
+                                                            </button>
+                                                        ))}
+                                                    </div>
+                                                </div>
+
+                                                <div className="rounded-[20px] bg-[#f6f1e7] p-4">
+                                                    <label htmlFor="detail-request-duration" className="text-xs font-semibold tracking-wide text-[#9a7a49]">
+                                                        希望時間
+                                                    </label>
+                                                    <select
+                                                        id="detail-request-duration"
+                                                        value={String(selectedDurationMinutes)}
+                                                        onChange={(event) => {
+                                                            setSearchParams((previous) => {
+                                                                const next = new URLSearchParams(previous);
+                                                                next.set('menu_duration_minutes', event.target.value);
+
+                                                                return next;
+                                                            }, { replace: true });
+                                                        }}
+                                                        className="mt-3 w-full rounded-[16px] border border-[#d8ccb9] bg-white px-4 py-3 text-sm font-semibold text-[#17202b] shadow-[inset_0_1px_0_rgba(255,255,255,0.65)] outline-none transition focus:border-[#c7a770] focus:ring-2 focus:ring-[#e2c998]"
+                                                    >
+                                                        {instantDurationOptions.map((duration) => (
+                                                            <option key={duration} value={duration}>
+                                                                {duration}分
+                                                            </option>
+                                                        ))}
+                                                    </select>
+                                                </div>
+                                            </>
+                                        ) : (
+                                            <div className="rounded-[20px] border border-dashed border-[#dbcdb8] bg-[#fbf7f0] px-4 py-4 text-sm leading-7 text-[#6c6458]">
+                                                日時指定では、次の画面で1週間分の空き時間を見ながら開始時刻と希望時間を選べます。
+                                            </div>
+                                        )}
                                     </div>
 
                                     <div className="space-y-3">

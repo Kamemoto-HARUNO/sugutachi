@@ -43,6 +43,8 @@ const WALKING_TIME_LABELS: Record<string, string> = {
     within_45_min: '徒歩45分以内',
     within_60_min: '徒歩60分以内',
     over_60_min: '徒歩60分超',
+    outside_area: '対応エリア外',
+    unknown: '徒歩目安は準備中',
 };
 
 const WALKING_TIME_MAX_MINUTES: Record<string, number> = {
@@ -122,7 +124,7 @@ export function formatWalkingTimeRange(range: string | null | undefined): string
         return '徒歩目安は準備中';
     }
 
-    return WALKING_TIME_LABELS[range] ?? '徒歩目安を確認';
+    return WALKING_TIME_LABELS[range] ?? '徒歩目安は準備中';
 }
 
 export function getPendingScheduledRequestActionLabel(
