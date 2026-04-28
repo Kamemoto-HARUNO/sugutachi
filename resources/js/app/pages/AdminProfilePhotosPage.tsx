@@ -76,7 +76,7 @@ function displayPhotoName(photo: AdminProfilePhotoRecord): string {
     return photo.therapist_profile?.public_name?.trim()
         || photo.account?.display_name?.trim()
         || photo.account?.email
-        || `Photo #${photo.id}`;
+        || `写真 #${photo.id}`;
 }
 
 function buildSelectedLink(searchParams: URLSearchParams, selectedId: number): string {
@@ -231,7 +231,7 @@ export function AdminProfilePhotosPage() {
             <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_16px_34px_rgba(2,6,23,0.14)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">PHOTO MONITORING</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">写真監視</p>
                         <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">写真監視</h2>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
                             ユーザーが公開しているプロフィール写真を確認し、必要に応じて削除できます。
@@ -294,7 +294,7 @@ export function AdminProfilePhotosPage() {
                             value={usageTypeInput}
                             onChange={(event) => setUsageTypeInput(event.target.value)}
                             onBlur={() => updateFilters({ usage_type: usageTypeInput.trim() || null, selected: null })}
-                            placeholder="therapist_profile / account_profile"
+                            placeholder="プロフィール写真 / 利用者プロフィール"
                             className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
                         />
                     </label>
@@ -305,7 +305,7 @@ export function AdminProfilePhotosPage() {
                             value={accountInput}
                             onChange={(event) => setAccountInput(event.target.value)}
                             onBlur={() => updateFilters({ account_id: accountInput.trim() || null, selected: null })}
-                            placeholder="acc_xxx または数値ID"
+                            placeholder="会員番号または数値ID"
                             className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
                         />
                     </label>
@@ -316,7 +316,7 @@ export function AdminProfilePhotosPage() {
                             value={therapistProfileInput}
                             onChange={(event) => setTherapistProfileInput(event.target.value)}
                             onBlur={() => updateFilters({ therapist_profile_id: therapistProfileInput.trim() || null, selected: null })}
-                            placeholder="thp_xxx または数値ID"
+                            placeholder="プロフィール番号または数値ID"
                             className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
                         />
                     </label>
@@ -373,7 +373,7 @@ export function AdminProfilePhotosPage() {
                                             </span>
                                         </div>
                                         <p className="text-sm text-[#68707a]">{photo.account?.email ?? 'メール未設定'}</p>
-                                        <p className="text-xs text-[#7d6852]">Photo #{photo.id}</p>
+                                        <p className="text-xs text-[#7d6852]">写真番号 {photo.id}</p>
                                     </div>
 
                                     <div className="text-right text-xs text-[#68707a]">
@@ -427,7 +427,7 @@ export function AdminProfilePhotosPage() {
                                         <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">写真詳細</p>
                                         <h3 className="mt-2 text-2xl font-semibold text-[#17202b]">{displayPhotoName(selectedPhoto)}</h3>
                                         <p className="mt-2 text-sm text-[#68707a]">{selectedPhoto.account?.email ?? 'メール未設定'}</p>
-                                        <p className="mt-1 text-xs text-[#7d6852]">Photo #{selectedPhoto.id}</p>
+                                        <p className="mt-1 text-xs text-[#7d6852]">写真番号 {selectedPhoto.id}</p>
                                     </div>
                                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(selectedPhoto.status)}`}>
                                         {statusLabel(selectedPhoto.status)}

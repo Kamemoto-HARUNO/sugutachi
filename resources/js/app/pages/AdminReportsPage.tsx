@@ -355,7 +355,7 @@ export function AdminReportsPage() {
             <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_16px_34px_rgba(2,6,23,0.14)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">REPORT MODERATION</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">通報対応</p>
                         <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">通報管理</h2>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
                             通報の受付状況、メッセージ起点の安全案件、対応履歴、解決判断までを一続きで扱います。
@@ -447,7 +447,7 @@ export function AdminReportsPage() {
                             type="text"
                             value={categoryFilter}
                             onChange={(event) => updateFilters({ category: event.target.value || null })}
-                            placeholder="boundary_violation"
+                            placeholder="境界違反 / 暴力 / 連絡先交換"
                             className="w-full rounded-2xl border border-white/10 bg-[#121a24] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#d2b179]/60"
                         />
                     </label>
@@ -459,7 +459,7 @@ export function AdminReportsPage() {
                             value={bookingInput}
                             onChange={(event) => setBookingInput(event.target.value)}
                             onBlur={() => updateFilters({ booking_id: bookingInput.trim() || null })}
-                            placeholder="book_xxx"
+                            placeholder="予約番号で絞り込み"
                             className="w-full rounded-2xl border border-white/10 bg-[#121a24] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#d2b179]/60"
                         />
                     </label>
@@ -471,7 +471,7 @@ export function AdminReportsPage() {
                             value={reporterInput}
                             onChange={(event) => setReporterInput(event.target.value)}
                             onBlur={() => updateFilters({ reporter_account_id: reporterInput.trim() || null })}
-                            placeholder="acc_xxx"
+                            placeholder="会員番号で絞り込み"
                             className="w-full rounded-2xl border border-white/10 bg-[#121a24] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#d2b179]/60"
                         />
                     </label>
@@ -483,7 +483,7 @@ export function AdminReportsPage() {
                             value={targetInput}
                             onChange={(event) => setTargetInput(event.target.value)}
                             onBlur={() => updateFilters({ target_account_id: targetInput.trim() || null })}
-                            placeholder="acc_xxx"
+                            placeholder="会員番号で絞り込み"
                             className="w-full rounded-2xl border border-white/10 bg-[#121a24] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#d2b179]/60"
                         />
                     </label>
@@ -561,12 +561,12 @@ export function AdminReportsPage() {
 
                                         <div className="text-right text-xs text-slate-400">
                                             <p>{formatDateTime(report.created_at)}</p>
-                                            {report.booking_public_id ? <p className="mt-1">予約 {report.booking_public_id}</p> : null}
+                                            {report.booking_public_id ? <p className="mt-1">予約番号 {report.booking_public_id}</p> : null}
                                         </div>
                                     </div>
 
                                     <div className="mt-4 flex flex-wrap items-center gap-3 text-xs text-slate-400">
-                                        <span>通報ID: {report.public_id}</span>
+                                        <span>通報番号: {report.public_id}</span>
                                         {report.resolved_at ? <span>解決: {formatDateTime(report.resolved_at)}</span> : null}
                                     </div>
                                 </Link>
@@ -610,8 +610,8 @@ export function AdminReportsPage() {
                                         </div>
                                         <h3 className="text-2xl font-semibold text-white">{categoryLabel(activeDetail.category)}</h3>
                                         <p className="text-sm text-slate-300">
-                                            通報ID: {activeDetail.public_id}
-                                            {activeDetail.booking_public_id ? ` / 予約 ${activeDetail.booking_public_id}` : ''}
+                                            通報番号: {activeDetail.public_id}
+                                            {activeDetail.booking_public_id ? ` / 予約番号 ${activeDetail.booking_public_id}` : ''}
                                         </p>
                                     </div>
 
@@ -646,7 +646,7 @@ export function AdminReportsPage() {
                                     <article className="mt-4 rounded-[22px] bg-[#101720] p-5">
                                         <p className="text-xs font-semibold tracking-wide text-[#d2b179]">起点メッセージ</p>
                                         <div className="mt-3 grid gap-3 text-sm text-slate-200 md:grid-cols-2">
-                                            <p>送信者: {activeDetail.source_booking_message.sender_account_public_id ?? '未設定'}</p>
+                                            <p>送信者会員番号: {activeDetail.source_booking_message.sender_account_public_id ?? '未設定'}</p>
                                             <p>種別: {activeDetail.source_booking_message.message_type ?? 'text'}</p>
                                             <p>監視状態: {activeDetail.source_booking_message.moderation_status}</p>
                                             <p>送信日時: {formatDateTime(activeDetail.source_booking_message.sent_at)}</p>
@@ -661,7 +661,7 @@ export function AdminReportsPage() {
                             <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_16px_34px_rgba(2,6,23,0.12)]">
                                 <div className="flex items-center justify-between gap-3">
                                     <div>
-                                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">ACTION LOG</p>
+                                            <p className="text-xs font-semibold tracking-wide text-[#d2b179]">対応履歴</p>
                                         <h4 className="mt-2 text-xl font-semibold text-white">対応履歴</h4>
                                     </div>
                                     <span className="text-sm text-slate-400">{activeDetail.actions.length}件</span>
@@ -696,7 +696,7 @@ export function AdminReportsPage() {
                                 <div className="grid gap-6 xl:grid-cols-2">
                                     <form onSubmit={handleAddAction} className="space-y-4 rounded-[24px] bg-[#101720] p-5">
                                         <div>
-                                            <p className="text-xs font-semibold tracking-wide text-[#d2b179]">ADD ACTION</p>
+                                            <p className="text-xs font-semibold tracking-wide text-[#d2b179]">対応追加</p>
                                             <h4 className="mt-2 text-lg font-semibold text-white">対応履歴を追加</h4>
                                         </div>
 

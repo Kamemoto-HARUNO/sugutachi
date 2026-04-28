@@ -509,7 +509,7 @@ export function AdminBookingsPage() {
                             value={queryInput}
                             onChange={(event) => setQueryInput(event.target.value)}
                             onBlur={() => updateFilters({ q: queryInput.trim() || null })}
-                            placeholder="予約ID / メール / 表示名"
+                            placeholder="予約番号 / メールアドレス / 表示名"
                             className="w-full rounded-2xl border border-white/10 bg-[#121a24] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#d2b179]/60"
                         />
                     </label>
@@ -523,7 +523,7 @@ export function AdminBookingsPage() {
                             value={paymentStatusInput}
                             onChange={(event) => setPaymentStatusInput(event.target.value)}
                             onBlur={() => updateFilters({ payment_status: paymentStatusInput.trim() || null })}
-                            placeholder="requires_capture"
+                            placeholder="requires_capture など"
                             className="w-full rounded-2xl border border-white/10 bg-[#121a24] px-4 py-3 text-sm text-white outline-none transition placeholder:text-slate-500 focus:border-[#d2b179]/60"
                         />
                     </label>
@@ -602,7 +602,7 @@ export function AdminBookingsPage() {
 
                                         <div className="text-right text-xs text-slate-400">
                                             <p>{formatDateTime(booking.scheduled_start_at ?? booking.created_at)}</p>
-                                            <p className="mt-1">{booking.public_id}</p>
+                                            <p className="mt-1">予約番号 {booking.public_id}</p>
                                         </div>
                                     </div>
 
@@ -619,7 +619,7 @@ export function AdminBookingsPage() {
                                         ) : null}
                                         {booking.open_dispute_count > 0 ? (
                                             <span className="rounded-full bg-[#edf4ff] px-2.5 py-1 font-semibold text-[#30527a]">
-                                                dispute {booking.open_dispute_count}
+                                                チャージバック {booking.open_dispute_count}
                                             </span>
                                         ) : null}
                                         {booking.refund_count > 0 ? (
@@ -668,7 +668,7 @@ export function AdminBookingsPage() {
                                             {displayName(detail.user_account)} → {detail.therapist_profile?.public_name ?? displayName(detail.therapist_account)}
                                         </h3>
                                         <p className="text-sm text-slate-300">
-                                            予約ID: {detail.public_id} / {detail.is_on_demand ? '今すぐ予約' : '予定予約'}
+                                            予約番号: {detail.public_id} / {detail.is_on_demand ? '今すぐ予約' : '予定予約'}
                                         </p>
                                     </div>
 
@@ -693,7 +693,7 @@ export function AdminBookingsPage() {
                                         <p className="text-xs font-semibold tracking-wide text-[#d2b179]">タチキャスト</p>
                                         <p className="mt-2 text-sm font-semibold text-white">{detail.therapist_profile?.public_name ?? displayName(detail.therapist_account)}</p>
                                         <p className="mt-1 text-xs text-slate-400">
-                                            {detail.therapist_profile?.public_id ?? detail.therapist_account?.public_id} / {formatProfileStatus(detail.therapist_profile?.profile_status)}
+                                            プロフィール番号 {detail.therapist_profile?.public_id ?? detail.therapist_account?.public_id ?? '未設定'} / {formatProfileStatus(detail.therapist_profile?.profile_status)}
                                         </p>
                                     </article>
                                 </div>
@@ -703,7 +703,7 @@ export function AdminBookingsPage() {
                                         <p className="text-xs font-semibold tracking-wide text-[#d2b179]">料金</p>
                                         <p className="mt-2 text-sm text-slate-300">総額 {formatCurrency(detail.total_amount)}</p>
                                         <p className="mt-1 text-sm text-slate-300">受取予定 {formatCurrency(detail.therapist_net_amount)}</p>
-                                        <p className="mt-1 text-sm text-slate-300">PF料 {formatCurrency(detail.platform_fee_amount)}</p>
+                                        <p className="mt-1 text-sm text-slate-300">プラットフォーム料 {formatCurrency(detail.platform_fee_amount)}</p>
                                     </article>
                                     <article className="rounded-[22px] bg-[#101720] p-4">
                                         <p className="text-xs font-semibold tracking-wide text-[#d2b179]">日時</p>
@@ -734,12 +734,12 @@ export function AdminBookingsPage() {
 
                             <section className="grid gap-4 lg:grid-cols-2">
                                 <article className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
-                                    <p className="text-xs font-semibold tracking-wide text-[#d2b179]">決済情報</p>
+                                            <p className="text-xs font-semibold tracking-wide text-[#d2b179]">決済情報</p>
                                     {detail.current_payment_intent ? (
                                         <div className="mt-4 space-y-2 text-sm text-slate-300">
                                             <p>状態: {paymentStatusLabel(detail.current_payment_intent.status)}</p>
                                             <p>金額: {formatCurrency(detail.current_payment_intent.amount)}</p>
-                                            <p>Stripe PI: {detail.current_payment_intent.stripe_payment_intent_id}</p>
+                                            <p>決済番号: {detail.current_payment_intent.stripe_payment_intent_id}</p>
                                             <p>与信日時: {formatDateTime(detail.current_payment_intent.authorized_at)}</p>
                                             <p>売上確定: {formatDateTime(detail.current_payment_intent.captured_at)}</p>
                                         </div>
@@ -750,7 +750,7 @@ export function AdminBookingsPage() {
                                     {detail.current_quote ? (
                                         <div className="mt-5 rounded-[22px] bg-[#101720] p-4 text-sm text-slate-300">
                                             <p className="font-semibold text-white">見積もり</p>
-                                            <p className="mt-2">Quote ID: {detail.current_quote.quote_id}</p>
+                                            <p className="mt-2">見積もり番号: {detail.current_quote.quote_id}</p>
                                             <p className="mt-1">総額: {formatCurrency(detail.current_quote.amounts.total_amount)}</p>
                                             <p className="mt-1">
                                                 移動時間目安: {formatTravelTimeEstimate(detail.current_quote.travel_mode, detail.current_quote.walking_time_range)}
@@ -780,7 +780,7 @@ export function AdminBookingsPage() {
                                     <div className="flex items-center justify-between gap-3">
                                         <div>
                                             <p className="text-xs font-semibold tracking-wide text-[#d2b179]">返金履歴</p>
-                                            <h4 className="mt-2 text-lg font-semibold text-white">Refunds</h4>
+                                            <h4 className="mt-2 text-lg font-semibold text-white">返金履歴</h4>
                                         </div>
                                         <span className="text-sm text-slate-400">{detail.refunds.length}件</span>
                                     </div>
@@ -791,7 +791,7 @@ export function AdminBookingsPage() {
                                             </div>
                                         ) : detail.refunds.map((refund) => (
                                             <article key={refund.public_id} className="rounded-[22px] bg-[#101720] p-4 text-sm text-slate-300">
-                                                <p className="font-semibold text-white">{refund.public_id}</p>
+                                                <p className="font-semibold text-white">申請番号 {refund.public_id}</p>
                                                 <p className="mt-2">理由: {refund.reason_code ?? '未設定'}</p>
                                                 <p className="mt-1">申請額: {formatCurrency(refund.requested_amount)}</p>
                                                 <p className="mt-1">承認額: {formatCurrency(refund.approved_amount)}</p>
@@ -805,7 +805,7 @@ export function AdminBookingsPage() {
                                     <div className="flex items-center justify-between gap-3">
                                         <div>
                                             <p className="text-xs font-semibold tracking-wide text-[#d2b179]">通報履歴</p>
-                                            <h4 className="mt-2 text-lg font-semibold text-white">Reports</h4>
+                                            <h4 className="mt-2 text-lg font-semibold text-white">通報履歴</h4>
                                         </div>
                                         <span className="text-sm text-slate-400">{detail.reports.length}件</span>
                                     </div>
@@ -821,7 +821,7 @@ export function AdminBookingsPage() {
                                                 className="block rounded-[22px] bg-[#101720] p-4 text-sm text-slate-300 transition hover:bg-[#132031]"
                                             >
                                                 <div className="flex flex-wrap items-center justify-between gap-2">
-                                                    <p className="font-semibold text-white">{report.public_id}</p>
+                                                    <p className="font-semibold text-white">通報番号 {report.public_id}</p>
                                                     <span className={['rounded-full px-2.5 py-1 text-xs font-semibold', bookingStatusTone(report.status === 'resolved' ? 'completed' : 'interrupted')].join(' ')}>
                                                         {report.status === 'resolved' ? '解決済み' : '未解決'}
                                                     </span>
@@ -838,7 +838,7 @@ export function AdminBookingsPage() {
                                     <div className="flex items-center justify-between gap-3">
                                         <div>
                                             <p className="text-xs font-semibold tracking-wide text-[#d2b179]">同意記録</p>
-                                            <h4 className="mt-2 text-lg font-semibold text-white">Consents</h4>
+                                            <h4 className="mt-2 text-lg font-semibold text-white">同意記録</h4>
                                         </div>
                                         <span className="text-sm text-slate-400">{detail.consents.length}件</span>
                                     </div>
@@ -862,7 +862,7 @@ export function AdminBookingsPage() {
                                     <div className="flex items-center justify-between gap-3">
                                         <div>
                                             <p className="text-xs font-semibold tracking-wide text-[#d2b179]">体調確認</p>
-                                            <h4 className="mt-2 text-lg font-semibold text-white">Health Checks</h4>
+                                            <h4 className="mt-2 text-lg font-semibold text-white">体調確認</h4>
                                         </div>
                                         <span className="text-sm text-slate-400">{detail.health_checks.length}件</span>
                                     </div>
@@ -886,7 +886,7 @@ export function AdminBookingsPage() {
                             <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
                                 <div className="flex items-center justify-between gap-3">
                                     <div>
-                                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">STATUS TIMELINE</p>
+                                    <p className="text-xs font-semibold tracking-wide text-[#d2b179]">状態遷移</p>
                                         <h4 className="mt-2 text-lg font-semibold text-white">状態遷移</h4>
                                     </div>
                                     <span className="text-sm text-slate-400">{detail.status_logs.length}件</span>
@@ -919,7 +919,7 @@ export function AdminBookingsPage() {
                         </>
                     ) : selectedListBooking ? (
                         <section className="rounded-[28px] border border-white/10 bg-white/[0.04] px-6 py-8 text-sm text-slate-300">
-                            {selectedListBooking.public_id} の詳細を読み込めませんでした。
+                            予約番号 {selectedListBooking.public_id} の詳細を読み込めませんでした。
                         </section>
                     ) : null}
                 </div>

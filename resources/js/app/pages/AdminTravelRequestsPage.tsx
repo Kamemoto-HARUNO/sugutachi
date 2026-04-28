@@ -528,7 +528,7 @@ export function AdminTravelRequestsPage() {
             <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_16px_34px_rgba(2,6,23,0.14)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">TRAVEL REQUEST OPERATIONS</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">出張リクエスト運用</p>
                         <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">出張リクエスト監視</h2>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
                             エリア需要の監視、送信者の警告管理、制限や停止までをまとめて進められます。
@@ -684,7 +684,7 @@ export function AdminTravelRequestsPage() {
                             value={queryInput}
                             onChange={(event) => setQueryInput(event.target.value)}
                             onBlur={() => updateFilters({ q: queryInput.trim() || null })}
-                            placeholder="送信者名 / タチキャスト名 / public_id"
+                            placeholder="送信者名 / タチキャスト名 / 管理番号"
                             className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition placeholder:text-[#9aa3ad] focus:border-[#b5894d]"
                         />
                     </label>
@@ -748,7 +748,7 @@ export function AdminTravelRequestsPage() {
                                         <div className="flex items-start justify-between gap-3">
                                             <div className="min-w-0">
                                                 <p className="truncate text-base font-semibold text-[#17202b]">{displaySenderName(travelRequest)}</p>
-                                                <p className="mt-1 text-xs text-[#7d6852]">{travelRequest.sender?.public_id ?? '送信者未設定'}</p>
+                                                <p className="mt-1 text-xs text-[#7d6852]">会員番号 {travelRequest.sender?.public_id ?? '未設定'}</p>
                                             </div>
                                             <div className="flex flex-wrap justify-end gap-2">
                                                 <span className={`rounded-full px-3 py-1 text-xs font-semibold ${requestStatusTone(travelRequest.status)}`}>
@@ -808,9 +808,9 @@ export function AdminTravelRequestsPage() {
                         <div className="space-y-6">
                             <div className="flex flex-col gap-4 border-b border-[#ece3d4] pb-5 lg:flex-row lg:items-start lg:justify-between">
                                 <div>
-                                    <p className="text-xs font-semibold tracking-wide text-[#b5894d]">TRAVEL REQUEST DETAIL</p>
+                                    <p className="text-xs font-semibold tracking-wide text-[#b5894d]">出張リクエスト詳細</p>
                                     <h3 className="mt-2 text-2xl font-semibold text-[#17202b]">{displaySenderName(selectedTravelRequest)}</h3>
-                                    <p className="mt-2 text-sm text-[#68707a]">リクエストID {selectedTravelRequest.public_id}</p>
+                                    <p className="mt-2 text-sm text-[#68707a]">管理番号 {selectedTravelRequest.public_id}</p>
                                     <p className="mt-1 text-xs text-[#7d6852]">受付 {formatDateTime(selectedTravelRequest.created_at)}</p>
                                 </div>
 

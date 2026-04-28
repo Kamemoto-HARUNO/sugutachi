@@ -105,7 +105,7 @@ export function AdminStripeDisputesPage() {
     const evidenceDueTo = searchParams.get('evidence_due_to')?.trim() ?? '';
     const query = searchParams.get('q')?.trim() ?? '';
 
-    usePageTitle('Stripe Disputes');
+    usePageTitle('チャージバック管理');
 
     const selectedDispute = useMemo(
         () => disputes.find((dispute) => dispute.stripe_dispute_id === selectedId) ?? null,
@@ -168,7 +168,7 @@ export function AdminStripeDisputesPage() {
         } catch (requestError) {
             const message = requestError instanceof ApiError
                 ? requestError.message
-                : 'Stripe dispute 一覧の取得に失敗しました。';
+                : 'チャージバック一覧の取得に失敗しました。';
 
             setPageError(message);
         } finally {
@@ -197,7 +197,7 @@ export function AdminStripeDisputesPage() {
     }
 
     if (isLoading) {
-        return <LoadingScreen title="Stripe disputes を読み込み中" message="チャージバックと証跡期限を集約しています。" />;
+        return <LoadingScreen title="チャージバック一覧を読み込み中" message="チャージバックと証跡期限を集約しています。" />;
     }
 
     return (
@@ -205,8 +205,8 @@ export function AdminStripeDisputesPage() {
             <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_16px_34px_rgba(2,6,23,0.14)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">PAYMENT DISPUTE MONITORING</p>
-                        <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">Stripe Disputes</h2>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">チャージバック監視</p>
+                        <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">チャージバック管理</h2>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
                             期限が近いチャージバック、予約単位の関連情報、勝敗結果を一覧で監視できます。
                         </p>
@@ -283,7 +283,7 @@ export function AdminStripeDisputesPage() {
                             value={bookingInput}
                             onChange={(event) => setBookingInput(event.target.value)}
                             onBlur={() => updateFilters({ booking_id: bookingInput.trim() || null, selected: null })}
-                            placeholder="book_xxx"
+                            placeholder="予約番号で絞り込み"
                             className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition placeholder:text-[#9aa3ad] focus:border-[#b5894d]"
                         />
                     </label>
@@ -294,7 +294,7 @@ export function AdminStripeDisputesPage() {
                             value={therapistInput}
                             onChange={(event) => setTherapistInput(event.target.value)}
                             onBlur={() => updateFilters({ therapist_account_id: therapistInput.trim() || null, selected: null })}
-                            placeholder="acc_xxx"
+                            placeholder="会員番号で絞り込み"
                             className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition placeholder:text-[#9aa3ad] focus:border-[#b5894d]"
                         />
                     </label>
@@ -316,7 +316,7 @@ export function AdminStripeDisputesPage() {
                             value={queryInput}
                             onChange={(event) => setQueryInput(event.target.value)}
                             onBlur={() => updateFilters({ q: queryInput.trim() || null, selected: null })}
-                            placeholder="dispute / booking / payment intent"
+                            placeholder="チャージバック番号 / 予約番号 / 決済番号"
                             className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition placeholder:text-[#9aa3ad] focus:border-[#b5894d]"
                         />
                     </label>
@@ -377,8 +377,8 @@ export function AdminStripeDisputesPage() {
                                 >
                                     <div className="flex items-start justify-between gap-3">
                                         <div>
-                                            <p className="text-base font-semibold text-[#17202b]">{dispute.stripe_dispute_id}</p>
-                                            <p className="mt-1 text-xs text-[#7d6852]">予約 {dispute.booking_public_id ?? '未設定'}</p>
+                                            <p className="text-base font-semibold text-[#17202b]">チャージバック番号 {dispute.stripe_dispute_id}</p>
+                                            <p className="mt-1 text-xs text-[#7d6852]">予約番号 {dispute.booking_public_id ?? '未設定'}</p>
                                         </div>
                                         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${disputeStatusTone(dispute.status)}`}>
                                             {disputeStatusLabel(dispute.status)}
@@ -395,7 +395,7 @@ export function AdminStripeDisputesPage() {
                             );
                         }) : (
                             <div className="rounded-[24px] border border-dashed border-[#d9c9ae] bg-[#fffdf8] px-5 py-8 text-center text-sm text-[#7d6852]">
-                                条件に合う Stripe dispute はありません。
+                                条件に合うチャージバック案件はありません。
                             </div>
                         )}
                     </div>
@@ -406,9 +406,9 @@ export function AdminStripeDisputesPage() {
                         <div className="space-y-6">
                             <div className="flex flex-col gap-4 border-b border-[#ece3d4] pb-5 lg:flex-row lg:items-start lg:justify-between">
                                 <div>
-                                    <p className="text-xs font-semibold tracking-wide text-[#b5894d]">DISPUTE DETAIL</p>
-                                    <h3 className="mt-2 text-2xl font-semibold text-[#17202b]">{selectedDispute.stripe_dispute_id}</h3>
-                                    <p className="mt-2 text-sm text-[#68707a]">予約 {selectedDispute.booking_public_id ?? '未設定'}</p>
+                                    <p className="text-xs font-semibold tracking-wide text-[#b5894d]">案件詳細</p>
+                                    <h3 className="mt-2 text-2xl font-semibold text-[#17202b]">チャージバック番号 {selectedDispute.stripe_dispute_id}</h3>
+                                    <p className="mt-2 text-sm text-[#68707a]">予約番号 {selectedDispute.booking_public_id ?? '未設定'}</p>
                                     <p className="mt-1 text-xs text-[#7d6852]">作成 {formatDateTime(selectedDispute.created_at)}</p>
                                 </div>
 
@@ -437,8 +437,8 @@ export function AdminStripeDisputesPage() {
                                 <article className="rounded-[22px] border border-[#ece3d4] bg-[#fffcf6] p-4 text-sm text-[#55606d]">
                                     <p className="text-xs font-semibold tracking-wide text-[#b5894d]">関連予約</p>
                                     <p className="mt-2 font-semibold text-[#17202b]">{selectedDispute.booking_public_id ?? '未設定'}</p>
-                                    <p className="mt-1">利用者 {selectedDispute.user_account_id ?? '未設定'}</p>
-                                    <p className="mt-1">タチキャスト {selectedDispute.therapist_account_id ?? '未設定'}</p>
+                                    <p className="mt-1">利用者会員番号 {selectedDispute.user_account_id ?? '未設定'}</p>
+                                    <p className="mt-1">タチキャスト会員番号 {selectedDispute.therapist_account_id ?? '未設定'}</p>
                                     {selectedDispute.booking_public_id ? (
                                         <Link className="mt-3 inline-flex text-sm font-semibold text-[#8f5c22] hover:text-[#6f4718]" to={`/admin/bookings/${selectedDispute.booking_public_id}`}>
                                             予約詳細へ
@@ -449,14 +449,14 @@ export function AdminStripeDisputesPage() {
                                 <article className="rounded-[22px] border border-[#ece3d4] bg-[#fffcf6] p-4 text-sm text-[#55606d]">
                                     <p className="text-xs font-semibold tracking-wide text-[#b5894d]">運営メモ</p>
                                     <p className="mt-2 leading-7 text-[#17202b]">
-                                        この画面では争議の優先順位づけと関連予約の確認を行えます。証跡提出や Stripe 側の応答は、実運用フローに合わせて別途処理してください。
+                                        この画面ではチャージバックの優先順位づけと関連予約の確認を行えます。証跡提出や決済事業者への回答は、実運用フローに合わせて別途処理してください。
                                     </p>
                                 </article>
                             </div>
                         </div>
                     ) : (
                         <div className="flex min-h-[420px] items-center justify-center rounded-[24px] border border-dashed border-[#d9c9ae] bg-[#fffdf8] px-6 text-center text-sm leading-7 text-[#7d6852]">
-                            左の一覧から dispute を選ぶと、関連予約と期限情報を確認できます。
+                            左の一覧から案件を選ぶと、関連予約と期限情報を確認できます。
                         </div>
                     )}
                 </div>

@@ -381,13 +381,13 @@ export function AdminPayoutRequestsPage() {
                             value={therapistInput}
                             onChange={(event) => setTherapistInput(event.target.value)}
                             onBlur={() => updateFilters({ therapist_account_id: therapistInput.trim() || null, selected: null })}
-                            placeholder="acc_xxx"
+                            placeholder="会員番号で絞り込み"
                             className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
                         />
                     </label>
 
                     <label className="space-y-2">
-                        <span className="text-sm font-semibold text-[#17202b]">予定日 From</span>
+                        <span className="text-sm font-semibold text-[#17202b]">予定処理日（開始）</span>
                         <input
                             type="date"
                             value={scheduledFromInput}
@@ -398,7 +398,7 @@ export function AdminPayoutRequestsPage() {
                     </label>
 
                     <label className="space-y-2">
-                        <span className="text-sm font-semibold text-[#17202b]">予定日 To</span>
+                        <span className="text-sm font-semibold text-[#17202b]">予定処理日（終了）</span>
                         <input
                             type="date"
                             value={scheduledToInput}
@@ -462,8 +462,8 @@ export function AdminPayoutRequestsPage() {
                                                 {payoutStatusLabel(payout.status)}
                                             </span>
                                         </div>
-                                        <p className="text-sm text-[#68707a]">申請ID {payout.public_id}</p>
-                                        <p className="text-xs text-[#7d6852]">{payout.therapist_account?.public_id ?? '未設定'}</p>
+                                        <p className="text-sm text-[#68707a]">申請番号 {payout.public_id}</p>
+                                        <p className="text-xs text-[#7d6852]">会員番号 {payout.therapist_account?.public_id ?? '未設定'}</p>
                                     </div>
 
                                     <div className="text-right">
@@ -509,8 +509,8 @@ export function AdminPayoutRequestsPage() {
                                     <div>
                                         <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">出金詳細</p>
                                         <h3 className="mt-2 text-2xl font-semibold text-[#17202b]">{displayTherapistName(selectedPayout)}</h3>
-                                        <p className="mt-2 text-sm text-[#68707a]">申請ID {selectedPayout.public_id}</p>
-                                        <p className="mt-1 text-xs text-[#7d6852]">{selectedPayout.therapist_account?.public_id ?? '未設定'}</p>
+                                        <p className="mt-2 text-sm text-[#68707a]">申請番号 {selectedPayout.public_id}</p>
+                                        <p className="mt-1 text-xs text-[#7d6852]">会員番号 {selectedPayout.therapist_account?.public_id ?? '未設定'}</p>
                                     </div>
                                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${payoutStatusTone(selectedPayout.status)}`}>
                                         {payoutStatusLabel(selectedPayout.status)}
@@ -563,9 +563,9 @@ export function AdminPayoutRequestsPage() {
                                                         <p>{entry.amount_signed.toLocaleString('ja-JP')}円</p>
                                                     </div>
                                                     <p className="mt-1 text-xs text-slate-400">
-                                                        status {entry.status}
+                                                        状態 {entry.status}
                                                         {' / '}
-                                                        booking {entry.booking_public_id ?? '未設定'}
+                                                        予約番号 {entry.booking_public_id ?? '未設定'}
                                                     </p>
                                                 </div>
                                             ))}

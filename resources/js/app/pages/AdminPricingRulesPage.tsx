@@ -759,7 +759,7 @@ export function AdminPricingRulesPage() {
                             <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                                 <div className="flex items-center justify-between gap-3">
                                     <div>
-                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">INTERNAL NOTES</p>
+                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">内部メモ</p>
                                         <h4 className="mt-2 text-xl font-semibold text-[#17202b]">運営メモ</h4>
                                     </div>
                                     <span className="text-sm text-[#68707a]">{detailRule.notes?.length ?? detailRule.admin_note_count ?? 0}件</span>
@@ -786,7 +786,7 @@ export function AdminPricingRulesPage() {
                                 <div className="grid gap-6 xl:grid-cols-2">
                                     <form onSubmit={handleAddNote} className="space-y-4 rounded-[24px] bg-[#f8f4ed] p-5">
                                         <div>
-                                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">ADD NOTE</p>
+                                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">メモ追加</p>
                                             <h4 className="mt-2 text-lg font-semibold text-[#17202b]">運営メモを追加</h4>
                                         </div>
 

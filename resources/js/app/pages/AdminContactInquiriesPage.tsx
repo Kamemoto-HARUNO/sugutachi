@@ -99,7 +99,7 @@ function displayInquiryName(inquiry: AdminContactInquiryRecord): string {
     return inquiry.name?.trim()
         || inquiry.account?.display_name?.trim()
         || inquiry.email
-        || inquiry.public_id;
+        || 'お問い合わせ';
 }
 
 export function AdminContactInquiriesPage() {
@@ -332,7 +332,7 @@ export function AdminContactInquiriesPage() {
             <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_16px_34px_rgba(2,6,23,0.14)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">CONTACT INQUIRIES</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">お問い合わせ対応</p>
                         <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">問い合わせ管理</h2>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
                             ゲスト・会員どちらの問い合わせもまとめて確認し、内部メモの追記から解決処理まで進められます。
@@ -469,7 +469,7 @@ export function AdminContactInquiriesPage() {
                     <input
                         value={queryInput}
                         onChange={(event) => setQueryInput(event.target.value)}
-                        placeholder="名前 / メール / public_id"
+                        placeholder="名前 / メールアドレス / 受付番号"
                         className="min-w-0 flex-1 rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
                     />
                     <button
@@ -507,7 +507,7 @@ export function AdminContactInquiriesPage() {
                                             </span>
                                         </div>
                                         <p className="text-sm text-[#68707a]">{inquiry.email ?? inquiry.account?.email ?? 'メール未設定'}</p>
-                                        <p className="text-xs text-[#7d6852]">{inquiry.public_id}</p>
+                                        <p className="text-xs text-[#7d6852]">受付番号 {inquiry.public_id}</p>
                                     </div>
 
                                     <div className="text-right text-xs text-[#68707a]">
@@ -560,10 +560,10 @@ export function AdminContactInquiriesPage() {
                             <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                                 <div className="flex flex-wrap items-start justify-between gap-4">
                                     <div>
-                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">INQUIRY DETAIL</p>
+                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">問い合わせ詳細</p>
                                         <h3 className="mt-2 text-2xl font-semibold text-[#17202b]">{displayInquiryName(detailInquiry)}</h3>
                                         <p className="mt-2 text-sm text-[#68707a]">{detailInquiry.email ?? detailInquiry.account?.email ?? 'メール未設定'}</p>
-                                        <p className="mt-1 text-xs text-[#7d6852]">{detailInquiry.public_id}</p>
+                                        <p className="mt-1 text-xs text-[#7d6852]">受付番号 {detailInquiry.public_id}</p>
                                     </div>
                                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(detailInquiry.status)}`}>
                                         {statusLabel(detailInquiry.status)}
@@ -579,7 +579,7 @@ export function AdminContactInquiriesPage() {
                                     <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3 text-sm text-[#48505a]">
                                         <p className="text-xs font-semibold tracking-wide text-[#7d6852]">会員情報</p>
                                         <p className="mt-1 font-semibold text-[#17202b]">{detailInquiry.account?.display_name ?? '未連携'}</p>
-                                        <p className="mt-1 text-xs text-[#68707a]">{detailInquiry.account?.public_id ?? 'ゲスト問い合わせ'}</p>
+                                        <p className="mt-1 text-xs text-[#68707a]">{detailInquiry.account?.public_id ? `会員番号 ${detailInquiry.account.public_id}` : 'ゲスト問い合わせ'}</p>
                                     </div>
                                 </div>
 
@@ -594,7 +594,7 @@ export function AdminContactInquiriesPage() {
                             <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                                 <div className="flex items-center justify-between gap-3">
                                     <div>
-                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">INTERNAL NOTES</p>
+                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">内部メモ</p>
                                         <h4 className="mt-2 text-xl font-semibold text-[#17202b]">運営メモ</h4>
                                     </div>
                                     <span className="text-sm text-[#68707a]">{detailInquiry.notes?.length ?? detailInquiry.admin_note_count}件</span>
@@ -621,7 +621,7 @@ export function AdminContactInquiriesPage() {
                                 <div className="grid gap-6 xl:grid-cols-2">
                                     <form onSubmit={handleAddNote} className="space-y-4 rounded-[24px] bg-[#f8f4ed] p-5">
                                         <div>
-                                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">ADD NOTE</p>
+                                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">メモ追加</p>
                                             <h4 className="mt-2 text-lg font-semibold text-[#17202b]">運営メモを追加</h4>
                                         </div>
 

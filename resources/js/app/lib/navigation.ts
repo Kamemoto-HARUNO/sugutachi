@@ -97,7 +97,7 @@ export const adminPlaceholderRoutes: PlaceholderRouteDefinition[] = [
     { path: 'reports/:publicId', title: '通報詳細', description: '通報内容、監査ログ、対応履歴を確認します。', apiPath: '/api/admin/reports/{public_id}' },
     { path: 'refund-requests', title: '返金申請', description: '返金申請の承認・却下を行う画面です。', apiPath: '/api/admin/refund-requests' },
     { path: 'payout-requests', title: '出金申請', description: '出金申請の保留・処理・解除を行います。', apiPath: '/api/admin/payout-requests' },
-    { path: 'stripe-disputes', title: 'Stripe Disputes', description: 'チャージバックや異議申し立て状況を管理します。', apiPath: '/api/admin/stripe-disputes' },
+    { path: 'stripe-disputes', title: 'チャージバック管理', description: 'チャージバックや異議申し立て状況を管理します。', apiPath: '/api/admin/stripe-disputes' },
     { path: 'contact-inquiries', title: '問い合わせ管理', description: '問い合わせの確認、メモ、解決を行います。', apiPath: '/api/admin/contact-inquiries' },
     { path: 'travel-requests', title: '出張リクエスト監視', description: '需要通知の監視、警告、送信制限を扱います。', apiPath: '/api/admin/travel-requests' },
     { path: 'travel-requests/:publicId', title: '出張リクエスト詳細', description: '出張リクエスト本文と運営メモを確認します。', apiPath: '/api/admin/travel-requests/{public_id}' },

@@ -257,7 +257,7 @@ export function AdminRefundRequestsPage() {
             <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_16px_34px_rgba(2,6,23,0.14)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">REFUND OPERATIONS</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">返金運用</p>
                         <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">返金申請管理</h2>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
                             利用者からの返金申請を確認し、承認額の調整と却下判断を行います。
@@ -322,7 +322,7 @@ export function AdminRefundRequestsPage() {
                             value={bookingInput}
                             onChange={(event) => setBookingInput(event.target.value)}
                             onBlur={() => updateFilters({ booking_id: bookingInput.trim() || null, selected: null })}
-                            placeholder="book_xxx"
+                            placeholder="予約番号で絞り込み"
                             className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
                         />
                     </label>
@@ -333,7 +333,7 @@ export function AdminRefundRequestsPage() {
                             value={requestedByInput}
                             onChange={(event) => setRequestedByInput(event.target.value)}
                             onBlur={() => updateFilters({ requested_by_account_id: requestedByInput.trim() || null, selected: null })}
-                            placeholder="acc_xxx"
+                            placeholder="会員番号で絞り込み"
                             className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
                         />
                     </label>
@@ -385,13 +385,13 @@ export function AdminRefundRequestsPage() {
                                 <div className="flex flex-wrap items-start justify-between gap-4">
                                     <div className="space-y-2">
                                         <div className="flex flex-wrap items-center gap-2">
-                                            <h3 className="text-lg font-semibold text-[#17202b]">{refund.public_id}</h3>
+                                            <h3 className="text-lg font-semibold text-[#17202b]">申請番号 {refund.public_id}</h3>
                                             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${refundStatusTone(refund.status)}`}>
                                                 {refundStatusLabel(refund.status)}
                                             </span>
                                         </div>
-                                        <p className="text-sm text-[#68707a]">予約 {refund.booking_public_id ?? '未設定'}</p>
-                                        <p className="text-xs text-[#7d6852]">申請者 {refund.requested_by_account_id ?? '未設定'}</p>
+                                        <p className="text-sm text-[#68707a]">予約番号 {refund.booking_public_id ?? '未設定'}</p>
+                                        <p className="text-xs text-[#7d6852]">申請者会員番号 {refund.requested_by_account_id ?? '未設定'}</p>
                                     </div>
 
                                     <div className="text-right">
@@ -435,10 +435,10 @@ export function AdminRefundRequestsPage() {
                             <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                                 <div className="flex flex-wrap items-start justify-between gap-4">
                                     <div>
-                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">REFUND DETAIL</p>
-                                        <h3 className="mt-2 text-2xl font-semibold text-[#17202b]">{selectedRefund.public_id}</h3>
-                                        <p className="mt-2 text-sm text-[#68707a]">予約 {selectedRefund.booking_public_id ?? '未設定'}</p>
-                                        <p className="mt-1 text-xs text-[#7d6852]">申請者 {selectedRefund.requested_by_account_id ?? '未設定'}</p>
+                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">申請詳細</p>
+                                        <h3 className="mt-2 text-2xl font-semibold text-[#17202b]">申請番号 {selectedRefund.public_id}</h3>
+                                        <p className="mt-2 text-sm text-[#68707a]">予約番号 {selectedRefund.booking_public_id ?? '未設定'}</p>
+                                        <p className="mt-1 text-xs text-[#7d6852]">申請者会員番号 {selectedRefund.requested_by_account_id ?? '未設定'}</p>
                                     </div>
                                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${refundStatusTone(selectedRefund.status)}`}>
                                         {refundStatusLabel(selectedRefund.status)}
@@ -466,7 +466,7 @@ export function AdminRefundRequestsPage() {
                             </article>
 
                             <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">REFUND ACTION</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">返金アクション</p>
                                 {selectedRefund.status === 'requested' ? (
                                     <div className="mt-4 space-y-4">
                                         <label className="block space-y-2">
@@ -498,7 +498,7 @@ export function AdminRefundRequestsPage() {
                                             <input
                                                 value={rejectionReason}
                                                 onChange={(event) => setRejectionReason(event.target.value)}
-                                                placeholder="not_eligible"
+                                                placeholder="返金対象外"
                                                 className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
                                             />
                                         </label>

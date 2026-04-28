@@ -68,7 +68,7 @@ function statusTone(status: string): string {
 function displayVerificationName(verification: AdminIdentityVerificationRecord): string {
     return verification.account?.display_name?.trim()
         || verification.account?.email
-        || `Verification #${verification.id}`;
+        || `申請 #${verification.id}`;
 }
 
 function buildSelectedLink(searchParams: URLSearchParams, selectedId: number): string {
@@ -249,7 +249,7 @@ export function AdminIdentityVerificationsPage() {
             <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_16px_34px_rgba(2,6,23,0.14)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">IDENTITY REVIEW</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">本人確認審査</p>
                         <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">本人確認審査</h2>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
                             年齢確認と本人確認の提出一覧です。会員ごとの提出状況を確認し、承認または差し戻しを行えます。
@@ -313,7 +313,7 @@ export function AdminIdentityVerificationsPage() {
                                 value={documentTypeInput}
                                 onChange={(event) => setDocumentTypeInput(event.target.value)}
                                 onBlur={() => updateFilters({ document_type: documentTypeInput.trim() || null, selected: null })}
-                                placeholder="driver_license"
+                                placeholder="運転免許証など"
                                 className="min-w-0 flex-1 rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
                             />
                         </div>
@@ -325,7 +325,7 @@ export function AdminIdentityVerificationsPage() {
                             value={accountInput}
                             onChange={(event) => setAccountInput(event.target.value)}
                             onBlur={() => updateFilters({ account_id: accountInput.trim() || null, selected: null })}
-                            placeholder="acc_xxx"
+                            placeholder="会員番号で絞り込み"
                             className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
                         />
                     </label>
@@ -382,7 +382,7 @@ export function AdminIdentityVerificationsPage() {
                                             </span>
                                         </div>
                                         <p className="text-sm text-[#68707a]">{verification.account?.email ?? 'メール未設定'}</p>
-                                        <p className="text-xs text-[#7d6852]">Verification #{verification.id}</p>
+                                        <p className="text-xs text-[#7d6852]">申請番号 {verification.id}</p>
                                     </div>
 
                                     <div className="text-right text-xs text-[#68707a]">
@@ -426,10 +426,10 @@ export function AdminIdentityVerificationsPage() {
                             <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                                 <div className="flex flex-wrap items-start justify-between gap-4">
                                     <div>
-                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">VERIFICATION DETAIL</p>
+                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">審査詳細</p>
                                         <h3 className="mt-2 text-2xl font-semibold text-[#17202b]">{displayVerificationName(selectedVerification)}</h3>
                                         <p className="mt-2 text-sm text-[#68707a]">{selectedVerification.account?.email ?? 'メール未設定'}</p>
-                                        <p className="mt-1 text-xs text-[#7d6852]">Verification #{selectedVerification.id}</p>
+                                        <p className="mt-1 text-xs text-[#7d6852]">申請番号 {selectedVerification.id}</p>
                                     </div>
                                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(selectedVerification.status)}`}>
                                         {formatIdentityVerificationStatus(selectedVerification.status)}
@@ -515,7 +515,7 @@ export function AdminIdentityVerificationsPage() {
                             </article>
 
                             <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">REVIEW ACTION</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">審査アクション</p>
                                 {selectedVerification.status === 'pending' ? (
                                     <div className="mt-4 space-y-4">
                                         <button

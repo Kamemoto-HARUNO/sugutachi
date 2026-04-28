@@ -293,7 +293,7 @@ export function AdminAccountsPage() {
             <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_16px_34px_rgba(2,6,23,0.14)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">ACCOUNT MODERATION</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">アカウント管理</p>
                         <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">アカウント管理</h2>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
                             利用者・タチキャスト・運営アカウントを横断で確認し、停止や復旧、本人確認状況の把握まで行えます。
@@ -415,7 +415,7 @@ export function AdminAccountsPage() {
                                 <input
                                     value={queryInput}
                                     onChange={(event) => setQueryInput(event.target.value)}
-                                    placeholder="メール、表示名、public_id"
+                                    placeholder="メールアドレス、表示名、会員番号"
                                     className="min-w-0 flex-1 rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
                                 />
                                 <button
@@ -457,7 +457,7 @@ export function AdminAccountsPage() {
                                             </span>
                                         </div>
                                         <p className="text-sm text-[#68707a]">{account.email}</p>
-                                        <p className="text-xs text-[#7d6852]">{account.public_id}</p>
+                                        <p className="text-xs text-[#7d6852]">会員番号 {account.public_id}</p>
                                     </div>
 
                                     <div className="flex flex-wrap gap-2 md:max-w-[45%] md:justify-end">
@@ -524,10 +524,10 @@ export function AdminAccountsPage() {
                             <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                                 <div className="flex flex-wrap items-start justify-between gap-4">
                                     <div>
-                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">ACCOUNT DETAIL</p>
+                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">アカウント詳細</p>
                                         <h3 className="mt-2 text-2xl font-semibold text-[#17202b]">{displayName(detailAccount)}</h3>
                                         <p className="mt-2 text-sm text-[#68707a]">{detailAccount.email}</p>
-                                        <p className="mt-1 text-xs text-[#7d6852]">{detailAccount.public_id}</p>
+                                        <p className="mt-1 text-xs text-[#7d6852]">会員番号 {detailAccount.public_id}</p>
                                     </div>
                                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${accountStatusTone(detailAccount.status)}`}>
                                         {accountStatusLabel(detailAccount.status)}
@@ -631,7 +631,7 @@ export function AdminAccountsPage() {
                                             <input
                                                 value={suspensionReason}
                                                 onChange={(event) => setSuspensionReason(event.target.value)}
-                                                placeholder="policy_violation"
+                                                placeholder="規約違反"
                                                 className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
                                             />
                                         </label>

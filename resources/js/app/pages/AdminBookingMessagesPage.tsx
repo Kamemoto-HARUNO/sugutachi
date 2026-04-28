@@ -631,7 +631,7 @@ export function AdminBookingMessagesPage() {
                                 {displayName(booking.user_account)} → {booking.therapist_profile?.public_name ?? displayName(booking.therapist_account)}
                             </h3>
                             <p className="text-sm text-slate-300">
-                                予約ID {booking.public_id} / {booking.therapist_menu?.name ?? 'メニュー未設定'} / {formatDateTime(booking.scheduled_start_at ?? booking.requested_start_at)}
+                                予約番号 {booking.public_id} / {booking.therapist_menu?.name ?? 'メニュー未設定'} / {formatDateTime(booking.scheduled_start_at ?? booking.requested_start_at)}
                             </p>
                         </div>
 
@@ -871,7 +871,7 @@ export function AdminBookingMessagesPage() {
                             <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_16px_34px_rgba(2,6,23,0.12)]">
                                 <div className="flex items-center justify-between gap-3">
                                     <div>
-                                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">INTERNAL NOTES</p>
+                                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">内部メモ</p>
                                         <h4 className="mt-2 text-lg font-semibold text-white">運営メモ</h4>
                                     </div>
                                     <span className="text-sm text-slate-400">{selectedMessage.notes.length}件</span>
@@ -901,7 +901,7 @@ export function AdminBookingMessagesPage() {
                             <section className="grid gap-4 xl:grid-cols-2">
                                 <form onSubmit={handleAddNote} className="space-y-4 rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
                                     <div>
-                                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">ADD NOTE</p>
+                                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">メモ追加</p>
                                         <h4 className="mt-2 text-lg font-semibold text-white">内部メモを追加</h4>
                                     </div>
 

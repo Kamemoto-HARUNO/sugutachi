@@ -459,7 +459,7 @@ export function AdminTherapistProfilesPage() {
                                 <input
                                     value={queryInput}
                                     onChange={(event) => setQueryInput(event.target.value)}
-                                    placeholder="公開名 / メール / public_id"
+                                    placeholder="公開名 / メールアドレス / プロフィール番号"
                                     className="min-w-0 flex-1 rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
                                 />
                                 <button
@@ -567,7 +567,7 @@ export function AdminTherapistProfilesPage() {
                                             </span>
                                         </div>
                                         <p className="text-sm text-[#68707a]">{profile.account?.email ?? 'メール未設定'}</p>
-                                        <p className="text-xs text-[#7d6852]">{profile.public_id}</p>
+                                        <p className="text-xs text-[#7d6852]">プロフィール番号 {profile.public_id}</p>
                                     </div>
 
                                     <div className="text-right text-xs text-[#68707a]">
@@ -636,10 +636,10 @@ export function AdminTherapistProfilesPage() {
                             <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                                 <div className="flex flex-wrap items-start justify-between gap-4">
                                     <div>
-                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">THERAPIST DETAIL</p>
+                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">タチキャスト詳細</p>
                                         <h3 className="mt-2 text-2xl font-semibold text-[#17202b]">{displayTherapistName(detailProfile)}</h3>
                                         <p className="mt-2 text-sm text-[#68707a]">{detailProfile.account?.email ?? 'メール未設定'}</p>
-                                        <p className="mt-1 text-xs text-[#7d6852]">{detailProfile.public_id}</p>
+                                        <p className="mt-1 text-xs text-[#7d6852]">プロフィール番号 {detailProfile.public_id}</p>
                                     </div>
                                     <div className="flex flex-wrap gap-2">
                                         <span className={`rounded-full px-3 py-1 text-xs font-semibold ${badgeTone(detailProfile.profile_status)}`}>
@@ -667,7 +667,7 @@ export function AdminTherapistProfilesPage() {
                             </article>
 
                             <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">REVIEW SIGNALS</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">審査確認</p>
                                 <div className="mt-4 grid gap-3">
                                     <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3">
                                         <p className="text-xs font-semibold tracking-wide text-[#7d6852]">本人確認</p>
@@ -691,11 +691,6 @@ export function AdminTherapistProfilesPage() {
                                                 ? formatStripeStatus(detailProfile.stripe_connected_account_status)
                                                 : '未連携'}
                                         </p>
-                                        {detailProfile.stripe_connected_account?.stripe_account_id ? (
-                                            <p className="mt-1 text-xs text-[#68707a]">
-                                                {detailProfile.stripe_connected_account.stripe_account_id}
-                                            </p>
-                                        ) : null}
                                     </div>
                                     <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3">
                                         <p className="text-xs font-semibold tracking-wide text-[#7d6852]">位置・稼働</p>
