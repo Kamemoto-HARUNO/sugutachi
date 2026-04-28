@@ -53,7 +53,7 @@ function roleActionLabel(role: RoleName): string {
         case 'user':
             return '利用者プロフィールを開く';
         case 'therapist':
-            return 'セラピストプロフィールを開く';
+            return 'タチキャストプロフィールを開く';
         case 'admin':
             return '運営マイページを開く';
     }
@@ -283,7 +283,7 @@ export function AccountProfilePage() {
                                 共通プロフィールをまとめて管理
                             </h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300 sm:text-[0.95rem]">
-                                ここで変更した表示名、電話番号、ログイン用メールアドレス、パスワードは、利用者とセラピストのどちらでも同じアカウント情報として使われます。
+                                ここで変更した表示名、電話番号、ログイン用メールアドレス、パスワードは、利用者とタチキャストのどちらでも同じアカウント情報として使われます。
                                 役割ごとの詳細プロフィールは、この下のボタンからそれぞれ開けます。
                             </p>
                         </div>
@@ -558,7 +558,7 @@ export function AccountProfilePage() {
                         </div>
 
                         <div className="rounded-[20px] border border-white/10 bg-[#111923] px-4 py-4 text-sm leading-7 text-slate-300">
-                            この画面で管理する情報はアカウント全体で共通です。セラピストとして公開する場合だけ、
+                            この画面で管理する情報はアカウント全体で共通です。タチキャストとして公開する場合だけ、
                             別途プロフィールの必須情報入力、写真の登録、受取設定が必要です。
                         </div>
                     </div>

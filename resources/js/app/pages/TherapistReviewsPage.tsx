@@ -106,7 +106,7 @@ export function TherapistReviewsPage() {
 
     const filter = normalizeFilter(searchParams.get('filter'));
 
-    usePageTitle('セラピストレビュー');
+    usePageTitle('タチキャストレビュー');
     useToastOnMessage(error, 'error');
 
     const loadData = useCallback(async (refresh = false) => {

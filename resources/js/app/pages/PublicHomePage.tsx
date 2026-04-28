@@ -301,7 +301,7 @@ export function PublicHomePage() {
         }
 
         return {
-            label: isAuthenticated ? 'セラピストモードを追加' : 'タチとして登録',
+            label: isAuthenticated ? 'タチキャストモードを追加' : 'タチとして登録',
             to: isAuthenticated ? '/role-select?add_role=therapist&return_to=%2Ftherapist%2Fonboarding' : '/register',
         };
     }, [canUseTherapistMode, canUseUserMode, isAuthenticated]);
@@ -317,7 +317,7 @@ export function PublicHomePage() {
         : canUseTherapistMode
             ? { label: 'マイページ', to: '/therapist' }
         : isAuthenticated
-            ? { label: 'セラピストモードを追加', to: '/role-select?add_role=therapist&return_to=%2Ftherapist%2Fonboarding' }
+            ? { label: 'タチキャストモードを追加', to: '/role-select?add_role=therapist&return_to=%2Ftherapist%2Fonboarding' }
             : { label: 'タチとして登録', to: '/register' };
 
     const panelAction = useMemo(() => {
@@ -337,7 +337,7 @@ export function PublicHomePage() {
             }
 
             return {
-                label: 'セラピストを検索',
+                label: 'タチキャストを検索',
                 onClick: () => {
                     nearbyTherapistsSectionRef.current?.scrollIntoView({
                         behavior: 'smooth',
@@ -382,7 +382,7 @@ export function PublicHomePage() {
             setScheduledStartAt(buildDefaultDiscoveryScheduledStartAt());
         }
     };
-    const discoverySectionTitle = '近くのセラピスト';
+    const discoverySectionTitle = '近くのタチキャスト';
     const discoverySectionDescription = canUseUserMode
         ? serviceAddresses.length > 0
             ? `待ち合わせ場所、予約タイプ、料金目安を変えながら、近さとレビューで候補を絞り込めます。現在 ${filteredPreviewTherapists.length}名を表示しています。`
@@ -465,7 +465,7 @@ export function PublicHomePage() {
                         {
                             label: '掲載条件',
                             title: '掲載条件',
-                            body: '本人確認が完了し、公開条件を満たしたセラピストのみ表示。安心感を損なうアカウントは掲載対象外です。',
+                            body: '本人確認が完了し、公開条件を満たしたタチキャストのみ表示。安心感を損なうアカウントは掲載対象外です。',
                         },
                         {
                             label: '距離表示',
@@ -556,7 +556,7 @@ export function PublicHomePage() {
 
                             {isLoadingAddresses || isLoadingPreview ? (
                                 <div className="rounded-[28px] bg-[#fffcf7] p-6 text-sm text-[#5b6470] shadow-[0_10px_24px_rgba(23,32,43,0.08)]">
-                                    {isLoadingAddresses ? '待ち合わせ場所を確認しています…' : 'セラピスト候補を更新しています…'}
+                                    {isLoadingAddresses ? '待ち合わせ場所を確認しています…' : 'タチキャスト候補を更新しています…'}
                                 </div>
                             ) : null}
 
@@ -569,7 +569,7 @@ export function PublicHomePage() {
                                     emptyState={(
                                         <article className="rounded-[28px] bg-[#fffcf7] p-8 text-sm leading-7 text-[#5b6470] shadow-[0_10px_24px_rgba(23,32,43,0.08)] xl:col-span-2">
                                             {canUseUserMode
-                                                ? '条件に合うセラピストが見つかりませんでした。フィルターや日時を少し広げると表示されやすくなります。'
+                                                ? '条件に合うタチキャストが見つかりませんでした。フィルターや日時を少し広げると表示されやすくなります。'
                                                 : '現在、公開中のプロフィールを準備しています。しばらくしてから再度ご確認ください。'}
                                         </article>
                                     )}
@@ -600,7 +600,7 @@ export function PublicHomePage() {
 
             <DiscoveryFooter
                 domain={serviceMeta?.domain ?? 'sugutachi.com'}
-                description="リラクゼーション目的の出張セラピストを、近さ・料金・レビューから比較できる公開トップです。ログイン後は一覧検索、予約、メッセージまでそのまま進めます。"
+                description="リラクゼーション目的の出張タチキャストを、近さ・料金・レビューから比較できる公開トップです。ログイン後は一覧検索、予約、メッセージまでそのまま進めます。"
                 primaryAction={footerPrimaryAction}
                 secondaryAction={footerSecondaryAction}
                 supportEmail={serviceMeta?.support_email ?? account?.email ?? null}

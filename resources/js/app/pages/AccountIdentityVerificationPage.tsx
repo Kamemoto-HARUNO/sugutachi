@@ -148,7 +148,7 @@ export function AccountIdentityVerificationPage() {
                                 アカウント全体で共通です
                             </h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300 sm:text-[0.95rem]">
-                                利用者として開いても、セラピストとして開いても、同じ提出状況が反映されます。
+                                利用者として開いても、タチキャストとして開いても、同じ提出状況が反映されます。
                                 どちらのマイページから進めるかをここで選べます。
                             </p>
                         </div>
@@ -175,7 +175,7 @@ export function AccountIdentityVerificationPage() {
                             <p className="text-xs font-semibold tracking-wide text-[#f3dec0]">現在の提出状況</p>
                             <h2 className="text-2xl font-semibold text-white">アカウント共通の本人確認</h2>
                             <p className="text-sm leading-7 text-slate-300">
-                                提出状況に応じて、この下から利用者またはセラピストの導線へ進めます。
+                                提出状況に応じて、この下から利用者またはタチキャストの導線へ進めます。
                             </p>
                         </div>
 
@@ -245,7 +245,7 @@ export function AccountIdentityVerificationPage() {
                             </div>
                         ) : (
                             <div className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5 text-sm leading-7 text-slate-300">
-                                このアカウントでは、まだ利用者またはセラピストのマイページが追加されていません。
+                                このアカウントでは、まだ利用者またはタチキャストのマイページが追加されていません。
                                 <Link to="/role-select" className="ml-2 font-semibold text-white underline decoration-white/30 underline-offset-4">
                                     マイページの追加画面を開く
                                 </Link>
@@ -272,7 +272,7 @@ export function AccountIdentityVerificationPage() {
                         </div>
 
                         <div className="rounded-[20px] border border-white/10 bg-[#111923] px-4 py-4 text-sm leading-7 text-slate-300">
-                            本人確認・年齢確認はアカウント単位で保存されます。セラピストとして活動する場合は、承認後に追加でプロフィールの必須情報入力と受取設定が必要です。
+                            本人確認・年齢確認はアカウント単位で保存されます。タチキャストとして活動する場合は、承認後に追加でプロフィールの必須情報入力と受取設定が必要です。
                         </div>
 
                         <div className="rounded-[20px] border border-white/10 bg-[#111923] px-4 py-4 text-sm leading-7 text-slate-300">

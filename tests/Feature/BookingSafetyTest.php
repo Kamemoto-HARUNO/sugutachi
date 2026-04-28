@@ -171,7 +171,7 @@ class BookingSafetyTest extends TestCase
         $this->withToken($user->createToken('api')->plainTextToken)
             ->postJson("/api/bookings/{$booking->public_id}/interrupt", [
                 'reason_code' => 'therapist_no_show',
-                'reason_note' => '予定時刻を過ぎてもセラピストが来ず、連絡もつきませんでした。',
+                'reason_note' => '予定時刻を過ぎてもタチキャストが来ず、連絡もつきませんでした。',
                 'responsibility' => 'therapist',
             ])
             ->assertOk()

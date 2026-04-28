@@ -398,7 +398,7 @@ export function AdminBookingMessagesPage() {
         if (booking.therapist_account?.public_id) {
             options.push({
                 value: booking.therapist_account.public_id,
-                label: `セラピスト: ${displayName(booking.therapist_account)}`,
+                label: `タチキャスト: ${displayName(booking.therapist_account)}`,
             });
         }
 

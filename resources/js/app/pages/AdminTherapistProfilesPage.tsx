@@ -146,7 +146,7 @@ export function AdminTherapistProfilesPage() {
     const direction = normalizeSortDirection(searchParams.get('direction'));
     const query = searchParams.get('q')?.trim() ?? '';
 
-    usePageTitle('セラピスト審査');
+    usePageTitle('タチキャスト審査');
     useToastOnMessage(successMessage, 'success');
 
     const selectedListProfile = useMemo(
@@ -218,7 +218,7 @@ export function AdminTherapistProfilesPage() {
         } catch (requestError) {
             const message = requestError instanceof ApiError
                 ? requestError.message
-                : 'セラピスト一覧の取得に失敗しました。';
+                : 'タチキャスト一覧の取得に失敗しました。';
 
             setPageError(message);
         } finally {
@@ -243,7 +243,7 @@ export function AdminTherapistProfilesPage() {
         } catch (requestError) {
             const message = requestError instanceof ApiError
                 ? requestError.message
-                : 'セラピスト詳細の取得に失敗しました。';
+                : 'タチキャスト詳細の取得に失敗しました。';
 
             setDetailError(message);
             setSelectedProfile(null);
@@ -305,12 +305,12 @@ export function AdminTherapistProfilesPage() {
             setProfiles((current) => current.map((profile) => profile.public_id === updated.public_id ? updated : profile));
             setSuccessMessage(
                 action === 'approve'
-                    ? 'セラピストプロフィールを承認しました。'
+                    ? 'タチキャストプロフィールを承認しました。'
                     : action === 'reject'
-                        ? 'セラピストプロフィールを差し戻しました。'
+                        ? 'タチキャストプロフィールを差し戻しました。'
                         : action === 'suspend'
-                            ? 'セラピストプロフィールを停止しました。'
-                            : 'セラピストプロフィールを下書きへ戻しました。',
+                            ? 'タチキャストプロフィールを停止しました。'
+                            : 'タチキャストプロフィールを下書きへ戻しました。',
             );
             void loadProfiles(true);
         } catch (requestError) {
@@ -325,7 +325,7 @@ export function AdminTherapistProfilesPage() {
     }
 
     if (isLoading) {
-        return <LoadingScreen title="セラピスト審査一覧を読み込み中" message="本人確認、写真審査、受取設定をまとめています。" />;
+        return <LoadingScreen title="タチキャスト審査一覧を読み込み中" message="本人確認、写真審査、受取設定をまとめています。" />;
     }
 
     const detailProfile = selectedProfile ?? selectedListProfile;
@@ -336,7 +336,7 @@ export function AdminTherapistProfilesPage() {
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
                         <p className="text-xs font-semibold tracking-wide text-[#d2b179]">THERAPIST REVIEW</p>
-                        <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">セラピストプロフィール審査</h2>
+                        <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">タチキャストプロフィール審査</h2>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
                             プロフィール、写真、本人確認、受取設定まで横断して確認し、承認や停止の判断を進められます。
                         </p>
@@ -610,7 +610,7 @@ export function AdminTherapistProfilesPage() {
                         );
                     }) : (
                         <section className="rounded-[28px] bg-white px-6 py-10 text-center shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                            <p className="text-sm leading-7 text-[#68707a]">条件に合うセラピストプロフィールはありません。</p>
+                            <p className="text-sm leading-7 text-[#68707a]">条件に合うタチキャストプロフィールはありません。</p>
                         </section>
                     )}
                 </section>
@@ -629,7 +629,7 @@ export function AdminTherapistProfilesPage() {
 
                     {isLoadingDetail && publicId ? (
                         <section className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                            <LoadingScreen title="セラピスト詳細を読み込み中" message="審査判断に必要な詳細情報を取得しています。" />
+                            <LoadingScreen title="タチキャスト詳細を読み込み中" message="審査判断に必要な詳細情報を取得しています。" />
                         </section>
                     ) : detailProfile ? (
                         <section className="space-y-5">
@@ -849,7 +849,7 @@ export function AdminTherapistProfilesPage() {
                     ) : (
                         <section className="rounded-[28px] bg-white px-6 py-10 text-center shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                             <p className="text-sm leading-7 text-[#68707a]">
-                                一覧からセラピストを選ぶと、ここに審査判断と詳細情報が表示されます。
+                                一覧からタチキャストを選ぶと、ここに審査判断と詳細情報が表示されます。
                             </p>
                         </section>
                     )}

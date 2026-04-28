@@ -17,7 +17,7 @@ const refundReasonOptions = [
     { value: 'service_not_delivered', label: 'サービスが提供されなかった' },
     { value: 'service_issue', label: '対応内容に問題があった' },
     { value: 'billing_issue', label: '請求内容を確認したい' },
-    { value: 'therapist_cancel', label: 'セラピスト都合キャンセル分の確認' },
+    { value: 'therapist_cancel', label: 'タチキャスト都合キャンセル分の確認' },
     { value: 'other', label: 'その他' },
 ];
 

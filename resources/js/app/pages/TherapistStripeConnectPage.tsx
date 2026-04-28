@@ -168,7 +168,7 @@ export function TherapistStripeConnectPage() {
                         <p className="text-xs font-semibold tracking-wide text-rose-200">受取設定</p>
                         <h1 className="text-3xl font-semibold text-white">受取口座を登録する</h1>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                            セラピスト売上は、ここで登録した口座へ出金申請ベースで振込します。売上は完了後に保留へ入り、解放されたぶんだけ出金申請できます。
+                            タチキャスト売上は、ここで登録した口座へ出金申請ベースで振込します。売上は完了後に保留へ入り、解放されたぶんだけ出金申請できます。
                         </p>
                     </div>
 

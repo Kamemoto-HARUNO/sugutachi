@@ -81,7 +81,7 @@ export function TherapistOnboardingPage() {
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
 
-    usePageTitle('セラピスト準備状況');
+    usePageTitle('タチキャスト準備状況');
     useToastOnMessage(error, 'error');
 
     const loadData = useCallback(async () => {
@@ -219,7 +219,7 @@ export function TherapistOnboardingPage() {
                     <div className="space-y-3">
                         <p className="text-xs font-semibold tracking-wide text-rose-200">準備状況</p>
                         <div className="space-y-2">
-                            <h1 className="text-3xl font-semibold text-white">セラピスト準備状況</h1>
+                            <h1 className="text-3xl font-semibold text-white">タチキャスト準備状況</h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300">
                                 必要な設定を順番に埋めれば、条件が揃った時点で公開できるようになります。1つのアカウントのまま、利用者モードと行き来して使えます。
                             </p>

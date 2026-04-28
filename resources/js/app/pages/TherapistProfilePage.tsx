@@ -156,7 +156,7 @@ export function TherapistProfilePage() {
     const [isDeletingPhotoId, setIsDeletingPhotoId] = useState<number | null>(null);
     const [pendingMenuId, setPendingMenuId] = useState<string | null>(null);
 
-    usePageTitle('セラピストプロフィール');
+    usePageTitle('タチキャストプロフィール');
     useToastOnMessage(successMessage, 'success');
     useToastOnMessage(error, 'error');
     useToastOnMessage(photoSuccessMessage, 'success');
@@ -572,7 +572,7 @@ export function TherapistProfilePage() {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
                         <p className="text-xs font-semibold tracking-wide text-rose-200">プロフィール</p>
-                        <h1 className="text-3xl font-semibold text-white">セラピストプロフィール</h1>
+                        <h1 className="text-3xl font-semibold text-white">タチキャストプロフィール</h1>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
                             公開名、紹介文、研修ステータス、対応内容を整える画面です。本人確認・年齢確認と必須情報が揃えば、このまま公開準備が整います。
                         </p>
@@ -928,7 +928,7 @@ export function TherapistProfilePage() {
                         </div>
                     ) : (
                         <div className="rounded-[22px] border border-dashed border-white/15 bg-[#111923] px-4 py-5 text-sm leading-7 text-slate-300">
-                            まだセラピスト用のプロフィール写真はありません。まず1枚追加すると、公開プロフィールの印象が伝わりやすくなります。
+                            まだタチキャスト用のプロフィール写真はありません。まず1枚追加すると、公開プロフィールの印象が伝わりやすくなります。
                         </div>
                     )}
                 </article>

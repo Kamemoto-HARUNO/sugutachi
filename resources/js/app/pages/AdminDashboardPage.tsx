@@ -162,7 +162,7 @@ export function AdminDashboardPage() {
                 key: 'unread_travel_requests',
                 label: '未読出張リクエスト',
                 count: dashboard.operations.unread_travel_requests,
-                description: 'セラピスト宛の新着需要通知です。',
+                description: 'タチキャスト宛の新着需要通知です。',
                 target: dashboard.navigation.operations.unread_travel_requests,
             },
             {
@@ -197,7 +197,7 @@ export function AdminDashboardPage() {
                 key: 'requested_payouts',
                 label: '出金申請待ち',
                 count: dashboard.operations.requested_payouts,
-                description: 'セラピスト出金処理の待機件数です。',
+                description: 'タチキャスト出金処理の待機件数です。',
                 target: dashboard.navigation.operations.requested_payouts,
             },
         ];
@@ -213,7 +213,7 @@ export function AdminDashboardPage() {
                 key: 'requested',
                 label: '承諾待ち予約',
                 count: dashboard.bookings.requested,
-                description: 'セラピスト応答待ちの予約です。',
+                description: 'タチキャスト応答待ちの予約です。',
                 target: dashboard.navigation.bookings.requested,
             },
             {

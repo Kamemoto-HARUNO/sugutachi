@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet } from 'react-router-dom';
 import { RoleModeSwitcher } from '../components/account/RoleModeSwitcher';
 import { BrandMark } from '../components/brand/BrandMark';
@@ -26,6 +26,9 @@ function navLinkClass(isActive: boolean): string {
 export function DashboardLayout({ role, title, description, navItems }: DashboardLayoutProps) {
     const { logout, token } = useAuth();
     const [therapistPublicId, setTherapistPublicId] = useState<string | null>(null);
+    const navScrollRef = useRef<HTMLDivElement | null>(null);
+    const [canScrollLeft, setCanScrollLeft] = useState(false);
+    const [canScrollRight, setCanScrollRight] = useState(false);
 
     useEffect(() => {
         if (role !== 'therapist' || !token) {
@@ -58,6 +61,62 @@ export function DashboardLayout({ role, title, description, navItems }: Dashboar
             isMounted = false;
         };
     }, [role, token]);
+
+    useEffect(() => {
+        const container = navScrollRef.current;
+
+        if (!container) {
+            return;
+        }
+
+        const updateScrollIndicators = () => {
+            const maxScrollLeft = Math.max(0, container.scrollWidth - container.clientWidth);
+            setCanScrollLeft(container.scrollLeft > 4);
+            setCanScrollRight(container.scrollLeft < maxScrollLeft - 4);
+        };
+
+        updateScrollIndicators();
+
+        const handleScroll = () => {
+            updateScrollIndicators();
+        };
+
+        const resizeObserver = new ResizeObserver(() => {
+            updateScrollIndicators();
+        });
+
+        container.addEventListener('scroll', handleScroll, { passive: true });
+        resizeObserver.observe(container);
+
+        const navElement = container.firstElementChild;
+
+        if (navElement instanceof HTMLElement) {
+            resizeObserver.observe(navElement);
+        }
+
+        window.addEventListener('resize', updateScrollIndicators);
+
+        return () => {
+            container.removeEventListener('scroll', handleScroll);
+            resizeObserver.disconnect();
+            window.removeEventListener('resize', updateScrollIndicators);
+        };
+    }, [navItems]);
+
+    const scrollTabs = (direction: 'left' | 'right') => {
+        const container = navScrollRef.current;
+
+        if (!container) {
+            return;
+        }
+
+        const delta = Math.max(220, Math.round(container.clientWidth * 0.7));
+
+        container.scrollBy({
+            left: direction === 'left' ? -delta : delta,
+            behavior: 'smooth',
+        });
+    };
 
     return (
         <div className="min-h-screen">
@@ -109,14 +168,52 @@ export function DashboardLayout({ role, title, description, navItems }: Dashboar
                             </div>
                         </div>
 
-                        <div className="overflow-x-auto pb-1">
-                            <nav className="flex min-w-max flex-wrap gap-2 xl:min-w-0">
-                                {navItems.map((item) => (
-                                    <NavLink key={item.to} to={item.to} end={item.exact} className={({ isActive }) => navLinkClass(isActive)}>
-                                        {item.label}
-                                    </NavLink>
-                                ))}
-                            </nav>
+                        <div className="relative pb-1">
+                            <div
+                                ref={navScrollRef}
+                                className="overflow-x-auto overflow-y-hidden [scrollbar-width:none] [&::-webkit-scrollbar]:hidden"
+                            >
+                                <nav className="flex min-w-max gap-2 pr-2 xl:min-w-0">
+                                    {navItems.map((item) => (
+                                        <NavLink key={item.to} to={item.to} end={item.exact} className={({ isActive }) => navLinkClass(isActive)}>
+                                            {item.label}
+                                        </NavLink>
+                                    ))}
+                                </nav>
+                            </div>
+                            {canScrollLeft ? (
+                                <>
+                                    <div className="pointer-events-none absolute inset-y-0 left-0 w-12 rounded-l-[20px] bg-gradient-to-r from-[#17202b] via-[#17202b]/85 to-transparent" />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            scrollTabs('left');
+                                        }}
+                                        className="absolute left-0 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/12 bg-[#1d2b3a]/95 text-lg font-semibold text-white shadow-[0_10px_20px_rgba(15,23,42,0.28)] transition hover:bg-[#26384c]"
+                                        aria-label="左のタブを見る"
+                                    >
+                                        ‹
+                                    </button>
+                                </>
+                            ) : null}
+                            {canScrollRight ? (
+                                <>
+                                    <div className="pointer-events-none absolute inset-y-0 right-0 w-16 rounded-r-[20px] bg-gradient-to-l from-[#17202b] via-[#17202b]/88 to-transparent" />
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            scrollTabs('right');
+                                        }}
+                                        className="absolute right-0 top-1/2 inline-flex h-9 w-9 -translate-y-1/2 items-center justify-center rounded-full border border-white/12 bg-[#1d2b3a]/95 text-lg font-semibold text-white shadow-[0_10px_20px_rgba(15,23,42,0.28)] transition hover:bg-[#26384c]"
+                                        aria-label="右のタブを見る"
+                                    >
+                                        ›
+                                    </button>
+                                </>
+                            ) : null}
+                            <p className="mt-2 text-xs text-slate-400 sm:hidden">
+                                左右にスワイプすると、ほかのタブも表示できます。
+                            </p>
                         </div>
                     </div>
                 </header>

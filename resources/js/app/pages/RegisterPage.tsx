@@ -168,7 +168,7 @@ export function RegisterPage() {
                                     まずは会員登録から
                                 </h1>
                                 <p className="max-w-2xl text-sm leading-7 text-[#d8d3ca] md:text-base md:leading-8">
-                                    1つのアカウントで、利用者として探し始めることも、セラピストとして準備を始めることもできます。ここでは最初に使うモードを選び、もう片方はログイン後に追加できます。
+                                    1つのアカウントで、利用者として探し始めることも、タチキャストとして準備を始めることもできます。ここでは最初に使うモードを選び、もう片方はログイン後に追加できます。
                                 </p>
                             </div>
                         </div>
@@ -183,7 +183,7 @@ export function RegisterPage() {
                                 },
                                 {
                                     value: 'therapist' as const,
-                                    label: '最初はセラピストとしてはじめる',
+                                    label: '最初はタチキャストとしてはじめる',
                                     body: '本人確認、受取口座設定、プロフィール入力、空き枠公開の準備へ進みます。',
                                     active: initialRole === 'therapist',
                                 },

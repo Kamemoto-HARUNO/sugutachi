@@ -224,7 +224,7 @@ export function UserTherapistDetailPage() {
             ? { label: '利用モードを管理する', to: '/role-select', variant: 'secondary' as const }
         : { label: '無料登録する', to: registerAvailabilityPath, variant: 'secondary' as const };
 
-    usePageTitle(therapistDetail ? `${therapistDetail.public_name}の詳細` : 'セラピスト詳細');
+    usePageTitle(therapistDetail ? `${therapistDetail.public_name}の詳細` : 'タチキャスト詳細');
     useToastOnMessage(error, 'error');
 
     useEffect(() => {
@@ -394,7 +394,7 @@ export function UserTherapistDetailPage() {
     }
 
     if (isLoadingDetail && !therapistDetail) {
-        return <LoadingScreen title="プロフィール読込中" message="セラピストの詳細とレビューを取得しています。" />;
+        return <LoadingScreen title="プロフィール読込中" message="タチキャストの詳細とレビューを取得しています。" />;
     }
 
     const profileSummary = therapistDetail ? [
@@ -719,7 +719,7 @@ export function UserTherapistDetailPage() {
                                             <article className="rounded-[24px] bg-[#f6f1e7] p-5">
                                                 <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">POLICY</p>
                                                 <p className="mt-2 text-lg font-semibold text-[#17202b]">
-                                                    セラピスト都合キャンセル {therapistDetail.therapist_cancellation_count}回
+                                                    タチキャスト都合キャンセル {therapistDetail.therapist_cancellation_count}回
                                                 </p>
                                                 <p className="mt-1 text-sm text-[#68707a]">利用前に確認できる公開指標です。</p>
                                             </article>

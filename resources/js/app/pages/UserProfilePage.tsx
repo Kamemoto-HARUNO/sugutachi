@@ -326,7 +326,7 @@ function PhotoStrip({
                     <div className="space-y-2 px-4 py-4 text-sm text-[#48505a]">
                         <div className="flex flex-wrap items-center gap-2">
                             <span className="rounded-full bg-[#f5efe4] px-3 py-1 text-xs font-semibold text-[#48505a]">
-                                {photo.usage_type === 'account_profile' ? '共通プロフィール' : 'セラピスト用'}
+                                {photo.usage_type === 'account_profile' ? '共通プロフィール' : 'タチキャスト用'}
                             </span>
                             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${photoStatusTone(photo.status)}`}>
                                 {photoStatusLabel(photo.status)}
@@ -851,7 +851,7 @@ export function UserProfilePage() {
                             <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">利用者プロフィール</p>
                             <h2 className="text-2xl font-semibold text-[#17202b]">利用者プロフィール</h2>
                             <p className="text-sm leading-7 text-[#68707a]">
-                                動的料金やセラピストへの開示設定で使う項目です。必須項目がそろうとプロフィールは入力完了になります。
+                                動的料金やタチキャストへの開示設定で使う項目です。必須項目がそろうとプロフィールは入力完了になります。
                             </p>
                         </div>
 
@@ -985,9 +985,9 @@ export function UserProfilePage() {
                                 className="mt-1 h-4 w-4 rounded border-[#ccb387] text-[#b5894d] focus:ring-[#b5894d]"
                             />
                             <div className="space-y-1">
-                                <p className="text-sm font-semibold text-[#17202b]">センシティブ項目をセラピストへ開示する</p>
+                                <p className="text-sm font-semibold text-[#17202b]">センシティブ項目をタチキャストへ開示する</p>
                                 <p className="text-sm leading-7 text-[#68707a]">
-                                    性的指向・性自認・体調メモなど、予約前に共有したい内容をセラピスト側に表示できるようにします。
+                                    性的指向・性自認・体調メモなど、予約前に共有したい内容をタチキャスト側に表示できるようにします。
                                 </p>
                             </div>
                         </label>

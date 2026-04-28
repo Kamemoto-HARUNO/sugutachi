@@ -409,7 +409,7 @@ export function AdminBookingsPage() {
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-6">
                 {[
                     { label: '総件数', value: summary.total, hint: '現在の表示対象' },
-                    { label: '承諾待ち', value: summary.requested, hint: 'セラピスト応答待ち' },
+                    { label: '承諾待ち', value: summary.requested, hint: 'タチキャスト応答待ち' },
                     { label: '進行中', value: summary.inProgress, hint: '移動・到着・対応中' },
                     { label: '中断', value: summary.interrupted, hint: '安全確認が必要' },
                     { label: '要メッセージ確認', value: summary.flagged, hint: '危険メッセージあり' },
@@ -689,7 +689,7 @@ export function AdminBookingsPage() {
                                         <p className="mt-1 text-xs text-slate-400">{detail.user_account?.email ?? 'メール未設定'}</p>
                                     </article>
                                     <article className="rounded-[22px] bg-[#101720] p-4">
-                                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">セラピスト</p>
+                                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">タチキャスト</p>
                                         <p className="mt-2 text-sm font-semibold text-white">{detail.therapist_profile?.public_name ?? displayName(detail.therapist_account)}</p>
                                         <p className="mt-1 text-xs text-slate-400">
                                             {detail.therapist_profile?.public_id ?? detail.therapist_account?.public_id} / {formatProfileStatus(detail.therapist_profile?.profile_status)}

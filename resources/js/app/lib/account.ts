@@ -100,7 +100,7 @@ export function formatRoleLabel(role: RoleName): string {
         case 'user':
             return '利用者';
         case 'therapist':
-            return 'セラピスト';
+            return 'タチキャスト';
         case 'admin':
             return '運営';
     }

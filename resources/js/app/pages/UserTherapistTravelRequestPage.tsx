@@ -183,7 +183,7 @@ export function UserTherapistTravelRequestPage() {
     }
 
     if (isLoading) {
-        return <LoadingScreen title="出張リクエストを準備中" message="セラピスト情報と待ち合わせ場所を確認しています。" />;
+        return <LoadingScreen title="出張リクエストを準備中" message="タチキャスト情報と待ち合わせ場所を確認しています。" />;
     }
 
     const detailPath = therapistDetail ? `/therapists/${therapistDetail.public_id}?${searchParams.toString()}` : '/user/therapists';
@@ -231,10 +231,10 @@ export function UserTherapistTravelRequestPage() {
                     <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                         <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">THERAPIST</p>
                         <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">
-                            {therapistDetail?.public_name ?? 'セラピストを確認中'}
+                            {therapistDetail?.public_name ?? 'タチキャストを確認中'}
                         </h2>
                         <p className="mt-3 text-sm leading-7 text-[#68707a]">
-                            送った内容はセラピスト側の「出張リクエスト一覧」に届きます。返信機能はないので、
+                            送った内容はタチキャスト側の「出張リクエスト一覧」に届きます。返信機能はないので、
                             今後そのエリアで空き枠が公開される判断材料として使われます。
                         </p>
 
@@ -333,7 +333,7 @@ export function UserTherapistTravelRequestPage() {
                     <section className="rounded-[28px] bg-[#fffcf7] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.1)]">
                         <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">HOW IT WORKS</p>
                         <ul className="mt-4 space-y-3 text-sm leading-7 text-[#48505a]">
-                            <li>送信内容はセラピストのマイページだけに届きます。</li>
+                            <li>送信内容はタチキャストのマイページだけに届きます。</li>
                             <li>予約の確保や返信を保証する機能ではありません。</li>
                             <li>後日そのエリアの空き枠が公開されたら、通常の予定予約へ進めます。</li>
                         </ul>

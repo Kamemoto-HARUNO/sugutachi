@@ -77,8 +77,8 @@ class LegalDocumentApiTest extends TestCase
             'public_id' => 'ldoc_therapist_terms',
             'document_type' => 'therapist_terms',
             'version' => '2026-05-01',
-            'title' => 'セラピスト規約',
-            'body' => 'セラピスト規約本文',
+            'title' => 'タチキャスト規約',
+            'body' => 'タチキャスト規約本文',
             'published_at' => now()->subDay(),
             'effective_at' => now(),
         ]);

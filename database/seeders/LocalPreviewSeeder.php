@@ -48,7 +48,7 @@ class LocalPreviewSeeder extends Seeder
         $previewTherapist = $this->upsertAccount(
             publicId: 'acc_preview_therap',
             email: 'preview-therapist@sugutachi.local',
-            displayName: 'プレビューセラピスト',
+            displayName: 'プレビュータチキャスト',
             roles: ['therapist'],
             lastActiveRole: 'therapist',
             phone: '+819000000002',
@@ -810,7 +810,7 @@ class LocalPreviewSeeder extends Seeder
             'public_id' => 'refund_prev_cancel',
             'status' => Refund::STATUS_PROCESSED,
             'reason_code' => Refund::REASON_CODE_BOOKING_CANCELLATION_AUTO,
-            'detail_encrypted' => Crypt::encryptString('セラピスト都合キャンセルのため全額返金'),
+            'detail_encrypted' => Crypt::encryptString('タチキャスト都合キャンセルのため全額返金'),
             'requested_amount' => 13800,
             'approved_amount' => 13800,
             'stripe_refund_id' => 're_prev_cancel',
@@ -907,7 +907,7 @@ class LocalPreviewSeeder extends Seeder
             'notification_type' => 'booking_accepted',
             'channel' => 'in_app',
             'title' => '予約が確定しました',
-            'body' => '担当セラピストが向かっています。',
+            'body' => '担当タチキャストが向かっています。',
             'data_json' => ['booking_public_id' => $liveBooking->public_id],
             'status' => AppNotification::STATUS_SENT,
             'sent_at' => $now->subMinutes(18),
@@ -917,7 +917,7 @@ class LocalPreviewSeeder extends Seeder
             'notification_type' => 'booking_canceled',
             'channel' => 'in_app',
             'title' => '予約がキャンセルされました',
-            'body' => 'セラピスト都合で予約がキャンセルされました。返金状況を確認してください。',
+            'body' => 'タチキャスト都合で予約がキャンセルされました。返金状況を確認してください。',
             'data_json' => ['booking_public_id' => $canceledBooking->public_id],
             'status' => AppNotification::STATUS_SENT,
             'sent_at' => $now->subDays(2)->setTime(17, 0),
@@ -939,8 +939,8 @@ class LocalPreviewSeeder extends Seeder
             ['Role', 'Email', 'Password', 'Notes'],
             [
                 ['利用者', 'preview-user@sugutachi.local', 'password', '検索、予約、レビュー履歴の確認用'],
-                ['セラピスト', 'preview-therapist@sugutachi.local', 'password', '依頼、予約、売上、レビュー受信の確認用'],
-                ['兼用', 'preview-hybrid@sugutachi.local', 'password', 'ロール切替と第2の公開セラピスト確認用'],
+                ['タチキャスト', 'preview-therapist@sugutachi.local', 'password', '依頼、予約、売上、レビュー受信の確認用'],
+                ['兼用', 'preview-hybrid@sugutachi.local', 'password', 'ロール切替と第2の公開タチキャスト確認用'],
             ],
         );
     }

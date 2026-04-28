@@ -65,7 +65,7 @@ class BookingNotificationService
             accountId: $booking->user_account_id,
             type: 'booking_adjustment_proposed',
             title: '時間変更の提案が届きました',
-            body: 'セラピストから開始時間または終了時間の調整提案が届いています。内容を確認してください。',
+            body: 'タチキャストから開始時間または終了時間の調整提案が届いています。内容を確認してください。',
             data: [
                 'booking_public_id' => $booking->public_id,
                 'status' => $booking->status,
@@ -79,7 +79,7 @@ class BookingNotificationService
         $this->sendEmail(
             email: $booking->userAccount?->email,
             subject: '時間変更の提案が届きました',
-            body: 'セラピストから開始時間または終了時間の調整提案が届いています。アプリで新しい時間と金額をご確認ください。'
+            body: 'タチキャストから開始時間または終了時間の調整提案が届いています。アプリで新しい時間と金額をご確認ください。'
         );
     }
 
@@ -116,7 +116,7 @@ class BookingNotificationService
             accountId: $booking->user_account_id,
             type: 'booking_no_show_reported',
             title: '未着申告の確認が必要です',
-            body: 'セラピストから「利用者と会えなかった」という申告が届いています。請求はまだ確定していません。内容を確認してください。',
+            body: 'タチキャストから「利用者と会えなかった」という申告が届いています。請求はまだ確定していません。内容を確認してください。',
             data: [
                 'booking_public_id' => $booking->public_id,
                 'status' => $booking->status,
@@ -129,7 +129,7 @@ class BookingNotificationService
         $this->sendEmail(
             email: $booking->userAccount?->email,
             subject: '未着申告の確認が必要です',
-            body: 'セラピストから未着申告が届いています。請求はまだ確定していません。アプリで内容を確認してください。'
+            body: 'タチキャストから未着申告が届いています。請求はまだ確定していません。アプリで内容を確認してください。'
         );
     }
 
@@ -186,8 +186,8 @@ class BookingNotificationService
         $this->create(
             accountId: $booking->user_account_id,
             type: 'booking_moving',
-            title: 'セラピストが向かっています',
-            body: 'セラピストが移動を開始しました。到着時はアプリに表示される4桁コードをお伝えください。',
+            title: 'タチキャストが向かっています',
+            body: 'タチキャストが移動を開始しました。到着時はアプリに表示される4桁コードをお伝えください。',
             data: [
                 'booking_public_id' => $booking->public_id,
                 'status' => $booking->status,
@@ -198,8 +198,8 @@ class BookingNotificationService
 
         $this->sendEmail(
             email: $booking->userAccount?->email,
-            subject: 'セラピストが向かっています',
-            body: 'セラピストが移動を開始しました。到着したら、アプリの予約詳細に表示される4桁コードをお伝えください。'
+            subject: 'タチキャストが向かっています',
+            body: 'タチキャストが移動を開始しました。到着したら、アプリの予約詳細に表示される4桁コードをお伝えください。'
         );
     }
 
@@ -210,8 +210,8 @@ class BookingNotificationService
         $this->create(
             accountId: $booking->user_account_id,
             type: 'booking_arrived',
-            title: 'セラピストが到着しました',
-            body: 'セラピストが到着しました。合流後の案内をご確認ください。',
+            title: 'タチキャストが到着しました',
+            body: 'タチキャストが到着しました。合流後の案内をご確認ください。',
             data: [
                 'booking_public_id' => $booking->public_id,
                 'status' => $booking->status,
@@ -221,8 +221,8 @@ class BookingNotificationService
 
         $this->sendEmail(
             email: $booking->userAccount?->email,
-            subject: 'セラピストが到着しました',
-            body: 'セラピストが到着しました。アプリから予約詳細やメッセージをご確認ください。'
+            subject: 'タチキャストが到着しました',
+            body: 'タチキャストが到着しました。アプリから予約詳細やメッセージをご確認ください。'
         );
     }
 
@@ -234,7 +234,7 @@ class BookingNotificationService
             accountId: $booking->user_account_id,
             type: 'booking_started',
             title: '対応が開始されました',
-            body: 'セラピストが対応開始を記録しました。',
+            body: 'タチキャストが対応開始を記録しました。',
             data: [
                 'booking_public_id' => $booking->public_id,
                 'status' => $booking->status,
@@ -257,7 +257,7 @@ class BookingNotificationService
             accountId: $booking->user_account_id,
             type: 'booking_therapist_completed',
             title: '対応終了の確認をお願いします',
-            body: 'セラピストが対応終了を記録しました。レビュー送信または完了確認をお願いします。',
+            body: 'タチキャストが対応終了を記録しました。レビュー送信または完了確認をお願いします。',
             data: [
                 'booking_public_id' => $booking->public_id,
                 'status' => $booking->status,
@@ -269,7 +269,7 @@ class BookingNotificationService
         $this->sendEmail(
             email: $booking->userAccount?->email,
             subject: '対応終了の確認をお願いします',
-            body: 'セラピストが対応終了を記録しました。アプリでレビュー送信、または完了確認をお願いします。'
+            body: 'タチキャストが対応終了を記録しました。アプリでレビュー送信、または完了確認をお願いします。'
         );
     }
 
@@ -281,7 +281,7 @@ class BookingNotificationService
             accountId: $booking->user_account_id,
             type: 'booking_completion_window_updated',
             title: '対応時間が更新されました',
-            body: 'セラピストが開始時刻または終了時刻を更新しました。最終金額をご確認ください。',
+            body: 'タチキャストが開始時刻または終了時刻を更新しました。最終金額をご確認ください。',
             data: [
                 'booking_public_id' => $booking->public_id,
                 'status' => $booking->status,
@@ -296,7 +296,7 @@ class BookingNotificationService
         $this->sendEmail(
             email: $booking->userAccount?->email,
             subject: '対応時間が更新されました',
-            body: 'セラピストが対応時間を更新しました。アプリから開始時刻、終了時刻、最終金額をご確認ください。'
+            body: 'タチキャストが対応時間を更新しました。アプリから開始時刻、終了時刻、最終金額をご確認ください。'
         );
     }
 
@@ -534,7 +534,7 @@ class BookingNotificationService
             default => $canceledByRole === 'user'
                 ? 'ユーザー都合で予約がキャンセルされました。'
                 : ($canceledByRole === 'therapist'
-                    ? trim("セラピスト都合で予約がキャンセルされました。 {$reasonNote}")
+                    ? trim("タチキャスト都合で予約がキャンセルされました。 {$reasonNote}")
                     : '予約がキャンセルされました。'),
         };
     }
@@ -543,7 +543,7 @@ class BookingNotificationService
     {
         $base = match ($responsibility) {
             'user' => 'ユーザー都合で対応が中断されました。',
-            'therapist' => 'セラピスト都合で対応が中断されました。',
+            'therapist' => 'タチキャスト都合で対応が中断されました。',
             'force_majeure' => '不可抗力のため対応が中断されました。',
             'shared' => '双方確認のうえ対応が中断されました。',
             default => '対応が中断されました。',

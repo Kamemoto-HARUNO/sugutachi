@@ -63,7 +63,7 @@ function roleLabel(role: string): string {
         case 'user':
             return '利用者';
         case 'therapist':
-            return 'セラピスト';
+            return 'タチキャスト';
         case 'admin':
             return '運営';
         default:
@@ -296,7 +296,7 @@ export function AdminAccountsPage() {
                         <p className="text-xs font-semibold tracking-wide text-[#d2b179]">ACCOUNT MODERATION</p>
                         <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">アカウント管理</h2>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                            利用者・セラピスト・運営アカウントを横断で確認し、停止や復旧、本人確認状況の把握まで行えます。
+                            利用者・タチキャスト・運営アカウントを横断で確認し、停止や復旧、本人確認状況の把握まで行えます。
                         </p>
                     </div>
 
@@ -339,7 +339,7 @@ export function AdminAccountsPage() {
                 <article className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_16px_34px_rgba(2,6,23,0.12)]">
                     <p className="text-xs font-semibold tracking-wide text-[#d2b179]">THERAPISTS</p>
                     <p className="mt-3 text-3xl font-semibold text-white">{summary.therapists}</p>
-                    <p className="mt-2 text-sm text-slate-300">セラピストロールを持つ件数</p>
+                    <p className="mt-2 text-sm text-slate-300">タチキャストロールを持つ件数</p>
                 </article>
             </section>
 
@@ -373,7 +373,7 @@ export function AdminAccountsPage() {
                             >
                                 <option value="all">すべて</option>
                                 <option value="user">利用者</option>
-                                <option value="therapist">セラピスト</option>
+                                <option value="therapist">タチキャスト</option>
                                 <option value="admin">運営</option>
                             </select>
                         </label>
@@ -486,7 +486,7 @@ export function AdminAccountsPage() {
                                         </p>
                                     </div>
                                     <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3">
-                                        <p className="text-xs font-semibold tracking-wide text-[#7d6852]">セラピスト</p>
+                                        <p className="text-xs font-semibold tracking-wide text-[#7d6852]">タチキャスト</p>
                                         <p className="mt-1 text-sm font-semibold text-[#17202b]">
                                             {account.therapist_profile
                                                 ? formatProfileStatus(account.therapist_profile.profile_status)
@@ -580,7 +580,7 @@ export function AdminAccountsPage() {
                                         </p>
                                     </div>
                                     <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3">
-                                        <p className="text-xs font-semibold tracking-wide text-[#7d6852]">セラピストプロフィール</p>
+                                        <p className="text-xs font-semibold tracking-wide text-[#7d6852]">タチキャストプロフィール</p>
                                         <p className="mt-1 font-semibold text-[#17202b]">
                                             {detailAccount.therapist_profile
                                                 ? formatProfileStatus(detailAccount.therapist_profile.profile_status)

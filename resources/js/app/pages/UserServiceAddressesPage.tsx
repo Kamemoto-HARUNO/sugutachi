@@ -431,7 +431,7 @@ export function UserServiceAddressesPage() {
                             {draft.public_id ? '待ち合わせ場所を編集' : '新しい待ち合わせ場所を追加'}
                         </h2>
                         <p className="text-sm leading-7 text-[#68707a]">
-                            位置はユーザー本人と運営だけが扱う前提です。セラピストには正確な住所ではなく、予約時に必要な情報だけを渡します。
+                            位置はユーザー本人と運営だけが扱う前提です。タチキャストには正確な住所ではなく、予約時に必要な情報だけを渡します。
                         </p>
                     </div>
 

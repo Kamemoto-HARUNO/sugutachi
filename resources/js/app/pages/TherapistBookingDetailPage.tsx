@@ -546,7 +546,7 @@ export function TherapistBookingDetailPage() {
     const completionStartedAtRef = useRef<HTMLInputElement | null>(null);
     const completionEndedAtRef = useRef<HTMLInputElement | null>(null);
 
-    usePageTitle(booking ? `${booking.counterparty?.display_name ?? '予約'}の詳細` : 'セラピスト予約詳細');
+    usePageTitle(booking ? `${booking.counterparty?.display_name ?? '予約'}の詳細` : 'タチキャスト予約詳細');
     useToastOnMessage(successMessage, 'success');
     useToastOnMessage(error, 'error');
 
@@ -833,7 +833,7 @@ export function TherapistBookingDetailPage() {
                 },
             );
 
-            await reloadAfterMutation('セラピスト都合キャンセルを処理しました。利用者へ理由通知も送信されています。');
+            await reloadAfterMutation('タチキャスト都合キャンセルを処理しました。利用者へ理由通知も送信されています。');
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -967,7 +967,7 @@ export function TherapistBookingDetailPage() {
                                     <h3 className="text-lg font-semibold text-[#17202b]">体調確認</h3>
                                     {booking.health_checks.length > 0 ? booking.health_checks.map((check) => (
                                         <div key={check.id} className="rounded-[20px] bg-[#f8f4ed] px-4 py-4">
-                                            <p className="text-sm font-semibold text-[#17202b]">{check.role === 'user' ? '利用者' : 'セラピスト'}</p>
+                                            <p className="text-sm font-semibold text-[#17202b]">{check.role === 'user' ? '利用者' : 'タチキャスト'}</p>
                                             <p className="mt-1 text-sm text-[#68707a]">{renderHealthCheckSummary(check)}</p>
                                             {check.notes ? (
                                                 <p className="mt-2 text-sm leading-7 text-[#68707a]">{check.notes}</p>
@@ -1153,7 +1153,7 @@ export function TherapistBookingDetailPage() {
                                     <div className="space-y-2 text-sm text-[#48505a]">
                                         <div className="flex items-center justify-between gap-4">
                                             <div>
-                                                <span>セラピスト謝礼</span>
+                                                <span>タチキャスト謝礼</span>
                                                 {therapistRewardFormulaLabel(booking) ? (
                                                     <p className="mt-1 text-xs text-[#68707a]">（{therapistRewardFormulaLabel(booking)}）</p>
                                                 ) : null}
@@ -1398,10 +1398,10 @@ export function TherapistBookingDetailPage() {
 
                     {canTherapistCancel(booking.status) && !pendingTherapistNoShowReport ? (
                         <section className="rounded-[28px] border border-[#f0d6a4] bg-[#fff7e8] p-6">
-                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">セラピスト都合キャンセル</p>
+                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">タチキャスト都合キャンセル</p>
                             <div className="mt-4 space-y-4">
                                 <div>
-                                    <h2 className="text-xl font-semibold text-[#17202b]">セラピスト都合キャンセル</h2>
+                                    <h2 className="text-xl font-semibold text-[#17202b]">タチキャスト都合キャンセル</h2>
                                     <p className="mt-2 text-sm leading-7 text-[#475569]">
                                         利用者へ理由を通知し、状況に応じた返金処理を自動で進めます。キャンセル回数はプロフィール側の運用指標にも反映されます。
                                     </p>

@@ -86,6 +86,6 @@ class AccountRoleController extends Controller
             return Str::limit($emailLocalPart, 80, '');
         }
 
-        return '新規セラピスト';
+        return '新規タチキャスト';
     }
 }

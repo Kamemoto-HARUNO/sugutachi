@@ -105,8 +105,8 @@ function waitingHeadline(booking: BookingDetailRecord): string {
                 : 'カード与信を確認しています';
         case 'requested':
             return booking.pending_adjustment_proposal
-                ? 'セラピストから時間変更の提案が届いています'
-                : 'セラピストの承諾を待っています';
+                ? 'タチキャストから時間変更の提案が届いています'
+                : 'タチキャストの承諾を待っています';
         case 'accepted':
             return '予約が確定しました';
         case 'rejected':
@@ -138,7 +138,7 @@ function waitingDescription(booking: BookingDetailRecord): string {
         case 'expired':
         case 'payment_canceled':
         case 'canceled':
-            return '別の日時や別のセラピストで検索を続けられます。';
+            return '別の日時や別のタチキャストで検索を続けられます。';
         default:
             return '予約詳細と支払い状態をこの画面で追えます。';
     }
@@ -395,7 +395,7 @@ export function UserBookingWaitingPage() {
                             <p className="text-xs font-semibold tracking-wide text-[#5472a0]">時間変更の提案</p>
                             <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">この条件で進めるか確認してください</h2>
                             <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                セラピストから時間調整の提案が届いています。問題なければこの条件で予約を確定できます。
+                                タチキャストから時間調整の提案が届いています。問題なければこの条件で予約を確定できます。
                             </p>
                             <div className="mt-5 grid gap-4 md:grid-cols-2">
                                 <div className="rounded-[20px] bg-white px-4 py-4">
@@ -405,7 +405,7 @@ export function UserBookingWaitingPage() {
                                     </p>
                                 </div>
                                 <div className="rounded-[20px] bg-white px-4 py-4">
-                                    <p className="text-xs font-semibold tracking-wide text-[#7d6852]">セラピストの提案時間</p>
+                                    <p className="text-xs font-semibold tracking-wide text-[#7d6852]">タチキャストの提案時間</p>
                                     <p className="mt-2 text-sm font-semibold text-[#17202b]">
                                         {formatDateTime(booking.pending_adjustment_proposal.scheduled_start_at)} - {formatDateTime(booking.pending_adjustment_proposal.scheduled_end_at)}
                                     </p>

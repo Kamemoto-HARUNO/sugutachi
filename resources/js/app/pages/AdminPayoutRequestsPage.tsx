@@ -318,7 +318,7 @@ export function AdminPayoutRequestsPage() {
                         <p className="text-xs font-semibold tracking-wide text-[#d2b179]">出金運用</p>
                         <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">出金申請管理</h2>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                            セラピストの出金申請を確認し、保留、解除、振込完了の記録までを進められます。
+                            タチキャストの出金申請を確認し、保留、解除、振込完了の記録までを進められます。
                         </p>
                     </div>
 
@@ -376,7 +376,7 @@ export function AdminPayoutRequestsPage() {
                     </label>
 
                     <label className="space-y-2">
-                        <span className="text-sm font-semibold text-[#17202b]">セラピストアカウント</span>
+                        <span className="text-sm font-semibold text-[#17202b]">タチキャストアカウント</span>
                         <input
                             value={therapistInput}
                             onChange={(event) => setTherapistInput(event.target.value)}

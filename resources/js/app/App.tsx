@@ -151,7 +151,7 @@ function AppRoutes() {
                                 title="利用者ダッシュボード"
                                 description="検索から予約、レビュー、通報までの利用者フローをここから組み上げていきます。"
                                 actions={[
-                                    { label: 'セラピストを探す', to: '/user/therapists', description: '検索一覧、詳細、空き枠の導線をつなぎます。' },
+                                    { label: 'タチキャストを探す', to: '/user/therapists', description: '検索一覧、詳細、空き枠の導線をつなぎます。' },
                                     { label: '予約一覧', to: '/user/bookings', description: '進行中の予約や未読メッセージへすぐ戻れます。' },
                                     { label: '待ち合わせ場所', to: '/user/service-addresses', description: '来てほしい場所とデフォルト住所を管理します。' },
                                 ]}
@@ -217,7 +217,7 @@ function AppRoutes() {
                     element={
                         <DashboardLayout
                             role="therapist"
-                            title="セラピストダッシュボード"
+                            title="タチキャストダッシュボード"
                             description="公開準備、空き枠、予約依頼、売上確認の入口です。"
                             navItems={therapistNavItems}
                         />
@@ -227,8 +227,8 @@ function AppRoutes() {
                         index
                         element={
                             <SectionHomePage
-                                eyebrow="セラピストマイページ"
-                                title="セラピストダッシュボード"
+                                eyebrow="タチキャストマイページ"
+                                title="タチキャストダッシュボード"
                                 description="プロフィール審査から空き枠、料金ルール、売上管理までをここからつないでいきます。"
                                 actions={[
                                     { label: '準備状況', to: '/therapist/onboarding', description: '本人確認、プロフィール、Stripe の進み具合を確認します。' },

@@ -481,7 +481,7 @@ class BookingSafetyController extends Controller
             $reasonCode = (string) $lockedBooking->pending_no_show_reason_code;
             $fromStatus = $lockedBooking->status;
             $combinedReasonNote = trim(implode("\n", array_filter([
-                $pendingReasonNote ? "セラピスト申告: {$pendingReasonNote}" : null,
+                $pendingReasonNote ? "タチキャスト申告: {$pendingReasonNote}" : null,
                 '利用者回答: '.$validated['reason_note'],
             ])));
 

@@ -582,7 +582,7 @@ export function AdminPricingRulesPage() {
                     <input
                         value={queryInput}
                         onChange={(event) => setQueryInput(event.target.value)}
-                        placeholder="セラピスト名 / メール / rule id"
+                        placeholder="タチキャスト名 / メール / rule id"
                         className="min-w-0 flex-1 rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
                     />
                     <button

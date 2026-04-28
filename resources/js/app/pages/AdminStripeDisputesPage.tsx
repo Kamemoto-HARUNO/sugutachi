@@ -289,7 +289,7 @@ export function AdminStripeDisputesPage() {
                     </label>
 
                     <label className="space-y-2">
-                        <span className="text-sm font-semibold text-[#17202b]">セラピスト</span>
+                        <span className="text-sm font-semibold text-[#17202b]">タチキャスト</span>
                         <input
                             value={therapistInput}
                             onChange={(event) => setTherapistInput(event.target.value)}
@@ -438,7 +438,7 @@ export function AdminStripeDisputesPage() {
                                     <p className="text-xs font-semibold tracking-wide text-[#b5894d]">関連予約</p>
                                     <p className="mt-2 font-semibold text-[#17202b]">{selectedDispute.booking_public_id ?? '未設定'}</p>
                                     <p className="mt-1">利用者 {selectedDispute.user_account_id ?? '未設定'}</p>
-                                    <p className="mt-1">セラピスト {selectedDispute.therapist_account_id ?? '未設定'}</p>
+                                    <p className="mt-1">タチキャスト {selectedDispute.therapist_account_id ?? '未設定'}</p>
                                     {selectedDispute.booking_public_id ? (
                                         <Link className="mt-3 inline-flex text-sm font-semibold text-[#8f5c22] hover:text-[#6f4718]" to={`/admin/bookings/${selectedDispute.booking_public_id}`}>
                                             予約詳細へ

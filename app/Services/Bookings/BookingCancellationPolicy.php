@@ -20,7 +20,7 @@ class BookingCancellationPolicy
                 cancelFeeAmount: 0,
                 totalAmount: $totalAmount,
                 policyCode: 'therapist_cancel_full_refund',
-                policyLabel: 'セラピスト都合キャンセル',
+                policyLabel: 'タチキャスト都合キャンセル',
             );
         }
 

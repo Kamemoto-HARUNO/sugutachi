@@ -206,7 +206,7 @@ function buildAttentionLabel(booking: BookingListRecord): string | null {
     }
 
     if (booking.status === 'requested') {
-        return booking.pending_adjustment_proposal ? '時間変更の確認が必要です' : 'セラピスト承諾待ち';
+        return booking.pending_adjustment_proposal ? '時間変更の確認が必要です' : 'タチキャスト承諾待ち';
     }
 
     if (booking.status === 'payment_authorizing') {
@@ -342,7 +342,7 @@ export function UserBookingsPage() {
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
                 {[
                     { label: '進行中', value: summary.active, hint: '承諾待ちや対応中を含む' },
-                    { label: '承諾待ち', value: summary.requested, hint: 'セラピストの応答待ち' },
+                    { label: '承諾待ち', value: summary.requested, hint: 'タチキャストの応答待ち' },
                     { label: '未読', value: summary.unread, hint: 'メッセージ未読件数' },
                     { label: '完了', value: summary.completed, hint: 'レビュー導線の対象' },
                 ].map((item) => (
@@ -575,7 +575,7 @@ export function UserBookingsPage() {
                         to="/user/therapists"
                         className="mt-6 inline-flex items-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105"
                     >
-                        セラピストを探す
+                        タチキャストを探す
                     </Link>
                 </section>
             )}

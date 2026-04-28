@@ -6,7 +6,7 @@
 
 MVPでは、以下を重視する。
 
-* 1アカウントがユーザー・セラピスト両方のロールを持てる。
+* 1アカウントがユーザー・タチキャスト両方のロールを持てる。
 * 正確な位置情報・本人確認書類・予約住所・通報内容は慎重に扱う。
 * 予約、決済、売上、出金、返金、チャージバックを後から監査できる。
 * Stripe ConnectのConnected Accountを前提にする。
@@ -73,7 +73,7 @@ accounts
 ## 4. アカウント・認証
 
 ### 4.1 accounts
-ログイン主体。ユーザー・セラピスト・管理者の共通アカウント。
+ログイン主体。ユーザー・タチキャスト・管理者の共通アカウント。
 
 | カラム | 型 | Null | 説明 |
 | --- | --- | --- | --- |
@@ -155,7 +155,7 @@ accounts
 ## 5. 本人確認・プロフィール
 
 ### 5.1 identity_verifications
-本人確認・年齢確認の状態。ユーザー/セラピスト共通。
+本人確認・年齢確認の状態。ユーザー/タチキャスト共通。
 
 | カラム | 型 | Null | 説明 |
 | --- | --- | --- | --- |
@@ -202,7 +202,7 @@ accounts
 | health_notes_encrypted | text | Yes | 持病・注意事項等 |
 | sexual_orientation | varchar(50) | Yes | gay, bi, straight, other, undisclosed |
 | gender_identity | varchar(50) | Yes | cis_male, trans_male, other, undisclosed |
-| disclose_sensitive_profile_to_therapist | boolean | No | セラピストへの表示同意 |
+| disclose_sensitive_profile_to_therapist | boolean | No | タチキャストへの表示同意 |
 | created_at / updated_at | timestamp | Yes | Laravel標準 |
 
 インデックス:
@@ -227,7 +227,7 @@ accounts
 | last_location_updated_at | timestamp | Yes | 位置更新日時 |
 | rating_average | decimal(3,2) | No | 平均評価 |
 | review_count | unsigned int | No | レビュー数 |
-| therapist_cancellation_count | unsigned int | No | 公開表示するセラピスト都合キャンセル累計 |
+| therapist_cancellation_count | unsigned int | No | 公開表示するタチキャスト都合キャンセル累計 |
 | approved_at | timestamp | Yes | 承認日時 |
 | approved_by_account_id | bigint unsigned | Yes | 管理者account_id |
 | rejected_reason_code | varchar(100) | Yes | 差し戻し理由 |
@@ -289,7 +289,7 @@ accounts
 ## 6. 提供メニュー・料金
 
 ### 6.1 therapist_menus
-セラピストが提供するメニュー。
+タチキャストが提供するメニュー。
 
 | カラム | 型 | Null | 説明 |
 | --- | --- | --- | --- |
@@ -329,14 +329,14 @@ accounts
 * index: `therapist_menu_id, is_active`
 
 ### 6.3 therapist_booking_settings
-セラピストごとの予定予約設定。現在地とは別に、予定予約用の基本地点と受付締切を管理する。
+タチキャストごとの予定予約設定。現在地とは別に、予定予約用の基本地点と受付締切を管理する。
 
 | カラム | 型 | Null | 説明 |
 | --- | --- | --- | --- |
 | id | bigint unsigned | No | 主キー |
 | therapist_profile_id | bigint unsigned | No | therapist_profiles.id |
 | booking_request_lead_time_minutes | unsigned int | No | 受付締切。デフォルト60 |
-| scheduled_base_label | varchar(120) | Yes | セラピスト内部向けラベル |
+| scheduled_base_label | varchar(120) | Yes | タチキャスト内部向けラベル |
 | scheduled_base_lat | decimal(10,7) | No | 予定予約用基本地点の緯度 |
 | scheduled_base_lng | decimal(10,7) | No | 予定予約用基本地点の経度 |
 | scheduled_base_geohash | varchar(12) | Yes | 粗い検索補助 |
@@ -348,7 +348,7 @@ accounts
 * index: `scheduled_base_geohash`
 
 ### 6.4 therapist_availability_slots
-セラピストが公開する単発の空き時間。ユーザーには生の枠ではなく連続予約可能時間帯として返す。
+タチキャストが公開する単発の空き時間。ユーザーには生の枠ではなく連続予約可能時間帯として返す。
 
 | カラム | 型 | Null | 説明 |
 | --- | --- | --- | --- |
@@ -360,7 +360,7 @@ accounts
 | status | varchar(50) | No | published, hidden, expired |
 | dispatch_base_type | varchar(50) | No | default, custom |
 | dispatch_area_label | varchar(120) | Yes | ユーザー向け公開エリア名 |
-| custom_dispatch_base_label | varchar(120) | Yes | セラピスト内部向け拠点ラベル |
+| custom_dispatch_base_label | varchar(120) | Yes | タチキャスト内部向け拠点ラベル |
 | custom_dispatch_base_lat | decimal(10,7) | Yes | 枠専用出動拠点の緯度 |
 | custom_dispatch_base_lng | decimal(10,7) | Yes | 枠専用出動拠点の経度 |
 | custom_dispatch_base_geohash | varchar(12) | Yes | 粗い検索補助 |
@@ -398,7 +398,7 @@ accounts
 ## 7. 位置情報・住所
 
 ### 7.1 therapist_locations
-セラピストの最新待機位置。MVPでは履歴を長期保存せず、原則最新1件を更新する。
+タチキャストの最新待機位置。MVPでは履歴を長期保存せず、原則最新1件を更新する。
 
 | カラム | 型 | Null | 説明 |
 | --- | --- | --- | --- |
@@ -420,7 +420,7 @@ accounts
 * index: `geohash`
 
 ### 7.2 service_addresses
-ユーザーの施術場所。予約確定前はセラピストへ詳細住所を表示しない。
+ユーザーの施術場所。予約確定前はタチキャストへ詳細住所を表示しない。
 
 | カラム | 型 | Null | 説明 |
 | --- | --- | --- | --- |
@@ -475,7 +475,7 @@ accounts
 | id | bigint unsigned | No | 主キー |
 | public_id | varchar(36) | No | 外部公開ID |
 | user_account_id | bigint unsigned | No | 利用者accounts.id |
-| therapist_account_id | bigint unsigned | No | セラピストaccounts.id |
+| therapist_account_id | bigint unsigned | No | タチキャストaccounts.id |
 | therapist_profile_id | bigint unsigned | No | therapist_profiles.id |
 | therapist_menu_id | bigint unsigned | No | therapist_menus.id |
 | service_address_id | bigint unsigned | No | service_addresses.id |
@@ -503,11 +503,11 @@ accounts
 | interrupted_at | timestamp | Yes | 中断日時 |
 | interruption_reason_code | varchar(100) | Yes | 中断理由 |
 | total_amount | unsigned int | No | ユーザー支払総額 |
-| therapist_net_amount | unsigned int | No | セラピスト受取予定額 |
+| therapist_net_amount | unsigned int | No | タチキャスト受取予定額 |
 | platform_fee_amount | unsigned int | No | 運営手数料 |
 | matching_fee_amount | unsigned int | No | マッチング手数料 |
 | user_snapshot_json | json | Yes | 予約時の利用者公開情報 |
-| therapist_snapshot_json | json | Yes | 予約時のセラピスト公開情報 |
+| therapist_snapshot_json | json | Yes | 予約時のタチキャスト公開情報 |
 | created_at / updated_at | timestamp | Yes | Laravel標準 |
 
 インデックス:
@@ -541,8 +541,8 @@ accounts
 | matching_fee_amount | unsigned int | No | マッチング手数料 |
 | platform_fee_amount | unsigned int | No | 運営手数料 |
 | total_amount | unsigned int | No | ユーザー支払総額 |
-| therapist_gross_amount | unsigned int | No | セラピスト売上総額 |
-| therapist_net_amount | unsigned int | No | セラピスト受取予定額 |
+| therapist_gross_amount | unsigned int | No | タチキャスト売上総額 |
+| therapist_net_amount | unsigned int | No | タチキャスト受取予定額 |
 | calculation_version | varchar(50) | No | 算定ロジック版 |
 | input_snapshot_json | json | No | 算定入力値 |
 | applied_rules_json | json | No | 適用ルール |
@@ -638,14 +638,14 @@ accounts
 * index: `moderation_status`
 
 ### 9.2 therapist_travel_requests
-予約外の需要通知。ユーザーが希望都道府県とメッセージをセラピストへ送る。
+予約外の需要通知。ユーザーが希望都道府県とメッセージをタチキャストへ送る。
 
 | カラム | 型 | Null | 説明 |
 | --- | --- | --- | --- |
 | id | bigint unsigned | No | 主キー |
 | public_id | varchar(36) | No | 外部公開ID |
 | user_account_id | bigint unsigned | No | 送信者accounts.id |
-| therapist_account_id | bigint unsigned | No | 受信セラピストaccounts.id |
+| therapist_account_id | bigint unsigned | No | 受信タチキャストaccounts.id |
 | therapist_profile_id | bigint unsigned | No | therapist_profiles.id |
 | prefecture | varchar(50) | No | 希望都道府県 |
 | message_encrypted | text | No | 本文 |
@@ -663,8 +663,8 @@ accounts
 * index: `prefecture, created_at`
 
 補足:
-* 同一ユーザーから同一セラピストへの同一都道府県リクエストは、短期間の重複送信をアプリ側で禁止する。
-* MVPではセラピスト返信機能を持たず、一方向の需要通知として扱う。
+* 同一ユーザーから同一タチキャストへの同一都道府県リクエストは、短期間の重複送信をアプリ側で禁止する。
+* MVPではタチキャスト返信機能を持たず、一方向の需要通知として扱う。
 
 ### 9.3 push_subscriptions
 Web Push購読情報。
@@ -712,12 +712,12 @@ Web Push購読情報。
 ## 10. Stripe Connect・決済
 
 ### 10.1 stripe_connected_accounts
-セラピストのStripe Connected Account。
+タチキャストのStripe Connected Account。
 
 | カラム | 型 | Null | 説明 |
 | --- | --- | --- | --- |
 | id | bigint unsigned | No | 主キー |
-| account_id | bigint unsigned | No | セラピストaccounts.id |
+| account_id | bigint unsigned | No | タチキャストaccounts.id |
 | therapist_profile_id | bigint unsigned | No | therapist_profiles.id |
 | stripe_account_id | varchar(255) | No | acct_... |
 | account_type | varchar(50) | No | express |
@@ -768,7 +768,7 @@ Stripe PaymentIntentと予約の紐付け。
 | currency | varchar(3) | No | jpy |
 | amount | unsigned int | No | 総額 |
 | application_fee_amount | unsigned int | No | 運営手数料 |
-| transfer_amount | unsigned int | No | セラピスト向け金額 |
+| transfer_amount | unsigned int | No | タチキャスト向け金額 |
 | is_current | boolean | No | 予約に対する現在有効なIntent |
 | authorized_at | timestamp | Yes | 与信日時 |
 | captured_at | timestamp | Yes | 確定日時 |
@@ -855,12 +855,12 @@ Webhookの冪等性・再処理用ログ。
 ## 11. 売上・出金
 
 ### 11.1 therapist_ledger_entries
-セラピスト残高の台帳。残高は集計値ではなく台帳から算出する。
+タチキャスト残高の台帳。残高は集計値ではなく台帳から算出する。
 
 | カラム | 型 | Null | 説明 |
 | --- | --- | --- | --- |
 | id | bigint unsigned | No | 主キー |
-| therapist_account_id | bigint unsigned | No | セラピストaccounts.id |
+| therapist_account_id | bigint unsigned | No | タチキャストaccounts.id |
 | booking_id | bigint unsigned | Yes | bookings.id |
 | payout_request_id | bigint unsigned | Yes | payout_requests.id |
 | entry_type | varchar(50) | No | booking_earning, refund, chargeback, payout, adjustment, hold, release |
@@ -878,13 +878,13 @@ Webhookの冪等性・再処理用ログ。
 * index: `available_at`
 
 ### 11.2 payout_requests
-セラピスト出金申請。
+タチキャスト出金申請。
 
 | カラム | 型 | Null | 説明 |
 | --- | --- | --- | --- |
 | id | bigint unsigned | No | 主キー |
 | public_id | varchar(36) | No | 外部公開ID |
-| therapist_account_id | bigint unsigned | No | セラピストaccounts.id |
+| therapist_account_id | bigint unsigned | No | タチキャストaccounts.id |
 | stripe_connected_account_id | bigint unsigned | No | stripe_connected_accounts.id |
 | status | varchar(50) | No | payout_requested, payout_processing, payout_paid, payout_failed, payout_on_hold |
 | requested_amount | unsigned int | No | 申請額 |
@@ -1062,7 +1062,7 @@ Webhookの冪等性・再処理用ログ。
 * needs_review
 * expired
 
-### 14.3 セラピストプロフィールステータス
+### 14.3 タチキャストプロフィールステータス
 * draft
 * pending_review
 * approved
@@ -1107,12 +1107,12 @@ Webhookの冪等性・再処理用ログ。
 * `account_blocks.blocker_account_id, blocked_account_id`
 
 ### 15.2 検索・一覧用インデックス
-* セラピスト検索: `therapist_profiles.profile_status, is_online`
+* タチキャスト検索: `therapist_profiles.profile_status, is_online`
 * 予定予約空き枠検索: `therapist_availability_slots.therapist_profile_id, status, start_at`
 * 位置検索: `therapist_locations.is_searchable, updated_at`, `lat, lng`, `geohash`
 * 出張リクエスト一覧: `therapist_travel_requests.therapist_account_id, status, created_at`
 * ユーザー予約一覧: `bookings.user_account_id, status, scheduled_start_at`
-* セラピスト予約一覧: `bookings.therapist_account_id, status, scheduled_start_at`
+* タチキャスト予約一覧: `bookings.therapist_account_id, status, scheduled_start_at`
 * 承諾タイムアウト処理: `bookings.status, request_expires_at`
 * 出金処理: `payout_requests.scheduled_process_date, status`
 * 通報対応: `reports.status, severity, created_at`
@@ -1159,7 +1159,7 @@ Webhookの冪等性・再処理用ログ。
 ### 17.3 決済・売上
 * Stripe PaymentIntentは原則manual captureで開始し、施術完了またはキャンセル料確定時にcaptureする。
 * Stripe Webhookは `stripe_webhook_events` で必ず冪等処理する。
-* セラピスト残高は `therapist_ledger_entries` から算出し、表示用キャッシュが必要になった場合のみ別途追加する。
+* タチキャスト残高は `therapist_ledger_entries` から算出し、表示用キャッシュが必要になった場合のみ別途追加する。
 
 ### 17.4 個人情報
 * 本人確認書類、住所詳細、メッセージ本文、通報本文、健康情報、管理メモは暗号化カラムに保存する。

@@ -70,7 +70,7 @@ function rolePageLabel(role: RoleName): string {
         case 'user':
             return '利用者マイページ';
         case 'therapist':
-            return 'セラピストマイページ';
+            return 'タチキャストマイページ';
         case 'admin':
             return '運営マイページ';
     }
@@ -93,8 +93,8 @@ function rolePageHint(role: RoleName, isReady: boolean): string {
             return '検索、予約、住所管理は利用者マイページから確認できます。';
         case 'therapist':
             return isReady
-                ? '依頼対応、レビュー確認、売上管理はセラピストマイページから確認できます。'
-                : '公開準備が残っている場合は、セラピストマイページ内の「準備状況」から確認できます。';
+                ? '依頼対応、レビュー確認、売上管理はタチキャストマイページから確認できます。'
+                : '公開準備が残っている場合は、タチキャストマイページ内の「準備状況」から確認できます。';
         case 'admin':
             return '審査、監視、法務運用は運営マイページから確認できます。';
     }
@@ -116,15 +116,15 @@ function roleGuides(): Record<RoleName, RoleGuide> {
         user: {
             label: '利用者',
             eyebrow: '予約する側',
-            title: '近くのセラピストを探して、予約まで進む',
-            description: 'セラピスト探しから予約、やり取り、レビュー確認までを、このマイページからまとめて行えます。',
+            title: '近くのタチキャストを探して、予約まで進む',
+            description: 'タチキャスト探しから予約、やり取り、レビュー確認までを、このマイページからまとめて行えます。',
             bullets: [
-                '近くのセラピスト検索とプロフィール確認',
+                '近くのタチキャスト検索とプロフィール確認',
                 '待ち合わせ場所の管理と予約前の料金確認',
                 '予約一覧、メッセージ、レビュー、報告履歴の確認',
             ],
             addTitle: '利用者マイページを追加',
-            addDescription: 'セラピスト探しや予約を始めるためのページです。見ていた公開プロフィールからそのまま続けられます。',
+            addDescription: 'タチキャスト探しや予約を始めるためのページです。見ていた公開プロフィールからそのまま続けられます。',
             accent: {
                 badge: 'border-amber-300/30 bg-amber-300/10 text-amber-100',
                 subtle: 'text-amber-100/90',
@@ -135,7 +135,7 @@ function roleGuides(): Record<RoleName, RoleGuide> {
             },
         },
         therapist: {
-            label: 'セラピスト',
+            label: 'タチキャスト',
             eyebrow: 'サービスを提供する側',
             title: '公開プロフィールを整えて、依頼と売上を管理する',
             description: 'プロフィール公開の準備から依頼対応、レビュー確認、売上管理までを、このマイページからまとめて行えます。',
@@ -144,8 +144,8 @@ function roleGuides(): Record<RoleName, RoleGuide> {
                 '依頼対応、予約の進行、メッセージ対応',
                 'レビュー確認、売上確認、出金申請、受取設定',
             ],
-            addTitle: 'セラピストマイページを追加',
-            addDescription: 'セラピストとして活動を始めるためのページです。本人確認、プロフィール入力、受取設定へそのまま進めます。',
+            addTitle: 'タチキャストマイページを追加',
+            addDescription: 'タチキャストとして活動を始めるためのページです。本人確認、プロフィール入力、受取設定へそのまま進めます。',
             accent: {
                 badge: 'border-emerald-300/30 bg-emerald-300/10 text-emerald-100',
                 subtle: 'text-emerald-100/90',
@@ -410,7 +410,7 @@ export function RoleSelectPage() {
                             <h1 className="max-w-[11ch] text-[2.4rem] font-semibold leading-[1.4] text-white sm:max-w-none sm:text-[3.2rem]">
                                 1つのアカウントで
                                 <br />
-                                利用者にもセラピストにもなれます
+                                利用者にもタチキャストにもなれます
                             </h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300 sm:text-[0.95rem]">
                                 1つのアカウントで「探す側」と「提供する側」の両方を使えます。最初に選んだ使い方とは別のことを始めたいときも、
@@ -533,7 +533,7 @@ export function RoleSelectPage() {
                         </div>
 
                         <div className="rounded-[20px] border border-white/10 bg-[#111923] px-4 py-4 text-sm leading-7 text-slate-300">
-                            表示名、電話番号、本人確認・年齢確認はアカウント単位で保持します。セラピストとして活動する場合のみ、
+                            表示名、電話番号、本人確認・年齢確認はアカウント単位で保持します。タチキャストとして活動する場合のみ、
                             追加でプロフィール入力と受取設定が必要です。
                         </div>
                     </div>
@@ -710,7 +710,7 @@ export function RoleSelectPage() {
                     </li>
                     <li className="flex gap-3">
                         <span className="mt-[0.7rem] h-1.5 w-1.5 shrink-0 rounded-full bg-white/55" />
-                        <span>セラピストとして活動する場合だけ、追加でプロフィール入力、写真登録、受取設定が必要です。</span>
+                        <span>タチキャストとして活動する場合だけ、追加でプロフィール入力、写真登録、受取設定が必要です。</span>
                     </li>
                     <li className="flex gap-3">
                         <span className="mt-[0.7rem] h-1.5 w-1.5 shrink-0 rounded-full bg-white/55" />

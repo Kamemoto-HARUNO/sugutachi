@@ -981,7 +981,7 @@ export function UserTherapistAvailabilityPage() {
     }
 
     if (isLoadingDetail && !therapistDetail) {
-        return <LoadingScreen title="空き時間を準備中" message="セラピスト情報と公開スケジュールを読み込んでいます。" />;
+        return <LoadingScreen title="空き時間を準備中" message="タチキャスト情報と公開スケジュールを読み込んでいます。" />;
     }
 
     const profileSummary = buildProfileSummary(therapistDetail);
@@ -1037,7 +1037,7 @@ export function UserTherapistAvailabilityPage() {
                     <section className="rounded-[32px] bg-[#fffdf8] p-6 shadow-[0_10px_24px_rgba(23,32,43,0.08)] md:p-8">
                         <h1 className="text-2xl font-semibold text-[#17202b]">空き時間を表示できませんでした</h1>
                         <p className="mt-3 text-sm leading-7 text-[#68707a]">
-                            セラピスト情報の取得に失敗しています。しばらくしてからもう一度お試しください。
+                            タチキャスト情報の取得に失敗しています。しばらくしてからもう一度お試しください。
                         </p>
                     </section>
                 )}
@@ -1050,7 +1050,7 @@ export function UserTherapistAvailabilityPage() {
                                     {pendingScheduledRequest.status === 'payment_authorizing' ? '送信中の予約リクエスト' : '承認待ちの予約リクエスト'}
                                 </p>
                                 <h2 className="text-xl font-semibold text-[#17202b]">
-                                    いまはこのセラピストへ新しい予約リクエストを送れません
+                                    いまはこのタチキャストへ新しい予約リクエストを送れません
                                 </h2>
                                 <p className="text-sm leading-7 text-[#6f5a38]">
                                     {getPendingScheduledRequestNotice(pendingScheduledRequest)}

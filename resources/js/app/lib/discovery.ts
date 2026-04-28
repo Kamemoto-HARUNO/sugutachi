@@ -139,10 +139,10 @@ export function getPendingScheduledRequestNotice(
     pendingRequest: PendingScheduledRequestSummary | null | undefined,
 ): string {
     if (pendingRequest?.status === 'payment_authorizing') {
-        return 'このセラピストには送信中の予約リクエストがあります。カード確認が完了するまでは、新しい予約リクエストを送れません。';
+        return 'このタチキャストには送信中の予約リクエストがあります。カード確認が完了するまでは、新しい予約リクエストを送れません。';
     }
 
-    return 'このセラピストには承認待ちの予約リクエストがあります。承認・見送り・期限切れのあとに次の予約リクエストを送れます。';
+    return 'このタチキャストには承認待ちの予約リクエストがあります。承認・見送り・期限切れのあとに次の予約リクエストを送れます。';
 }
 
 export function sortTherapistSearchResults(

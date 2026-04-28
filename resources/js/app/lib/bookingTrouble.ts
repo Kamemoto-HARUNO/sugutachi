@@ -44,7 +44,7 @@ export function getBookingNoShowUnavailableReason(
 
     if (booking.pending_no_show_report) {
         return actorRole === 'user'
-            ? 'セラピストから未着申告が届いています。予約詳細で内容を確認し、会えなかったかどうかを選んでください。'
+            ? 'タチキャストから未着申告が届いています。予約詳細で内容を確認し、会えなかったかどうかを選んでください。'
             : 'すでに利用者の確認待ちになっている未着申告があります。利用者の返答をお待ちください。';
     }
 
@@ -79,7 +79,7 @@ export function getBookingInterruptUnavailableReason(
 
     if (booking.pending_no_show_report) {
         return actorRole === 'user'
-            ? 'セラピストから未着申告が届いています。先に予約詳細で返答を完了してください。'
+            ? 'タチキャストから未着申告が届いています。先に予約詳細で返答を完了してください。'
             : '利用者の確認待ちになっている未着申告があります。先にその返答を確認してください。';
     }
 

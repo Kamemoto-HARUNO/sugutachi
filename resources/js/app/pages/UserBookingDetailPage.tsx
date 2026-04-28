@@ -380,7 +380,7 @@ export function UserBookingDetailPage() {
             return;
         }
 
-        const confirmed = window.confirm('今回はセラピストと会えなかったことを認めますか？ 確認すると予約は中断となり、利用者都合として処理されます。');
+        const confirmed = window.confirm('今回はタチキャストと会えなかったことを認めますか？ 確認すると予約は中断となり、利用者都合として処理されます。');
 
         if (!confirmed) {
             return;
@@ -546,7 +546,7 @@ export function UserBookingDetailPage() {
                             <p className="text-xs font-semibold tracking-wide text-[#5472a0]">時間変更の提案</p>
                             <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">この条件で進めるか確認してください</h2>
                             <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                セラピストから時間調整の提案が届いています。問題なければこの条件で予約を確定できます。
+                                タチキャストから時間調整の提案が届いています。問題なければこの条件で予約を確定できます。
                             </p>
                             <div className="mt-5 grid gap-4 md:grid-cols-2">
                                 <div className="rounded-[20px] bg-white px-4 py-4">
@@ -556,7 +556,7 @@ export function UserBookingDetailPage() {
                                     </p>
                                 </div>
                                 <div className="rounded-[20px] bg-white px-4 py-4">
-                                    <p className="text-xs font-semibold tracking-wide text-[#7d6852]">セラピストの提案時間</p>
+                                    <p className="text-xs font-semibold tracking-wide text-[#7d6852]">タチキャストの提案時間</p>
                                     <p className="mt-2 text-sm font-semibold text-[#17202b]">
                                         {formatDateTime(booking.pending_adjustment_proposal.scheduled_start_at)} - {formatDateTime(booking.pending_adjustment_proposal.scheduled_end_at)}
                                     </p>
@@ -598,9 +598,9 @@ export function UserBookingDetailPage() {
                     {pendingTherapistNoShowReport ? (
                         <article className="rounded-[28px] border border-[#f0d6a4] bg-[#fff7e8] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.08)]">
                             <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">未着申告の確認</p>
-                            <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">セラピストから未着申告が届いています</h2>
+                            <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">タチキャストから未着申告が届いています</h2>
                             <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                セラピストから「現地で待機したが会えなかった」という申告が届いています。請求はまだ確定していません。内容を確認して、今回は会えなかったか、または現地にいたかを選んでください。
+                                タチキャストから「現地で待機したが会えなかった」という申告が届いています。請求はまだ確定していません。内容を確認して、今回は会えなかったか、または現地にいたかを選んでください。
                             </p>
                             <div className="mt-5 grid gap-4 md:grid-cols-2">
                                 <div className="rounded-[20px] bg-white px-4 py-4">
@@ -610,7 +610,7 @@ export function UserBookingDetailPage() {
                                     </p>
                                 </div>
                                 <div className="rounded-[20px] bg-white px-4 py-4">
-                                    <p className="text-xs font-semibold tracking-wide text-[#7d6852]">セラピストのメモ</p>
+                                    <p className="text-xs font-semibold tracking-wide text-[#7d6852]">タチキャストのメモ</p>
                                     <p className="mt-2 text-sm leading-7 text-[#17202b]">
                                         {pendingTherapistNoShowReport.reason_note || 'メモはありません。'}
                                     </p>
@@ -652,7 +652,7 @@ export function UserBookingDetailPage() {
                             <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">完了確認</p>
                             <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">対応終了の確認</h2>
                             <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                セラピストが対応終了を報告しています。問題がなければ、レビュー送信または完了確認でこの予約を完了にできます。
+                                タチキャストが対応終了を報告しています。問題がなければ、レビュー送信または完了確認でこの予約を完了にできます。
                             </p>
                             <div className="mt-5 flex flex-col gap-3 sm:flex-row">
                                 <Link
@@ -678,7 +678,7 @@ export function UserBookingDetailPage() {
                             <p className="text-xs font-semibold tracking-wide text-[#5472a0]">到着確認コード</p>
                             <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">到着確認コード</h2>
                             <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                セラピストが到着したら、この4桁コードを伝えてください。コードが一致すると到着ステータスに進みます。
+                                タチキャストが到着したら、この4桁コードを伝えてください。コードが一致すると到着ステータスに進みます。
                             </p>
                             <div className="mt-5 inline-flex rounded-[24px] bg-white px-6 py-4 shadow-[0_12px_24px_rgba(48,82,122,0.12)]">
                                 <span className="text-4xl font-semibold tracking-[0.4em] text-[#17202b]">
@@ -718,7 +718,7 @@ export function UserBookingDetailPage() {
                                     <div className="space-y-2 text-sm text-[#48505a]">
                                         <div className="flex items-center justify-between gap-4">
                                             <div>
-                                                <span>セラピスト謝礼</span>
+                                                <span>タチキャスト謝礼</span>
                                                 {therapistRewardFormulaLabel(booking) ? (
                                                     <p className="mt-1 text-xs text-[#68707a]">（{therapistRewardFormulaLabel(booking)}）</p>
                                                 ) : null}
@@ -796,7 +796,7 @@ export function UserBookingDetailPage() {
                                     <h3 className="text-lg font-semibold text-[#17202b]">体調確認</h3>
                                     {booking.health_checks.length > 0 ? booking.health_checks.map((check) => (
                                         <div key={check.id} className="rounded-[20px] bg-[#f8f4ed] px-4 py-4">
-                                            <p className="text-sm font-semibold text-[#17202b]">{check.role === 'user' ? '利用者' : 'セラピスト'}</p>
+                                            <p className="text-sm font-semibold text-[#17202b]">{check.role === 'user' ? '利用者' : 'タチキャスト'}</p>
                                             <p className="mt-1 text-sm text-[#68707a]">{renderHealthCheckSummary(check)}</p>
                                             {check.notes ? (
                                                 <p className="mt-2 text-sm leading-7 text-[#68707a]">{check.notes}</p>

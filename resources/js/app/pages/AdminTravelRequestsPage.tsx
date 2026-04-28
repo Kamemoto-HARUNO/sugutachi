@@ -684,7 +684,7 @@ export function AdminTravelRequestsPage() {
                             value={queryInput}
                             onChange={(event) => setQueryInput(event.target.value)}
                             onBlur={() => updateFilters({ q: queryInput.trim() || null })}
-                            placeholder="送信者名 / セラピスト名 / public_id"
+                            placeholder="送信者名 / タチキャスト名 / public_id"
                             className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition placeholder:text-[#9aa3ad] focus:border-[#b5894d]"
                         />
                     </label>
@@ -848,7 +848,7 @@ export function AdminTravelRequestsPage() {
                                 </article>
 
                                 <article className="rounded-[22px] border border-[#ece3d4] bg-[#fffcf6] p-4 text-sm text-[#55606d]">
-                                    <p className="text-xs font-semibold tracking-wide text-[#b5894d]">対象セラピスト</p>
+                                    <p className="text-xs font-semibold tracking-wide text-[#b5894d]">対象タチキャスト</p>
                                     <p className="mt-2 font-semibold text-[#17202b]">{selectedTravelRequest.therapist_profile?.public_name ?? '未設定'}</p>
                                     <p className="mt-1">{selectedTravelRequest.therapist_profile?.account?.display_name ?? selectedTravelRequest.therapist_profile?.account?.email ?? 'アカウント未設定'}</p>
                                     <p className="mt-1">プロフィール {formatProfileStatus(selectedTravelRequest.therapist_profile?.profile_status)}</p>

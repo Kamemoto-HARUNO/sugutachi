@@ -83,7 +83,7 @@ class ScheduledBookingPolicy
         $this->assertUserCanBook($user);
 
         if ($this->hasActiveOnDemandBooking($therapistProfileId) && $requestedStartAt->lt(CarbonImmutable::now()->addHours(6))) {
-            abort(409, 'このセラピストは今すぐ予約に対応中のため、6時間以内の予約リクエストは送れません。');
+            abort(409, 'このタチキャストは今すぐ予約に対応中のため、6時間以内の予約リクエストは送れません。');
         }
 
         $sameTherapistPendingRequestExists = Booking::query()
@@ -96,7 +96,7 @@ class ScheduledBookingPolicy
         abort_if(
             $sameTherapistPendingRequestExists,
             409,
-            'このセラピストには、すでに承認待ちの予約リクエストがあります。'
+            'このタチキャストには、すでに承認待ちの予約リクエストがあります。'
         );
 
         $pendingRequestCount = Booking::query()

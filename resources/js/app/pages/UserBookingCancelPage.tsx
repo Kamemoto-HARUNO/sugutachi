@@ -71,7 +71,7 @@ function paymentActionLabel(action: string): string {
 function policyNote(preview: BookingCancellationPreview): string {
     switch (preview.policy_code) {
         case 'before_acceptance_free':
-            return 'セラピスト承諾前なので無料で取り下げられます。';
+            return 'タチキャスト承諾前なので無料で取り下げられます。';
         case 'accepted_before_24_hours_matching_fee':
             return '承諾後24時間前までは、マッチング手数料のみ差し引かれます。';
         case 'within_24_hours_half':
@@ -292,7 +292,7 @@ export function UserBookingCancelPage() {
                         <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">CANCEL FORM</p>
                         <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">理由を入力してキャンセルする</h2>
                         <p className="mt-3 text-sm leading-7 text-[#68707a]">
-                            セラピスト側には理由コードが共有されます。必要があれば補足を入れてください。
+                            タチキャスト側には理由コードが共有されます。必要があれば補足を入れてください。
                         </p>
 
                         <div className="mt-6 space-y-5">

@@ -54,19 +54,19 @@ function statusLabel(booking: Pick<BookingDetailRecord, 'status' | 'pending_no_s
 
 function headingText(actorRole: BookingTroubleActorRole): string {
     return actorRole === 'user'
-        ? 'セラピストが来ない・連絡が取れない'
+        ? 'タチキャストが来ない・連絡が取れない'
         : '利用者が来ない・連絡が取れない';
 }
 
 function descriptionText(actorRole: BookingTroubleActorRole): string {
     return actorRole === 'user'
-        ? '予定時刻を過ぎてもセラピストが来ない、または連絡が取れないときはこちらから記録してください。予約を中断して、与信や通報記録を整理します。'
+        ? '予定時刻を過ぎてもタチキャストが来ない、または連絡が取れないときはこちらから記録してください。予約を中断して、与信や通報記録を整理します。'
         : '待ち合わせ場所に向かったのに利用者と会えない、または連絡が取れないときはこちらから記録してください。利用者へ確認を送り、返答があるまで請求は確定しません。';
 }
 
 function confirmationLabel(actorRole: BookingTroubleActorRole): string {
     return actorRole === 'user'
-        ? '予定時刻を過ぎてもセラピストと会えず、メッセージや連絡でも状況確認ができていません。'
+        ? '予定時刻を過ぎてもタチキャストと会えず、メッセージや連絡でも状況確認ができていません。'
         : '待ち合わせ場所に向かい、予定時刻を過ぎても利用者と会えず、メッセージや連絡でも状況確認ができていません。';
 }
 

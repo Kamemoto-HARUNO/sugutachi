@@ -263,7 +263,7 @@ export function NotificationsPage() {
                         <div className="space-y-2">
                             <h1 className="text-[2rem] font-semibold leading-[1.4] text-white sm:text-[2.3rem]">通知一覧</h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                                利用者・セラピスト・運営の役割に関係なく、このアカウントに届いた通知をまとめて確認できます。
+                                利用者・タチキャスト・運営の役割に関係なく、このアカウントに届いた通知をまとめて確認できます。
                             </p>
                         </div>
                     </div>
@@ -365,7 +365,7 @@ export function NotificationsPage() {
                                     利用者
                                 </button>
                                 <button type="button" onClick={() => setRoleFilter('therapist')} className={filterButtonClass(roleFilter === 'therapist', 'role')}>
-                                    セラピスト
+                                    タチキャスト
                                 </button>
                                 <button type="button" onClick={() => setRoleFilter('admin')} className={filterButtonClass(roleFilter === 'admin', 'role')}>
                                     運営

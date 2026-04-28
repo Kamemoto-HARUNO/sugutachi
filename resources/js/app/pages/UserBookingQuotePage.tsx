@@ -539,7 +539,7 @@ export function UserBookingQuotePage() {
                             <div>
                                 <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">BOOKING</p>
                                 <h2 className="mt-3 text-2xl font-semibold text-[#17202b]">
-                                    {therapistDetail?.public_name ?? 'セラピストを確認中'}
+                                    {therapistDetail?.public_name ?? 'タチキャストを確認中'}
                                 </h2>
                                 <p className="mt-3 text-sm leading-7 text-[#68707a]">
                                     {selectedMenu ? `${selectedMenu.name} / ${durationMinutes}分` : '対応内容を確認中'}

@@ -28,7 +28,7 @@ const reasonOptions = [
 
 const responsibilityOptions = [
     { value: 'user', label: '利用者都合' },
-    { value: 'therapist', label: 'セラピスト都合' },
+    { value: 'therapist', label: 'タチキャスト都合' },
     { value: 'shared', label: '双方要因' },
     { value: 'force_majeure', label: 'やむを得ない事情' },
     { value: 'unknown', label: 'まだ判断できない' },

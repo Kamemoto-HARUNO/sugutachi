@@ -65,7 +65,7 @@ export function UserTherapistSearchPage() {
     const [walkingOnly, setWalkingOnly] = useState(false);
     const [priceRange, setPriceRange] = useState<DiscoveryPriceRange>('all');
 
-    usePageTitle('セラピスト検索');
+    usePageTitle('タチキャスト検索');
 
     const selectedAddressId = searchParams.get('service_address_id');
     const selectedDuration = normalizeDiscoveryDuration(Number(searchParams.get('menu_duration_minutes') ?? '60'));
@@ -314,7 +314,7 @@ export function UserTherapistSearchPage() {
                         scheduledStartAt={scheduledStartAt}
                         onScheduledStartAtChange={(value) => updateSearchParam({ scheduled_start_at: value || null })}
                         action={{
-                            label: 'セラピストを再検索',
+                            label: 'タチキャストを再検索',
                             onClick: () => setRefreshKey((value) => value + 1),
                         }}
                         helperText={selectedAddress ? `${getServiceAddressLabel(selectedAddress)} を基準に検索しています。` : '待ち合わせ場所が必要です。'}
@@ -326,7 +326,7 @@ export function UserTherapistSearchPage() {
                         {
                             label: '掲載条件',
                             title: '掲載条件',
-                            body: '本人確認が完了し、公開条件を満たしたセラピストのみ表示。ブロック中の相手や停止アカウントは一覧に出ません。',
+                            body: '本人確認が完了し、公開条件を満たしたタチキャストのみ表示。ブロック中の相手や停止アカウントは一覧に出ません。',
                         },
                         {
                             label: '距離表示',
@@ -336,7 +336,7 @@ export function UserTherapistSearchPage() {
                         {
                             label: '決済の流れ',
                             title: '決済前提',
-                            body: 'カード決済のみ対応です。予定予約では与信を確保したうえでセラピスト承認待ちになります。',
+                            body: 'カード決済のみ対応です。予定予約では与信を確保したうえでタチキャスト承認待ちになります。',
                         },
                     ]}
                 />
@@ -344,7 +344,7 @@ export function UserTherapistSearchPage() {
                 <section className="space-y-6">
                     <div className="space-y-1">
                         <h2 className="text-[2rem] font-semibold text-[#17202b] md:text-[2.2rem]">
-                            近くのセラピスト {filteredTherapists.length}名
+                            近くのタチキャスト {filteredTherapists.length}名
                         </h2>
                         <p className="text-sm text-[#68707a] md:text-base">
                             徒歩目安レンジ、料金、レビューを見ながら比較できます。
@@ -425,7 +425,7 @@ export function UserTherapistSearchPage() {
 
                             {!isLoadingResults && filteredTherapists.length === 0 && serviceAddresses.length > 0 && !resultsError ? (
                                 <div className="rounded-[28px] bg-[#fffcf7] p-8 shadow-[0_10px_24px_rgba(23,32,43,0.08)]">
-                                    <h3 className="text-xl font-semibold text-[#17202b]">条件に合うセラピストが見つかりませんでした</h3>
+                                    <h3 className="text-xl font-semibold text-[#17202b]">条件に合うタチキャストが見つかりませんでした</h3>
                                     <p className="mt-3 text-sm leading-7 text-[#5b6470]">
                                         予約タイプや料金目安を少し広げると見つかりやすくなります。
                                     </p>

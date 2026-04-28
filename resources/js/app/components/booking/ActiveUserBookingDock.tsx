@@ -322,7 +322,7 @@ export function ActiveUserBookingDock() {
                         status: booking.status,
                         hasPendingAdjustment: Boolean(booking.pending_adjustment_proposal),
                         hasPendingNoShow: booking.pending_no_show_report?.reported_by_role === 'therapist',
-                        title: booking.counterparty?.display_name ?? 'セラピスト',
+                        title: booking.counterparty?.display_name ?? 'タチキャスト',
                         subtitle: primaryUserTimeLabel(booking),
                         path: bookingActionPath(booking),
                         actionLabel: bookingActionLabel(booking.status, booking.pending_no_show_report?.reported_by_role === 'therapist'),

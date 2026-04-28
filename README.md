@@ -38,7 +38,7 @@ vendor/bin/pint --test
 
 ## ローカルプレビュー用シーダー
 
-ローカル環境で `php artisan db:seed` を実行すると、法務文書の初期公開に加えて、画面プレビュー用の利用者 / セラピスト / 兼用アカウントと、予約・空き枠・レビュー・通知などの関連データが入ります。
+ローカル環境で `php artisan db:seed` を実行すると、法務文書の初期公開に加えて、画面プレビュー用の利用者 / タチキャスト / 兼用アカウントと、予約・空き枠・レビュー・通知などの関連データが入ります。
 
 必要に応じて個別実行もできます。
 
@@ -49,7 +49,7 @@ php artisan db:seed --class=Database\\Seeders\\LocalPreviewSeeder
 主なログイン情報:
 
 * 利用者: `preview-user@sugutachi.local` / `password`
-* セラピスト: `preview-therapist@sugutachi.local` / `password`
+* タチキャスト: `preview-therapist@sugutachi.local` / `password`
 * 兼用: `preview-hybrid@sugutachi.local` / `password`
 
 ## 設計ドキュメント
