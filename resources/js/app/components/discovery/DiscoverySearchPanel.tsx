@@ -93,7 +93,7 @@ export function DiscoverySearchPanel({
                         type="datetime-local"
                         value={scheduledStartAt}
                         onChange={(event) => onScheduledStartAtChange(event.target.value)}
-                        className="w-full rounded-[24px] border border-transparent bg-white px-5 py-3 text-sm font-medium text-[#17202b] outline-none"
+                        className="block min-w-0 max-w-full rounded-[24px] border border-transparent bg-white px-4 py-3 text-base font-medium text-[#17202b] outline-none sm:px-5 sm:text-sm"
                     />
                 ) : null}
             </div>
