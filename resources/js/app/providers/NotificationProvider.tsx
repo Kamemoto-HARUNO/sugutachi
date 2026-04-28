@@ -150,11 +150,11 @@ export function NotificationProvider({ children }: PropsWithChildren) {
         const accountPublicId = account?.public_id ?? null;
 
         if (!isWebPushSupported()) {
-            throw new Error('この端末やブラウザでは Push 通知を利用できません。');
+            throw new Error('この端末やブラウザではプッシュ通知を利用できません。');
         }
 
         if (!isAuthenticated || !token || !accountPublicId) {
-            throw new Error('Push通知を有効にするにはログインが必要です。');
+            throw new Error('プッシュ通知を有効にするにはログインが必要です。');
         }
 
         setIsPushLoading(true);
@@ -163,7 +163,7 @@ export function NotificationProvider({ children }: PropsWithChildren) {
             const publicKey = await loadPushConfig();
 
             if (!publicKey) {
-                throw new Error('Push通知のサーバ設定がまだ完了していません。');
+                throw new Error('プッシュ通知のサーバ設定がまだ完了していません。');
             }
 
             const permission = await requestPushPermission();
@@ -172,8 +172,8 @@ export function NotificationProvider({ children }: PropsWithChildren) {
             if (permission !== 'granted') {
                 throw new Error(
                     permission === 'denied'
-                        ? 'Push通知が拒否されています。ブラウザまたは端末の設定から通知を許可してください。'
-                        : 'Push通知を有効にするには通知の許可が必要です。',
+                        ? 'プッシュ通知が拒否されています。ブラウザまたは端末の設定から通知を許可してください。'
+                        : 'プッシュ通知を有効にするには通知の許可が必要です。',
                 );
             }
 

@@ -1,7 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
 import { useAuth } from '../../hooks/useAuth';
 import { useNotifications } from '../../hooks/useNotifications';
-import { isStandalonePwaDisplayMode } from '../../lib/push';
 import { useToast } from '../../hooks/useToast';
 
 const DISMISS_STORAGE_PREFIX = 'sugutachi.push-optin-dismissed:';
@@ -28,10 +27,6 @@ export function PushOptInModal() {
 
     const canPrompt = useMemo(() => {
         if (!isAuthenticated || !accountPublicId) {
-            return false;
-        }
-
-        if (!isStandalonePwaDisplayMode()) {
             return false;
         }
 
@@ -73,9 +68,9 @@ export function PushOptInModal() {
                 window.sessionStorage.setItem(dismissalStorageKey(accountPublicId), '1');
             }
             setIsOpen(false);
-            showSuccess('Push通知を有効にしました。');
+            showSuccess('プッシュ通知を有効にしました。');
         } catch (error) {
-            showError(error instanceof Error ? error.message : 'Push通知の有効化に失敗しました。');
+            showError(error instanceof Error ? error.message : 'プッシュ通知の有効化に失敗しました。');
         }
     }
 
@@ -88,19 +83,19 @@ export function PushOptInModal() {
             <div className="w-full max-w-lg rounded-[32px] border border-white/10 bg-[linear-gradient(140deg,rgba(23,32,43,0.98)_0%,rgba(31,45,61,0.96)_100%)] p-6 text-white shadow-[0_30px_70px_rgba(15,23,42,0.32)] sm:p-7">
                 <div className="space-y-4">
                     <div className="space-y-2">
-                        <span className="text-xs font-semibold tracking-[0.16em] text-[#e8d5b2]">PWA のお知らせ</span>
+                        <span className="text-xs font-semibold tracking-[0.16em] text-[#e8d5b2]">プッシュ通知</span>
                         <h2 className="text-[1.6rem] font-semibold leading-[1.4] text-white">
-                            Push通知を有効にしませんか？
+                            プッシュ通知を有効にしませんか？
                         </h2>
                         <p className="text-sm leading-7 text-slate-300">
-                            承認待ちの予約、進行中の対応、運営からのお知らせを、ホーム画面に追加したアプリでもすぐ受け取れます。
+                            承認待ちの予約、進行中の対応、運営からのお知らせを、この端末やブラウザですぐ受け取れます。
                         </p>
                     </div>
 
                     <div className="rounded-[24px] border border-white/10 bg-white/6 p-4">
                         <p className="text-sm leading-7 text-slate-200">
                             このあと表示される端末の確認で <span className="font-semibold text-white">許可</span> を選ぶと、
-                            予約の更新がアプリを閉じていても届くようになります。
+                            予約の更新がブラウザを閉じていても届くようになります。
                         </p>
                     </div>
 
@@ -120,7 +115,7 @@ export function PushOptInModal() {
                             disabled={isPushLoading}
                             className="rounded-full bg-[#e8d5b2] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
                         >
-                            {isPushLoading ? '準備しています...' : 'Push通知を有効にする'}
+                            {isPushLoading ? '準備しています...' : 'プッシュ通知を有効にする'}
                         </button>
                     </div>
                 </div>

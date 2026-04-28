@@ -100,26 +100,26 @@ export function NotificationsPage() {
 
     const pushSummary = useMemo(() => {
         if (!isPushSupported) {
-            return 'この端末やブラウザでは Push 通知を利用できません。通知一覧で最新状況をご確認ください。';
+            return 'この端末やブラウザではプッシュ通知を利用できません。通知一覧で最新状況をご確認ください。';
         }
 
         if (isPushConfigReady && !isPushConfigured) {
-            return 'Push通知のサーバ設定はまだ準備中です。設定が完了するまで、最新状況はこの通知一覧でご確認ください。';
+            return 'プッシュ通知のサーバ設定はまだ準備中です。設定が完了するまで、最新状況はこの通知一覧でご確認ください。';
         }
 
         if (pushPermission === 'denied') {
-            return 'Push通知はブラウザまたは端末側で拒否されています。設定画面から通知を許可すると有効にできます。';
+            return 'プッシュ通知はブラウザまたは端末側で拒否されています。設定画面から通知を許可すると有効にできます。';
         }
 
         if (isPushConfigReady && !isPushEnabled && pushPermission === 'default') {
-            return 'Push通知を有効にすると、予約進行や運営からのお知らせをホーム画面の PWA にも届けられます。';
+            return 'プッシュ通知を有効にすると、予約進行や運営からのお知らせを、この端末やブラウザにも届けられます。';
         }
 
         if (isPushEnabled) {
-            return 'Push通知は有効です。アプリを閉じていても、予約やお知らせの更新を受け取れます。';
+            return 'プッシュ通知は有効です。ブラウザを閉じていても、予約やお知らせの更新を受け取れます。';
         }
 
-        return 'Push通知は現在オフです。必要な更新だけを端末へ受け取りたいときに有効化できます。';
+        return 'プッシュ通知は現在オフです。必要な更新だけを端末へ受け取りたいときに有効化できます。';
     }, [isPushConfigReady, isPushConfigured, isPushEnabled, isPushSupported, pushPermission]);
 
     const unreadCount = meta?.unread_count ?? notifications.filter((notification) => !notification.is_read).length;
@@ -233,9 +233,9 @@ export function NotificationsPage() {
             setSuccessMessage(null);
             await enablePushNotifications();
             await refreshPushSubscription();
-            setSuccessMessage('Push通知を有効にしました。');
+            setSuccessMessage('プッシュ通知を有効にしました。');
         } catch (requestError) {
-            setError(requestError instanceof Error ? requestError.message : 'Push通知の有効化に失敗しました。');
+            setError(requestError instanceof Error ? requestError.message : 'プッシュ通知の有効化に失敗しました。');
         }
     }
 
@@ -244,9 +244,9 @@ export function NotificationsPage() {
             setError(null);
             setSuccessMessage(null);
             await disablePushNotifications();
-            setSuccessMessage('Push通知を停止しました。');
+            setSuccessMessage('プッシュ通知を停止しました。');
         } catch (requestError) {
-            setError(requestError instanceof Error ? requestError.message : 'Push通知の停止に失敗しました。');
+            setError(requestError instanceof Error ? requestError.message : 'プッシュ通知の停止に失敗しました。');
         }
     }
 
@@ -300,7 +300,7 @@ export function NotificationsPage() {
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                     <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-xs font-semibold tracking-[0.14em] text-[#8f7a58]">PWA の Push 通知</span>
+                            <span className="text-xs font-semibold tracking-[0.14em] text-[#8f7a58]">プッシュ通知</span>
                             <span
                                 className={[
                                     'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold',
@@ -325,7 +325,7 @@ export function NotificationsPage() {
                                 disabled={isPushLoading}
                                 className="rounded-full border border-[#d8c7ae] px-4 py-2 text-sm font-semibold text-[#17202b] transition hover:bg-[#f1e4cf] disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                {isPushLoading ? '停止しています...' : 'Push通知を停止'}
+                                {isPushLoading ? '停止しています...' : 'プッシュ通知を停止'}
                             </button>
                         ) : (
                             <button
@@ -336,7 +336,7 @@ export function NotificationsPage() {
                                 disabled={isPushLoading || !isPushSupported || (isPushConfigReady && !isPushConfigured)}
                                 className="rounded-full bg-[#17202b] px-4 py-2 text-sm font-semibold text-white transition hover:brightness-110 disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                {isPushLoading ? '有効化しています...' : 'Push通知を有効にする'}
+                                {isPushLoading ? '有効化しています...' : 'プッシュ通知を有効にする'}
                             </button>
                         )}
                     </div>

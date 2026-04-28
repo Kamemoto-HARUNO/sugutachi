@@ -13,16 +13,6 @@ export function isWebPushSupported(): boolean {
         && 'PushManager' in window;
 }
 
-export function isStandalonePwaDisplayMode(): boolean {
-    if (typeof window === 'undefined') {
-        return false;
-    }
-
-    const navigatorWithStandalone = window.navigator as Navigator & { standalone?: boolean };
-
-    return window.matchMedia('(display-mode: standalone)').matches || navigatorWithStandalone.standalone === true;
-}
-
 export function getPushPermission(): BrowserPushPermission {
     if (!isWebPushSupported()) {
         return 'unsupported';
@@ -63,7 +53,7 @@ export async function ensureBrowserPushSubscription(vapidPublicKey: string): Pro
     const registration = await registerPushServiceWorker();
 
     if (!registration) {
-        throw new Error('このブラウザではPush通知を利用できません。');
+        throw new Error('このブラウザではプッシュ通知を利用できません。');
     }
 
     const existing = await registration.pushManager.getSubscription();
@@ -147,7 +137,7 @@ function serializePushSubscription(subscription: PushSubscription): { endpoint: 
     const payload = subscription.toJSON();
 
     if (!payload.endpoint || !payload.keys?.p256dh || !payload.keys?.auth) {
-        throw new Error('Push通知の購読情報を取得できませんでした。');
+        throw new Error('プッシュ通知の購読情報を取得できませんでした。');
     }
 
     return {
