@@ -296,7 +296,9 @@ cron は次の形を基準にします。
 
 ```cron
 * * * * * /usr/bin/php8.5 /home/hnice2204/sugutachi.com/app-production/artisan schedule:run >> /home/hnice2204/sugutachi.com/app-production/storage/logs/schedule.log 2>&1
+* * * * * /usr/bin/php8.5 /home/hnice2204/sugutachi.com/app-production/artisan queue:work --once --queue=default >> /home/hnice2204/sugutachi.com/app-production/storage/logs/queue.log 2>&1
 * * * * * /usr/bin/php8.5 /home/hnice2204/sugutachi.com/app-staging/artisan schedule:run >> /home/hnice2204/sugutachi.com/app-staging/storage/logs/schedule.log 2>&1
+* * * * * /usr/bin/php8.5 /home/hnice2204/sugutachi.com/app-staging/artisan queue:work --once --queue=default >> /home/hnice2204/sugutachi.com/app-staging/storage/logs/queue.log 2>&1
 ```
 
 ### staging / production 切替前の確認
