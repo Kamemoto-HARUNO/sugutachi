@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\Account;
 use App\Models\IdentityVerification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
 use Tests\TestCase;
 
 class AdminIdentityVerificationTest extends TestCase
@@ -32,7 +33,17 @@ class AdminIdentityVerificationTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $verification->id)
-            ->assertJsonPath('data.0.account.public_id', $user->public_id);
+            ->assertJsonPath('data.0.account.public_id', $user->public_id)
+            ->assertJson(fn ($json) => $json
+                ->where('data.0.document_file_url', fn (?string $url) => is_string($url)
+                    && str_contains($url, '/api/admin/identity-verifications/')
+                    && str_contains($url, '/signed-document')
+                    && str_contains($url, 'signature='))
+                ->where('data.0.selfie_file_url', fn (?string $url) => is_string($url)
+                    && str_contains($url, '/api/admin/identity-verifications/')
+                    && str_contains($url, '/signed-selfie')
+                    && str_contains($url, 'signature='))
+                ->etc());
 
         $this->withToken($token)
             ->postJson("/api/admin/identity-verifications/{$verification->id}/approve")
@@ -113,6 +124,8 @@ class AdminIdentityVerificationTest extends TestCase
             'is_age_verified' => false,
             'self_declared_male' => true,
             'document_type' => 'driver_license',
+            'document_storage_key_encrypted' => Crypt::encryptString('identity-verifications/documents/sample.pdf'),
+            'selfie_storage_key_encrypted' => Crypt::encryptString('identity-verifications/selfies/sample.jpg'),
             'submitted_at' => now()->subHour(),
             'purge_after' => now()->addDays(30),
         ]);

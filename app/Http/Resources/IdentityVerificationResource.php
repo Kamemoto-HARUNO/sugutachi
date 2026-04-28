@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\URL;
 
 class IdentityVerificationResource extends JsonResource
 {
@@ -23,10 +24,14 @@ class IdentityVerificationResource extends JsonResource
             'self_declared_male' => $this->self_declared_male,
             'document_type' => $this->document_type,
             'document_file_url' => filled($this->document_storage_key_encrypted)
-                ? url("/api/admin/identity-verifications/{$this->id}/document")
+                ? URL::temporarySignedRoute('admin.identity-verifications.signed-document', now()->addMinutes(30), [
+                    'identityVerification' => $this->id,
+                ])
                 : null,
             'selfie_file_url' => filled($this->selfie_storage_key_encrypted)
-                ? url("/api/admin/identity-verifications/{$this->id}/selfie")
+                ? URL::temporarySignedRoute('admin.identity-verifications.signed-selfie', now()->addMinutes(30), [
+                    'identityVerification' => $this->id,
+                ])
                 : null,
             'submitted_at' => $this->submitted_at,
             'reviewed_by' => $this->whenLoaded('reviewedBy', fn () => [
