@@ -227,6 +227,38 @@ class PublicTherapistAvailabilityApiTest extends TestCase
             ->assertJsonPath('data.windows.0.is_bookable', true);
     }
 
+    public function test_public_availability_respects_travel_mode_and_extended_service_range(): void
+    {
+        [$user, $serviceAddress, $profile, $menu] = $this->createAvailabilityFixture();
+
+        $profile->bookingSetting()->update([
+            'travel_mode' => 'car',
+            'max_travel_minutes' => 120,
+        ]);
+
+        TherapistAvailabilitySlot::create([
+            'public_id' => 'slot_public_car_range',
+            'therapist_profile_id' => $profile->id,
+            'start_at' => CarbonImmutable::parse('2030-01-05 12:00:00'),
+            'end_at' => CarbonImmutable::parse('2030-01-05 16:00:00'),
+            'status' => TherapistAvailabilitySlot::STATUS_PUBLISHED,
+            'dispatch_base_type' => TherapistAvailabilitySlot::DISPATCH_BASE_TYPE_CUSTOM,
+            'dispatch_area_label' => '広域対応',
+            'custom_dispatch_base_label' => 'Car Base',
+            'custom_dispatch_base_lat' => '33.8605000',
+            'custom_dispatch_base_lng' => '130.4019000',
+        ]);
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->getJson("/api/therapists/{$profile->public_id}/availability?service_address_id={$serviceAddress->public_id}&therapist_menu_id={$menu->public_id}&date=2030-01-05")
+            ->assertOk()
+            ->assertJsonPath('data.walking_time_range', 'within_90_min')
+            ->assertJsonPath('data.available_dates.0.bookable_window_count', 1)
+            ->assertJsonPath('data.available_dates.0.is_bookable', true)
+            ->assertJsonPath('data.windows.0.walking_time_range', 'within_90_min')
+            ->assertJsonPath('data.windows.0.is_bookable', true);
+    }
+
     public function test_public_availability_returns_only_days_with_bookable_windows_in_requested_range(): void
     {
         [$user, $serviceAddress, $profile, $menu] = $this->createAvailabilityFixture();
@@ -429,6 +461,8 @@ class PublicTherapistAvailabilityApiTest extends TestCase
         TherapistBookingSetting::create([
             'therapist_profile_id' => $profile->id,
             'booking_request_lead_time_minutes' => 60,
+            'travel_mode' => 'walking',
+            'max_travel_minutes' => 120,
             'scheduled_base_label' => 'Tenjin Base',
             'scheduled_base_lat' => '33.5907000',
             'scheduled_base_lng' => '130.4020000',

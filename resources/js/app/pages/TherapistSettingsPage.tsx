@@ -80,6 +80,19 @@ function formatRequirementCount(status: TherapistReviewStatus | null): string {
     return `${completed} / ${total} 項目`;
 }
 
+function formatTravelMode(value: TherapistBookingSettingRecord['travel_mode'] | null | undefined): string {
+    switch (value) {
+        case 'bicycle':
+            return '自転車';
+        case 'transit':
+            return '公共交通機関';
+        case 'car':
+            return '車';
+        default:
+            return '徒歩';
+    }
+}
+
 export function TherapistSettingsPage() {
     const { token } = useAuth();
     const [profile, setProfile] = useState<TherapistProfileRecord | null>(null);
@@ -486,14 +499,16 @@ export function TherapistSettingsPage() {
                                 </Link>
                             </div>
 
-                            <div className="rounded-[24px] bg-[#fffaf3] p-4">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予定予約の準備</p>
-                                <p className="mt-2 text-sm font-semibold text-[#17202b]">
-                                    {bookingSetting?.has_scheduled_base_location ? '出動拠点あり' : '出動拠点未設定'}
-                                </p>
-                                <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                    受付締切 {bookingSetting?.booking_request_lead_time_minutes ? `${bookingSetting.booking_request_lead_time_minutes}分前まで` : '未設定'}
-                                </p>
+                                <div className="rounded-[24px] bg-[#fffaf3] p-4">
+                                    <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予定予約の準備</p>
+                                    <p className="mt-2 text-sm font-semibold text-[#17202b]">
+                                        {bookingSetting?.has_scheduled_base_location ? '出動拠点あり' : '出動拠点未設定'}
+                                    </p>
+                                    <p className="mt-2 text-sm leading-7 text-[#68707a]">
+                                        受付締切 {bookingSetting?.booking_request_lead_time_minutes ? `${bookingSetting.booking_request_lead_time_minutes}分前まで` : '未設定'}
+                                        <br />
+                                        {formatTravelMode(bookingSetting?.travel_mode)} / {bookingSetting?.max_travel_minutes ?? 120}分以内
+                                    </p>
                                 <Link
                                     to="/therapist/availability"
                                     className="mt-4 inline-flex text-sm font-semibold text-[#8f5c22] hover:text-[#6f4718]"

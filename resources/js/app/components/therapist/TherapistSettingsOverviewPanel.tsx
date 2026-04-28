@@ -78,6 +78,19 @@ function formatRequirementCount(status: TherapistReviewStatus | null): string {
     return `${completed} / ${total} 項目`;
 }
 
+function formatTravelMode(value: TherapistBookingSettingRecord['travel_mode'] | null | undefined): string {
+    switch (value) {
+        case 'bicycle':
+            return '自転車';
+        case 'transit':
+            return '公共交通機関';
+        case 'car':
+            return '車';
+        default:
+            return '徒歩';
+    }
+}
+
 export function TherapistSettingsOverviewPanel() {
     const { token } = useAuth();
     const [profile, setProfile] = useState<TherapistProfileRecord | null>(null);
@@ -480,6 +493,8 @@ export function TherapistSettingsOverviewPanel() {
                                         </p>
                                         <p className="mt-2 text-sm leading-7 text-[#68707a]">
                                             受付締切 {bookingSetting?.booking_request_lead_time_minutes ? `${bookingSetting.booking_request_lead_time_minutes}分前まで` : '未設定'}
+                                            <br />
+                                            {formatTravelMode(bookingSetting?.travel_mode)} / {bookingSetting?.max_travel_minutes ?? 120}分以内
                                         </p>
                                         <Link
                                             to="/therapist/availability"

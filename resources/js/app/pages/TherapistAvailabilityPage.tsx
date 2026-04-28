@@ -90,6 +90,12 @@ const MAP_DEFAULT_CENTER = {
     lng: 139.767125,
 } as const;
 const MAP_MAX_LATITUDE = 85.05112878;
+const TRAVEL_MODE_OPTIONS: Array<{ value: TherapistBookingSettingRecord['travel_mode']; label: string }> = [
+    { value: 'walking', label: '徒歩' },
+    { value: 'bicycle', label: '自転車' },
+    { value: 'transit', label: '公共交通機関' },
+    { value: 'car', label: '車' },
+];
 
 function todayDateValue(): string {
     return buildCurrentJstDateValue();
@@ -1085,6 +1091,8 @@ export function TherapistAvailabilityPage() {
     const [bookingSetting, setBookingSetting] = useState<TherapistBookingSettingRecord | null>(null);
     const [availabilitySlots, setAvailabilitySlots] = useState<TherapistAvailabilitySlotRecord[]>([]);
     const [leadTimeMinutes, setLeadTimeMinutes] = useState('60');
+    const [travelMode, setTravelMode] = useState<TherapistBookingSettingRecord['travel_mode']>('walking');
+    const [maxTravelMinutes, setMaxTravelMinutes] = useState('120');
     const [baseLabel, setBaseLabel] = useState('');
     const [baseLat, setBaseLat] = useState('');
     const [baseLng, setBaseLng] = useState('');
@@ -1122,6 +1130,8 @@ export function TherapistAvailabilityPage() {
         setBookingSetting(nextSetting);
         setAvailabilitySlots(nextSlots);
         setLeadTimeMinutes(String(nextSetting.booking_request_lead_time_minutes));
+        setTravelMode(nextSetting.travel_mode);
+        setMaxTravelMinutes(String(nextSetting.max_travel_minutes));
         setBaseLabel(nextSetting.scheduled_base_location?.label ?? '');
         setBaseLat(nextSetting.scheduled_base_location?.lat != null ? String(nextSetting.scheduled_base_location.lat) : '');
         setBaseLng(nextSetting.scheduled_base_location?.lng != null ? String(nextSetting.scheduled_base_location.lng) : '');
@@ -1461,6 +1471,8 @@ export function TherapistAvailabilityPage() {
                 token,
                 body: {
                     booking_request_lead_time_minutes: Number(leadTimeMinutes),
+                    travel_mode: travelMode,
+                    max_travel_minutes: Number(maxTravelMinutes),
                     scheduled_base_location: {
                         label: baseLabel || null,
                         lat: baseLat.trim() === '' ? null : Number(baseLat),
@@ -1820,6 +1832,12 @@ export function TherapistAvailabilityPage() {
                         受付締切: {leadTimeLabel(Number(leadTimeMinutes))}
                     </span>
                     <span className="rounded-full border border-white/10 px-3 py-1 text-sm text-slate-200">
+                        基本移動手段: {TRAVEL_MODE_OPTIONS.find((option) => option.value === travelMode)?.label ?? '徒歩'}
+                    </span>
+                    <span className="rounded-full border border-white/10 px-3 py-1 text-sm text-slate-200">
+                        対応可能範囲: {Number(maxTravelMinutes)}分以内
+                    </span>
+                    <span className="rounded-full border border-white/10 px-3 py-1 text-sm text-slate-200">
                         基本拠点: {bookingSetting?.has_scheduled_base_location ? '設定済み' : '未設定'}
                     </span>
                     <span className="rounded-full border border-white/10 px-3 py-1 text-sm text-slate-200">
@@ -1888,6 +1906,36 @@ export function TherapistAvailabilityPage() {
 
                     <div className="grid gap-4 md:grid-cols-2">
                         <label className="space-y-2">
+                            <span className="text-sm font-semibold text-white">基本移動手段</span>
+                            <select
+                                value={travelMode}
+                                onChange={(event) => setTravelMode(event.target.value as TherapistBookingSettingRecord['travel_mode'])}
+                                className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                            >
+                                {TRAVEL_MODE_OPTIONS.map((option) => (
+                                    <option key={option.value} value={option.value}>
+                                        {option.label}
+                                    </option>
+                                ))}
+                            </select>
+                        </label>
+
+                        <label className="space-y-2">
+                            <span className="text-sm font-semibold text-white">対応可能範囲（分）</span>
+                            <input
+                                type="number"
+                                min={15}
+                                max={240}
+                                step={15}
+                                value={maxTravelMinutes}
+                                onChange={(event) => setMaxTravelMinutes(event.target.value)}
+                                className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                            />
+                        </label>
+                    </div>
+
+                    <div className="grid gap-4 md:grid-cols-2">
+                        <label className="space-y-2">
                             <span className="text-sm font-semibold text-white">拠点ラベル</span>
                             <input
                                 value={baseLabel}
@@ -1925,6 +1973,11 @@ export function TherapistAvailabilityPage() {
                         <p className="mt-2 leading-7">
                             基本拠点を使う枠は <span className="font-semibold text-white">{normalizeAreaLabel(baseLabel, '基本拠点周辺')}</span> のように表示されます。
                         </p>
+                        <p className="mt-2 leading-7">
+                            利用者には <span className="font-semibold text-white">{TRAVEL_MODE_OPTIONS.find((option) => option.value === travelMode)?.label ?? '徒歩'}</span> を基準に、
+                            <span className="font-semibold text-white"> {Number(maxTravelMinutes)}分以内 </span>
+                            まで対応できる枠として表示されます。
+                        </p>
                     </div>
 
                     <button
@@ -1940,6 +1993,20 @@ export function TherapistAvailabilityPage() {
                     <div className="space-y-2">
                         <p className="text-xs font-semibold tracking-wide text-rose-200">要点</p>
                         <h2 className="text-xl font-semibold text-white">公開状況</h2>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
+                        <p className="text-sm font-semibold text-white">基本移動手段</p>
+                        <p className="mt-2 text-sm text-slate-300">
+                            {TRAVEL_MODE_OPTIONS.find((option) => option.value === bookingSetting?.travel_mode)?.label ?? '徒歩'}
+                        </p>
+                    </div>
+
+                    <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
+                        <p className="text-sm font-semibold text-white">対応可能範囲</p>
+                        <p className="mt-2 text-sm text-slate-300">
+                            {bookingSetting?.max_travel_minutes ? `${bookingSetting.max_travel_minutes}分以内` : '120分以内'}
+                        </p>
                     </div>
 
                     <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">

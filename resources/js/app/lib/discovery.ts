@@ -38,13 +38,13 @@ export interface DiscoverySearchQueryInput {
 }
 
 const WALKING_TIME_LABELS: Record<string, string> = {
-    within_15_min: '徒歩15分以内',
-    within_30_min: '徒歩30分以内',
-    within_45_min: '徒歩45分以内',
-    within_60_min: '徒歩60分以内',
-    over_60_min: '徒歩60分超',
+    within_15_min: '15分以内',
+    within_30_min: '30分以内',
+    within_45_min: '45分以内',
+    within_60_min: '60分以内',
+    over_60_min: '60分超',
     outside_area: '対応エリア外',
-    unknown: '徒歩目安は準備中',
+    unknown: '到着目安は準備中',
 };
 
 const WALKING_TIME_MAX_MINUTES: Record<string, number> = {
@@ -121,10 +121,16 @@ export function buildDefaultDiscoveryScheduledStartAt(now = new Date()): string 
 
 export function formatWalkingTimeRange(range: string | null | undefined): string {
     if (!range) {
-        return '徒歩目安は準備中';
+        return '到着目安は準備中';
     }
 
-    return WALKING_TIME_LABELS[range] ?? '徒歩目安は準備中';
+    const dynamicMatch = range.match(/^within_(\d+)_min$/);
+
+    if (dynamicMatch) {
+        return `${dynamicMatch[1]}分以内`;
+    }
+
+    return WALKING_TIME_LABELS[range] ?? '到着目安は準備中';
 }
 
 export function getPendingScheduledRequestActionLabel(
@@ -176,6 +182,12 @@ export function sortTherapistSearchResults(
 export function resolveWalkingTimeMaxMinutes(range: string | null | undefined): number {
     if (!range) {
         return Number.POSITIVE_INFINITY;
+    }
+
+    const dynamicMatch = range.match(/^within_(\d+)_min$/);
+
+    if (dynamicMatch) {
+        return Number(dynamicMatch[1]);
     }
 
     return WALKING_TIME_MAX_MINUTES[range] ?? Number.POSITIVE_INFINITY;

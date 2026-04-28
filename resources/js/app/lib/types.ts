@@ -617,6 +617,8 @@ export interface TempFileRecord {
 
 export interface TherapistBookingSettingRecord {
     booking_request_lead_time_minutes: number;
+    travel_mode: 'walking' | 'bicycle' | 'transit' | 'car';
+    max_travel_minutes: number;
     has_scheduled_base_location: boolean;
     can_publish_scheduled_bookings: boolean;
     scheduled_base_location: {

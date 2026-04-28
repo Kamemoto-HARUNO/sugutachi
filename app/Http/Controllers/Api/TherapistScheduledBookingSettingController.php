@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TherapistBookingSettingResource;
+use App\Models\TherapistBookingSetting;
 use App\Models\TherapistProfile;
 use Illuminate\Http\Request;
 
@@ -20,6 +21,8 @@ class TherapistScheduledBookingSettingController extends Controller
     {
         $validated = $request->validate([
             'booking_request_lead_time_minutes' => ['required', 'integer', 'min:15', 'max:10080'],
+            'travel_mode' => ['required', 'string', 'in:walking,bicycle,transit,car'],
+            'max_travel_minutes' => ['required', 'integer', 'min:15', 'max:240'],
             'scheduled_base_location.label' => ['nullable', 'string', 'max:120'],
             'scheduled_base_location.lat' => ['required', 'numeric', 'between:-90,90'],
             'scheduled_base_location.lng' => ['required', 'numeric', 'between:-180,180'],
@@ -32,6 +35,8 @@ class TherapistScheduledBookingSettingController extends Controller
             ['therapist_profile_id' => $profile->id],
             [
                 'booking_request_lead_time_minutes' => $validated['booking_request_lead_time_minutes'],
+                'travel_mode' => $validated['travel_mode'] ?? TherapistBookingSetting::TRAVEL_MODE_WALKING,
+                'max_travel_minutes' => $validated['max_travel_minutes'] ?? 120,
                 'scheduled_base_label' => data_get($validated, 'scheduled_base_location.label'),
                 'scheduled_base_lat' => data_get($validated, 'scheduled_base_location.lat'),
                 'scheduled_base_lng' => data_get($validated, 'scheduled_base_location.lng'),

@@ -24,6 +24,8 @@ class TherapistScheduledBookingApiTest extends TestCase
             ->getJson('/api/me/therapist/scheduled-booking-settings')
             ->assertOk()
             ->assertJsonPath('data.booking_request_lead_time_minutes', 60)
+            ->assertJsonPath('data.travel_mode', 'walking')
+            ->assertJsonPath('data.max_travel_minutes', 120)
             ->assertJsonPath('data.has_scheduled_base_location', false)
             ->assertJsonPath('data.can_publish_scheduled_bookings', false)
             ->assertJsonPath('data.scheduled_base_location', null);
@@ -31,6 +33,8 @@ class TherapistScheduledBookingApiTest extends TestCase
         $this->withToken($token)
             ->putJson('/api/me/therapist/scheduled-booking-settings', [
                 'booking_request_lead_time_minutes' => 90,
+                'travel_mode' => 'car',
+                'max_travel_minutes' => 150,
                 'scheduled_base_location' => [
                     'label' => 'Tenjin Base',
                     'lat' => 33.5902,
@@ -40,6 +44,8 @@ class TherapistScheduledBookingApiTest extends TestCase
             ])
             ->assertOk()
             ->assertJsonPath('data.booking_request_lead_time_minutes', 90)
+            ->assertJsonPath('data.travel_mode', 'car')
+            ->assertJsonPath('data.max_travel_minutes', 150)
             ->assertJsonPath('data.has_scheduled_base_location', true)
             ->assertJsonPath('data.can_publish_scheduled_bookings', true)
             ->assertJsonPath('data.scheduled_base_location.label', 'Tenjin Base');
@@ -47,6 +53,8 @@ class TherapistScheduledBookingApiTest extends TestCase
         $this->assertDatabaseHas('therapist_booking_settings', [
             'therapist_profile_id' => $therapist->therapistProfile->id,
             'booking_request_lead_time_minutes' => 90,
+            'travel_mode' => 'car',
+            'max_travel_minutes' => 150,
             'scheduled_base_label' => 'Tenjin Base',
         ]);
     }
@@ -58,6 +66,8 @@ class TherapistScheduledBookingApiTest extends TestCase
         $this->withToken($token)
             ->putJson('/api/me/therapist/scheduled-booking-settings', [
                 'booking_request_lead_time_minutes' => 60,
+                'travel_mode' => 'walking',
+                'max_travel_minutes' => 120,
                 'scheduled_base_location' => [
                     'label' => 'Central Base',
                     'lat' => 33.5902,
@@ -131,6 +141,8 @@ class TherapistScheduledBookingApiTest extends TestCase
         $this->withToken($token)
             ->putJson('/api/me/therapist/scheduled-booking-settings', [
                 'booking_request_lead_time_minutes' => 60,
+                'travel_mode' => 'walking',
+                'max_travel_minutes' => 120,
                 'scheduled_base_location' => [
                     'label' => '新宿ベース',
                     'lat' => 35.6895,
@@ -185,6 +197,8 @@ class TherapistScheduledBookingApiTest extends TestCase
         $this->withToken($token)
             ->putJson('/api/me/therapist/scheduled-booking-settings', [
                 'booking_request_lead_time_minutes' => 60,
+                'travel_mode' => 'walking',
+                'max_travel_minutes' => 120,
                 'scheduled_base_location' => [
                     'label' => 'Central Base',
                     'lat' => 33.5902,
@@ -249,6 +263,8 @@ class TherapistScheduledBookingApiTest extends TestCase
         $this->withToken($token)
             ->putJson('/api/me/therapist/scheduled-booking-settings', [
                 'booking_request_lead_time_minutes' => 60,
+                'travel_mode' => 'walking',
+                'max_travel_minutes' => 120,
                 'scheduled_base_location' => [
                     'label' => 'Central Base',
                     'lat' => 33.5902,

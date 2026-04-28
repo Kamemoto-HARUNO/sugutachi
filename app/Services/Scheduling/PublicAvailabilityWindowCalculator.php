@@ -283,6 +283,8 @@ class PublicAvailabilityWindowCalculator
                 $dispatchBase['lng'],
                 (float) $serviceAddress->lat,
                 (float) $serviceAddress->lng,
+                $context['bookingSetting']->travel_mode ?: TherapistBookingSetting::TRAVEL_MODE_WALKING,
+                $context['bookingSetting']->max_travel_minutes ?: 120,
             );
             $isBookableForAddress = $walking['walking_time_range'] !== 'outside_area';
 
@@ -340,7 +342,10 @@ class PublicAvailabilityWindowCalculator
         return [
             'date' => $date->toDateString(),
             'walking_time_range' => $bestWalkingMinutes !== null
-                ? $this->walkingTimeRangeFromMinutes($bestWalkingMinutes)
+                ? $this->walkingTimeRangeFromMinutes(
+                    $bestWalkingMinutes,
+                    $context['bookingSetting']->max_travel_minutes ?: 120,
+                )
                 : null,
             'estimated_total_amount_range' => $minAmount !== null && $maxAmount !== null
                 ? [
@@ -530,14 +535,9 @@ class PublicAvailabilityWindowCalculator
         ];
     }
 
-    private function walkingTimeRangeFromMinutes(int $minutes): string
+    private function walkingTimeRangeFromMinutes(int $minutes, int $maxTravelMinutes): string
     {
-        return match (true) {
-            $minutes <= 15 => 'within_15_min',
-            $minutes <= 30 => 'within_30_min',
-            $minutes <= 60 => 'within_60_min',
-            default => 'outside_area',
-        };
+        return $this->calculator->travelTimeRangeFromMinutes($minutes, $maxTravelMinutes);
     }
 
     private function roundUpToQuarter(CarbonImmutable $time): CarbonImmutable

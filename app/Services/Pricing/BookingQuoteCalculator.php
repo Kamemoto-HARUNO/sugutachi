@@ -4,6 +4,7 @@ namespace App\Services\Pricing;
 
 use App\Models\Booking;
 use App\Models\ServiceAddress;
+use App\Models\TherapistBookingSetting;
 use App\Models\TherapistMenu;
 use App\Models\TherapistPricingRule;
 use App\Models\TherapistProfile;
@@ -14,6 +15,13 @@ class BookingQuoteCalculator
     public const MATCHING_FEE_AMOUNT = 300;
 
     public const PLATFORM_FEE_RATE = 0.10;
+
+    private const TRAVEL_MODE_PROFILES = [
+        TherapistBookingSetting::TRAVEL_MODE_WALKING => ['speed_kmh' => 4.0, 'route_factor' => 1.3, 'fixed_minutes' => 0],
+        TherapistBookingSetting::TRAVEL_MODE_BICYCLE => ['speed_kmh' => 12.0, 'route_factor' => 1.15, 'fixed_minutes' => 0],
+        TherapistBookingSetting::TRAVEL_MODE_TRANSIT => ['speed_kmh' => 18.0, 'route_factor' => 1.35, 'fixed_minutes' => 10],
+        TherapistBookingSetting::TRAVEL_MODE_CAR => ['speed_kmh' => 30.0, 'route_factor' => 1.2, 'fixed_minutes' => 5],
+    ];
 
     public function __construct(
         private readonly TherapistPricingRuleEvaluator $pricingRuleEvaluator,
@@ -92,6 +100,8 @@ class BookingQuoteCalculator
         float $fromLng,
         float $toLat,
         float $toLng,
+        string $travelMode = TherapistBookingSetting::TRAVEL_MODE_WALKING,
+        int $maxTravelMinutes = 120,
     ): array {
         $straightDistanceKm = $this->haversineKm(
             $fromLat,
@@ -100,17 +110,13 @@ class BookingQuoteCalculator
             $toLng,
         );
 
-        $walkingDistanceKm = $straightDistanceKm * 1.3;
-        $minutes = (int) ceil($walkingDistanceKm / 4.0 * 60);
+        $profile = self::TRAVEL_MODE_PROFILES[$travelMode] ?? self::TRAVEL_MODE_PROFILES[TherapistBookingSetting::TRAVEL_MODE_WALKING];
+        $routeDistanceKm = $straightDistanceKm * $profile['route_factor'];
+        $minutes = (int) ceil(($routeDistanceKm / $profile['speed_kmh']) * 60 + $profile['fixed_minutes']);
 
         return [
             'walking_time_minutes' => $minutes,
-            'walking_time_range' => match (true) {
-                $minutes <= 15 => 'within_15_min',
-                $minutes <= 30 => 'within_30_min',
-                $minutes <= 60 => 'within_60_min',
-                default => 'outside_area',
-            },
+            'walking_time_range' => $this->travelTimeRangeFromMinutes($minutes, $maxTravelMinutes),
         ];
     }
 
@@ -120,12 +126,20 @@ class BookingQuoteCalculator
         ?float $originLat = null,
         ?float $originLng = null,
     ): array {
+        $bookingSetting = $therapistProfile->relationLoaded('bookingSetting')
+            ? $therapistProfile->bookingSetting
+            : $therapistProfile->bookingSetting()->first();
+        $travelMode = $bookingSetting?->travel_mode ?: TherapistBookingSetting::TRAVEL_MODE_WALKING;
+        $maxTravelMinutes = $bookingSetting?->max_travel_minutes ?: 120;
+
         if ($originLat !== null && $originLng !== null) {
             return $this->walkingEstimateFromCoordinates(
                 $originLat,
                 $originLng,
                 (float) $serviceAddress->lat,
                 (float) $serviceAddress->lng,
+                $travelMode,
+                $maxTravelMinutes,
             );
         }
 
@@ -143,7 +157,20 @@ class BookingQuoteCalculator
             (float) $location->lng,
             (float) $serviceAddress->lat,
             (float) $serviceAddress->lng,
+            $travelMode,
+            $maxTravelMinutes,
         );
+    }
+
+    public function travelTimeRangeFromMinutes(int $minutes, int $maxTravelMinutes): string
+    {
+        if ($minutes > $maxTravelMinutes) {
+            return 'outside_area';
+        }
+
+        $bucketMinutes = max(15, (int) ceil($minutes / 15) * 15);
+
+        return "within_{$bucketMinutes}_min";
     }
 
     private function haversineKm(float $fromLat, float $fromLng, float $toLat, float $toLng): float
