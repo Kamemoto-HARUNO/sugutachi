@@ -68,7 +68,7 @@ import { TherapistPricingPage } from './pages/TherapistPricingPage';
 import { TherapistProfilePage } from './pages/TherapistProfilePage';
 import { TherapistRequestsPage } from './pages/TherapistRequestsPage';
 import { TherapistReviewsPage } from './pages/TherapistReviewsPage';
-import { TherapistSettingsPage } from './pages/TherapistSettingsPage';
+import { TherapistSettingsHubPage } from './pages/TherapistSettingsHubPage';
 import { TherapistStripeConnectPage } from './pages/TherapistStripeConnectPage';
 import { TherapistTravelRequestsPage } from './pages/TherapistTravelRequestsPage';
 import { UserBookingDetailPage } from './pages/UserBookingDetailPage';
@@ -94,6 +94,7 @@ import { UserTherapistSearchPage } from './pages/UserTherapistSearchPage';
 import { AuthProvider } from './providers/AuthProvider';
 import { NotificationProvider } from './providers/NotificationProvider';
 import { ToastProvider } from './providers/ToastProvider';
+import { TherapistSettingsOverviewPanel } from './components/therapist/TherapistSettingsOverviewPanel';
 
 function AppRoutes() {
     const { account, activeRole, hasRole, isAuthenticated, isBootstrapping, selectRole } = useAuth();
@@ -232,14 +233,18 @@ function AppRoutes() {
                                 eyebrow="タチキャストマイページ"
                                 title="タチキャストダッシュボード"
                                 description="プロフィール審査から空き枠、料金ルール、売上管理までをここからつないでいきます。"
+                                hideHero
+                                compactActions
                                 actions={[
-                                    { label: '準備状況', to: '/therapist/onboarding', description: '本人確認、プロフィール、Stripe の進み具合を確認します。' },
-                                    { label: 'プロフィール編集', to: '/therapist/profile', description: '公開プロフィールと審査状態を確認します。' },
-                                    { label: '空き枠管理', to: '/therapist/availability', description: '予定予約設定と公開枠を管理します。' },
-                                    { label: '予約管理', to: '/therapist/bookings', description: '承諾待ちから進行中、完了まで同じ画面で確認します。' },
-                                    { label: '設定', to: '/therapist/settings', description: '稼働状態、現在地、通知をまとめて確認します。' },
+                                    { label: '準備状況', to: '/therapist/onboarding', description: '本人確認と公開条件の進み具合を確認します。' },
+                                    { label: 'プロフィール編集', to: '/therapist/profile', description: '公開プロフィールと写真を整えます。' },
+                                    { label: '空き枠管理', to: '/therapist/availability', description: '公開枠と出動拠点を管理します。' },
+                                    { label: '予約管理', to: '/therapist/bookings', description: '承諾待ちから完了までを確認します。' },
+                                    { label: '設定', to: '/therapist/settings', description: '関連設定の移動先をまとめて開きます。' },
                                 ]}
-                            />
+                            >
+                                <TherapistSettingsOverviewPanel />
+                            </SectionHomePage>
                         }
                     />
                     <Route path="onboarding" element={<TherapistOnboardingPage />} />
@@ -263,7 +268,7 @@ function AppRoutes() {
                     <Route path="travel-requests/:publicId" element={<TherapistTravelRequestsPage />} />
                     <Route path="balance" element={<TherapistBalancePage />} />
                     <Route path="payouts" element={<Navigate to="/therapist/balance" replace />} />
-                    <Route path="settings" element={<TherapistSettingsPage />} />
+                    <Route path="settings" element={<TherapistSettingsHubPage />} />
                     {therapistPlaceholderRoutes
                         .filter((route) => !['onboarding', 'identity-verification', 'stripe-connect', 'photos', 'profile', 'pricing', 'availability', 'requests', 'requests/:publicId', 'reviews', 'bookings', 'bookings/:publicId', 'bookings/:publicId/review', 'bookings/:publicId/interrupt', 'bookings/:publicId/no-show', 'bookings/:publicId/messages', 'bookings/:publicId/report', 'travel-requests', 'travel-requests/:publicId', 'balance', 'payouts', 'settings'].includes(route.path))
                         .map((route) => (

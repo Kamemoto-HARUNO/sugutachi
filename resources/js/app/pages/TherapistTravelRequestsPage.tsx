@@ -404,80 +404,46 @@ export function TherapistTravelRequestsPage() {
                 </div>
             </section>
 
-            <section className="grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(360px,0.88fr)]">
-                <div className="space-y-4">
-                    {filteredRequests.length > 0 ? (
-                        filteredRequests.map((request) => {
-                            const isSelected = request.public_id === selectedRequestId;
-
-                            return (
-                                <Link
-                                    key={request.public_id}
-                                    to={buildTravelRequestDetailPath(request.public_id, location.search)}
-                                    onClick={() => {
-                                        setSelectedRequestId(request.public_id);
-                                        setSuccessMessage(null);
-                                    }}
-                                    className={`w-full rounded-[28px] border px-6 py-5 text-left transition ${
-                                        isSelected
-                                            ? 'border-[#f4cf8f] bg-[#fff6ea] text-[#17202b] shadow-[0_20px_45px_rgba(14,19,27,0.12)]'
-                                            : 'border-white/10 bg-white/5 text-white hover:bg-white/8'
-                                    }`}
-                                >
-                                    <div className="flex flex-wrap items-start justify-between gap-3">
-                                        <div className="space-y-2">
-                                            <div className="flex flex-wrap items-center gap-2">
-                                                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(request.status)}`}>
-                                                    {statusLabel(request.status)}
-                                                </span>
-                                                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                                                    isSelected ? 'bg-[#17202b] text-white' : 'bg-white/10 text-slate-100'
-                                                }`}>
-                                                    {request.prefecture}
-                                                </span>
-                                            </div>
-                                            <h3 className={`text-lg font-semibold ${isSelected ? 'text-[#17202b]' : 'text-white'}`}>
-                                                {request.sender?.display_name ?? '送信者情報を確認中'}
-                                            </h3>
-                                        </div>
-
-                                        <p className={`text-sm ${isSelected ? 'text-[#415162]' : 'text-slate-300'}`}>
-                                            {formatDateTime(request.created_at)}
-                                        </p>
-                                    </div>
-
-                                    <p className={`mt-4 line-clamp-3 text-sm leading-7 ${isSelected ? 'text-[#475569]' : 'text-slate-300'}`}>
-                                        {request.message ?? '本文を表示できませんでした。'}
-                                    </p>
-                                </Link>
-                            );
-                        })
-                    ) : (
-                        <section className="rounded-[28px] border border-dashed border-white/15 bg-white/5 p-8 text-center">
-                            <h2 className="text-2xl font-semibold text-white">条件に合う出張リクエストはありません</h2>
-                            <p className="mt-3 text-sm leading-7 text-slate-300">
-                                まだ受信がないか、検索条件が厳しめです。公開エリアや空き枠を整えておくと、需要が届いたときに動きやすくなります。
-                            </p>
-                            <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
-                                <Link
-                                    to="/therapist/availability"
-                                    className="inline-flex items-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105"
-                                >
-                                    空き枠を確認
-                                </Link>
-                                <Link
-                                    to="/therapist/profile"
-                                    className="inline-flex items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/6"
-                                >
-                                    プロフィールを確認
-                                </Link>
+            <section className="space-y-4">
+                {filteredRequests.length > 0 && filteredRequests.length > 1 ? (
+                    <section className="rounded-[28px] bg-white p-5 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+                            <div className="space-y-2">
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">表示中のリクエスト</p>
+                                <h2 className="text-2xl font-semibold text-[#17202b]">確認する需要通知を選びます</h2>
+                                <p className="text-sm leading-7 text-[#68707a]">
+                                    同じ情報を左右に重ねず、ここで切り替えて内容を確認できるようにしています。
+                                </p>
                             </div>
-                        </section>
-                    )}
-                </div>
 
-                <div className="space-y-4">
-                    {selectedRequest ? (
+                            <div className="w-full max-w-xl space-y-2">
+                                <label htmlFor="travel-request-selector" className="text-sm font-semibold text-[#17202b]">
+                                    表示する需要通知
+                                </label>
+                                <select
+                                    id="travel-request-selector"
+                                    value={selectedRequestId ?? ''}
+                                    onChange={(event) => {
+                                        const nextPublicId = event.target.value;
+                                        setSelectedRequestId(nextPublicId);
+                                        setSuccessMessage(null);
+                                        navigate(buildTravelRequestDetailPath(nextPublicId, location.search));
+                                    }}
+                                    className="w-full rounded-[16px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 text-sm font-medium text-[#17202b] outline-none transition focus:border-[#c6a16a]"
+                                >
+                                    {filteredRequests.map((request) => (
+                                        <option key={request.public_id} value={request.public_id}>
+                                            {`${request.sender?.display_name ?? '送信者情報を確認中'} / ${request.prefecture} / ${formatDateTime(request.created_at)}`}
+                                        </option>
+                                    ))}
+                                </select>
+                            </div>
+                        </div>
+                    </section>
+                ) : null}
+
+                {filteredRequests.length > 0 ? (
+                    selectedRequest ? (
                         <section className="space-y-5 rounded-[28px] border border-white/10 bg-white/5 p-6">
                             <div className="flex flex-wrap items-start justify-between gap-4">
                                 <div className="space-y-3">
@@ -571,11 +537,32 @@ export function TherapistTravelRequestsPage() {
                         <section className="rounded-[28px] border border-dashed border-white/10 bg-white/5 px-6 py-10 text-center">
                             <p className="text-sm font-semibold text-white">確認する出張リクエストを選んでください。</p>
                             <p className="mt-3 text-sm leading-7 text-slate-300">
-                                左側のカードを選ぶと、エリア、送信者、本文、整理アクションまで確認できます。
+                                上の条件に合う通知がある場合は、自動で最新のリクエストを表示します。
                             </p>
                         </section>
-                    )}
-                </div>
+                    )
+                ) : (
+                    <section className="rounded-[28px] border border-dashed border-white/15 bg-white/5 p-8 text-center">
+                        <h2 className="text-2xl font-semibold text-white">条件に合う出張リクエストはありません</h2>
+                        <p className="mt-3 text-sm leading-7 text-slate-300">
+                            まだ受信がないか、検索条件が厳しめです。公開エリアや空き枠を整えておくと、需要が届いたときに動きやすくなります。
+                        </p>
+                        <div className="mt-6 flex flex-wrap items-center justify-center gap-3">
+                            <Link
+                                to="/therapist/availability"
+                                className="inline-flex items-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105"
+                            >
+                                空き枠を確認
+                            </Link>
+                            <Link
+                                to="/therapist/profile"
+                                className="inline-flex items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/6"
+                            >
+                                プロフィールを確認
+                            </Link>
+                        </div>
+                    </section>
+                )}
             </section>
         </div>
     );
