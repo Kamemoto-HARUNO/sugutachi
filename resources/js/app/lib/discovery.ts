@@ -6,7 +6,7 @@ export type DiscoverySort = 'recommended' | 'soonest' | 'rating';
 export type DiscoveryPriceRange = 'all' | 'under_12000' | 'between_12000_20000' | 'over_20000';
 
 export const DISCOVERY_HERO_TITLE = '今すぐ会える、近くで探せる。';
-export const DISCOVERY_TOP_BADGE = '本人確認済みタチのみ掲載';
+export const DISCOVERY_TOP_BADGE = '本人確認済みタチキャストのみ掲載';
 export const DISCOVERY_HERO_BULLETS = ['18歳以上確認済み', '位置情報は概算表示', '直接取引禁止'] as const;
 export const DISCOVERY_LOCATION_LABEL = '待ち合わせ場所';
 export const DISCOVERY_BOOKING_TYPE_LABEL = '予約タイプ';

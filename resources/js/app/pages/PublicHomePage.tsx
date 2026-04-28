@@ -301,7 +301,7 @@ export function PublicHomePage() {
         }
 
         return {
-            label: isAuthenticated ? 'タチキャストモードを追加' : 'タチとして登録',
+            label: isAuthenticated ? 'タチキャストモードを追加' : 'タチキャストとして登録',
             to: isAuthenticated ? '/role-select?add_role=therapist&return_to=%2Ftherapist%2Fonboarding' : '/register',
         };
     }, [canUseTherapistMode, canUseUserMode, isAuthenticated]);
@@ -318,7 +318,7 @@ export function PublicHomePage() {
             ? { label: 'マイページ', to: '/therapist' }
         : isAuthenticated
             ? { label: 'タチキャストモードを追加', to: '/role-select?add_role=therapist&return_to=%2Ftherapist%2Fonboarding' }
-            : { label: 'タチとして登録', to: '/register' };
+            : { label: 'タチキャストとして登録', to: '/register' };
 
     const panelAction = useMemo(() => {
         if (canUseUserMode) {
