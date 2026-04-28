@@ -148,6 +148,7 @@ rsync -a \
   --exclude 'node_modules' \
   --exclude 'vendor' \
   --exclude 'storage/logs/*' \
+  --exclude 'storage/app/*' \
   --exclude 'storage/framework/cache/*' \
   --exclude 'storage/framework/sessions/*' \
   --exclude 'storage/framework/views/*' \
@@ -171,6 +172,7 @@ rsync -az --delete \
   --exclude '.env' \
   --exclude '.env.*' \
   --exclude 'storage/logs/*' \
+  --exclude 'storage/app/*' \
   --exclude 'storage/framework/cache/*' \
   --exclude 'storage/framework/sessions/*' \
   --exclude 'storage/framework/views/*' \
