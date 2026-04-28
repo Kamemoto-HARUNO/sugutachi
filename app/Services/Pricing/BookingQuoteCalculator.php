@@ -9,7 +9,6 @@ use App\Models\TherapistMenu;
 use App\Models\TherapistPricingRule;
 use App\Models\TherapistProfile;
 use Carbon\CarbonImmutable;
-
 class BookingQuoteCalculator
 {
     public const MATCHING_FEE_AMOUNT = 300;
@@ -187,23 +186,12 @@ class BookingQuoteCalculator
 
     private function nightFeeAmount(?string $requestedStartAt): int
     {
-        if (! $requestedStartAt) {
-            return 0;
-        }
-
-        $hour = CarbonImmutable::parse($requestedStartAt)->hour;
-
-        return $hour >= 22 || $hour < 6 ? 1000 : 0;
+        return 0;
     }
 
     private function travelFeeAmount(?int $walkingTimeMinutes): int
     {
-        return match (true) {
-            $walkingTimeMinutes === null => 0,
-            $walkingTimeMinutes <= 30 => 0,
-            $walkingTimeMinutes <= 60 => 1000,
-            default => 2000,
-        };
+        return 0;
     }
 
     private function pricingRuleResult(

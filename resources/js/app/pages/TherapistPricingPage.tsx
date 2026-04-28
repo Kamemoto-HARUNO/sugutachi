@@ -44,9 +44,11 @@ interface SelectOption {
 const RULE_TYPE_OPTIONS: SelectOption[] = [
     { value: 'user_profile_attribute', label: '利用者プロフィール条件' },
     { value: 'time_band', label: '時間帯' },
-    { value: 'walking_time_range', label: '徒歩目安' },
+    { value: 'walking_time_range', label: '移動時間' },
     { value: 'demand_level', label: '需要レベル' },
 ];
+
+const CREATE_RULE_TYPE_OPTIONS = RULE_TYPE_OPTIONS.filter((option) => option.value !== 'demand_level');
 
 const PROFILE_FIELD_OPTIONS: SelectOption[] = [
     { value: 'age_range', label: '年代' },
@@ -120,10 +122,10 @@ const DISCRETE_OPERATOR_OPTIONS: SelectOption[] = [
 ];
 
 const WALKING_TIME_OPTIONS: SelectOption[] = [
-    { value: 'within_15_min', label: '徒歩15分以内' },
-    { value: 'within_30_min', label: '徒歩30分以内' },
-    { value: 'within_60_min', label: '徒歩60分以内' },
-    { value: 'outside_area', label: '対応外相当' },
+    { value: 'within_15_min', label: '移動時間15分以内' },
+    { value: 'within_30_min', label: '移動時間30分以内' },
+    { value: 'within_60_min', label: '移動時間60分以内' },
+    { value: 'outside_area', label: '対応範囲外' },
 ];
 
 const DEMAND_LEVEL_OPTIONS: SelectOption[] = [
@@ -421,6 +423,7 @@ export function TherapistPricingPage() {
     const menuScopedRuleCount = rules.filter((rule) => rule.therapist_menu_id).length;
     const profileScopedRuleCount = rules.filter((rule) => !rule.therapist_menu_id).length;
     const activeMenus = profile?.menus.filter((menu) => menu.is_active) ?? [];
+    const isEditingDraft = draft.id !== null;
 
     const profileFieldOptions = useMemo(
         () => PROFILE_FIELD_VALUE_OPTIONS[draft.field] ?? [],
@@ -442,6 +445,14 @@ export function TherapistPricingPage() {
         }
 
         return [];
+    }, [draft.rule_type]);
+
+    const draftRuleTypeOptions = useMemo(() => {
+        if (draft.rule_type === 'demand_level') {
+            return [...CREATE_RULE_TYPE_OPTIONS, { value: 'demand_level', label: '需要レベル（旧仕様）' }];
+        }
+
+        return CREATE_RULE_TYPE_OPTIONS;
     }, [draft.rule_type]);
 
     function resetDraft() {
@@ -639,7 +650,8 @@ export function TherapistPricingPage() {
                         <p className="text-xs font-semibold tracking-wide text-[#d2b179]">料金ルール</p>
                         <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">料金ルール</h2>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                            属性別、時間帯別、徒歩目安別の調整をここで管理します。プロフィール共通ルールとメニュー個別ルールを組み合わせて、
+                            利用者プロフィール、時間帯、移動時間に応じた料金調整をここで管理します。標準では移動費と深夜料金は 0 円で、
+                            必要な加算だけをプロフィール共通ルールとメニュー個別ルールで組み合わせて、
                             見積もりの自動計算を整えられます。
                         </p>
                     </div>
@@ -684,7 +696,7 @@ export function TherapistPricingPage() {
                                 <p className="text-xs font-semibold tracking-wide text-[#d2b179]">ルール一覧</p>
                                 <h3 className="text-xl font-semibold text-white">現在のルール</h3>
                                 <p className="text-sm leading-7 text-slate-300">
-                                    メニュー個別ルールはプロフィール共通ルールより先に評価されます。priority が小さいほど先に適用されます。
+                                    メニュー個別ルールはプロフィール共通ルールより先に評価されます。優先度が小さいほど先に適用されます。
                                 </p>
                             </div>
 
@@ -710,7 +722,7 @@ export function TherapistPricingPage() {
                                         className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white"
                                     >
                                         <option value="all">すべて</option>
-                                        {RULE_TYPE_OPTIONS.map((option) => (
+                                        {CREATE_RULE_TYPE_OPTIONS.map((option) => (
                                             <option key={option.value} value={option.value}>{option.label}</option>
                                         ))}
                                     </select>
@@ -743,11 +755,13 @@ export function TherapistPricingPage() {
                                             <p className="text-lg font-semibold text-white">{formatConditionSummary(rule)}</p>
                                             <p className="text-sm leading-7 text-slate-300">
                                                 調整: <span className="font-semibold text-white">{adjustmentLabel(rule)}</span>
-                                                {' '} / priority {rule.priority}
+                                                {' '} / 優先度 {rule.priority}
                                             </p>
-                                            <p className="text-sm leading-7 text-slate-400">
-                                                価格下限: {formatCurrency(rule.min_price_amount)} / 価格上限: {formatCurrency(rule.max_price_amount)}
-                                            </p>
+                                            {rule.adjustment_type !== 'fixed_amount' ? (
+                                                <p className="text-sm leading-7 text-slate-400">
+                                                    価格下限: {formatCurrency(rule.min_price_amount)} / 価格上限: {formatCurrency(rule.max_price_amount)}
+                                                </p>
+                                            ) : null}
                                         </div>
                                     </div>
 
@@ -785,13 +799,37 @@ export function TherapistPricingPage() {
                 </div>
 
                 <article className="space-y-5 rounded-[24px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_14px_30px_rgba(2,6,23,0.12)] lg:sticky lg:top-6 lg:self-start">
+                    <div className={`rounded-[20px] border px-4 py-4 text-sm leading-7 ${
+                        isEditingDraft
+                            ? 'border-[#d2b179]/30 bg-[#d2b179]/10 text-slate-200'
+                            : 'border-emerald-300/20 bg-emerald-400/10 text-slate-200'
+                    }`}>
+                        <p className="font-semibold text-white">
+                            {isEditingDraft ? '既存ルールを編集中です' : '新しいルールを作成します'}
+                        </p>
+                        <p className="mt-1">
+                            {isEditingDraft
+                                ? 'このまま保存すると、選択中のルール内容が上書きされます。新しく追加したい場合は先に新規作成へ戻してください。'
+                                : '左の一覧から編集を押すと既存ルールを修正できます。ここでは新しいルールを追加します。'}
+                        </p>
+                        {isEditingDraft ? (
+                            <button
+                                type="button"
+                                onClick={resetDraft}
+                                className="mt-3 inline-flex items-center rounded-full border border-white/15 px-4 py-2 text-sm font-semibold text-white transition hover:bg-white/10"
+                            >
+                                新しいルールを作る
+                            </button>
+                        ) : null}
+                    </div>
+
                     <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">ルール編集</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">{isEditingDraft ? 'ルール編集' : '新規ルール作成'}</p>
                         <h3 className="text-xl font-semibold text-white">
-                            {draft.id === null ? '料金ルールを追加' : `ルール #${draft.id} を編集`}
+                            {isEditingDraft ? `ルール #${draft.id} を編集` : '料金ルールを追加'}
                         </h3>
                         <p className="text-sm leading-7 text-slate-300">
-                            利用者プロフィール、時間帯、徒歩目安、需要レベルに応じた調整をここで設定します。
+                            利用者プロフィール、時間帯、移動時間に応じた調整をここで設定します。
                         </p>
                     </div>
 
@@ -833,7 +871,7 @@ export function TherapistPricingPage() {
                                 onChange={(event) => handleRuleTypeChange(event.target.value)}
                                 className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white"
                             >
-                                {RULE_TYPE_OPTIONS.map((option) => (
+                                {draftRuleTypeOptions.map((option) => (
                                     <option key={option.value} value={option.value}>{option.label}</option>
                                 ))}
                             </select>
@@ -1020,7 +1058,14 @@ export function TherapistPricingPage() {
                                 <span className="text-sm font-semibold text-white">調整方法</span>
                                 <select
                                     value={draft.adjustment_type}
-                                    onChange={(event) => updateDraft({ adjustment_type: event.target.value })}
+                                    onChange={(event) => {
+                                        const nextAdjustmentType = event.target.value;
+                                        updateDraft(
+                                            nextAdjustmentType === 'fixed_amount'
+                                                ? { adjustment_type: nextAdjustmentType, min_price_amount: '', max_price_amount: '' }
+                                                : { adjustment_type: nextAdjustmentType },
+                                        );
+                                    }}
                                     className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white"
                                 >
                                     {ADJUSTMENT_TYPE_OPTIONS.map((option) => (
@@ -1041,32 +1086,34 @@ export function TherapistPricingPage() {
                             </label>
                         </div>
 
-                        <div className="grid gap-3 sm:grid-cols-2">
-                            <label className="space-y-2">
-                                <span className="text-sm font-semibold text-white">価格下限 (任意)</span>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    value={draft.min_price_amount}
-                                    onChange={(event) => updateDraft({ min_price_amount: event.target.value })}
-                                    className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white"
-                                />
-                            </label>
-                            <label className="space-y-2">
-                                <span className="text-sm font-semibold text-white">価格上限 (任意)</span>
-                                <input
-                                    type="number"
-                                    min="0"
-                                    value={draft.max_price_amount}
-                                    onChange={(event) => updateDraft({ max_price_amount: event.target.value })}
-                                    className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white"
-                                />
-                            </label>
-                        </div>
+                        {draft.adjustment_type !== 'fixed_amount' ? (
+                            <div className="grid gap-3 sm:grid-cols-2">
+                                <label className="space-y-2">
+                                    <span className="text-sm font-semibold text-white">価格下限 (任意)</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={draft.min_price_amount}
+                                        onChange={(event) => updateDraft({ min_price_amount: event.target.value })}
+                                        className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white"
+                                    />
+                                </label>
+                                <label className="space-y-2">
+                                    <span className="text-sm font-semibold text-white">価格上限 (任意)</span>
+                                    <input
+                                        type="number"
+                                        min="0"
+                                        value={draft.max_price_amount}
+                                        onChange={(event) => updateDraft({ max_price_amount: event.target.value })}
+                                        className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white"
+                                    />
+                                </label>
+                            </div>
+                        ) : null}
 
                         <div className="grid gap-3 sm:grid-cols-2">
                             <label className="space-y-2">
-                                <span className="text-sm font-semibold text-white">priority</span>
+                                <span className="text-sm font-semibold text-white">優先度</span>
                                 <input
                                     type="number"
                                     min="0"
@@ -1093,14 +1140,14 @@ export function TherapistPricingPage() {
                                 disabled={isSaving}
                                 className="inline-flex items-center rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                {isSaving ? '保存中...' : draft.id === null ? '料金ルールを追加' : '変更を保存'}
+                                {isSaving ? '保存中...' : isEditingDraft ? 'このルールを更新' : '新しいルールを追加'}
                             </button>
                             <button
                                 type="button"
                                 onClick={resetDraft}
                                 className="inline-flex items-center rounded-full border border-white/10 px-4 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/5"
                             >
-                                編集をやめる
+                                {isEditingDraft ? '新規作成に戻る' : '入力をリセット'}
                             </button>
                         </div>
                     </form>
@@ -1108,8 +1155,8 @@ export function TherapistPricingPage() {
                     <div className="rounded-[20px] border border-white/10 bg-[#111923] p-4 text-sm leading-7 text-slate-300">
                         <p className="font-semibold text-white">メモ</p>
                         <ul className="mt-3 space-y-2">
-                            <li>・メニュー個別ルールは、同じ priority ならプロフィール共通ルールより先に評価されます。</li>
-                            <li>・価格下限 / 上限を入れると、調整後の小計をその範囲に丸めます。</li>
+                            <li>・メニュー個別ルールは、同じ優先度ならプロフィール共通ルールより先に評価されます。</li>
+                            <li>・価格下限 / 上限は、割合調整のときだけ使う想定です。</li>
                             <li>・有効メニューが {activeMenus.length} 件あるので、まずは共通ルールから始めても大丈夫です。</li>
                         </ul>
                     </div>

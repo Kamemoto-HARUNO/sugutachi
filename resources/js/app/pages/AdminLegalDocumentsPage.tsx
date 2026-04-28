@@ -13,6 +13,12 @@ import type {
 
 type PublishedFilter = 'all' | '1' | '0';
 
+const LEGAL_DOCUMENT_TYPE_OPTIONS = [
+    { value: 'terms', label: '利用規約' },
+    { value: 'privacy', label: 'プライバシーポリシー' },
+    { value: 'commerce', label: '特定商取引法に基づく表記' },
+] as const;
+
 function normalizePublishedFilter(value: string | null): PublishedFilter {
     if (value === '1' || value === '0') {
         return value;
@@ -54,16 +60,7 @@ function toInputDateTime(value: string | null): string {
 }
 
 function documentTypeLabel(value: string): string {
-    switch (value) {
-        case 'terms':
-            return '利用規約';
-        case 'privacy':
-            return 'プライバシーポリシー';
-        case 'commerce':
-            return '特商法表示';
-        default:
-            return value;
-    }
+    return LEGAL_DOCUMENT_TYPE_OPTIONS.find((option) => option.value === value)?.label ?? value;
 }
 
 export function AdminLegalDocumentsPage() {
@@ -73,7 +70,6 @@ export function AdminLegalDocumentsPage() {
     const [pageError, setPageError] = useState<string | null>(null);
     const [actionError, setActionError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
-    const [documentTypeInput, setDocumentTypeInput] = useState(searchParams.get('document_type') ?? '');
     const [createDocumentType, setCreateDocumentType] = useState('terms');
     const [createVersion, setCreateVersion] = useState('');
     const [createTitle, setCreateTitle] = useState('');
@@ -273,7 +269,7 @@ export function AdminLegalDocumentsPage() {
             <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_16px_34px_rgba(2,6,23,0.14)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">LEGAL DOCUMENT OPERATIONS</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">法務文書</p>
                         <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">法務文書管理</h2>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
                             規約、ポリシー、特商法文書のドラフト作成と公開履歴の確認をまとめて行えます。
@@ -302,10 +298,10 @@ export function AdminLegalDocumentsPage() {
             <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-5">
                 {[
                     { label: '総件数', value: summary.total, hint: '現在の表示対象' },
-                    { label: '公開中', value: summary.published, hint: 'published_at あり' },
+                    { label: '公開中', value: summary.published, hint: '現在公開されている文書' },
                     { label: 'ドラフト', value: summary.drafts, hint: '未公開の下書き' },
-                    { label: '承諾件数', value: summary.accepted, hint: 'acceptances_count 合計' },
-                    { label: '文書タイプ数', value: summary.uniqueTypes, hint: '種類の把握' },
+                    { label: '承諾件数', value: summary.accepted, hint: '同意済み件数の合計' },
+                    { label: '文書タイプ数', value: summary.uniqueTypes, hint: '扱っている文書の種類' },
                 ].map((item) => (
                     <article key={item.label} className="rounded-[24px] border border-white/10 bg-white/[0.04] p-5">
                         <p className="text-xs font-semibold tracking-wide text-[#d2b179]">{item.label}</p>
@@ -319,13 +315,16 @@ export function AdminLegalDocumentsPage() {
                 <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                     <label className="space-y-2">
                         <span className="text-sm font-semibold text-[#17202b]">文書タイプ</span>
-                        <input
-                            value={documentTypeInput}
-                            onChange={(event) => setDocumentTypeInput(event.target.value)}
-                            onBlur={() => updateFilters({ document_type: documentTypeInput.trim() || null, selected: null })}
-                            placeholder="terms / privacy / commerce"
+                        <select
+                            value={documentType || 'all'}
+                            onChange={(event) => updateFilters({ document_type: event.target.value === 'all' ? null : event.target.value, selected: null })}
                             className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition placeholder:text-[#9aa3ad] focus:border-[#b5894d]"
-                        />
+                        >
+                            <option value="all">すべて</option>
+                            {LEGAL_DOCUMENT_TYPE_OPTIONS.map((option) => (
+                                <option key={option.value} value={option.value}>{option.label}</option>
+                            ))}
+                        </select>
                     </label>
 
                     <label className="space-y-2">
@@ -409,11 +408,15 @@ export function AdminLegalDocumentsPage() {
                             <div className="grid gap-4 md:grid-cols-2">
                                 <label className="space-y-2">
                                     <span className="text-sm font-semibold text-[#17202b]">文書タイプ</span>
-                                    <input
+                                    <select
                                         value={createDocumentType}
                                         onChange={(event) => setCreateDocumentType(event.target.value)}
                                         className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d]"
-                                    />
+                                    >
+                                        {LEGAL_DOCUMENT_TYPE_OPTIONS.map((option) => (
+                                            <option key={option.value} value={option.value}>{option.label}</option>
+                                        ))}
+                                    </select>
                                 </label>
 
                                 <label className="space-y-2">
@@ -483,7 +486,7 @@ export function AdminLegalDocumentsPage() {
                     {selectedDocument ? (
                         <div className="space-y-6">
                             <div className="border-b border-[#ece3d4] pb-5">
-                                <p className="text-xs font-semibold tracking-wide text-[#b5894d]">LEGAL DOCUMENT DETAIL</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#b5894d]">文書詳細</p>
                                 <h3 className="mt-2 text-2xl font-semibold text-[#17202b]">{selectedDocument.title}</h3>
                                 <p className="mt-2 text-sm text-[#68707a]">{documentTypeLabel(selectedDocument.document_type)} / {selectedDocument.version}</p>
                                 <p className="mt-1 text-xs text-[#7d6852]">作成 {formatDateTime(selectedDocument.created_at)}</p>

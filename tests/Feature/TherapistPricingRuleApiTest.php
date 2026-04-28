@@ -172,6 +172,13 @@ class TherapistPricingRuleApiTest extends TestCase
         [$therapist, $profile, $menu] = $this->createTherapistFixture('quote');
 
         $user = Account::factory()->create(['public_id' => 'acc_pricing_user']);
+        IdentityVerification::create([
+            'account_id' => $user->id,
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'is_age_verified' => true,
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now(),
+        ]);
         UserProfile::create([
             'account_id' => $user->id,
             'profile_status' => UserProfile::STATUS_ACTIVE,
@@ -255,6 +262,13 @@ class TherapistPricingRuleApiTest extends TestCase
         [$therapist, $profile, $menu] = $this->createTherapistFixture('context');
 
         $user = Account::factory()->create(['public_id' => 'acc_pricing_context_user']);
+        IdentityVerification::create([
+            'account_id' => $user->id,
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'is_age_verified' => true,
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now(),
+        ]);
         $serviceAddress = ServiceAddress::create([
             'public_id' => 'addr_pricing_context_user',
             'account_id' => $user->id,
@@ -348,13 +362,13 @@ class TherapistPricingRuleApiTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('data.amounts.base_amount', 12000)
-            ->assertJsonPath('data.amounts.travel_fee_amount', 1000)
+            ->assertJsonPath('data.amounts.travel_fee_amount', 0)
             ->assertJsonPath('data.amounts.demand_fee_amount', 2400)
             ->assertJsonPath('data.amounts.profile_adjustment_amount', 0)
-            ->assertJsonPath('data.amounts.platform_fee_amount', 1540)
-            ->assertJsonPath('data.amounts.therapist_net_amount', 13860)
-            ->assertJsonPath('data.amounts.total_amount', 15700)
-            ->assertJsonPath('data.walking_time_range', TherapistPricingRule::WALKING_TIME_RANGE_WITHIN_60);
+            ->assertJsonPath('data.amounts.platform_fee_amount', 1440)
+            ->assertJsonPath('data.amounts.therapist_net_amount', 12960)
+            ->assertJsonPath('data.amounts.total_amount', 14700)
+            ->assertJsonPath('data.walking_time_range', 'within_45_min');
 
         $quote = BookingQuote::query()->latest('id')->firstOrFail();
 
@@ -363,7 +377,7 @@ class TherapistPricingRuleApiTest extends TestCase
         $this->assertCount(3, $quote->applied_rules_json['pricing_rules'] ?? []);
         $this->assertSame(22, $quote->input_snapshot_json['pricing_rule_context']['requested_hour'] ?? null);
         $this->assertSame(
-            TherapistPricingRule::WALKING_TIME_RANGE_WITHIN_60,
+            'within_45_min',
             $quote->input_snapshot_json['pricing_rule_context']['walking_time_range'] ?? null
         );
         $this->assertSame(

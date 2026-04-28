@@ -238,11 +238,65 @@ class TherapistPricingRuleEvaluator
             ];
         }
 
+        if ($contextKey === 'walking_time_range') {
+            return [
+                'matched' => $this->matchesWalkingTimeRange($rule, $actualValue),
+                'actual_value' => $actualValue,
+                'snapshot_key' => $contextKey,
+            ];
+        }
+
         return [
             'matched' => $this->matches($rule, $actualValue),
             'actual_value' => $actualValue,
             'snapshot_key' => $contextKey,
         ];
+    }
+
+    private function matchesWalkingTimeRange(TherapistPricingRule $rule, string $actualValue): bool
+    {
+        $condition = $rule->condition_json ?? [];
+        $operator = $condition['operator'] ?? null;
+
+        if (! is_string($operator)) {
+            return false;
+        }
+
+        $evaluate = function (string $expectedValue) use ($actualValue): bool {
+            if ($expectedValue === TherapistPricingRule::WALKING_TIME_RANGE_OUTSIDE) {
+                return $actualValue === TherapistPricingRule::WALKING_TIME_RANGE_OUTSIDE;
+            }
+
+            if ($actualValue === TherapistPricingRule::WALKING_TIME_RANGE_OUTSIDE) {
+                return false;
+            }
+
+            $expectedMinutes = $this->walkingTimeRangeMinutes($expectedValue);
+            $actualMinutes = $this->walkingTimeRangeMinutes($actualValue);
+
+            if ($expectedMinutes === null || $actualMinutes === null) {
+                return false;
+            }
+
+            return $actualMinutes <= $expectedMinutes;
+        };
+
+        return match ($operator) {
+            TherapistPricingRule::OPERATOR_EQUALS => is_string($condition['value'] ?? null) && $evaluate($condition['value']),
+            TherapistPricingRule::OPERATOR_NOT_EQUALS => is_string($condition['value'] ?? null) && ! $evaluate($condition['value']),
+            TherapistPricingRule::OPERATOR_IN => collect($condition['values'] ?? [])->filter(fn ($value) => is_string($value))->contains(fn ($value) => $evaluate($value)),
+            TherapistPricingRule::OPERATOR_NOT_IN => ! collect($condition['values'] ?? [])->filter(fn ($value) => is_string($value))->contains(fn ($value) => $evaluate($value)),
+            default => false,
+        };
+    }
+
+    private function walkingTimeRangeMinutes(string $value): ?int
+    {
+        if (preg_match('/^within_(\d+)_min$/', $value, $matches) !== 1) {
+            return null;
+        }
+
+        return (int) $matches[1];
     }
 
     private function rawAdjustmentAmount(TherapistPricingRule $rule, int $baseAmount): int
