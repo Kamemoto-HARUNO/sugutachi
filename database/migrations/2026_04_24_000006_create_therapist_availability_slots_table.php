@@ -12,8 +12,8 @@ return new class extends Migration
             $table->id();
             $table->string('public_id', 36)->unique();
             $table->foreignId('therapist_profile_id')->constrained('therapist_profiles')->cascadeOnDelete();
-            $table->timestamp('start_at');
-            $table->timestamp('end_at');
+            $table->dateTime('start_at');
+            $table->dateTime('end_at');
             $table->string('status', 50)->default('published');
             $table->string('dispatch_base_type', 50)->default('default');
             $table->string('dispatch_area_label', 120)->nullable();
