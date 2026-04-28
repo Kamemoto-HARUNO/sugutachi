@@ -21,6 +21,12 @@ import type {
     BookingRefundRecord,
 } from '../lib/types';
 
+interface BookingAmountLine {
+    label: string;
+    amount: number;
+    note?: string | null;
+}
+
 interface BookingCancellationPreview {
     cancel_fee_amount: number;
     refund_amount: number;
@@ -170,6 +176,51 @@ function therapistRewardFormulaLabel(
     const durationLabel = booking.actual_duration_minutes != null ? `実働${minutes}分` : `予約${minutes}分`;
 
     return `時間単価${formatCurrency(hourlyRateAmount)} × ${durationLabel}`;
+}
+
+function bookingChargeLines(booking: BookingDetailRecord): BookingAmountLine[] {
+    const quoteAmounts = booking.current_quote?.amounts;
+    const matchingFeeAmount = booking.settlement_matching_fee_amount ?? booking.matching_fee_amount ?? 0;
+    const platformFeeAmount = booking.settlement_platform_fee_amount ?? booking.platform_fee_amount ?? 0;
+    const travelFeeAmount = quoteAmounts?.travel_fee_amount ?? 0;
+    const nightFeeAmount = quoteAmounts?.night_fee_amount ?? 0;
+    const demandFeeAmount = quoteAmounts?.demand_fee_amount ?? 0;
+    const profileAdjustmentAmount = quoteAmounts?.profile_adjustment_amount ?? 0;
+    const totalAmount = booking.settlement_total_amount ?? booking.total_amount ?? 0;
+    const baseAmount = Math.max(
+        0,
+        totalAmount
+            - matchingFeeAmount
+            - travelFeeAmount
+            - nightFeeAmount
+            - demandFeeAmount
+            - profileAdjustmentAmount,
+    );
+
+    const lines: BookingAmountLine[] = [
+        {
+            label: 'タチキャスト謝礼',
+            amount: baseAmount,
+            note: therapistRewardFormulaLabel(booking),
+        },
+        { label: '移動費', amount: travelFeeAmount },
+        { label: '深夜料金', amount: nightFeeAmount },
+        { label: '需要加算', amount: demandFeeAmount },
+    ];
+
+    if (profileAdjustmentAmount !== 0) {
+        lines.push({
+            label: profileAdjustmentAmount > 0 ? 'プロフィール加算' : 'プロフィール調整',
+            amount: profileAdjustmentAmount,
+        });
+    }
+
+    lines.push({
+        label: 'プラットフォーム料金',
+        amount: -platformFeeAmount,
+    });
+
+    return lines;
 }
 
 function legacyAuthorizationNotice(
@@ -653,6 +704,7 @@ export function TherapistBookingDetailPage() {
     );
     const nextAction = booking ? nextStageAction(booking) : null;
     const canEditCompletionWindow = booking ? canManageCompletionWindow(booking.status) : false;
+    const chargeLines = useMemo(() => (booking ? bookingChargeLines(booking) : []), [booking]);
     const completionWindowBounds = useMemo(() => {
         if (!booking || !canManageCompletionWindow(booking.status)) {
             return null;
@@ -1151,22 +1203,22 @@ export function TherapistBookingDetailPage() {
                                         </p>
                                     </div>
                                     <div className="space-y-2 text-sm text-[#48505a]">
-                                        <div className="flex items-center justify-between gap-4">
-                                            <div>
-                                                <span>タチキャスト謝礼</span>
-                                                {therapistRewardFormulaLabel(booking) ? (
-                                                    <p className="mt-1 text-xs text-[#68707a]">（{therapistRewardFormulaLabel(booking)}）</p>
-                                                ) : null}
-                                                {legacyAuthorizationNotice(booking) ? (
-                                                    <p className="mt-1 text-xs text-[#9a4b35]">{legacyAuthorizationNotice(booking)}</p>
-                                                ) : null}
+                                        {chargeLines.map((line) => (
+                                            <div key={line.label} className="flex items-center justify-between gap-4">
+                                                <div>
+                                                    <span>{line.label}</span>
+                                                    {line.note ? (
+                                                        <p className="mt-1 text-xs text-[#68707a]">（{line.note}）</p>
+                                                    ) : null}
+                                                </div>
+                                                <span className={`font-semibold ${line.amount < 0 ? 'text-[#9a4b35]' : 'text-[#17202b]'}`}>
+                                                    {line.amount < 0 ? formatNegativeCurrency(Math.abs(line.amount)) : formatCurrency(line.amount)}
+                                                </span>
                                             </div>
-                                            <span className="font-semibold text-[#17202b]">{formatCurrency(therapistRewardAmount(booking))}</span>
-                                        </div>
-                                        <div className="flex items-center justify-between gap-4">
-                                            <span>プラットフォーム料金</span>
-                                            <span className="font-semibold text-[#9a4b35]">{formatNegativeCurrency(booking.platform_fee_amount)}</span>
-                                        </div>
+                                        ))}
+                                        {legacyAuthorizationNotice(booking) ? (
+                                            <p className="text-xs text-[#9a4b35]">{legacyAuthorizationNotice(booking)}</p>
+                                        ) : null}
                                     </div>
                                 </div>
                             </div>
