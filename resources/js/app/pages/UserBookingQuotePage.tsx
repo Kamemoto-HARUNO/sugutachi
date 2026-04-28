@@ -713,12 +713,6 @@ export function UserBookingQuotePage() {
                                     {formatExpiresAt(quote?.expires_at ?? null)}
                                 </p>
                             </div>
-                            {booking ? (
-                                <div>
-                                    <p className="text-xs font-semibold text-[#7d6852]">予約ID</p>
-                                    <p className="mt-1 font-semibold text-[#17202b]">{booking.public_id}</p>
-                                </div>
-                            ) : null}
                         </div>
 
                         <div className="mt-6 space-y-3">

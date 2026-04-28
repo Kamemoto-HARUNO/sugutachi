@@ -464,11 +464,6 @@ export function TherapistTravelRequestsPage() {
                                         </p>
                                     </div>
                                 </div>
-
-                                <div className="rounded-2xl border border-white/10 bg-[#17202b] px-4 py-3 text-right">
-                                    <p className="text-xs font-semibold tracking-wide text-slate-400">受信番号</p>
-                                    <p className="mt-2 font-mono text-xs text-white">{selectedRequest.public_id}</p>
-                                </div>
                             </div>
 
                             <div className="grid gap-4 md:grid-cols-2">

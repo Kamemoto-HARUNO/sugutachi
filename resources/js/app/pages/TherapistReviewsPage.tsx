@@ -375,9 +375,6 @@ export function TherapistReviewsPage() {
                                                 {review.public_comment?.trim() ? 'コメントあり' : '評価のみ'}
                                             </span>
                                             <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold whitespace-nowrap text-slate-300">
-                                                予約ID {review.booking_public_id ?? '-'}
-                                            </span>
-                                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold whitespace-nowrap text-slate-300">
                                                 {formatDateTime(review.created_at)}
                                             </span>
                                         </div>

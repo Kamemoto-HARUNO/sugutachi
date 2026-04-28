@@ -349,7 +349,7 @@ export function AccountProfilePage() {
                                 <p className="text-xs font-semibold tracking-wide text-[#f3dec0]">ログイン設定</p>
                                 <h2 className="text-2xl font-semibold text-white">メールアドレスを変更</h2>
                                 <p className="text-sm leading-7 text-slate-300">
-                                    次回からのログインに使うメールアドレスを更新します。変更時は現在のパスワード確認が必要です。
+                                    次回からのログインに使うメールアドレスを更新します。安全のため、現在のパスワードを確認してから変更用の案内を送信します。
                                 </p>
                             </div>
 

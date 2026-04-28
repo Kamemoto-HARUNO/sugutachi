@@ -388,8 +388,6 @@ export function TherapistBalancePage() {
                                                     <span className={`rounded-full px-3 py-1 text-xs font-semibold ${payoutStatusTone(request.status)}`}>
                                                         {payoutStatusLabel(request.status)}
                                                     </span>
-                                                    <span className="text-xs text-[#68707a]">申請番号</span>
-                                                    <span className="font-mono text-xs text-[#68707a]">{request.public_id}</span>
                                                 </div>
                                                 <p className="text-lg font-semibold text-[#17202b]">{formatCurrency(request.net_amount)}</p>
                                                 <p className="text-sm text-[#68707a]">

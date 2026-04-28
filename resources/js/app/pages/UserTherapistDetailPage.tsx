@@ -907,7 +907,7 @@ export function UserTherapistDetailPage() {
                             <section className="rounded-[32px] bg-[#fffcf7] p-6 shadow-[0_10px_24px_rgba(23,32,43,0.08)] lg:sticky lg:top-6">
                                 <div className="space-y-5">
                                     <div>
-                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">BOOKING CONTEXT</p>
+                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予約条件</p>
                                         <h2 className="mt-1 text-2xl font-semibold text-[#17202b]">この条件で予約を考える</h2>
                                     </div>
 
@@ -1031,7 +1031,7 @@ export function UserTherapistDetailPage() {
                                                                         </p>
                                                                     </div>
                                                                     {selectedMenu?.public_id === menu.public_id ? (
-                                                                        <span className="rounded-full bg-[#17202b] px-3 py-1 text-[11px] font-semibold text-white">
+                                                                        <span className="inline-flex shrink-0 whitespace-nowrap rounded-full bg-[#17202b] px-3 py-1 text-[11px] font-semibold text-white">
                                                                             選択中
                                                                         </span>
                                                                     ) : null}
