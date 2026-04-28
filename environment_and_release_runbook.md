@@ -213,6 +213,8 @@ Node と Composer が本番サーバで十分動くなら、
 - デプロイは当面手動でもよい
 - ただし build は将来的に GitHub Actions へ寄せる前提で設計する
 - AI エージェントとの相性を考えると、`サーバで build しない` 方向が最終的には一番安定する
+- Xserver 共有環境では `node` が入っておらず、`composer` も 1 系のため、当面は `ローカルで build / vendor を用意して rsync` するのが現実的
+- 初回配置と手動デプロイには `scripts/deploy_xserver_env.sh` を使う
 
 ## 7. デプロイ手順
 
@@ -247,7 +249,7 @@ Node と Composer が本番サーバで十分動くなら、
 * * * * * php /path/to/artisan schedule:run >> /dev/null 2>&1
 ```
 
-今回の確認では、Xserver 共有環境で Laravel 用に使う CLI は `/usr/bin/php8.3` を前提にするのが安全です。また、推奨配置先は次のとおりです。
+今回の確認では、Xserver 共有環境で Laravel 用に使う CLI は `/usr/bin/php8.5` を前提にするのが安全です。また、推奨配置先は次のとおりです。
 
 - 本番アプリ: `/home/hnice2204/sugutachi.com/app-production`
 - 開発アプリ: `/home/hnice2204/sugutachi.com/app-staging`
@@ -256,9 +258,16 @@ Node と Composer が本番サーバで十分動くなら、
 cron は次の形を基準にします。
 
 ```cron
-* * * * * /usr/bin/php8.3 /home/hnice2204/sugutachi.com/app-production/artisan schedule:run >> /home/hnice2204/sugutachi.com/app-production/storage/logs/schedule.log 2>&1
-* * * * * /usr/bin/php8.3 /home/hnice2204/sugutachi.com/app-staging/artisan schedule:run >> /home/hnice2204/sugutachi.com/app-staging/storage/logs/schedule.log 2>&1
+* * * * * /usr/bin/php8.5 /home/hnice2204/sugutachi.com/app-production/artisan schedule:run >> /home/hnice2204/sugutachi.com/app-production/storage/logs/schedule.log 2>&1
+* * * * * /usr/bin/php8.5 /home/hnice2204/sugutachi.com/app-staging/artisan schedule:run >> /home/hnice2204/sugutachi.com/app-staging/storage/logs/schedule.log 2>&1
 ```
+
+### Xserver サーバーパネルで別途必要なこと
+
+- `sugutachi.com`
+- `dev.sugutachi.com`
+
+の両方で、Web 実行 PHP バージョンを `PHP 8.5` に設定する。CLI の `php` 既定値は 5.4 系のため、cron や artisan 実行では明示的に `/usr/bin/php8.5` を使う。
 
 現在 scheduler で動いている主な処理:
 
