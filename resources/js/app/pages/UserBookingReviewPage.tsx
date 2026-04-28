@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { Link, useLocation, useParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -57,6 +57,8 @@ function statusLabel(status: string): string {
             return status;
     }
 }
+
+export const TherapistBookingReviewPage = UserBookingReviewPage;
 
 function statusTone(status: string): string {
     switch (status) {
@@ -153,7 +155,9 @@ function RatingField({
 
 export function UserBookingReviewPage() {
     const { publicId } = useParams();
+    const location = useLocation();
     const { account, token } = useAuth();
+    const actorRole = location.pathname.startsWith('/therapist/') ? 'therapist' : 'user';
     const [booking, setBooking] = useState<BookingDetailRecord | null>(null);
     const [existingReview, setExistingReview] = useState<ReviewSummary | null>(null);
     const [ratingOverall, setRatingOverall] = useState<OptionalRating>(5);
@@ -171,7 +175,9 @@ export function UserBookingReviewPage() {
 
     usePageTitle(
         booking
-            ? `${booking.therapist_profile?.public_name ?? booking.counterparty?.display_name ?? '予約'}のレビュー`
+            ? `${actorRole === 'user'
+                ? booking.therapist_profile?.public_name ?? booking.counterparty?.display_name ?? '予約'
+                : booking.counterparty?.display_name ?? '予約'}のレビュー`
             : 'レビュー投稿',
     );
 
@@ -199,7 +205,7 @@ export function UserBookingReviewPage() {
             const myReview = reviews.find((review) => (
                 review.booking_public_id === publicId
                 && review.reviewer_account_id === account?.public_id
-                && review.reviewer_role === 'user'
+                && review.reviewer_role === actorRole
             )) ?? null;
 
             setBooking(nextBooking);
@@ -224,14 +230,26 @@ export function UserBookingReviewPage() {
         } finally {
             setIsLoading(false);
         }
-    }, [account?.public_id, publicId, token]);
+    }, [account?.public_id, actorRole, publicId, token]);
 
     useEffect(() => {
         void loadData();
     }, [loadData]);
 
     const isReviewable = booking ? reviewableStatuses.has(booking.status) : false;
-    const counterpartyName = booking?.therapist_profile?.public_name ?? booking?.counterparty?.display_name ?? '相手を確認中';
+    const counterpartyName = actorRole === 'user'
+        ? booking?.therapist_profile?.public_name ?? booking?.counterparty?.display_name ?? '相手を確認中'
+        : booking?.counterparty?.display_name ?? '相手を確認中';
+    const bookingDetailPath = actorRole === 'therapist'
+        ? `/therapist/bookings/${publicId ?? ''}`
+        : `/user/bookings/${publicId ?? ''}`;
+    const bookingListPath = actorRole === 'therapist' ? '/therapist/bookings' : '/user/bookings';
+    const messagePath = actorRole === 'therapist'
+        ? `/therapist/bookings/${publicId ?? ''}/messages`
+        : `/user/bookings/${publicId ?? ''}/messages`;
+    const reportPath = actorRole === 'therapist'
+        ? `/therapist/bookings/${publicId ?? ''}/report`
+        : `/user/bookings/${publicId ?? ''}/report`;
 
     const readinessMessage = useMemo(() => {
         if (existingReview) {
@@ -243,9 +261,13 @@ export function UserBookingReviewPage() {
         }
 
         if (isReviewable) {
-            return booking.status === 'therapist_completed'
-                ? 'レビューを送ると、この予約はそのまま完了になります。'
-                : '利用後の感想を共有して、今後の利用者の判断材料にできます。';
+            if (actorRole === 'user' && booking.status === 'therapist_completed') {
+                return 'レビューを送ると、この予約はそのまま完了になります。';
+            }
+
+            return actorRole === 'user'
+                ? '利用後の感想を共有して、今後の利用者の判断材料にできます。'
+                : '利用者とのやり取りや対応の印象を記録できます。必要に応じて運営向けメモも残せます。';
         }
 
         return 'レビューは対応終了後に送信できます。完了確認前はまだ投稿できません。';
@@ -258,7 +280,7 @@ export function UserBookingReviewPage() {
             return;
         }
 
-        const shouldCompleteBooking = booking?.status === 'therapist_completed';
+        const shouldCompleteBooking = actorRole === 'user' && booking?.status === 'therapist_completed';
 
         setIsSubmitting(true);
         setFormError(null);
@@ -308,7 +330,7 @@ export function UserBookingReviewPage() {
                     {pageError ?? 'レビュー画面を表示できませんでした。'}
                 </section>
                 <Link
-                    to="/user/bookings"
+                    to={bookingListPath}
                     className="inline-flex items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/6"
                 >
                     予約一覧へ戻る
@@ -344,13 +366,13 @@ export function UserBookingReviewPage() {
 
                     <div className="flex flex-wrap gap-3">
                         <Link
-                            to={`/user/bookings/${booking.public_id}`}
+                            to={bookingDetailPath}
                             className="inline-flex items-center rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8"
                         >
                             予約詳細へ戻る
                         </Link>
                         <Link
-                            to="/user/bookings"
+                            to={bookingListPath}
                             className="inline-flex items-center rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8"
                         >
                             予約一覧へ戻る
@@ -370,7 +392,7 @@ export function UserBookingReviewPage() {
                 <section className="space-y-5">
                     <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                         <div className="space-y-2">
-                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">REVIEW READINESS</p>
+                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">投稿状態</p>
                             <h2 className="text-2xl font-semibold text-[#17202b]">投稿状態</h2>
                             <p className="text-sm leading-7 text-[#68707a]">
                                 {readinessMessage}
@@ -380,7 +402,7 @@ export function UserBookingReviewPage() {
 
                     {existingReview ? (
                         <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">SUBMITTED REVIEW</p>
+                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">送信済みレビュー</p>
                             <div className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                                 {[
                                     ['総合', existingReview.rating_overall],
@@ -399,7 +421,7 @@ export function UserBookingReviewPage() {
                             </div>
 
                             <div className="mt-5 rounded-[20px] border border-[#ebe2d3] px-4 py-4">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">公開コメント</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">コメント</p>
                                 <p className="mt-2 text-sm leading-7 text-[#48505a]">
                                     {existingReview.public_comment ?? '公開コメントはありません。'}
                                 </p>
@@ -412,10 +434,10 @@ export function UserBookingReviewPage() {
                             className="space-y-5 rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]"
                         >
                             <div className="space-y-2">
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">REVIEW FORM</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">レビュー入力</p>
                                 <h2 className="text-2xl font-semibold text-[#17202b]">レビューを送る</h2>
                                 <p className="text-sm leading-7 text-[#68707a]">
-                                    公開コメントは他の利用者にも見える前提で、落ち着いた表現で記入します。
+                                    コメントは相手や運営が確認する前提で、落ち着いた表現で記入します。
                                 </p>
                             </div>
 
@@ -434,14 +456,14 @@ export function UserBookingReviewPage() {
                             </div>
 
                             <label className="block space-y-2">
-                                <span className="text-sm font-semibold text-[#17202b]">公開コメント</span>
+                                <span className="text-sm font-semibold text-[#17202b]">コメント</span>
                                 <textarea
                                     value={publicComment}
                                     onChange={(event) => setPublicComment(event.target.value)}
                                     rows={5}
                                     maxLength={500}
                                     className="w-full rounded-[20px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 text-sm leading-7 text-[#17202b] outline-none transition focus:border-[#c6a16a]"
-                                    placeholder="待ち合わせのしやすさや安心感など、次の利用者の参考になる内容を記入"
+                                    placeholder={actorRole === 'user' ? '待ち合わせのしやすさや安心感など、次の利用者の参考になる内容を記入' : 'やり取りのしやすさや安心感など、相手へ伝わる内容を記入'}
                                 />
                                 <div className="text-right text-xs text-[#7a7066]">{publicComment.length}/500</div>
                             </label>
@@ -470,7 +492,7 @@ export function UserBookingReviewPage() {
                                 disabled={isSubmitting || !isReviewable || !ratingOverall}
                                 className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                {isSubmitting ? '送信中...' : booking.status === 'therapist_completed' ? 'レビューを送信して完了する' : 'レビューを送信する'}
+                                {isSubmitting ? '送信中...' : actorRole === 'user' && booking.status === 'therapist_completed' ? 'レビューを送信して完了する' : 'レビューを送信する'}
                             </button>
                         </form>
                     )}
@@ -478,7 +500,7 @@ export function UserBookingReviewPage() {
 
                 <aside className="space-y-5">
                     <section className="rounded-[28px] bg-[#fffcf7] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.1)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">BOOKING CONTEXT</p>
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予約情報</p>
                         <div className="mt-4 space-y-4 text-sm text-[#48505a]">
                             <div>
                                 <p className="text-xs font-semibold text-[#7d6852]">予約日時</p>
@@ -498,13 +520,13 @@ export function UserBookingReviewPage() {
 
                         <div className="mt-6 space-y-3">
                             <Link
-                                to={`/user/bookings/${booking.public_id}/messages`}
+                                to={messagePath}
                                 className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
                             >
                                 メッセージを見る
                             </Link>
                             <Link
-                                to={`/user/bookings/${booking.public_id}/report`}
+                                to={reportPath}
                                 className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
                             >
                                 通報する

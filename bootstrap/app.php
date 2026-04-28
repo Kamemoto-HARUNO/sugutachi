@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('ledger:release-available')->everyFifteenMinutes();
         $schedule->command('bookings:expire-pending-requests')->everyMinute();
         $schedule->command('bookings:follow-up-completion-confirmations')->everyFifteenMinutes();
+        $schedule->command('identity-verifications:purge-files')->dailyAt('03:30');
     })
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->statefulApi();

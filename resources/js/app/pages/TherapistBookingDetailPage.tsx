@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
-import { canOpenBookingNoShowFlow } from '../lib/bookingTrouble';
+import { canOpenBookingInterruptFlow, canOpenBookingNoShowFlow } from '../lib/bookingTrouble';
 import {
     formatJstDateTime,
     formatJstDateTimeLocalValue,
@@ -645,6 +645,10 @@ export function TherapistBookingDetailPage() {
     );
     const canOpenNoShowFlow = useMemo(
         () => (booking ? canOpenBookingNoShowFlow(booking, 'therapist') : false),
+        [booking],
+    );
+    const canOpenInterruptFlow = useMemo(
+        () => (booking ? canOpenBookingInterruptFlow(booking) : false),
         [booking],
     );
     const nextAction = booking ? nextStageAction(booking) : null;
@@ -1314,6 +1318,26 @@ export function TherapistBookingDetailPage() {
                         </div>
 
                         <div className="mt-6 space-y-3">
+                            <div className="rounded-[20px] border border-[#f0d6a4] bg-[#fff7e8] px-4 py-4 text-sm text-[#48505a]">
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">緊急時の連絡先</p>
+                                <p className="mt-2 leading-7">
+                                    身の危険や体調急変がある場合は、アプリ内通報よりも先に警察・救急へ連絡してください。
+                                </p>
+                                <div className="mt-3 flex flex-wrap gap-2">
+                                    <a
+                                        href="tel:110"
+                                        className="inline-flex items-center rounded-full bg-[#17202b] px-4 py-2 text-xs font-semibold text-white transition hover:bg-[#243140]"
+                                    >
+                                        警察 110
+                                    </a>
+                                    <a
+                                        href="tel:119"
+                                        className="inline-flex items-center rounded-full border border-[#d9c9ae] bg-white px-4 py-2 text-xs font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
+                                    >
+                                        救急 119
+                                    </a>
+                                </div>
+                            </div>
                             {pendingTherapistNoShowReport ? (
                                 <div className="rounded-[20px] border border-[#ead8b8] bg-[#fff9ef] px-4 py-4 text-sm text-[#48505a]">
                                     <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">未着申告の確認待ち</p>
@@ -1326,6 +1350,14 @@ export function TherapistBookingDetailPage() {
                                         </p>
                                     ) : null}
                                 </div>
+                            ) : null}
+                            {canOpenInterruptFlow ? (
+                                <Link
+                                    to={`/therapist/bookings/${booking.public_id}/interrupt`}
+                                    className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
+                                >
+                                    対応を中断する
+                                </Link>
                             ) : null}
                             {canOpenNoShowFlow ? (
                                 <Link
@@ -1340,6 +1372,20 @@ export function TherapistBookingDetailPage() {
                                 className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105"
                             >
                                 メッセージを見る
+                            </Link>
+                            {(booking.status === 'therapist_completed' || booking.status === 'completed') ? (
+                                <Link
+                                    to={`/therapist/bookings/${booking.public_id}/review`}
+                                    className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
+                                >
+                                    利用者をレビューする
+                                </Link>
+                            ) : null}
+                            <Link
+                                to={`/therapist/bookings/${booking.public_id}/report`}
+                                className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
+                            >
+                                通報する
                             </Link>
                             <Link
                                 to="/therapist/bookings"

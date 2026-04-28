@@ -69,14 +69,14 @@ class ReviewController extends Controller
         BookingCompletionService $bookingCompletionService,
     ): JsonResponse
     {
-        abort_unless(in_array($booking->status, self::REVIEWABLE_STATUSES, true), 409, 'This booking is not reviewable yet.');
+        abort_unless(in_array($booking->status, self::REVIEWABLE_STATUSES, true), 409, 'この予約は、まだレビューを送信できる状態ではありません。');
 
         $actor = $request->user();
         [$reviewerRole, $revieweeId] = $this->reviewContext($booking, $actor);
         abort_if(
             $booking->reviews()->where('reviewer_account_id', $actor->id)->exists(),
             409,
-            'You have already reviewed this booking.'
+            'この予約のレビューはすでに送信済みです。'
         );
 
         $validated = $request->validate([

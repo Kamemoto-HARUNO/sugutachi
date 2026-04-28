@@ -1,9 +1,12 @@
 <?php
 
 use App\Models\TherapistLedgerEntry;
+use App\Models\IdentityVerification;
 use App\Services\Bookings\BookingCompletionFollowupService;
 use App\Services\Bookings\BookingRequestExpirationService;
 use App\Services\Legal\DefaultLegalDocumentService;
+use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Console\Command;
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
@@ -50,3 +53,43 @@ Artisan::command('legal-documents:sync-default-drafts', function (DefaultLegalDo
 
     return Command::SUCCESS;
 })->purpose('Create or update default draft legal document templates from current service settings');
+
+Artisan::command('identity-verifications:purge-files', function (): int {
+    $purged = 0;
+
+    IdentityVerification::query()
+        ->whereNotNull('purge_after')
+        ->where('purge_after', '<=', now())
+        ->where(function ($query): void {
+            $query
+                ->whereNotNull('document_storage_key_encrypted')
+                ->orWhereNotNull('selfie_storage_key_encrypted');
+        })
+        ->orderBy('id')
+        ->chunkById(100, function ($verifications) use (&$purged): void {
+            foreach ($verifications as $verification) {
+                foreach (['document_storage_key_encrypted', 'selfie_storage_key_encrypted'] as $attribute) {
+                    $encryptedPath = $verification->{$attribute};
+
+                    if (! is_string($encryptedPath) || $encryptedPath === '') {
+                        continue;
+                    }
+
+                    $path = rescue(fn () => Crypt::decryptString($encryptedPath), null, false);
+
+                    if (is_string($path) && $path !== '') {
+                        Storage::disk('local')->delete($path);
+                    }
+
+                    $verification->{$attribute} = null;
+                }
+
+                $verification->save();
+                $purged++;
+            }
+        });
+
+    $this->info("Purged identity verification files for {$purged} records.");
+
+    return Command::SUCCESS;
+})->purpose('Delete expired identity verification document and selfie files');

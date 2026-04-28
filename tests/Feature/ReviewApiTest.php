@@ -78,6 +78,41 @@ class ReviewApiTest extends TestCase
         $this->assertSame(1, $therapistProfile->review_count);
     }
 
+    public function test_therapist_can_review_completed_booking_without_changing_completion_state(): void
+    {
+        [$user, $therapist, $booking, $therapistProfile] = $this->createReviewFixture(Booking::STATUS_COMPLETED);
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/reviews", [
+                'rating_overall' => 4,
+                'rating_manners' => 4,
+                'public_comment' => '当日のやり取りは落ち着いて進められました。',
+                'private_feedback' => '待ち合わせ場所の確認に少し時間がかかりました。',
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.booking_public_id', $booking->public_id)
+            ->assertJsonPath('data.reviewer_account_id', $therapist->public_id)
+            ->assertJsonPath('data.reviewee_account_id', $user->public_id)
+            ->assertJsonPath('data.reviewer_role', 'therapist')
+            ->assertJsonPath('data.rating_overall', 4);
+
+        $this->assertDatabaseHas('reviews', [
+            'booking_id' => $booking->id,
+            'reviewer_account_id' => $therapist->id,
+            'reviewee_account_id' => $user->id,
+            'reviewer_role' => 'therapist',
+            'status' => Review::STATUS_VISIBLE,
+        ]);
+
+        $this->assertDatabaseHas('bookings', [
+            'id' => $booking->id,
+            'status' => Booking::STATUS_COMPLETED,
+        ]);
+
+        $therapistProfile->refresh();
+        $this->assertSame(0, $therapistProfile->review_count);
+    }
+
     public function test_therapist_public_reviews_include_only_visible_user_reviews(): void
     {
         [$user, $therapist, $booking, $therapistProfile] = $this->createReviewFixture(Booking::STATUS_COMPLETED);

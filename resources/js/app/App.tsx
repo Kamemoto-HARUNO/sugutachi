@@ -48,6 +48,7 @@ import { AdminTherapistProfilesPage } from './pages/AdminTherapistProfilesPage';
 import { AdminTravelRequestsPage } from './pages/AdminTravelRequestsPage';
 import { AccountIdentityVerificationPage } from './pages/AccountIdentityVerificationPage';
 import { AccountProfilePage } from './pages/AccountProfilePage';
+import { TherapistBookingInterruptPage, UserBookingInterruptPage } from './pages/BookingInterruptPage';
 import { TherapistBookingNoShowPage, UserBookingNoShowPage } from './pages/BookingNoShowPage';
 import { ContactPage } from './pages/ContactPage';
 import { NotificationsPage } from './pages/NotificationsPage';
@@ -73,12 +74,12 @@ import { UserBookingDetailPage } from './pages/UserBookingDetailPage';
 import { UserBookingMessagesPage } from './pages/UserBookingMessagesPage';
 import { UserBookingCancelPage } from './pages/UserBookingCancelPage';
 import { UserBookingPaymentPage } from './pages/UserBookingPaymentPage';
-import { UserBookingReviewPage } from './pages/UserBookingReviewPage';
+import { TherapistBookingReviewPage, UserBookingReviewPage } from './pages/UserBookingReviewPage';
 import { UserBookingsPage } from './pages/UserBookingsPage';
 import { UserBookingQuotePage } from './pages/UserBookingQuotePage';
 import { UserBookingRequestPage } from './pages/UserBookingRequestPage';
 import { UserBookingRefundPage } from './pages/UserBookingRefundPage';
-import { UserBookingReportPage } from './pages/UserBookingReportPage';
+import { TherapistBookingReportPage, UserBookingReportPage } from './pages/UserBookingReportPage';
 import { UserBookingWaitingPage } from './pages/UserBookingWaitingPage';
 import { UserIdentityVerificationPage } from './pages/UserIdentityVerificationPage';
 import { UserBlocksPage } from './pages/UserBlocksPage';
@@ -161,6 +162,7 @@ function AppRoutes() {
                     <Route path="bookings/:publicId" element={<UserBookingDetailPage />} />
                     <Route path="bookings/:publicId/messages" element={<UserBookingMessagesPage />} />
                     <Route path="bookings/:publicId/review" element={<UserBookingReviewPage />} />
+                    <Route path="bookings/:publicId/interrupt" element={<UserBookingInterruptPage />} />
                     <Route path="bookings/:publicId/cancel" element={<UserBookingCancelPage />} />
                     <Route path="bookings/:publicId/no-show" element={<UserBookingNoShowPage />} />
                     <Route path="bookings/:publicId/refund" element={<UserBookingRefundPage />} />
@@ -179,7 +181,9 @@ function AppRoutes() {
                                 && route.path !== 'bookings/:publicId'
                                 && route.path !== 'bookings/:publicId/messages'
                                 && route.path !== 'bookings/:publicId/review'
+                                && route.path !== 'bookings/:publicId/interrupt'
                                 && route.path !== 'bookings/:publicId/cancel'
+                                && route.path !== 'bookings/:publicId/no-show'
                                 && route.path !== 'bookings/:publicId/refund'
                                 && route.path !== 'bookings/:publicId/report'
                                 && route.path !== 'identity-verification'
@@ -248,15 +252,18 @@ function AppRoutes() {
                     <Route path="reviews" element={<TherapistReviewsPage />} />
                     <Route path="bookings" element={<TherapistBookingsPage />} />
                     <Route path="bookings/:publicId" element={<TherapistBookingDetailPage />} />
+                    <Route path="bookings/:publicId/review" element={<TherapistBookingReviewPage />} />
+                    <Route path="bookings/:publicId/interrupt" element={<TherapistBookingInterruptPage />} />
                     <Route path="bookings/:publicId/no-show" element={<TherapistBookingNoShowPage />} />
                     <Route path="bookings/:publicId/messages" element={<TherapistBookingMessagesPage />} />
+                    <Route path="bookings/:publicId/report" element={<TherapistBookingReportPage />} />
                     <Route path="travel-requests" element={<TherapistTravelRequestsPage />} />
                     <Route path="travel-requests/:publicId" element={<TherapistTravelRequestsPage />} />
                     <Route path="balance" element={<TherapistBalancePage />} />
                     <Route path="payouts" element={<Navigate to="/therapist/balance" replace />} />
                     <Route path="settings" element={<TherapistSettingsPage />} />
                     {therapistPlaceholderRoutes
-                        .filter((route) => !['onboarding', 'identity-verification', 'stripe-connect', 'photos', 'profile', 'pricing', 'availability', 'requests', 'requests/:publicId', 'reviews', 'bookings', 'bookings/:publicId', 'bookings/:publicId/messages', 'travel-requests', 'travel-requests/:publicId', 'balance', 'payouts', 'settings'].includes(route.path))
+                        .filter((route) => !['onboarding', 'identity-verification', 'stripe-connect', 'photos', 'profile', 'pricing', 'availability', 'requests', 'requests/:publicId', 'reviews', 'bookings', 'bookings/:publicId', 'bookings/:publicId/review', 'bookings/:publicId/interrupt', 'bookings/:publicId/no-show', 'bookings/:publicId/messages', 'bookings/:publicId/report', 'travel-requests', 'travel-requests/:publicId', 'balance', 'payouts', 'settings'].includes(route.path))
                         .map((route) => (
                         <Route
                             key={route.path}
