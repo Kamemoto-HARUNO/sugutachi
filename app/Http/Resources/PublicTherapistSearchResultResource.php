@@ -22,6 +22,7 @@ class PublicTherapistSearchResultResource extends JsonResource
             'rating_average' => data_get($this->resource, 'rating_average'),
             'review_count' => data_get($this->resource, 'review_count'),
             'therapist_cancellation_count' => data_get($this->resource, 'therapist_cancellation_count'),
+            'travel_mode' => data_get($this->resource, 'travel_mode'),
             'walking_time_range' => data_get($this->resource, 'walking_time_range'),
             'estimated_total_amount' => data_get($this->resource, 'estimated_total_amount'),
             'photos' => PublicProfilePhotoResource::collection(

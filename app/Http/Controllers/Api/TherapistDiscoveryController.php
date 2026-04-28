@@ -40,6 +40,7 @@ class TherapistDiscoveryController extends Controller
             ->visibleTo($viewer)
             ->with([
                 'account.latestIdentityVerification',
+                'bookingSetting',
                 'photos' => fn ($query) => $query
                     ->where('status', ProfilePhoto::STATUS_APPROVED)
                     ->orderBy('sort_order')
@@ -69,6 +70,7 @@ class TherapistDiscoveryController extends Controller
                 'rating_average' => (float) $profile->rating_average,
                 'review_count' => $profile->review_count,
                 'therapist_cancellation_count' => (int) $profile->therapist_cancellation_count,
+                'travel_mode' => $profile->bookingSetting?->travel_mode,
                 'walking_time_range' => null,
                 'estimated_total_amount' => null,
                 'photos' => $this->publicPhotos($profile->photos->take(1)),
@@ -144,6 +146,7 @@ class TherapistDiscoveryController extends Controller
                 ->scheduledDiscoverableTo($viewer)
                 ->with([
                     'account.latestIdentityVerification',
+                    'bookingSetting',
                     'location',
                     'menus' => fn ($query) => $query
                         ->where('is_active', true)
@@ -210,6 +213,7 @@ class TherapistDiscoveryController extends Controller
             ->discoverableTo($viewer)
             ->with([
                 'account.latestIdentityVerification',
+                'bookingSetting',
                 'location',
                 'menus' => fn ($query) => $query
                     ->where('is_active', true)
@@ -229,6 +233,7 @@ class TherapistDiscoveryController extends Controller
             ->visibleTo($viewer)
             ->with([
                 'account.latestIdentityVerification',
+                'bookingSetting',
                 'location',
                 'menus' => fn ($query) => $query
                     ->where('is_active', true)
@@ -318,6 +323,7 @@ class TherapistDiscoveryController extends Controller
                     'rating_average' => (float) $profile->rating_average,
                     'review_count' => $profile->review_count,
                     'therapist_cancellation_count' => (int) $profile->therapist_cancellation_count,
+                    'travel_mode' => $profile->bookingSetting?->travel_mode,
                     'walking_time_range' => $estimate['walking_time_range'],
                     'estimated_total_amount' => $estimate['total_amount'],
                     'photos' => $this->publicPhotos($profile->photos->take(3)),
@@ -425,6 +431,7 @@ class TherapistDiscoveryController extends Controller
             'review_count' => $profile->review_count,
             'therapist_cancellation_count' => (int) $profile->therapist_cancellation_count,
             'is_online' => $profile->is_online,
+            'travel_mode' => $profile->bookingSetting?->travel_mode,
             'walking_time_range' => $walkingEstimate['walking_time_range'] ?? null,
             'lowest_estimated_total_amount' => $walkingEstimate['total_amount'] ?? null,
             'pending_scheduled_request' => $this->pendingScheduledRequestSummary($viewer, $profile),

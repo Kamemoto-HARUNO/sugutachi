@@ -61,6 +61,19 @@ const TRAINING_STATUS_LABELS: Record<string, string> = {
     pending: '確認中',
 };
 
+export function formatTravelModeLabel(value: 'walking' | 'bicycle' | 'transit' | 'car' | null | undefined): string {
+    switch (value) {
+        case 'bicycle':
+            return '自転車';
+        case 'transit':
+            return '公共交通機関';
+        case 'car':
+            return '車';
+        default:
+            return '徒歩';
+    }
+}
+
 export function formatCurrency(amount: number | null | undefined): string {
     if (amount == null) {
         return 'お問い合わせ';
@@ -131,6 +144,19 @@ export function formatWalkingTimeRange(range: string | null | undefined): string
     }
 
     return WALKING_TIME_LABELS[range] ?? '到着目安は準備中';
+}
+
+export function formatTravelTimeEstimate(
+    travelMode: 'walking' | 'bicycle' | 'transit' | 'car' | null | undefined,
+    range: string | null | undefined,
+): string {
+    const timeLabel = formatWalkingTimeRange(range);
+
+    if (timeLabel === '到着目安は準備中' || timeLabel === '対応エリア外') {
+        return timeLabel;
+    }
+
+    return `${formatTravelModeLabel(travelMode)}で${timeLabel}`;
 }
 
 export function getPendingScheduledRequestActionLabel(

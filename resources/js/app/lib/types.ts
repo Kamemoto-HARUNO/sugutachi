@@ -472,6 +472,7 @@ export interface TherapistSearchResult {
     rating_average: number;
     review_count: number;
     therapist_cancellation_count: number;
+    travel_mode: 'walking' | 'bicycle' | 'transit' | 'car' | null;
     walking_time_range: string | null;
     estimated_total_amount: number | null;
     photos: PublicProfilePhoto[];
@@ -513,6 +514,7 @@ export interface TherapistDetail {
     review_count: number;
     therapist_cancellation_count: number;
     is_online: boolean;
+    travel_mode: 'walking' | 'bicycle' | 'transit' | 'car' | null;
     walking_time_range: string | null;
     lowest_estimated_total_amount: number | null;
     pending_scheduled_request: PendingScheduledRequestSummary | null;

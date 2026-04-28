@@ -34,6 +34,7 @@ export function TherapistDiscoveryGrid({
                     pSizeCm={therapist.p_size_cm}
                     ratingAverage={therapist.rating_average}
                     reviewCount={therapist.review_count}
+                    travelMode={therapist.travel_mode}
                     walkingTimeRange={therapist.walking_time_range}
                     estimatedTotalAmount={therapist.estimated_total_amount}
                     durationMinutes={durationMinutes}

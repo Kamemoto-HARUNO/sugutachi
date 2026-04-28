@@ -24,6 +24,7 @@ class PublicTherapistDetailResource extends JsonResource
             'review_count' => data_get($this->resource, 'review_count'),
             'therapist_cancellation_count' => data_get($this->resource, 'therapist_cancellation_count'),
             'is_online' => data_get($this->resource, 'is_online'),
+            'travel_mode' => data_get($this->resource, 'travel_mode'),
             'walking_time_range' => data_get($this->resource, 'walking_time_range'),
             'lowest_estimated_total_amount' => data_get($this->resource, 'lowest_estimated_total_amount'),
             'pending_scheduled_request' => $this->pendingScheduledRequestSummary(),

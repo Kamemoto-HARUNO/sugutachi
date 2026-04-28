@@ -12,7 +12,7 @@ import {
     formatCurrency,
     formatMenuHourlyRateLabel,
     formatMenuMinimumDurationLabel,
-    formatWalkingTimeRange,
+    formatTravelTimeEstimate,
     getDefaultServiceAddress,
     getMenuMinimumDurationMinutes,
     getPendingScheduledRequestActionLabel,
@@ -790,7 +790,10 @@ export function UserTherapistDetailPage() {
                                             <article className="rounded-[24px] bg-[#f6f1e7] p-5">
                                                 <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">DISTANCE</p>
                                                 <p className="mt-2 text-lg font-semibold text-[#17202b]">
-                                                    {formatWalkingTimeRange(therapistDetail.walking_time_range)}
+                                                    {formatTravelTimeEstimate(
+                                                        therapistDetail.travel_mode,
+                                                        therapistDetail.walking_time_range,
+                                                    )}
                                                 </p>
                                                 <p className="mt-1 text-sm text-[#68707a]">正確な位置は一覧と詳細に表示しません。</p>
                                             </article>
@@ -982,10 +985,13 @@ export function UserTherapistDetailPage() {
                                         <div className="rounded-[20px] bg-[#f6f1e7] p-4">
                                             <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">到着時間</p>
                                             <p className="mt-2 font-semibold text-[#17202b]">
-                                                {formatWalkingTimeRange(therapistDetail.walking_time_range)}
+                                                {formatTravelTimeEstimate(
+                                                    therapistDetail.travel_mode,
+                                                    therapistDetail.walking_time_range,
+                                                )}
                                             </p>
                                             <p className="mt-1 text-xs text-[#68707a]">
-                                                選択した待ち合わせ場所を基準に、タチキャストの拠点からの徒歩目安を表示しています。
+                                                選択した待ち合わせ場所を基準に、タチキャストの拠点からの移動時間目安を表示しています。
                                             </p>
                                         </div>
 

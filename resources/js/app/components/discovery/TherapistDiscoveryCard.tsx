@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { buildEstimatedPriceLabel, formatTrainingStatus, formatWalkingTimeRange } from '../../lib/discovery';
+import { buildEstimatedPriceLabel, formatTrainingStatus, formatTravelTimeEstimate } from '../../lib/discovery';
 
 interface TherapistDiscoveryCardProps {
     name: string;
@@ -9,6 +9,7 @@ interface TherapistDiscoveryCardProps {
     pSizeCm?: number | null;
     ratingAverage: number;
     reviewCount: number;
+    travelMode?: 'walking' | 'bicycle' | 'transit' | 'car' | null;
     walkingTimeRange: string | null | undefined;
     estimatedTotalAmount: number | null | undefined;
     durationMinutes?: number | null;
@@ -48,6 +49,7 @@ function CardBody({
     pSizeCm,
     ratingAverage,
     reviewCount,
+    travelMode,
     walkingTimeRange,
     estimatedTotalAmount,
     durationMinutes,
@@ -90,7 +92,7 @@ function CardBody({
 
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#68707a]">
                             <span>{buildMetaLine(reviewCount, ratingAverage)}</span>
-                            <span>{formatWalkingTimeRange(walkingTimeRange)}</span>
+                            <span>{formatTravelTimeEstimate(travelMode, walkingTimeRange)}</span>
                         </div>
                     </div>
 
