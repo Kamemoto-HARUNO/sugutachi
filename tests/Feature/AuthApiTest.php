@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\LegalDocument;
+use App\Models\TherapistProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Hash;
 use Illuminate\Support\Facades\Password;
@@ -129,6 +130,35 @@ class AuthApiTest extends TestCase
         $this->assertDatabaseHas('legal_documents', [
             'document_type' => 'privacy',
             'version' => $documents['privacy']['version'],
+        ]);
+    }
+
+    public function test_therapist_registration_creates_draft_therapist_profile(): void
+    {
+        $this->seedPublishedRegistrationDocuments();
+
+        $registerResponse = $this->postJson('/api/auth/register', [
+            'email' => 'therapist@example.test',
+            'password' => 'very-secure-password',
+            'password_confirmation' => 'very-secure-password',
+            'display_name' => 'Therapist User',
+            'initial_role' => 'therapist',
+            'accepted_terms_version' => '2026-04-01',
+            'accepted_privacy_version' => '2026-04-01',
+            'is_over_18' => true,
+            'relaxation_purpose_agreed' => true,
+        ]);
+
+        $registerResponse
+            ->assertCreated()
+            ->assertJsonPath('account.roles.0.role', 'therapist')
+            ->assertJsonPath('account.last_active_role', 'therapist');
+
+        $accountId = Account::query()->where('email', 'therapist@example.test')->value('id');
+
+        $this->assertDatabaseHas('therapist_profiles', [
+            'account_id' => $accountId,
+            'profile_status' => TherapistProfile::STATUS_DRAFT,
         ]);
     }
 

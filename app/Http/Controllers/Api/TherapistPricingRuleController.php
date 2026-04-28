@@ -88,7 +88,7 @@ class TherapistPricingRuleController extends Controller
 
     private function therapistProfile(Request $request): TherapistProfile
     {
-        return $request->user()->therapistProfile()->with('menus')->firstOrFail();
+        return $request->user()->ensureTherapistProfile()->load('menus');
     }
 
     private function validatedPayload(

@@ -15,7 +15,7 @@ class TherapistLedgerController extends Controller
     public function index(Request $request): JsonResponse
     {
         $account = $request->user();
-        abort_unless($account->therapistProfile()->exists(), 404);
+        $account->ensureTherapistProfile();
 
         $entries = $account->ledgerEntries()
             ->with(['booking', 'payoutRequest'])
@@ -33,7 +33,7 @@ class TherapistLedgerController extends Controller
     public function balance(Request $request): JsonResponse
     {
         $account = $request->user();
-        abort_unless($account->therapistProfile()->exists(), 404);
+        $account->ensureTherapistProfile();
 
         $entries = $account->ledgerEntries()
             ->with('payoutRequest')

@@ -133,7 +133,7 @@ class TherapistTravelRequestController extends Controller
             'direction' => ['nullable', Rule::in(['asc', 'desc'])],
         ]);
 
-        $profile = $request->user()->therapistProfile()->firstOrFail();
+        $profile = $request->user()->ensureTherapistProfile();
 
         $requests = TherapistTravelRequest::query()
             ->with(['userAccount', 'therapistProfile'])
@@ -202,7 +202,7 @@ class TherapistTravelRequestController extends Controller
 
     private function authorizeTherapist(Request $request, TherapistTravelRequest $travelRequest): void
     {
-        $profile = $request->user()->therapistProfile()->firstOrFail();
+        $profile = $request->user()->ensureTherapistProfile();
 
         abort_unless(
             $travelRequest->therapist_account_id === $request->user()->id

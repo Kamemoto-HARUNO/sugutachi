@@ -5,12 +5,10 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AccountResource;
 use App\Models\Account;
-use App\Models\TherapistProfile;
 use App\Models\UserProfile;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
-use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 
 class AccountRoleController extends Controller
@@ -46,17 +44,7 @@ class AccountRoleController extends Controller
             }
 
             if ($role === 'therapist') {
-                $account->therapistProfile()->firstOrCreate(
-                    ['account_id' => $account->id],
-                    [
-                        'public_id' => 'thp_'.Str::ulid(),
-                        'public_name' => $this->draftTherapistPublicName($account),
-                        'profile_status' => TherapistProfile::STATUS_DRAFT,
-                        'training_status' => 'none',
-                        'photo_review_status' => 'pending',
-                        'is_online' => false,
-                    ],
-                );
+                $account->ensureTherapistProfile();
             }
 
             $account->forceFill(['last_active_role' => $role])->save();
@@ -72,20 +60,5 @@ class AccountRoleController extends Controller
                 'was_created' => $wasCreated,
             ],
         ]);
-    }
-
-    private function draftTherapistPublicName(Account $account): string
-    {
-        if (filled($account->display_name)) {
-            return Str::limit(trim((string) $account->display_name), 80, '');
-        }
-
-        $emailLocalPart = Str::before((string) $account->email, '@');
-
-        if (filled($emailLocalPart)) {
-            return Str::limit($emailLocalPart, 80, '');
-        }
-
-        return '新規タチキャスト';
     }
 }

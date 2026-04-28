@@ -23,7 +23,7 @@ class TherapistMenuController extends Controller
 
     public function index(Request $request): AnonymousResourceCollection
     {
-        $profile = $request->user()->therapistProfile()->firstOrFail();
+        $profile = $request->user()->ensureTherapistProfile();
 
         return TherapistMenuResource::collection(
             $profile->menus()->orderBy('sort_order')->get()
@@ -42,7 +42,7 @@ class TherapistMenuController extends Controller
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:1000'],
         ]);
 
-        $profile = $request->user()->therapistProfile()->firstOrFail();
+        $profile = $request->user()->ensureTherapistProfile();
         $pricingAttributes = $this->resolvePricingAttributes($validated);
 
         $menu = DB::transaction(function () use ($profile, $validated, $pricingAttributes): TherapistMenu {
@@ -80,7 +80,7 @@ class TherapistMenuController extends Controller
             'sort_order' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:1000'],
         ]);
 
-        $profile = $request->user()->therapistProfile()->firstOrFail();
+        $profile = $request->user()->ensureTherapistProfile();
         abort_unless($therapistMenu->therapist_profile_id === $profile->id, 404);
         $pricingAttributes = $this->resolvePricingAttributes($validated, $therapistMenu);
 
@@ -116,7 +116,7 @@ class TherapistMenuController extends Controller
 
     public function destroy(Request $request, TherapistMenu $therapistMenu): Response
     {
-        $profile = $request->user()->therapistProfile()->firstOrFail();
+        $profile = $request->user()->ensureTherapistProfile();
         abort_unless($therapistMenu->therapist_profile_id === $profile->id, 404);
         abort_if(
             $therapistMenu->bookingQuotes()->exists() || $therapistMenu->bookings()->exists(),

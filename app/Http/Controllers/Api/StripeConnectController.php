@@ -170,7 +170,7 @@ class StripeConnectController extends Controller
 
     private function therapistProfileFor(Request $request): TherapistProfile
     {
-        return $request->user()->therapistProfile()->firstOrFail();
+        return $request->user()->ensureTherapistProfile();
     }
 
     private function connectedAccountFor(Request $request): StripeConnectedAccount

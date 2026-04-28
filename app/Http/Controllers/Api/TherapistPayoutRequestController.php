@@ -20,7 +20,7 @@ class TherapistPayoutRequestController extends Controller
 {
     public function index(Request $request): AnonymousResourceCollection
     {
-        abort_unless($request->user()->therapistProfile()->exists(), 404);
+        $request->user()->ensureTherapistProfile();
 
         return PayoutRequestResource::collection(
             $request->user()
@@ -32,7 +32,7 @@ class TherapistPayoutRequestController extends Controller
 
     public function show(Request $request, PayoutRequest $payoutRequest): PayoutRequestResource
     {
-        abort_unless($request->user()->therapistProfile()->exists(), 404);
+        $request->user()->ensureTherapistProfile();
         abort_unless($payoutRequest->therapist_account_id === $request->user()->id, 404);
 
         return new PayoutRequestResource(
@@ -43,8 +43,7 @@ class TherapistPayoutRequestController extends Controller
     public function store(Request $request, AdminNotificationService $adminNotificationService): JsonResponse
     {
         $account = $request->user();
-        $therapistProfile = $account->therapistProfile()->with('stripeConnectedAccount')->first();
-        abort_unless($therapistProfile, 404);
+        $therapistProfile = $account->ensureTherapistProfile()->load('stripeConnectedAccount');
 
         $connectedAccount = $therapistProfile->stripeConnectedAccount;
         $this->assertPayoutReady($connectedAccount);
