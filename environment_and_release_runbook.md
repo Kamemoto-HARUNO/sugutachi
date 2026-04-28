@@ -286,7 +286,7 @@ Node と Composer が本番サーバで十分動くなら、
 * * * * * php /path/to/artisan schedule:run >> /dev/null 2>&1
 ```
 
-今回の確認では、Xserver 共有環境で Laravel 用に使う CLI は `/usr/bin/php8.5` を前提にするのが安全です。Web 側の `dev.sugutachi.com` は現状 `PHP 8.3.30` で動いており、このアプリの `composer.json` は `php:^8.3` なので、ローカルで `composer install --no-dev` した成果物を載せれば公開側は動かせます。推奨配置先は次のとおりです。
+今回の確認では、Xserver 共有環境で Laravel 用に使う CLI は `/usr/bin/php8.5` を前提にするのが安全です。Web 側の `dev.sugutachi.com` は標準では `PHP 8.3.30` でしたが、`php85.cgi + .htaccess` の CGI ラッパーでディレクトリ単位に `php-fcgi8.5` を使う形で Laravel を動かせています。推奨配置先は次のとおりです。
 
 - 本番アプリ: `/home/hnice2204/sugutachi.com/app-production`
 - 開発アプリ: `/home/hnice2204/sugutachi.com/app-staging`
@@ -302,6 +302,7 @@ cron は次の形を基準にします。
 ### staging / production 切替前の確認
 
 - `scripts/deploy_xserver_env.sh` は、ローカルで `public/build` と `composer install --no-dev` を行った成果物をサーバーへ送る
+- `scripts/deploy_xserver_env.sh --activate-docroot` は、docroot 側へ `php85.cgi` と `.htaccess` の CGI 設定も反映する
 - そのため、デプロイ前にローカルで `npm run build` が通っている必要がある
 - 本番・開発ともに、実際に公開切替する前に `.env` へ最低限次の秘密情報を投入する
   - `DB_PASSWORD`

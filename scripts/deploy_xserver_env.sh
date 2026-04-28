@@ -33,6 +33,7 @@ REMOTE_HOST="hnice2204@sv13399.xserver.jp"
 REMOTE_PORT="10022"
 REMOTE_BASE="/home/hnice2204/sugutachi.com"
 REMOTE_PHP="/usr/bin/php8.5"
+REMOTE_PHP_CGI="/usr/bin/php-fcgi8.5"
 BUILD_DIR="$(mktemp -d)"
 
 case "$ENV_NAME" in
@@ -252,6 +253,33 @@ require \$appRoot.'/vendor/autoload.php';
 PHP
 
   scp -P "$REMOTE_PORT" "$INDEX_WRAPPER" "$REMOTE_HOST:$DOCROOT/index.php"
+
+  ssh -p "$REMOTE_PORT" "$REMOTE_HOST" "
+    cat > '$DOCROOT/php85.cgi' <<'SH'
+#!/usr/bin/sh
+exec $REMOTE_PHP_CGI
+SH
+    chmod 755 '$DOCROOT/php85.cgi'
+    python3 - <<'PY'
+from pathlib import Path
+p = Path('$DOCROOT/.htaccess')
+lines = p.read_text(encoding='utf-8', errors='ignore').splitlines() if p.exists() else []
+filtered = []
+for line in lines:
+    if 'myphp-script85' in line:
+        continue
+    if line.startswith('Action myphp-script85'):
+        continue
+    if line.startswith('AddHandler myphp-script85'):
+        continue
+    filtered.append(line)
+header = [
+    'Action myphp-script85 /php85.cgi',
+    'AddHandler myphp-script85 .php',
+]
+p.write_text('\\n'.join(header + filtered) + '\\n', encoding='utf-8')
+PY
+  "
 fi
 
 if [[ "$RUN_MIGRATIONS" == true ]]; then
