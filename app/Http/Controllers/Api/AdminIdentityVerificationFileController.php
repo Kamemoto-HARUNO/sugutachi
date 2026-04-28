@@ -16,7 +16,7 @@ class AdminIdentityVerificationFileController extends Controller
 
     public function showDocument(Request $request, IdentityVerification $identityVerification): StreamedResponse
     {
-        $this->authorizeAdmin($request->user());
+        $this->authorizeViewer($request);
 
         return $this->responseFor(
             encryptedPath: $identityVerification->document_storage_key_encrypted,
@@ -26,12 +26,21 @@ class AdminIdentityVerificationFileController extends Controller
 
     public function showSelfie(Request $request, IdentityVerification $identityVerification): StreamedResponse
     {
-        $this->authorizeAdmin($request->user());
+        $this->authorizeViewer($request);
 
         return $this->responseFor(
             encryptedPath: $identityVerification->selfie_storage_key_encrypted,
             cacheControl: 'private, max-age=300',
         );
+    }
+
+    private function authorizeViewer(Request $request): void
+    {
+        if ($request->hasValidSignature()) {
+            return;
+        }
+
+        $this->authorizeAdmin($request->user());
     }
 
     private function responseFor(?string $encryptedPath, string $cacheControl): StreamedResponse

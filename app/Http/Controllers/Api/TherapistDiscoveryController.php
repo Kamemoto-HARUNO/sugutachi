@@ -21,6 +21,7 @@ use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\Auth;
+use Illuminate\Support\Facades\URL;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -436,7 +437,10 @@ class TherapistDiscoveryController extends Controller
             'lowest_estimated_total_amount' => $walkingEstimate['total_amount'] ?? null,
             'pending_scheduled_request' => $this->pendingScheduledRequestSummary($viewer, $profile),
             'menus' => $menuEstimates->all(),
-            'photos' => $this->publicPhotos($profile->photos),
+            'photos' => $this->publicPhotos(
+                $profile->photos,
+                signed: $viewer?->id === $profile->account_id,
+            ),
         ];
     }
 
@@ -497,12 +501,16 @@ class TherapistDiscoveryController extends Controller
         );
     }
 
-    private function publicPhotos(Collection $photos): array
+    private function publicPhotos(Collection $photos, bool $signed = false): array
     {
         return $photos
             ->map(fn (ProfilePhoto $photo): array => [
                 'sort_order' => $photo->sort_order,
-                'url' => "/api/profile-photos/{$photo->id}/file",
+                'url' => $signed
+                    ? URL::temporarySignedRoute('profile-photos.signed-file', now()->addMinutes(30), [
+                        'profilePhoto' => $photo->id,
+                    ])
+                    : "/api/profile-photos/{$photo->id}/file",
             ])
             ->values()
             ->all();

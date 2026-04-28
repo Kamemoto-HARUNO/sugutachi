@@ -38,8 +38,8 @@ class TherapistDiscoveryApiTest extends TestCase
             ->assertJsonPath('data.0.estimated_total_amount', 12300)
             ->assertJsonPath('data.1.public_id', $farProfile->public_id)
             ->assertJsonPath('data.1.therapist_cancellation_count', 3)
-            ->assertJsonPath('data.1.walking_time_range', 'within_60_min')
-            ->assertJsonPath('data.1.estimated_total_amount', 13300)
+            ->assertJsonPath('data.1.walking_time_range', 'within_45_min')
+            ->assertJsonPath('data.1.estimated_total_amount', 12300)
             ->assertJsonStructure([
                 'data' => [
                     [
@@ -95,11 +95,11 @@ class TherapistDiscoveryApiTest extends TestCase
             ->assertJsonPath('data.p_size_cm', 14)
             ->assertJsonPath('data.therapist_cancellation_count', 1)
             ->assertJsonPath('data.walking_time_range', 'within_15_min')
-            ->assertJsonPath('data.lowest_estimated_total_amount', 16300)
+            ->assertJsonPath('data.lowest_estimated_total_amount', 15300)
             ->assertJsonPath('data.menus.0.public_id', 'menu_near_90')
-            ->assertJsonPath('data.menus.0.estimated_total_amount', 16300)
+            ->assertJsonPath('data.menus.0.estimated_total_amount', 15300)
             ->assertJsonPath('data.menus.1.public_id', 'menu_near_60')
-            ->assertJsonPath('data.menus.1.estimated_total_amount', 19300)
+            ->assertJsonPath('data.menus.1.estimated_total_amount', 18300)
             ->assertJsonCount(1, 'data.photos');
     }
 
@@ -194,7 +194,13 @@ class TherapistDiscoveryApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.public_id', $nearbyProfile->public_id)
             ->assertJsonPath('data.public_name', $nearbyProfile->public_name)
-            ->assertJsonPath('data.is_self_view', true);
+            ->assertJsonPath('data.is_self_view', true)
+            ->assertJson(fn ($json) => $json
+                ->where('data.photos.0.sort_order', 0)
+                ->where('data.photos.0.url', fn (string $url) => str_contains($url, '/api/profile-photos/')
+                    && str_contains($url, '/signed-file')
+                    && str_contains($url, 'signature='))
+                ->etc());
     }
 
     public function test_therapist_can_view_own_public_reviews_while_authenticated(): void
