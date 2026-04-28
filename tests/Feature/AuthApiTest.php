@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Models\Account;
 use App\Models\LegalDocument;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Tests\TestCase;
 
 class AuthApiTest extends TestCase
@@ -73,6 +75,27 @@ class AuthApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('token_type', 'Bearer')
             ->assertJsonPath('account.email', 'existing@example.test');
+    }
+
+    public function test_account_can_reset_password_with_valid_token(): void
+    {
+        $account = Account::factory()->create([
+            'email' => 'reset-me@example.test',
+            'password' => 'very-secure-password',
+        ]);
+
+        $token = Password::broker()->createToken($account);
+
+        $this->postJson('/api/auth/reset-password', [
+            'token' => $token,
+            'email' => 'reset-me@example.test',
+            'password' => 'new-secure-password',
+            'password_confirmation' => 'new-secure-password',
+        ])
+            ->assertOk()
+            ->assertJsonPath('status', 'password_reset');
+
+        $this->assertTrue(Hash::check('new-secure-password', $account->fresh()->password));
     }
 
     public function test_account_can_register_after_default_registration_documents_are_bootstrapped(): void

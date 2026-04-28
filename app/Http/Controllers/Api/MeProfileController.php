@@ -7,6 +7,7 @@ use App\Http\Resources\MeProfileResource;
 use App\Models\Account;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -94,27 +95,14 @@ class MeProfileController extends Controller
         );
     }
 
-    public function updatePassword(Request $request): MeProfileResource
+    public function sendPasswordResetLink(Request $request)
     {
         $account = $request->user();
-        $validated = $request->validate([
-            'current_password' => ['required', 'string'],
-            'password' => ['required', 'string', 'min:10', 'confirmed'],
+        Password::broker()->sendResetLink(['email' => $account->email]);
+
+        return response()->json([
+            'message' => '登録メールアドレスにパスワード再設定リンクを送信しました。',
         ]);
-
-        if (! Hash::check($validated['current_password'], $account->password)) {
-            throw ValidationException::withMessages([
-                'current_password' => ['現在のパスワードが一致しません。'],
-            ]);
-        }
-
-        $account->forceFill([
-            'password' => $validated['password'],
-        ])->save();
-
-        return new MeProfileResource(
-            $account->fresh(['roleAssignments', 'latestIdentityVerification', 'profilePhotos.therapistProfile'])
-        );
     }
 
     private function normalizePhoneNumber(?string $value): ?string

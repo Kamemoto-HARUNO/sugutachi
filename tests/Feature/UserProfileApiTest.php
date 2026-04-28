@@ -6,9 +6,10 @@ use App\Models\Account;
 use App\Models\ProfilePhoto;
 use App\Models\TherapistProfile;
 use App\Models\UserProfile;
+use App\Notifications\AccountPasswordResetNotification;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
-use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Notification;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -146,24 +147,34 @@ class UserProfileApiTest extends TestCase
             ->assertJsonValidationErrors(['current_password']);
     }
 
-    public function test_account_can_update_password_with_current_password(): void
+    public function test_account_can_request_password_reset_link_for_registered_email(): void
     {
+        Notification::fake();
+
         $account = Account::factory()->create([
             'public_id' => 'acc_common_profile_password',
+            'email' => 'reset-target@example.test',
             'password' => 'very-secure-password',
             'last_active_role' => 'user',
         ]);
         $token = $account->createToken('api')->plainTextToken;
 
         $this->withToken($token)
-            ->patchJson('/api/me/profile/password', [
-                'current_password' => 'very-secure-password',
-                'password' => 'new-secure-password',
-                'password_confirmation' => 'new-secure-password',
-            ])
-            ->assertOk();
+            ->postJson('/api/me/profile/password-reset-link')
+            ->assertOk()
+            ->assertJsonPath('message', '登録メールアドレスにパスワード再設定リンクを送信しました。');
 
-        $this->assertTrue(Hash::check('new-secure-password', $account->fresh()->password));
+        Notification::assertSentTo(
+            $account,
+            AccountPasswordResetNotification::class,
+            function (AccountPasswordResetNotification $notification, array $channels) use ($account): bool {
+                $mailMessage = $notification->toMail($account);
+
+                return in_array('mail', $channels, true)
+                    && str_contains((string) $mailMessage->actionUrl, '/reset-password?token=')
+                    && str_contains((string) $mailMessage->actionUrl, 'email=reset-target%40example.test');
+            }
+        );
     }
 
     public function test_account_can_create_update_and_read_user_profile(): void

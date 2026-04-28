@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\UsesPublicIdRouteKey;
+use App\Notifications\AccountPasswordResetNotification;
 use Database\Factories\AccountFactory;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Attributes\Hidden;
@@ -248,5 +249,10 @@ class Account extends Authenticatable
     public function hasActiveTravelRequestRestriction(): bool
     {
         return $this->travel_request_restricted_until?->isFuture() ?? false;
+    }
+
+    public function sendPasswordResetNotification($token): void
+    {
+        $this->notify(new AccountPasswordResetNotification($token));
     }
 }

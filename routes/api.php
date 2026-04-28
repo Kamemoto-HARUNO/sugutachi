@@ -62,6 +62,7 @@ Route::post('/webhooks/stripe', StripeWebhookController::class);
 Route::prefix('auth')->group(function (): void {
     Route::post('/register', [AuthController::class, 'register']);
     Route::post('/login', [AuthController::class, 'login']);
+    Route::post('/reset-password', [AuthController::class, 'resetPassword']);
 });
 
 Route::get('/legal-documents', [LegalDocumentController::class, 'index']);
@@ -84,7 +85,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me/profile', [MeProfileController::class, 'show']);
     Route::patch('/me/profile', [MeProfileController::class, 'update']);
     Route::patch('/me/profile/email', [MeProfileController::class, 'updateEmail']);
-    Route::patch('/me/profile/password', [MeProfileController::class, 'updatePassword']);
+    Route::post('/me/profile/password-reset-link', [MeProfileController::class, 'sendPasswordResetLink']);
     Route::post('/me/profile/photos', [ProfilePhotoController::class, 'store']);
     Route::delete('/me/profile/photos/{profilePhoto}', [ProfilePhotoController::class, 'destroy']);
     Route::get('/me/profile/photos/{profilePhoto}/file', [ProfilePhotoFileController::class, 'showOwned']);

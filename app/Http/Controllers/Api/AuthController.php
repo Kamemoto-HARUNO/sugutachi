@@ -12,6 +12,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Support\Facades\Password;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -108,6 +109,41 @@ class AuthController extends Controller
         $request->user()->tokens()->delete();
 
         return response()->json(null, 204);
+    }
+
+    public function resetPassword(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'token' => ['required', 'string'],
+            'email' => ['required', 'email:rfc'],
+            'password' => ['required', 'string', 'min:10', 'confirmed'],
+        ]);
+
+        $status = Password::broker()->reset(
+            [
+                'email' => Str::lower($validated['email']),
+                'password' => $validated['password'],
+                'password_confirmation' => (string) $request->input('password_confirmation'),
+                'token' => $validated['token'],
+            ],
+            function (Account $account, string $password): void {
+                $account->forceFill([
+                    'password' => $password,
+                    'remember_token' => Str::random(60),
+                ])->save();
+            }
+        );
+
+        if ($status !== Password::PASSWORD_RESET) {
+            throw ValidationException::withMessages([
+                'email' => ['再設定リンクの有効期限が切れているか、内容が正しくありません。もう一度再設定メールを送ってください。'],
+            ]);
+        }
+
+        return response()->json([
+            'message' => 'パスワードを再設定しました。',
+            'status' => 'password_reset',
+        ]);
     }
 
     private function tokenResponse(Account $account, int $status = 200): JsonResponse

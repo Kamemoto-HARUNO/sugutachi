@@ -77,18 +77,14 @@ export function AccountProfilePage() {
     const [phoneNumber, setPhoneNumber] = useState('');
     const [nextEmail, setNextEmail] = useState('');
     const [emailPassword, setEmailPassword] = useState('');
-    const [currentPassword, setCurrentPassword] = useState('');
-    const [newPassword, setNewPassword] = useState('');
-    const [passwordConfirmation, setPasswordConfirmation] = useState('');
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [commonRequestError, setCommonRequestError] = useState<unknown>(null);
     const [emailRequestError, setEmailRequestError] = useState<unknown>(null);
-    const [passwordRequestError, setPasswordRequestError] = useState<unknown>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isSavingProfile, setIsSavingProfile] = useState(false);
     const [isSavingEmail, setIsSavingEmail] = useState(false);
-    const [isSavingPassword, setIsSavingPassword] = useState(false);
+    const [isSendingPasswordResetLink, setIsSendingPasswordResetLink] = useState(false);
 
     usePageTitle('アカウント設定');
     useToastOnMessage(successMessage, 'success');
@@ -222,39 +218,27 @@ export function AccountProfilePage() {
         }
     }
 
-    async function handlePasswordSubmit(event: FormEvent<HTMLFormElement>) {
-        event.preventDefault();
-
+    async function handlePasswordResetRequest() {
         if (!token) {
             return;
         }
 
-        setIsSavingPassword(true);
+        setIsSendingPasswordResetLink(true);
         setError(null);
-        setPasswordRequestError(null);
         setSuccessMessage(null);
 
         try {
-            await apiRequest<ApiEnvelope<MeProfileRecord>>('/me/profile/password', {
-                method: 'PATCH',
+            await apiRequest<ApiEnvelope<{ message: string }>>('/me/profile/password-reset-link', {
+                method: 'POST',
                 token,
-                body: {
-                    current_password: currentPassword,
-                    password: newPassword,
-                    password_confirmation: passwordConfirmation,
-                },
             });
 
-            setCurrentPassword('');
-            setNewPassword('');
-            setPasswordConfirmation('');
-            setSuccessMessage('パスワードを更新しました。次回ログインから新しいパスワードが使えます。');
+            setSuccessMessage('登録メールアドレスへパスワード再設定リンクを送りました。メールの案内から新しいパスワードを設定してください。');
         } catch (requestError) {
-            const message = requestError instanceof ApiError ? requestError.message : 'パスワードの更新に失敗しました。';
+            const message = requestError instanceof ApiError ? requestError.message : 'パスワード再設定メールの送信に失敗しました。';
             setError(message);
-            setPasswordRequestError(requestError);
         } finally {
-            setIsSavingPassword(false);
+            setIsSendingPasswordResetLink(false);
         }
     }
 
@@ -278,9 +262,7 @@ export function AccountProfilePage() {
                         </span>
                         <div className="space-y-3">
                             <h1 className="max-w-[11ch] text-[2.4rem] font-semibold leading-[1.4] text-white sm:max-w-none sm:text-[3.2rem]">
-                                ログイン情報と
-                                <br />
-                                共通プロフィールをまとめて管理
+                                アカウント設定
                             </h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300 sm:text-[0.95rem]">
                                 ここで変更した表示名、電話番号、ログイン用メールアドレス、パスワードは、利用者とタチキャストのどちらでも同じアカウント情報として使われます。
@@ -295,12 +277,6 @@ export function AccountProfilePage() {
                             className="inline-flex min-h-11 items-center rounded-full bg-[#f3dec0] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#f7e7cd]"
                         >
                             マイページへ戻る
-                        </Link>
-                        <Link
-                            to="/role-select"
-                            className="inline-flex min-h-11 items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/6"
-                        >
-                            モードを切り替える
                         </Link>
                     </div>
 
@@ -418,67 +394,31 @@ export function AccountProfilePage() {
                             </button>
                         </form>
 
-                        <form onSubmit={handlePasswordSubmit} className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_24px_60px_rgba(2,6,23,0.18)]">
+                        <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_24px_60px_rgba(2,6,23,0.18)]">
                             <div className="space-y-2">
                                 <p className="text-xs font-semibold tracking-wide text-[#f3dec0]">ログイン設定</p>
-                                <h2 className="text-2xl font-semibold text-white">パスワードを変更</h2>
+                                <h2 className="text-2xl font-semibold text-white">パスワードを再設定</h2>
                                 <p className="text-sm leading-7 text-slate-300">
-                                    現在のパスワードを確認したうえで、新しいパスワードに更新します。10文字以上で設定してください。
+                                    登録メールアドレスに再設定用のリンクを送ります。メールの案内から新しいパスワードを設定してください。
                                 </p>
                             </div>
 
-                            <div className="mt-6 space-y-4">
-                                <label className="space-y-2">
-                                    <span className="text-sm font-semibold text-white">現在のパスワード</span>
-                                    <input
-                                        type="password"
-                                        value={currentPassword}
-                                        onChange={(event) => setCurrentPassword(event.target.value)}
-                                        autoComplete="current-password"
-                                        className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-[#f3dec0]/60"
-                                        placeholder="現在のパスワードを入力"
-                                    />
-                                    {getFieldError(passwordRequestError, 'current_password') ? (
-                                        <p className="text-xs text-amber-200">{getFieldError(passwordRequestError, 'current_password')}</p>
-                                    ) : null}
-                                </label>
-
-                                <label className="space-y-2">
-                                    <span className="text-sm font-semibold text-white">新しいパスワード</span>
-                                    <input
-                                        type="password"
-                                        value={newPassword}
-                                        onChange={(event) => setNewPassword(event.target.value)}
-                                        autoComplete="new-password"
-                                        className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-[#f3dec0]/60"
-                                        placeholder="10文字以上で入力"
-                                    />
-                                    {getFieldError(passwordRequestError, 'password') ? (
-                                        <p className="text-xs text-amber-200">{getFieldError(passwordRequestError, 'password')}</p>
-                                    ) : null}
-                                </label>
-
-                                <label className="space-y-2">
-                                    <span className="text-sm font-semibold text-white">新しいパスワード確認</span>
-                                    <input
-                                        type="password"
-                                        value={passwordConfirmation}
-                                        onChange={(event) => setPasswordConfirmation(event.target.value)}
-                                        autoComplete="new-password"
-                                        className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-[#f3dec0]/60"
-                                        placeholder="もう一度入力"
-                                    />
-                                </label>
+                            <div className="mt-6 rounded-[20px] border border-white/10 bg-[#111923] px-4 py-4">
+                                <p className="text-xs font-semibold tracking-wide text-slate-400">送信先メールアドレス</p>
+                                <p className="mt-2 break-all text-sm text-slate-200">{profile?.email ?? account?.email ?? '未設定'}</p>
                             </div>
 
                             <button
-                                type="submit"
-                                disabled={isSavingPassword}
+                                type="button"
+                                onClick={() => {
+                                    void handlePasswordResetRequest();
+                                }}
+                                disabled={isSendingPasswordResetLink}
                                 className="mt-6 inline-flex min-h-11 items-center rounded-full bg-[#f3dec0] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#f7e7cd] disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                {isSavingPassword ? '更新中...' : 'パスワードを更新'}
+                                {isSendingPasswordResetLink ? '送信中...' : '再設定リンクをメールで送る'}
                             </button>
-                        </form>
+                        </section>
                     </div>
 
                     <section className="space-y-5">

@@ -54,6 +54,7 @@ import { ContactPage } from './pages/ContactPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { PublicHomePage } from './pages/PublicHomePage';
 import { RegisterPage } from './pages/RegisterPage';
+import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { RoleSelectPage } from './pages/RoleSelectPage';
 import { SectionHomePage } from './pages/SectionHomePage';
 import { TherapistIdentityVerificationPage } from './pages/TherapistIdentityVerificationPage';
@@ -114,6 +115,7 @@ function AppRoutes() {
                     <Route path="/privacy" element={<LegalDocumentPage documentType="privacy" title="プライバシーポリシー" />} />
                     <Route path="/commerce" element={<LegalDocumentPage documentType="commerce" title="特定商取引法に基づく表記" />} />
                     <Route path="/contact" element={<ContactPage />} />
+                    <Route path="/reset-password" element={<ResetPasswordPage />} />
                     <Route element={<ProtectedRoute isAuthenticated={isAuthenticated} />}>
                         <Route path="/notifications" element={<NotificationsPage />} />
                     </Route>
