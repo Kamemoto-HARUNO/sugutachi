@@ -11,6 +11,7 @@ use App\Models\Report;
 use App\Models\ServiceAddress;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
 use Tests\TestCase;
@@ -61,6 +62,39 @@ class BookingListApiTest extends TestCase
             ->assertJsonPath('data.counterparty.role', 'user')
             ->assertJsonPath('data.service_address.public_id', 'addr_booking_list')
             ->assertJsonPath('data.therapist_menu.public_id', 'menu_booking_list_90');
+    }
+
+    public function test_due_scheduled_request_is_expired_on_list_and_detail_fetch(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2030-02-10 12:00:00'));
+
+        [$user, $therapist, $scheduledBooking] = $this->createBookingListFixture();
+        $scheduledBooking->update([
+            'status' => Booking::STATUS_REQUESTED,
+            'is_on_demand' => false,
+            'request_expires_at' => CarbonImmutable::parse('2030-02-10 11:30:00'),
+        ]);
+        PaymentIntent::query()
+            ->where('booking_id', $scheduledBooking->id)
+            ->update(['status' => PaymentIntent::STRIPE_STATUS_CANCELED]);
+
+        $userToken = $user->createToken('api')->plainTextToken;
+        $therapistToken = $therapist->createToken('api')->plainTextToken;
+
+        $this->withToken($userToken)
+            ->getJson('/api/bookings?role=user&status=requested&request_type=scheduled')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->withToken($therapistToken)
+            ->getJson('/api/me/therapist/booking-requests')
+            ->assertOk()
+            ->assertJsonCount(0, 'data');
+
+        $this->withToken($userToken)
+            ->getJson("/api/bookings/{$scheduledBooking->public_id}")
+            ->assertOk()
+            ->assertJsonPath('data.status', Booking::STATUS_EXPIRED);
     }
 
     private function createBookingListFixture(): array

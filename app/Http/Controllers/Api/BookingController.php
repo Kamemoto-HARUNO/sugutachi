@@ -13,6 +13,7 @@ use App\Models\ServiceAddress;
 use App\Models\TherapistAvailabilitySlot;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
+use App\Services\Bookings\BookingRequestExpirationService;
 use App\Services\Bookings\ScheduledBookingPolicy;
 use App\Services\Scheduling\PublicAvailabilityWindowCalculator;
 use Carbon\CarbonImmutable;
@@ -24,8 +25,10 @@ use Illuminate\Support\Str;
 
 class BookingController extends Controller
 {
-    public function index(Request $request): AnonymousResourceCollection
+    public function index(Request $request, BookingRequestExpirationService $bookingRequestExpirationService): AnonymousResourceCollection
     {
+        $bookingRequestExpirationService->expireDueScheduledRequests();
+
         $account = $request->user();
         $validated = $request->validate([
             'role' => ['nullable', 'in:user,therapist,all'],
@@ -98,8 +101,13 @@ class BookingController extends Controller
         );
     }
 
-    public function therapistRequests(Request $request): AnonymousResourceCollection
+    public function therapistRequests(
+        Request $request,
+        BookingRequestExpirationService $bookingRequestExpirationService,
+    ): AnonymousResourceCollection
     {
+        $bookingRequestExpirationService->expireDueScheduledRequests();
+
         return TherapistBookingRequestResource::collection(
             Booking::query()
                 ->with(['currentQuote', 'availabilitySlot', 'serviceAddress', 'therapistMenu'])
@@ -236,8 +244,15 @@ class BookingController extends Controller
             ->setStatusCode(201);
     }
 
-    public function show(Request $request, Booking $booking): BookingResource
+    public function show(
+        Request $request,
+        Booking $booking,
+        BookingRequestExpirationService $bookingRequestExpirationService,
+    ): BookingResource
     {
+        $bookingRequestExpirationService->expireDueScheduledRequests();
+        $booking->refresh();
+
         $accountId = $request->user()->id;
 
         abort_unless(

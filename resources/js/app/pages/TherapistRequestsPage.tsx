@@ -333,8 +333,8 @@ export function TherapistRequestsPage() {
     const [requests, setRequests] = useState<TherapistBookingRequestRecord[]>([]);
     const [selectedRequestId, setSelectedRequestId] = useState<string | null>(null);
     const [selectedBooking, setSelectedBooking] = useState<BookingDetailRecord | null>(null);
-    const [bufferBeforeMinutes, setBufferBeforeMinutes] = useState('30');
-    const [bufferAfterMinutes, setBufferAfterMinutes] = useState('30');
+    const [bufferBeforeMinutes, setBufferBeforeMinutes] = useState('60');
+    const [bufferAfterMinutes, setBufferAfterMinutes] = useState('60');
     const [proposedStartAt, setProposedStartAt] = useState('');
     const [proposedEndAt, setProposedEndAt] = useState('');
     const [isAdjustmentFormOpen, setIsAdjustmentFormOpen] = useState(false);
@@ -472,10 +472,10 @@ export function TherapistRequestsPage() {
                 const pendingAdjustment = nextBooking.pending_adjustment_proposal ?? null;
                 const nextBufferBeforeMinutes = pendingAdjustment?.buffer_before_minutes
                     ?? nextBooking.buffer_before_minutes
-                    ?? (nextBooking.request_type === 'scheduled' ? 30 : 0);
+                    ?? (nextBooking.request_type === 'scheduled' ? 60 : 0);
                 const nextBufferAfterMinutes = pendingAdjustment?.buffer_after_minutes
                     ?? nextBooking.buffer_after_minutes
-                    ?? (nextBooking.request_type === 'scheduled' ? 30 : 0);
+                    ?? (nextBooking.request_type === 'scheduled' ? 60 : 0);
 
                 setBufferBeforeMinutes(String(nextBufferBeforeMinutes));
                 setBufferAfterMinutes(String(nextBufferAfterMinutes));
