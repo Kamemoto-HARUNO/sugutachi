@@ -200,6 +200,17 @@ ssh -p "$REMOTE_PORT" "$REMOTE_HOST" "
            '$APP_DIR/bootstrap/cache'
 "
 
+echo "Syncing public assets to docroot ..."
+ssh -p "$REMOTE_PORT" "$REMOTE_HOST" "
+  rsync -a --delete \
+    --exclude '.user.ini' \
+    --exclude 'index.php' \
+    --exclude '.htaccess' \
+    --exclude 'php85.cgi' \
+    '$APP_DIR/public/' '$DOCROOT/' && \
+  ln -sfn '$APP_DIR/storage/app/public' '$DOCROOT/storage'
+"
+
 if [[ "$ENV_SOURCE_MODE" == "managed" ]]; then
   echo "Uploading managed env file to remote .env ..."
   scp -P "$REMOTE_PORT" "$TMP_ENV" "$REMOTE_HOST:$APP_DIR/.env"
@@ -225,11 +236,6 @@ ssh -p "$REMOTE_PORT" "$REMOTE_HOST" "
 
 if [[ "$ACTIVATE_DOCROOT" == true ]]; then
   echo "Activating Laravel public files in docroot ..."
-  ssh -p "$REMOTE_PORT" "$REMOTE_HOST" "
-    rsync -a --delete --exclude '.user.ini' --exclude 'index.php' '$APP_DIR/public/' '$DOCROOT/' && \
-    ln -sfn '$APP_DIR/storage/app/public' '$DOCROOT/storage'
-  "
-
   INDEX_WRAPPER="$(mktemp)"
   trap 'rm -f "$TMP_ENV" "$INDEX_WRAPPER"' EXIT
   cat > "$INDEX_WRAPPER" <<PHP
