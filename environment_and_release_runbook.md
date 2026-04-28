@@ -49,6 +49,7 @@
 
 - `APP_ENV`
 - `APP_DEBUG`
+- `APP_KEY`
 - `APP_URL`
 - `SERVICE_BASE_URL`
 - `SERVICE_DOMAIN`
@@ -171,6 +172,42 @@ GTM_PREVIEW=env-3
 - local では `GTM_ENABLED=false` のままにする
 
 ## 6. デプロイ方法
+
+### 環境別 `.env` の持ち方
+
+このプロジェクトでは、ローカルに次の `git 管理外ファイル` を置いてデプロイ時にそのままサーバーの `.env` へ反映する運用ができます。
+
+- staging: `.env.staging`
+- production: `.env.prod`
+
+どちらも `.gitignore` 済みなので、誤ってコミットされません。
+
+#### 推奨手順
+
+1. `.env.example` をコピーして作る
+2. それぞれの環境の秘密情報を埋める
+3. `APP_KEY` も各環境で固定値を入れる
+4. `scripts/deploy_xserver_env.sh` でデプロイする
+
+例:
+
+```bash
+cp .env.example .env.staging
+cp .env.example .env.prod
+```
+
+`APP_KEY` はローカルで次のように作って貼り付けます。
+
+```bash
+php artisan key:generate --show
+```
+
+#### 注意
+
+- `.env.staging` と `.env.prod` が存在する場合、デプロイスクリプトはその内容でサーバー上の `.env` を毎回上書きする
+- そのため、`APP_KEY` を空にしたままデプロイしてはいけない
+- `APP_ENV` `APP_DEBUG` `APP_URL` `MAIL_FROM_ADDRESS` `SERVICE_SUPPORT_EMAIL` は、デプロイ先に合わせてスクリプト側で最終上書きされる
+- `.env.staging` / `.env.prod` がない場合だけ、従来どおり `.env.example` を使う bootstrap モードになる
 
 Xserver 系の共有ホスティングを前提にすると、次の 2 パターンがあります。
 

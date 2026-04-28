@@ -37,6 +37,7 @@ BUILD_DIR="$(mktemp -d)"
 
 case "$ENV_NAME" in
   staging)
+    LOCAL_ENV_FILE="$ROOT_DIR/.env.staging"
     APP_DIR="$REMOTE_BASE/app-staging"
     DOCROOT="$REMOTE_BASE/public_html/dev.sugutachi.com"
     APP_URL="https://dev.sugutachi.com"
@@ -46,6 +47,7 @@ case "$ENV_NAME" in
     SUPPORT_EMAIL="support@sugutachi.com"
     ;;
   production)
+    LOCAL_ENV_FILE="$ROOT_DIR/.env.prod"
     APP_DIR="$REMOTE_BASE/app-production"
     DOCROOT="$REMOTE_BASE/public_html"
     APP_URL="https://sugutachi.com"
@@ -72,9 +74,17 @@ fi
 
 TMP_ENV="$(mktemp)"
 trap 'rm -f "$TMP_ENV"; rm -rf "$BUILD_DIR"' EXIT
-cp "$ROOT_DIR/.env.example" "$TMP_ENV"
+if [[ -f "$LOCAL_ENV_FILE" ]]; then
+  echo "Using local env file: $(basename "$LOCAL_ENV_FILE")"
+  cp "$LOCAL_ENV_FILE" "$TMP_ENV"
+  ENV_SOURCE_MODE="managed"
+else
+  echo "No $(basename "$LOCAL_ENV_FILE") found. Falling back to .env.example bootstrap."
+  cp "$ROOT_DIR/.env.example" "$TMP_ENV"
+  ENV_SOURCE_MODE="bootstrap"
+fi
 
-python3 - "$TMP_ENV" "$APP_ENV_VALUE" "$APP_DEBUG_VALUE" "$APP_URL" "$MAIL_FROM_ADDRESS" "$SUPPORT_EMAIL" <<'PY'
+python3 - "$TMP_ENV" "$APP_ENV_VALUE" "$APP_DEBUG_VALUE" "$APP_URL" "$MAIL_FROM_ADDRESS" "$SUPPORT_EMAIL" "$ENV_SOURCE_MODE" <<'PY'
 from pathlib import Path
 import sys
 
@@ -84,6 +94,7 @@ app_debug = sys.argv[3]
 app_url = sys.argv[4]
 mail_from = sys.argv[5]
 support_email = sys.argv[6]
+env_source_mode = sys.argv[7]
 
 replacements = {
     "APP_ENV": app_env,
@@ -93,27 +104,46 @@ replacements = {
     "SERVICE_DOMAIN": app_url.replace("https://", "").replace("http://", ""),
     "MAIL_FROM_ADDRESS": f"\"{mail_from}\"",
     "SERVICE_SUPPORT_EMAIL": support_email,
-    "GTM_ENABLED": "false",
 }
 
-lines = []
-for line in path.read_text().splitlines():
+lines = path.read_text(encoding="utf-8", errors="ignore").splitlines()
+seen = set()
+normalized = []
+for line in lines:
     replaced = False
     for key, value in replacements.items():
         if line.startswith(f"{key}="):
-            lines.append(f"{key}={value}")
+            normalized.append(f"{key}={value}")
+            seen.add(key)
             replaced = True
             break
     if not replaced:
-        lines.append(line)
+        normalized.append(line)
 
-path.write_text("\n".join(lines) + "\n")
+for key, value in replacements.items():
+    if key not in seen:
+        normalized.append(f"{key}={value}")
+
+if env_source_mode == "managed":
+    values = {}
+    for line in normalized:
+        if "=" not in line or line.lstrip().startswith("#"):
+            continue
+        key, value = line.split("=", 1)
+        values[key] = value.strip().strip('"')
+    if not values.get("APP_KEY"):
+        raise SystemExit(
+            "Managed env file is missing APP_KEY. Put the fixed environment APP_KEY into the local env file before deploying."
+        )
+
+path.write_text("\n".join(normalized) + "\n", encoding="utf-8")
 PY
 
 echo "Preparing production-ready artifact locally ..."
 rsync -a \
   --exclude '.git' \
   --exclude '.env' \
+  --exclude '.env.*' \
   --exclude 'node_modules' \
   --exclude 'vendor' \
   --exclude 'storage/logs/*' \
@@ -138,6 +168,7 @@ echo "Syncing application files to $ENV_NAME ..."
 rsync -az --delete \
   --exclude '.git' \
   --exclude '.env' \
+  --exclude '.env.*' \
   --exclude 'storage/logs/*' \
   --exclude 'storage/framework/cache/*' \
   --exclude 'storage/framework/sessions/*' \
@@ -166,15 +197,20 @@ ssh -p "$REMOTE_PORT" "$REMOTE_HOST" "
            '$APP_DIR/bootstrap/cache'
 "
 
-echo "Uploading bootstrap .env if missing ..."
-scp -P "$REMOTE_PORT" "$TMP_ENV" "$REMOTE_HOST:$APP_DIR/.env.bootstrap"
-ssh -p "$REMOTE_PORT" "$REMOTE_HOST" "
-  if [ ! -f '$APP_DIR/.env' ]; then
-    mv '$APP_DIR/.env.bootstrap' '$APP_DIR/.env'
-  else
-    rm '$APP_DIR/.env.bootstrap'
-  fi
-"
+if [[ "$ENV_SOURCE_MODE" == "managed" ]]; then
+  echo "Uploading managed env file to remote .env ..."
+  scp -P "$REMOTE_PORT" "$TMP_ENV" "$REMOTE_HOST:$APP_DIR/.env"
+else
+  echo "Uploading bootstrap .env if missing ..."
+  scp -P "$REMOTE_PORT" "$TMP_ENV" "$REMOTE_HOST:$APP_DIR/.env.bootstrap"
+  ssh -p "$REMOTE_PORT" "$REMOTE_HOST" "
+    if [ ! -f '$APP_DIR/.env' ]; then
+      mv '$APP_DIR/.env.bootstrap' '$APP_DIR/.env'
+    else
+      rm '$APP_DIR/.env.bootstrap'
+    fi
+  "
+fi
 
 echo "Generating app key if needed ..."
 ssh -p "$REMOTE_PORT" "$REMOTE_HOST" "
