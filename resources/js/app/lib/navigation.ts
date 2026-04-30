@@ -1,7 +1,8 @@
 import type { NavItem, PlaceholderRouteDefinition } from './types';
 
 export const publicNavItems: NavItem[] = [
-    { label: 'ホーム', to: '/' },
+    { label: 'ホーム', to: '/', exact: true },
+    { label: 'はじめての方へ', to: '/first-time' },
     { label: 'ヘルプ', to: '/help' },
     { label: '規約', to: '/terms' },
     { label: 'プライバシー', to: '/privacy' },
