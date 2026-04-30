@@ -271,6 +271,7 @@ PHP
 #!/usr/bin/sh
 exec $REMOTE_PHP_CGI
 SH
+    chmod 644 '$DOCROOT/index.php' '$DOCROOT/.htaccess'
     chmod 755 '$DOCROOT/php85.cgi'
     python3 - <<'PY'
 from pathlib import Path
