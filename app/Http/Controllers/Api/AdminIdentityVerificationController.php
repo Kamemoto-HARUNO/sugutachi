@@ -8,6 +8,7 @@ use App\Http\Controllers\Api\Concerns\ResolvesAdminFilterIds;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\IdentityVerificationResource;
 use App\Models\IdentityVerification;
+use App\Services\Campaigns\CampaignService;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Validation\Rule;
@@ -52,7 +53,11 @@ class AdminIdentityVerificationController extends Controller
         );
     }
 
-    public function approve(Request $request, IdentityVerification $identityVerification): IdentityVerificationResource
+    public function approve(
+        Request $request,
+        IdentityVerification $identityVerification,
+        CampaignService $campaignService,
+    ): IdentityVerificationResource
     {
         $admin = $request->user();
         $this->authorizeAdmin($admin);
@@ -70,6 +75,8 @@ class AdminIdentityVerificationController extends Controller
             'purge_after' => now()->addDays(30),
         ])->save();
 
+        $campaignService->grantTherapistRegistrationBonus($identityVerification->refresh()->load('account'));
+        $campaignService->grantUserFirstBookingOffers($identityVerification->refresh()->load('account.roleAssignments'));
         $this->recordAdminAudit($request, 'identity_verification.approve', $identityVerification, $before, $this->snapshot($identityVerification->refresh()));
 
         return new IdentityVerificationResource($identityVerification->load(['account', 'reviewedBy']));

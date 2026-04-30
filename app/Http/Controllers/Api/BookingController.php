@@ -13,6 +13,7 @@ use App\Models\ServiceAddress;
 use App\Models\TherapistAvailabilitySlot;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
+use App\Services\Campaigns\CampaignService;
 use App\Services\Bookings\BookingRequestExpirationService;
 use App\Services\Bookings\ScheduledBookingPolicy;
 use App\Services\Scheduling\PublicAvailabilityWindowCalculator;
@@ -123,6 +124,7 @@ class BookingController extends Controller
 
     public function store(
         Request $request,
+        CampaignService $campaignService,
         PublicAvailabilityWindowCalculator $availabilityCalculator,
         ScheduledBookingPolicy $scheduledBookingPolicy,
     ): JsonResponse {
@@ -142,6 +144,7 @@ class BookingController extends Controller
         $scheduledBookingPolicy->assertUserCanBook($request->user());
 
         $booking = DB::transaction(function () use (
+            $campaignService,
             $availabilityCalculator,
             $request,
             $scheduledBookingPolicy,
@@ -153,6 +156,8 @@ class BookingController extends Controller
                 ->where('public_id', $validated['quote_id'])
                 ->lockForUpdate()
                 ->firstOrFail();
+
+            $campaignService->assertQuoteCampaignStillApplicable($request->user(), $quote);
 
             abort_if($quote->booking_id !== null, 409, 'この見積もりは、すでに予約リクエストに使用されています。');
             abort_if($quote->expires_at && $quote->expires_at->isPast(), 409, 'この見積もりの有効期限が切れています。もう一度見積もりを取り直してください。');
@@ -225,6 +230,8 @@ class BookingController extends Controller
 
             $quote->update(['booking_id' => $booking->id]);
             $booking->update(['current_quote_id' => $quote->id]);
+            $booking->refresh()->load('currentQuote');
+            $campaignService->reserveBookingCampaignApplication($booking);
 
             $booking->statusLogs()->create([
                 'to_status' => Booking::STATUS_PAYMENT_AUTHORIZING,

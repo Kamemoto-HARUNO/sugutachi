@@ -40,7 +40,7 @@ class StripePaymentIntentGateway implements PaymentIntentGateway
         ];
 
         if ($connectedAccount?->canReceiveStripeTransfers()) {
-            $payload['application_fee_amount'] = $quote->platform_fee_amount + $quote->matching_fee_amount;
+            $payload['application_fee_amount'] = max(0, (int) $quote->total_amount - (int) $quote->therapist_net_amount);
             $payload['transfer_data'] = [
                 'destination' => $connectedAccount->stripe_account_id,
             ];

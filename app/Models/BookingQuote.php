@@ -38,6 +38,7 @@ class BookingQuote extends Model
         return [
             'input_snapshot_json' => 'array',
             'applied_rules_json' => 'array',
+            'discount_snapshot_json' => 'array',
             'expires_at' => 'datetime',
         ];
     }

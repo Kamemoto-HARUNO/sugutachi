@@ -7,7 +7,7 @@ import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { getPostAuthPath, inferRoleFromPath, sanitizeAppPath } from '../lib/account';
 import { ApiError, apiRequest, getFieldError, unwrapData } from '../lib/api';
 import { toDomesticDigits, toE164PhoneNumber } from '../lib/phone';
-import type { ApiEnvelope, LegalDocumentSummary } from '../lib/types';
+import type { ApiEnvelope, LegalDocumentSummary, PublicCampaignRecord, ServiceMeta } from '../lib/types';
 
 type InitialRole = 'user' | 'therapist';
 
@@ -25,6 +25,7 @@ export function RegisterPage() {
     const [searchParams] = useSearchParams();
     const { register } = useAuth();
     const [documents, setDocuments] = useState<LegalDocumentSummary[]>([]);
+    const [registerCampaigns, setRegisterCampaigns] = useState<PublicCampaignRecord[]>([]);
     const [displayName, setDisplayName] = useState('');
     const [email, setEmail] = useState('');
     const [phone, setPhone] = useState('');
@@ -53,13 +54,19 @@ export function RegisterPage() {
     useEffect(() => {
         let isMounted = true;
 
-        void apiRequest<ApiEnvelope<LegalDocumentSummary[]>>('/legal-documents')
-            .then((payload) => {
+        void Promise.all([
+            apiRequest<ApiEnvelope<LegalDocumentSummary[]>>('/legal-documents'),
+            apiRequest<ApiEnvelope<ServiceMeta>>('/service-meta'),
+        ])
+            .then(([documentsPayload, metaPayload]) => {
                 if (!isMounted) {
                     return;
                 }
 
-                setDocuments(unwrapData(payload));
+                setDocuments(unwrapData(documentsPayload));
+                setRegisterCampaigns(
+                    unwrapData(metaPayload).campaigns.filter((campaign) => campaign.placements.includes('register')),
+                );
             })
             .catch((requestError: unknown) => {
                 if (!isMounted) {
@@ -90,6 +97,14 @@ export function RegisterPage() {
         () => documents.find((document) => document.document_type === 'privacy') ?? null,
         [documents],
     );
+    const selectedRegisterCampaign = useMemo(
+        () => registerCampaigns.find((campaign) => campaign.target_role === initialRole) ?? null,
+        [initialRole, registerCampaigns],
+    );
+    const registerCampaignByRole = useMemo<Record<InitialRole, PublicCampaignRecord | null>>(() => ({
+        user: registerCampaigns.find((campaign) => campaign.target_role === 'user') ?? null,
+        therapist: registerCampaigns.find((campaign) => campaign.target_role === 'therapist') ?? null,
+    }), [registerCampaigns]);
 
     const handleSubmit = async (event: FormEvent<HTMLFormElement>) => {
         event.preventDefault();
@@ -188,18 +203,42 @@ export function RegisterPage() {
                                     active: initialRole === 'therapist',
                                 },
                             ].map((item) => (
-                                <button
-                                    key={item.label}
-                                    type="button"
-                                    onClick={() => setInitialRole(item.value)}
-                                    className={[
-                                        'w-full rounded-[24px] border p-5 text-left transition',
-                                        item.active ? 'border-[#d2b179] bg-white/10' : 'border-white/10 bg-white/6 hover:bg-white/8',
-                                    ].join(' ')}
-                                >
-                                    <p className="text-sm font-semibold text-[#f4efe5]">{item.label}</p>
-                                    <p className="mt-2 text-sm leading-7 text-[#d8d3ca]">{item.body}</p>
-                                </button>
+                                <div key={item.label} className="space-y-3">
+                                    {registerCampaignByRole[item.value] ? (
+                                        <div
+                                            className="campaign-offer-float campaign-offer-banner-dark rounded-[24px] px-5 py-4"
+                                            style={{ animationDelay: item.value === 'therapist' ? '1.2s' : '0s' }}
+                                        >
+                                            <p className="text-xs font-semibold tracking-wide text-[#7f5414]">期間限定キャンペーン適用中</p>
+                                            <p className="mt-2 text-sm font-semibold text-[#17202b]">
+                                                {registerCampaignByRole[item.value]?.offer_text}
+                                            </p>
+                                            <p className="mt-2 text-xs leading-6 text-[#5d4724]">
+                                                {registerCampaignByRole[item.value]?.trigger_label}が完了すると、
+                                                {' '}
+                                                {registerCampaignByRole[item.value]?.benefit_summary}
+                                                {' '}
+                                                が適用されます。
+                                            </p>
+                                            {registerCampaignByRole[item.value]?.offer_valid_days ? (
+                                                <p className="mt-2 text-xs leading-6 text-[#5d4724]">
+                                                    本人確認承認後から {registerCampaignByRole[item.value]?.offer_valid_days} 日以内に初回予約で利用できます。
+                                                </p>
+                                            ) : null}
+                                        </div>
+                                    ) : null}
+                                    <button
+                                        type="button"
+                                        onClick={() => setInitialRole(item.value)}
+                                        className={[
+                                            'w-full rounded-[24px] border p-5 text-left transition',
+                                            item.active ? 'border-[#d2b179] bg-white/10' : 'border-white/10 bg-white/6 hover:bg-white/8',
+                                        ].join(' ')}
+                                    >
+                                        <p className="text-sm font-semibold text-[#f4efe5]">{item.label}</p>
+                                        <p className="mt-2 text-sm leading-7 text-[#d8d3ca]">{item.body}</p>
+                                    </button>
+                                </div>
                             ))}
                         </div>
 
@@ -220,6 +259,23 @@ export function RegisterPage() {
                                 最新の規約に同意した状態で、すぐに利用を始められます。
                             </p>
                         </div>
+
+                        {selectedRegisterCampaign ? (
+                            <div className="campaign-offer-float campaign-offer-banner-light rounded-[24px] p-5" style={{ animationDelay: '0.6s' }}>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a661c]">期間限定キャンペーン適用中</p>
+                                <p className="mt-2 text-base font-semibold text-[#17202b]">
+                                    {selectedRegisterCampaign.offer_text}
+                                </p>
+                                <p className="mt-2 text-sm leading-7 text-[#5d4724]">
+                                    {selectedRegisterCampaign.trigger_label}が完了すると、{selectedRegisterCampaign.benefit_summary}が適用されます。
+                                </p>
+                                {selectedRegisterCampaign.offer_valid_days ? (
+                                    <p className="mt-2 text-xs leading-6 text-[#5d4724]">
+                                        本人確認承認後から {selectedRegisterCampaign.offer_valid_days} 日以内に初回予約で利用できます。
+                                    </p>
+                                ) : null}
+                            </div>
+                        ) : null}
 
                         <form onSubmit={handleSubmit} className="space-y-5">
                             <div className="grid gap-4 md:grid-cols-2">

@@ -291,6 +291,36 @@ export function AdminDashboardPage() {
         ];
     }, [dashboard]);
 
+    const campaignCards = useMemo<DashboardMetricCard[]>(() => {
+        if (!dashboard) {
+            return [];
+        }
+
+        return [
+            {
+                key: 'active',
+                label: '適用中',
+                count: dashboard.campaigns.active,
+                description: '現在ユーザー向けに表示されているキャンペーンです。',
+                target: dashboard.navigation.campaigns.active,
+            },
+            {
+                key: 'scheduled',
+                label: '開始待ち',
+                count: dashboard.campaigns.scheduled,
+                description: '公開予約済みでまだ開始していないキャンペーンです。',
+                target: dashboard.navigation.campaigns.scheduled,
+            },
+            {
+                key: 'inactive',
+                label: '無効・終了済み',
+                count: dashboard.campaigns.inactive,
+                description: '停止済みまたは終了済みの設定です。',
+                target: dashboard.navigation.campaigns.inactive,
+            },
+        ];
+    }, [dashboard]);
+
     if (isLoading) {
         return <LoadingScreen title="運営ダッシュボードを読み込み中" message="審査、監視、予約運用の件数を集計しています。" />;
     }
@@ -323,6 +353,12 @@ export function AdminDashboardPage() {
                             className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/5"
                         >
                             アカウント一覧
+                        </Link>
+                        <Link
+                            to="/admin/campaigns"
+                            className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/5"
+                        >
+                            キャンペーン管理
                         </Link>
                         <Link
                             to="/admin/legal-documents"
@@ -374,6 +410,13 @@ export function AdminDashboardPage() {
                         title="予約監視"
                         description="承諾待ち、危険メッセージ、中断予約を追えます。"
                         cards={bookingCards}
+                    />
+
+                    <DashboardSection
+                        eyebrow="CAMPAIGNS"
+                        title="キャンペーン運用"
+                        description="登録特典と期間限定割引の公開状況を確認できます。"
+                        cards={campaignCards}
                     />
 
                     <DashboardSection

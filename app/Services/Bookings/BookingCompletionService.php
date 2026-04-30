@@ -75,10 +75,10 @@ class BookingCompletionService
             'status' => $this->paymentIntentGateway->capture(
                 $paymentIntent,
                 $booking->total_amount,
-                $paymentIntent->stripe_connected_account_id
-                    ? $booking->platform_fee_amount + $booking->matching_fee_amount
+                $paymentIntent->stripe_connected_account_id && (int) $booking->total_amount >= (int) $booking->therapist_net_amount
+                    ? max(0, (int) $booking->total_amount - (int) $booking->therapist_net_amount)
                     : null,
-                $paymentIntent->stripe_connected_account_id
+                $paymentIntent->stripe_connected_account_id && (int) $booking->total_amount >= (int) $booking->therapist_net_amount
                     ? $booking->therapist_net_amount
                     : null,
             ),

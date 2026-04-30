@@ -7,6 +7,7 @@ use App\Http\Resources\BookingResource;
 use App\Models\Account;
 use App\Models\Booking;
 use App\Models\TherapistProfile;
+use App\Services\Campaigns\CampaignService;
 use App\Services\Bookings\BookingCancellationPolicy;
 use App\Services\Bookings\BookingCancellationSettlementService;
 use App\Services\Notifications\BookingNotificationService;
@@ -63,6 +64,7 @@ class BookingCancellationController extends Controller
         Booking $booking,
         BookingCancellationPolicy $policy,
         BookingCancellationSettlementService $settlementService,
+        CampaignService $campaignService,
         BookingNotificationService $bookingNotificationService,
     ): JsonResponse {
         $actor = $request->user();
@@ -143,6 +145,7 @@ class BookingCancellationController extends Controller
         [$canceledBooking, $preview] = $result;
 
         $settlementService->settle($canceledBooking, $preview);
+        $campaignService->restoreBookingCampaignApplication($canceledBooking->refresh(), 'booking_canceled');
         $bookingNotificationService->notifyCanceled($canceledBooking->refresh());
 
         $canceledBooking->refresh()->load([

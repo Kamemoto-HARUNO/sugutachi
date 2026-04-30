@@ -43,6 +43,8 @@ MVPでは、以下を重視する。
 
 ```text
 accounts
+  ├─ campaigns
+  ├─ campaign_applications
   ├─ account_roles
   ├─ identity_verifications
   ├─ temp_files
@@ -151,6 +153,66 @@ accounts
 インデックス:
 * unique: `account_id, legal_document_id`
 * index: `account_id, accepted_at`
+
+### 4.5 campaigns
+運営が管理するキャンペーン設定。対象ロールと適用条件ごとに期間限定で配信する。
+
+| カラム | 型 | Null | 説明 |
+| --- | --- | --- | --- |
+| id | bigint unsigned | No | 主キー |
+| target_role | varchar(50) | No | therapist, user |
+| trigger_type | varchar(50) | No | therapist_registration, therapist_booking, user_first_booking, user_booking |
+| benefit_type | varchar(50) | No | fixed_amount, percentage |
+| benefit_value | unsigned int | No | 付与額または割引率/割引額 |
+| offer_text | varchar(500) | No | 画面表示用テキスト |
+| starts_at | timestamp | No | 開始日時 |
+| ends_at | timestamp | Yes | 終了日時。nullなら終了なし |
+| offer_valid_days | unsigned int | Yes | 初回予約オファー付与後の有効日数 |
+| is_enabled | boolean | No | 運営が有効化しているか |
+| created_by_account_id | bigint unsigned | Yes | 作成者 |
+| updated_by_account_id | bigint unsigned | Yes | 更新者 |
+| created_at / updated_at | timestamp | Yes | Laravel標準 |
+
+インデックス:
+* index: `target_role, trigger_type`
+* index: `is_enabled, starts_at`
+* index: `is_enabled, ends_at`
+
+補足:
+* 同じ `target_role + trigger_type` で有効期間が重複するレコードは作成不可とする。
+* タチキャスト向けキャンペーンでは `benefit_type=fixed_amount` のみを許可する。
+
+### 4.6 campaign_applications
+キャンペーンの適用・付与履歴。予約単位かアカウント単位かを `application_key` で一意に管理する。
+
+| カラム | 型 | Null | 説明 |
+| --- | --- | --- | --- |
+| id | bigint unsigned | No | 主キー |
+| campaign_id | bigint unsigned | No | campaigns.id |
+| account_id | bigint unsigned | No | 対象accounts.id |
+| booking_id | bigint unsigned | Yes | 予約起点キャンペーンなら bookings.id |
+| therapist_ledger_entry_id | bigint unsigned | Yes | 残高付与時の台帳エントリ |
+| application_key | varchar(255) | No | 冪等適用キー |
+| status | varchar(50) | No | available, reserved, consumed, expired, granted |
+| benefit_type | varchar(50) | No | fixed_amount, percentage |
+| benefit_value | unsigned int | No | 設定時の値スナップショット |
+| applied_amount | unsigned int | No | 実際に適用/付与された金額 |
+| applied_at | timestamp | Yes | 適用日時 |
+| offer_expires_at | timestamp | Yes | 利用者向け保有オファーの有効期限 |
+| consumed_at | timestamp | Yes | 消費確定日時 |
+| metadata_json | json | Yes | 予約公開ID、訴求文言など |
+| created_at / updated_at | timestamp | Yes | Laravel標準 |
+
+インデックス:
+* unique: `application_key`
+* index: `campaign_id, account_id`
+* index: `booking_id`
+* index: `therapist_ledger_entry_id`
+
+補足:
+* `user_first_booking` はアカウント単位で1件の保有オファーとして管理し、`available -> reserved -> consumed / expired` の状態遷移を持つ。
+* 予約作成時は `reserved`、タチキャスト承諾時は `consumed`、失効・辞退・キャンセル時は `available` または `expired` へ戻す。
+* 登録起点キャンペーンの対象判定は `account_roles.granted_at` とキャンペーン期間で行う。
 
 ## 5. 本人確認・プロフィール
 
@@ -540,12 +602,17 @@ accounts
 | profile_adjustment_amount | int | No | プロフィール由来の調整 |
 | matching_fee_amount | unsigned int | No | マッチング手数料 |
 | platform_fee_amount | unsigned int | No | 運営手数料 |
+| discount_campaign_id | bigint unsigned | Yes | campaigns.id |
+| discount_amount | unsigned int | No | 実適用された割引額 |
+| discounted_matching_fee_amount | unsigned int | Yes | 見積もり表示互換のため保持する請求側マッチング手数料スナップショット |
+| discounted_platform_fee_amount | unsigned int | Yes | 見積もり表示互換のため保持する請求側運営手数料スナップショット |
 | total_amount | unsigned int | No | ユーザー支払総額 |
 | therapist_gross_amount | unsigned int | No | タチキャスト売上総額 |
 | therapist_net_amount | unsigned int | No | タチキャスト受取予定額 |
 | calculation_version | varchar(50) | No | 算定ロジック版 |
 | input_snapshot_json | json | No | 算定入力値 |
 | applied_rules_json | json | No | 適用ルール |
+| discount_snapshot_json | json | Yes | 適用キャンペーンのスナップショット |
 | expires_at | timestamp | Yes | 見積もり期限 |
 | created_at / updated_at | timestamp | Yes | Laravel標準 |
 
@@ -553,6 +620,10 @@ accounts
 * index: `booking_id`
 * index: `therapist_profile_id, created_at`
 * index: `expires_at`
+
+補足:
+* `matching_fee_amount` と `platform_fee_amount` には割引前の値を残し、実際の請求額は `total_amount` と `discount_amount` で再現する。
+* 利用者向けキャンペーン割引はプラットフォーム負担で適用し、`therapist_net_amount` は変えない。
 
 ### 8.3 booking_status_logs
 予約ステータスの履歴。監査の中心。
@@ -863,9 +934,9 @@ Webhookの冪等性・再処理用ログ。
 | therapist_account_id | bigint unsigned | No | タチキャストaccounts.id |
 | booking_id | bigint unsigned | Yes | bookings.id |
 | payout_request_id | bigint unsigned | Yes | payout_requests.id |
-| entry_type | varchar(50) | No | booking_earning, refund, chargeback, payout, adjustment, hold, release |
+| entry_type | varchar(50) | No | booking_sale, refund_adjustment, campaign_bonus 等 |
 | amount_signed | int | No | 増減額。円 |
-| status | varchar(50) | No | pending_balance, available_balance, payout_requested, payout_processing, payout_paid, payout_on_hold |
+| status | varchar(50) | No | pending, available, payout_requested, paid, held |
 | available_at | timestamp | Yes | 出金可能日時 |
 | description | varchar(255) | Yes | 説明 |
 | metadata_json | json | Yes | 関連情報 |
@@ -876,6 +947,9 @@ Webhookの冪等性・再処理用ログ。
 * index: `booking_id`
 * index: `payout_request_id`
 * index: `available_at`
+
+補足:
+* キャンペーン特典の残高付与は `entry_type=campaign_bonus` として記録する。
 
 ### 11.2 payout_requests
 タチキャスト出金申請。

@@ -7,6 +7,7 @@ use App\Http\Resources\BookingResource;
 use App\Http\Resources\PaymentIntentResource;
 use App\Models\Booking;
 use App\Models\PaymentIntent;
+use App\Services\Campaigns\CampaignService;
 use App\Services\Bookings\ScheduledBookingPolicy;
 use App\Services\Notifications\BookingNotificationService;
 use Carbon\CarbonImmutable;
@@ -22,6 +23,7 @@ class PaymentSyncController extends Controller
     public function store(
         Request $request,
         Booking $booking,
+        CampaignService $campaignService,
         ScheduledBookingPolicy $scheduledBookingPolicy,
         BookingNotificationService $bookingNotificationService,
     ): JsonResponse {
@@ -29,6 +31,7 @@ class PaymentSyncController extends Controller
 
         $this->syncCurrentPaymentIntentFromStripe(
             booking: $booking,
+            campaignService: $campaignService,
             scheduledBookingPolicy: $scheduledBookingPolicy,
             bookingNotificationService: $bookingNotificationService,
         );
@@ -47,6 +50,7 @@ class PaymentSyncController extends Controller
 
     private function syncCurrentPaymentIntentFromStripe(
         Booking $booking,
+        CampaignService $campaignService,
         ScheduledBookingPolicy $scheduledBookingPolicy,
         BookingNotificationService $bookingNotificationService,
     ): void {
@@ -164,6 +168,7 @@ class PaymentSyncController extends Controller
                     ],
                 ]);
 
+                $campaignService->restoreBookingCampaignApplication($lockedBooking->refresh(), 'payment_intent_canceled');
                 $bookingNotificationService->notifyCanceled($lockedBooking->refresh());
             }
         });

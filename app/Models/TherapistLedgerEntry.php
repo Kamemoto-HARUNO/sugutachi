@@ -13,6 +13,8 @@ class TherapistLedgerEntry extends Model
 
     public const TYPE_REFUND_ADJUSTMENT = 'refund_adjustment';
 
+    public const TYPE_CAMPAIGN_BONUS = 'campaign_bonus';
+
     public const STATUS_PENDING = 'pending';
 
     public const STATUS_AVAILABLE = 'available';

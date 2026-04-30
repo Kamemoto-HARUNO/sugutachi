@@ -9,6 +9,7 @@ use App\Models\ServiceAddress;
 use App\Models\TherapistAvailabilitySlot;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
+use App\Services\Campaigns\CampaignService;
 use App\Services\Bookings\ScheduledBookingPolicy;
 use App\Services\Pricing\BookingQuoteCalculator;
 use App\Services\Scheduling\PublicAvailabilityWindowCalculator;
@@ -23,6 +24,7 @@ class BookingQuoteController extends Controller
     public function store(
         Request $request,
         BookingQuoteCalculator $calculator,
+        CampaignService $campaignService,
         PublicAvailabilityWindowCalculator $availabilityCalculator,
         ScheduledBookingPolicy $scheduledBookingPolicy,
     ): JsonResponse {
@@ -121,7 +123,7 @@ class BookingQuoteController extends Controller
             [$originLat, $originLng] = $this->dispatchCoordinates($therapistProfile, $slot);
         }
 
-        $amounts = $calculator->calculate(
+        $rawAmounts = $calculator->calculate(
             therapistProfile: $therapistProfile,
             menu: $menu,
             serviceAddress: $serviceAddress,
@@ -131,6 +133,20 @@ class BookingQuoteController extends Controller
             originLat: $originLat,
             originLng: $originLng,
         );
+        $discountSnapshot = $campaignService->resolveUserQuoteDiscountSnapshot($request->user(), $rawAmounts);
+        $amounts = $discountSnapshot
+            ? $calculator->calculate(
+                therapistProfile: $therapistProfile,
+                menu: $menu,
+                serviceAddress: $serviceAddress,
+                durationMinutes: $validated['duration_minutes'],
+                isOnDemand: $isOnDemand,
+                requestedStartAt: $requestedStartAt?->toIso8601String(),
+                originLat: $originLat,
+                originLng: $originLng,
+                discountSnapshot: $discountSnapshot,
+            )
+            : $rawAmounts;
 
         $amounts['input_snapshot_json']['availability_slot_id'] = $slot?->public_id;
         $amounts['input_snapshot_json']['dispatch_area_label'] = $slot?->dispatch_area_label;
@@ -147,12 +163,17 @@ class BookingQuoteController extends Controller
             'profile_adjustment_amount' => $amounts['profile_adjustment_amount'],
             'matching_fee_amount' => $amounts['matching_fee_amount'],
             'platform_fee_amount' => $amounts['platform_fee_amount'],
+            'discount_campaign_id' => $amounts['discount_snapshot_json']['campaign_id'] ?? null,
+            'discount_amount' => $amounts['discount_amount'],
+            'discounted_matching_fee_amount' => $amounts['discounted_matching_fee_amount'],
+            'discounted_platform_fee_amount' => $amounts['discounted_platform_fee_amount'],
             'total_amount' => $amounts['total_amount'],
             'therapist_gross_amount' => $amounts['therapist_gross_amount'],
             'therapist_net_amount' => $amounts['therapist_net_amount'],
             'calculation_version' => 'mvp-v1',
             'input_snapshot_json' => $amounts['input_snapshot_json'],
             'applied_rules_json' => $amounts['applied_rules_json'],
+            'discount_snapshot_json' => $amounts['discount_snapshot_json'],
             'expires_at' => now()->addMinutes(10),
         ]);
 

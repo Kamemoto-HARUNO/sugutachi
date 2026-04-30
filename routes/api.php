@@ -5,6 +5,7 @@ use App\Http\Controllers\Api\AccountRoleController;
 use App\Http\Controllers\Api\AdminAccountController;
 use App\Http\Controllers\Api\AdminAuditLogController;
 use App\Http\Controllers\Api\AdminBookingController;
+use App\Http\Controllers\Api\AdminCampaignController;
 use App\Http\Controllers\Api\AdminContactInquiryController;
 use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\Api\AdminIdentityVerificationFileController;
@@ -56,6 +57,7 @@ use App\Http\Controllers\Api\TherapistProfileController;
 use App\Http\Controllers\Api\TherapistScheduledBookingSettingController;
 use App\Http\Controllers\Api\TherapistTravelRequestController;
 use App\Http\Controllers\Api\UserProfileController;
+use App\Http\Controllers\Api\UserCampaignOfferController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/webhooks/stripe', StripeWebhookController::class);
@@ -156,6 +158,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/admin/audit-logs', [AdminAuditLogController::class, 'index']);
     Route::get('/admin/platform-fee-settings', [AdminPlatformFeeSettingController::class, 'index']);
     Route::post('/admin/platform-fee-settings', [AdminPlatformFeeSettingController::class, 'store']);
+    Route::get('/admin/campaigns', [AdminCampaignController::class, 'index']);
+    Route::post('/admin/campaigns', [AdminCampaignController::class, 'store']);
+    Route::patch('/admin/campaigns/{campaign}', [AdminCampaignController::class, 'update']);
+    Route::delete('/admin/campaigns/{campaign}', [AdminCampaignController::class, 'destroy']);
     Route::get('/admin/legal-documents', [AdminLegalDocumentController::class, 'index']);
     Route::post('/admin/legal-documents', [AdminLegalDocumentController::class, 'store']);
     Route::patch('/admin/legal-documents/{legalDocument}', [AdminLegalDocumentController::class, 'update']);
@@ -182,6 +188,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me/identity-verification', [IdentityVerificationController::class, 'latest']);
     Route::post('/me/identity-verification', [IdentityVerificationController::class, 'store']);
     Route::post('/me/identity-verification/resubmit', [IdentityVerificationController::class, 'resubmit']);
+    Route::get('/me/campaign-offers', [UserCampaignOfferController::class, 'index']);
 
     Route::get('/me/service-addresses', [ServiceAddressController::class, 'index']);
     Route::post('/me/service-addresses', [ServiceAddressController::class, 'store']);

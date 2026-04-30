@@ -31,6 +31,7 @@ import { LoginPage } from './pages/LoginPage';
 import { NotFoundPage } from './pages/NotFoundPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminAccountsPage } from './pages/AdminAccountsPage';
+import { AdminCampaignsPage } from './pages/AdminCampaignsPage';
 import { AdminLegalDocumentsPage } from './pages/AdminLegalDocumentsPage';
 import { AdminBookingsPage } from './pages/AdminBookingsPage';
 import { AdminBookingMessagesPage } from './pages/AdminBookingMessagesPage';
@@ -85,6 +86,7 @@ import { TherapistBookingReportPage, UserBookingReportPage } from './pages/UserB
 import { UserBookingWaitingPage } from './pages/UserBookingWaitingPage';
 import { UserIdentityVerificationPage } from './pages/UserIdentityVerificationPage';
 import { UserBlocksPage } from './pages/UserBlocksPage';
+import { UserCampaignOffersPage } from './pages/UserCampaignOffersPage';
 import { UserProfilePage } from './pages/UserProfilePage';
 import { UserReportsPage } from './pages/UserReportsPage';
 import { UserServiceAddressesPage } from './pages/UserServiceAddressesPage';
@@ -157,12 +159,14 @@ function AppRoutes() {
                                 description="検索から予約、レビュー、通報までの利用者フローをここから組み上げていきます。"
                                 actions={[
                                     { label: 'タチキャストを探す', to: '/user/therapists', description: '検索一覧、詳細、空き枠の導線をつなぎます。' },
+                                    { label: '保有オファー', to: '/user/offers', description: '初回予約オファーや現在の割引特典を確認できます。' },
                                     { label: '予約一覧', to: '/user/bookings', description: '進行中の予約や未読メッセージへすぐ戻れます。' },
                                     { label: '待ち合わせ場所', to: '/user/service-addresses', description: '来てほしい場所とデフォルト住所を管理します。' },
                                 ]}
                             />
                         }
                     />
+                    <Route path="offers" element={<UserCampaignOffersPage />} />
                     <Route path="bookings" element={<UserBookingsPage />} />
                     <Route path="bookings/:publicId" element={<UserBookingDetailPage />} />
                     <Route path="bookings/:publicId/messages" element={<UserBookingMessagesPage />} />
@@ -298,6 +302,7 @@ function AppRoutes() {
                     <Route path="bookings" element={<AdminBookingsPage />} />
                     <Route path="bookings/:publicId" element={<AdminBookingsPage />} />
                     <Route path="bookings/:publicId/messages" element={<AdminBookingMessagesPage />} />
+                    <Route path="campaigns" element={<AdminCampaignsPage />} />
                     <Route path="reports" element={<AdminReportsPage />} />
                     <Route path="reports/:publicId" element={<AdminReportsPage />} />
                     <Route path="refund-requests" element={<AdminRefundRequestsPage />} />
@@ -323,6 +328,7 @@ function AppRoutes() {
                             'bookings',
                             'bookings/:publicId',
                             'bookings/:publicId/messages',
+                            'campaigns',
                             'reports',
                             'reports/:publicId',
                             'refund-requests',
