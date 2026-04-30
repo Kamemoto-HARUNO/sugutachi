@@ -274,8 +274,8 @@ SH
     chmod 755 '$DOCROOT/php85.cgi'
     python3 - <<'PY'
 from pathlib import Path
-    p = Path('$DOCROOT/.htaccess')
-    lines = p.read_text(encoding='utf-8', errors='ignore').splitlines() if p.exists() else []
+p = Path('$DOCROOT/.htaccess')
+lines = p.read_text(encoding='utf-8', errors='ignore').splitlines() if p.exists() else []
 filtered = []
 for line in lines:
     if 'myphp-script85' in line:
