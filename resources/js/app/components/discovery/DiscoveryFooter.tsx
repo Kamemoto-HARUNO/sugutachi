@@ -55,6 +55,9 @@ export function DiscoveryFooter({
                 </div>
 
                 <div className="flex flex-wrap items-center justify-center gap-x-6 gap-y-3 text-sm text-[#e6e1d7]">
+                    <Link to="/first-time" className="transition hover:text-white">
+                        はじめての方へ
+                    </Link>
                     <Link to="/help" className="transition hover:text-white">
                         ヘルプ
                     </Link>
