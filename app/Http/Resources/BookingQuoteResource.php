@@ -21,12 +21,19 @@ class BookingQuoteResource extends JsonResource
                 'night_fee_amount' => $this->night_fee_amount,
                 'demand_fee_amount' => $this->demand_fee_amount,
                 'profile_adjustment_amount' => $this->profile_adjustment_amount,
+                'discount_amount' => $this->discount_amount,
                 'matching_fee_amount' => $this->matching_fee_amount,
                 'platform_fee_amount' => $this->platform_fee_amount,
                 'total_amount' => $this->total_amount,
                 'therapist_gross_amount' => $this->therapist_gross_amount,
                 'therapist_net_amount' => $this->therapist_net_amount,
             ],
+            'discount' => $this->discount_snapshot_json
+                ? [
+                    ...$this->discount_snapshot_json,
+                    'discount_amount' => $this->discount_amount,
+                ]
+                : null,
             'travel_mode' => $this->input_snapshot_json['travel_mode'] ?? null,
             'walking_time_range' => $this->input_snapshot_json['walking_time_range'] ?? null,
         ];

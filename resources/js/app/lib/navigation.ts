@@ -11,6 +11,7 @@ export const publicNavItems: NavItem[] = [
 
 export const userNavItems: NavItem[] = [
     { label: 'マイページ', to: '/user', exact: true },
+    { label: 'オファー', to: '/user/offers' },
     { label: '予約', to: '/user/bookings' },
     { label: 'プロフィール', to: '/user/profile' },
     { label: '住所', to: '/user/service-addresses' },
@@ -35,6 +36,7 @@ export const adminNavItems: NavItem[] = [
     { label: 'アカウント', to: '/admin/accounts' },
     { label: 'タチキャスト', to: '/admin/therapist-profiles' },
     { label: '予約', to: '/admin/bookings' },
+    { label: 'キャンペーン', to: '/admin/campaigns' },
     { label: '通報', to: '/admin/reports' },
     { label: '問い合わせ', to: '/admin/contact-inquiries' },
     { label: '料金ルール', to: '/admin/pricing-rules' },
@@ -102,6 +104,7 @@ export const adminPlaceholderRoutes: PlaceholderRouteDefinition[] = [
     { path: 'contact-inquiries', title: '問い合わせ管理', description: '問い合わせの確認、メモ、解決を行います。', apiPath: '/api/admin/contact-inquiries' },
     { path: 'travel-requests', title: '出張リクエスト監視', description: '需要通知の監視、警告、送信制限を扱います。', apiPath: '/api/admin/travel-requests' },
     { path: 'travel-requests/:publicId', title: '出張リクエスト詳細', description: '出張リクエスト本文と運営メモを確認します。', apiPath: '/api/admin/travel-requests/{public_id}' },
+    { path: 'campaigns', title: 'キャンペーン管理', description: '登録特典や予約割引キャンペーンの期間、内容、適用状況を管理します。', apiPath: '/api/admin/campaigns' },
     { path: 'pricing-rules', title: '料金ルール監視', description: '危険な料金ルールや監視フラグを確認します。', apiPath: '/api/admin/pricing-rules' },
     { path: 'pricing-rules/:id', title: '料金ルール詳細', description: '条件や内部メモを確認する詳細画面です。', apiPath: '/api/admin/pricing-rules/{id}' },
     { path: 'legal-documents', title: '法務文書管理', description: '利用規約や特商法文書の編集・公開を行います。', apiPath: '/api/admin/legal-documents' },

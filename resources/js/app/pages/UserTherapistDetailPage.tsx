@@ -27,6 +27,7 @@ import type {
     ApiEnvelope,
     ReviewSummary,
     ServiceAddress,
+    ServiceMeta,
     TherapistMenu,
     TherapistDetail,
 } from '../lib/types';
@@ -141,7 +142,7 @@ export function UserTherapistDetailPage() {
     const [serviceAddresses, setServiceAddresses] = useState<ServiceAddress[]>([]);
     const [therapistDetail, setTherapistDetail] = useState<TherapistDetail | null>(null);
     const [reviews, setReviews] = useState<ReviewSummary[]>([]);
-    const [serviceMeta, setServiceMeta] = useState<{ domain: string; support_email: string } | null>(null);
+    const [serviceMeta, setServiceMeta] = useState<ServiceMeta | null>(null);
     const [error, setError] = useState<string | null>(null);
     const [isBootstrapping, setIsBootstrapping] = useState(true);
     const [isLoadingDetail, setIsLoadingDetail] = useState(false);
@@ -304,6 +305,13 @@ export function UserTherapistDetailPage() {
         : isAuthenticated
             ? { label: '利用モードを管理する', to: '/role-select', variant: 'secondary' as const }
         : { label: '無料登録する', to: registerAvailabilityPath, variant: 'secondary' as const };
+    const activeUserBookingCampaign = useMemo(
+        () => serviceMeta?.campaigns.find((campaign) => (
+            campaign.target_role === 'user'
+            && campaign.placements.includes('therapist_detail')
+        )) ?? null,
+        [serviceMeta],
+    );
 
     usePageTitle(therapistDetail ? `${therapistDetail.public_name}の詳細` : 'タチキャスト詳細');
     useToastOnMessage(error, 'error');
@@ -314,7 +322,7 @@ export function UserTherapistDetailPage() {
         async function bootstrap() {
             try {
                 const [metaPayload, addressPayload] = await Promise.all([
-                    apiRequest<ApiEnvelope<{ domain: string; support_email: string }>>('/service-meta'),
+                    apiRequest<ApiEnvelope<ServiceMeta>>('/service-meta'),
                     token
                         ? apiRequest<ApiEnvelope<ServiceAddress[]>>('/me/service-addresses', { token })
                         : Promise.resolve(null),
@@ -910,6 +918,18 @@ export function UserTherapistDetailPage() {
                                         <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予約条件</p>
                                         <h2 className="mt-1 text-2xl font-semibold text-[#17202b]">この条件で予約を考える</h2>
                                     </div>
+
+                                    {activeUserBookingCampaign ? (
+                                        <div className="campaign-offer-float campaign-offer-banner-light rounded-[22px] p-4" style={{ animationDelay: '0.4s' }}>
+                                            <p className="text-xs font-semibold tracking-wide text-[#9a661c]">期間限定キャンペーン適用中</p>
+                                            <p className="mt-2 text-sm font-semibold text-[#17202b]">
+                                                {activeUserBookingCampaign.offer_text}
+                                            </p>
+                                            <p className="mt-2 text-xs leading-6 text-[#5d4724]">
+                                                {activeUserBookingCampaign.benefit_summary}。見積もり確認画面で割引内訳が表示されます。
+                                            </p>
+                                        </div>
+                                    ) : null}
 
                                     <div className="space-y-3 text-sm text-[#48505a]">
                                         <div className="rounded-[20px] bg-[#f6f1e7] p-4">

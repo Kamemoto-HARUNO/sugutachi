@@ -3,12 +3,14 @@
 namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
+use App\Http\Resources\CampaignResource;
 use App\Models\LegalDocument;
+use App\Services\Campaigns\CampaignService;
 use Illuminate\Http\JsonResponse;
 
 class ServiceMetaController extends Controller
 {
-    public function show(): JsonResponse
+    public function show(CampaignService $campaignService): JsonResponse
     {
         $documentTypes = config('service_meta.legal.document_types', []);
         $latestDocuments = LegalDocument::latestPublishedByTypes($documentTypes);
@@ -43,6 +45,8 @@ class ServiceMetaController extends Controller
                         && filled(config('services.web_push.private_key'))
                         && filled(config('services.web_push.subject')),
                 ],
+                'campaigns' => CampaignResource::collection($campaignService->publicActiveCampaigns())
+                    ->resolve(request()),
                 'commerce_notice' => [
                     'operator_name' => config('service_meta.commerce.operator_name'),
                     'representative_name' => config('service_meta.commerce.representative_name'),

@@ -4,7 +4,7 @@ import { RoleModeSwitcher } from '../components/account/RoleModeSwitcher';
 import { BrandMark } from '../components/brand/BrandMark';
 import { NotificationBellLink } from '../components/notifications/NotificationBellLink';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
-import type { ApiEnvelope, NavItem, RoleName } from '../lib/types';
+import type { ApiEnvelope, NavItem, PublicCampaignRecord, RoleName, ServiceMeta } from '../lib/types';
 import { useAuth } from '../hooks/useAuth';
 
 interface DashboardLayoutProps {
@@ -26,6 +26,7 @@ function navLinkClass(isActive: boolean): string {
 export function DashboardLayout({ role, title, description, navItems }: DashboardLayoutProps) {
     const { logout, token } = useAuth();
     const [therapistPublicId, setTherapistPublicId] = useState<string | null>(null);
+    const [therapistDashboardCampaigns, setTherapistDashboardCampaigns] = useState<PublicCampaignRecord[]>([]);
     const navScrollRef = useRef<HTMLDivElement | null>(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
@@ -33,19 +34,30 @@ export function DashboardLayout({ role, title, description, navItems }: Dashboar
     useEffect(() => {
         if (role !== 'therapist' || !token) {
             setTherapistPublicId(null);
+            setTherapistDashboardCampaigns([]);
             return;
         }
 
         let isMounted = true;
 
-        void apiRequest<ApiEnvelope<{ public_id: string | null }>>('/me/therapist-profile', { token })
-            .then((payload) => {
+        void Promise.all([
+            apiRequest<ApiEnvelope<{ public_id: string | null }>>('/me/therapist-profile', { token }),
+            apiRequest<ApiEnvelope<ServiceMeta>>('/service-meta'),
+        ])
+            .then(([profilePayload, metaPayload]) => {
                 if (!isMounted) {
                     return;
                 }
 
-                const therapistProfile = unwrapData(payload);
+                const therapistProfile = unwrapData(profilePayload);
+                const serviceMeta = unwrapData(metaPayload);
                 setTherapistPublicId(therapistProfile.public_id ?? null);
+                setTherapistDashboardCampaigns(
+                    serviceMeta.campaigns.filter((campaign) => (
+                        campaign.target_role === 'therapist'
+                        && campaign.placements.includes('therapist_dashboard')
+                    )),
+                );
             })
             .catch((error: unknown) => {
                 if (!isMounted) {
@@ -55,6 +67,8 @@ export function DashboardLayout({ role, title, description, navItems }: Dashboar
                 if (!(error instanceof ApiError && error.status === 404)) {
                     setTherapistPublicId(null);
                 }
+
+                setTherapistDashboardCampaigns([]);
             });
 
         return () => {
@@ -138,6 +152,24 @@ export function DashboardLayout({ role, title, description, navItems }: Dashboar
                                         {description}
                                     </p>
                                 </div>
+
+                                {role === 'therapist' && therapistDashboardCampaigns.length > 0 ? (
+                                    <div className="grid gap-3">
+                                        {therapistDashboardCampaigns.map((campaign, index) => (
+                                            <article
+                                                key={campaign.id}
+                                                className="campaign-offer-float campaign-offer-banner-dark rounded-[24px] px-5 py-4"
+                                                style={{ animationDelay: `${index * 0.8}s` }}
+                                            >
+                                                <p className="text-xs font-semibold tracking-wide text-[#7f5414]">期間限定キャンペーン適用中</p>
+                                                <p className="mt-2 text-base font-semibold text-[#17202b]">{campaign.offer_text}</p>
+                                                <p className="mt-2 text-sm leading-7 text-[#5d4724]">
+                                                    {campaign.trigger_label}として {campaign.benefit_summary} が適用されます。
+                                                </p>
+                                            </article>
+                                        ))}
+                                    </div>
+                                ) : null}
                             </div>
 
                             <div className="flex flex-wrap items-center gap-3 xl:ml-4 xl:shrink-0 xl:flex-nowrap xl:justify-end">

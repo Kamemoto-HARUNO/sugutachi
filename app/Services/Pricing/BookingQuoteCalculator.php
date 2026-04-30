@@ -8,7 +8,9 @@ use App\Models\TherapistBookingSetting;
 use App\Models\TherapistMenu;
 use App\Models\TherapistPricingRule;
 use App\Models\TherapistProfile;
+use App\Services\Campaigns\CampaignBenefitCalculator;
 use Carbon\CarbonImmutable;
+
 class BookingQuoteCalculator
 {
     public const MATCHING_FEE_AMOUNT = 300;
@@ -24,6 +26,7 @@ class BookingQuoteCalculator
 
     public function __construct(
         private readonly TherapistPricingRuleEvaluator $pricingRuleEvaluator,
+        private readonly CampaignBenefitCalculator $campaignBenefitCalculator,
     ) {}
 
     public function calculate(
@@ -35,6 +38,7 @@ class BookingQuoteCalculator
         ?string $requestedStartAt,
         ?float $originLat = null,
         ?float $originLng = null,
+        ?array $discountSnapshot = null,
     ): array {
         $walking = $this->walkingEstimate($therapistProfile, $serviceAddress, $originLat, $originLng);
         $baseAmount = (int) round($menu->hourly_rate_amount * $durationMinutes / 60);
@@ -55,7 +59,14 @@ class BookingQuoteCalculator
         $therapistGrossAmount = max(0, $baseAmount + $travelFeeAmount + $nightFeeAmount + $demandFeeAmount + $profileAdjustmentAmount);
         $platformFeeAmount = (int) round($therapistGrossAmount * self::PLATFORM_FEE_RATE);
         $therapistNetAmount = max(0, $therapistGrossAmount - $platformFeeAmount);
-        $totalAmount = $therapistGrossAmount + self::MATCHING_FEE_AMOUNT;
+        $preDiscountTotalAmount = $therapistGrossAmount + self::MATCHING_FEE_AMOUNT;
+        $discounts = $this->campaignBenefitCalculator->applyDiscount(
+            therapistNetAmount: $therapistNetAmount,
+            platformFeeAmount: $platformFeeAmount,
+            matchingFeeAmount: self::MATCHING_FEE_AMOUNT,
+            preDiscountTotalAmount: $preDiscountTotalAmount,
+            discountSnapshot: $discountSnapshot,
+        );
 
         return [
             'duration_minutes' => $durationMinutes,
@@ -66,7 +77,10 @@ class BookingQuoteCalculator
             'profile_adjustment_amount' => $profileAdjustmentAmount,
             'matching_fee_amount' => self::MATCHING_FEE_AMOUNT,
             'platform_fee_amount' => $platformFeeAmount,
-            'total_amount' => $totalAmount,
+            'discount_amount' => $discounts['discount_amount'],
+            'discounted_matching_fee_amount' => $discounts['discounted_matching_fee_amount'],
+            'discounted_platform_fee_amount' => $discounts['discounted_platform_fee_amount'],
+            'total_amount' => $discounts['total_amount'],
             'therapist_gross_amount' => $therapistGrossAmount,
             'therapist_net_amount' => $therapistNetAmount,
             'walking_time_minutes' => $walking['walking_time_minutes'],
@@ -92,7 +106,14 @@ class BookingQuoteCalculator
                 'night_fee_amount' => $nightFeeAmount,
                 'demand_fee_amount' => $demandFeeAmount,
                 'pricing_rules' => $pricingRuleResult['applied_rules'],
+                'campaign_discount' => $discountSnapshot
+                    ? [
+                        ...$discountSnapshot,
+                        'discount_amount' => $discounts['discount_amount'],
+                    ]
+                    : null,
             ],
+            'discount_snapshot_json' => $discountSnapshot,
         ];
     }
 

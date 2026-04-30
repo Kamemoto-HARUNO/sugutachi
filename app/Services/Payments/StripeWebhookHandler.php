@@ -10,6 +10,7 @@ use App\Models\StripeConnectedAccount;
 use App\Models\StripeDispute;
 use App\Models\StripeWebhookEvent;
 use App\Models\TherapistLedgerEntry;
+use App\Services\Campaigns\CampaignService;
 use App\Services\Bookings\ScheduledBookingPolicy;
 use App\Services\Notifications\BookingNotificationService;
 use Carbon\CarbonImmutable;
@@ -42,6 +43,7 @@ class StripeWebhookHandler
     public function __construct(
         private readonly BookingNotificationService $bookingNotificationService,
         private readonly StripeConnectedAccountSynchronizer $connectedAccountSynchronizer,
+        private readonly CampaignService $campaignService,
         private readonly ScheduledBookingPolicy $scheduledBookingPolicy,
     ) {}
 
@@ -435,6 +437,7 @@ class StripeWebhookHandler
             ],
         ]);
 
+        $this->campaignService->restoreBookingCampaignApplication($lockedBooking->refresh(), 'payment_intent_canceled');
         $this->bookingNotificationService->notifyCanceled($lockedBooking->refresh());
     }
 }

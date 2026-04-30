@@ -35,6 +35,22 @@ export interface ApiEnvelope<T> {
     meta?: Record<string, unknown>;
 }
 
+export interface PublicCampaignRecord {
+    id: number;
+    target_role: RoleName;
+    target_label: string;
+    trigger_type: string;
+    trigger_label: string;
+    benefit_type: string;
+    benefit_value: number;
+    benefit_summary: string;
+    offer_text: string;
+    placements: string[];
+    starts_at: string | null;
+    ends_at: string | null;
+    offer_valid_days: number | null;
+}
+
 export interface LegalDocumentSummary {
     public_id: string;
     document_type: string;
@@ -78,6 +94,7 @@ export interface ServiceMeta {
         web_push_public_key: string | null;
         web_push_enabled: boolean;
     };
+    campaigns: PublicCampaignRecord[];
     commerce_notice: {
         operator_name: string | null;
         representative_name: string | null;
@@ -866,11 +883,48 @@ export interface BookingQuoteAmounts {
     night_fee_amount: number;
     demand_fee_amount: number;
     profile_adjustment_amount: number;
+    discount_amount: number;
     matching_fee_amount: number;
     platform_fee_amount: number;
     total_amount: number;
     therapist_gross_amount: number;
     therapist_net_amount: number;
+}
+
+export interface BookingQuoteDiscountRecord {
+    campaign_id: number;
+    application_id: number | null;
+    target_role: RoleName;
+    trigger_type: string;
+    benefit_type: string;
+    benefit_value: number;
+    offer_text: string;
+    benefit_summary: string;
+    trigger_label: string;
+    offer_valid_days: number | null;
+    offer_expires_at: string | null;
+    discount_amount: number;
+}
+
+export interface CampaignOfferRecord {
+    id: number;
+    campaign_id: number;
+    status: string;
+    status_label: string;
+    benefit_type: string;
+    benefit_value: number;
+    benefit_summary: string | null;
+    offer_text: string | null;
+    trigger_type: string | null;
+    trigger_label: string | null;
+    offer_valid_days: number | null;
+    offer_expires_at: string | null;
+    applied_amount: number;
+    applied_at: string | null;
+    consumed_at: string | null;
+    booking_public_id: string | null;
+    created_at: string;
+    updated_at: string;
 }
 
 export interface BookingQuoteRecord {
@@ -882,6 +936,7 @@ export interface BookingQuoteRecord {
     travel_mode: 'walking' | 'bicycle' | 'transit' | 'car' | null;
     walking_time_range: string | null;
     amounts: BookingQuoteAmounts;
+    discount: BookingQuoteDiscountRecord | null;
 }
 
 export interface BookingCounterparty {
@@ -1200,6 +1255,11 @@ export interface AdminDashboardRecord {
         completed_today: number;
         needs_message_review: number;
     };
+    campaigns: {
+        active: number;
+        scheduled: number;
+        inactive: number;
+    };
     pricing_rules: {
         total: number;
         active: number;
@@ -1217,8 +1277,39 @@ export interface AdminDashboardRecord {
         reviews: Record<string, AdminDashboardNavigationTarget>;
         operations: Record<string, AdminDashboardNavigationTarget>;
         bookings: Record<string, AdminDashboardNavigationTarget>;
+        campaigns: Record<string, AdminDashboardNavigationTarget>;
         pricing_rules: Record<string, AdminDashboardNavigationTarget>;
     };
+}
+
+export interface AdminCampaignActorSummary {
+    public_id: string | null;
+    display_name: string | null;
+    email: string | null;
+}
+
+export interface AdminCampaignRecord {
+    id: number;
+    target_role: RoleName;
+    target_label: string;
+    trigger_type: string;
+    trigger_label: string;
+    benefit_type: string;
+    benefit_value: number;
+    benefit_summary: string;
+    offer_text: string;
+    starts_at: string | null;
+    ends_at: string | null;
+    offer_valid_days: number | null;
+    is_enabled: boolean;
+    is_active: boolean;
+    applications_count: number;
+    can_delete: boolean;
+    total_applied_amount: number;
+    created_by_account?: AdminCampaignActorSummary | null;
+    updated_by_account?: AdminCampaignActorSummary | null;
+    created_at: string;
+    updated_at: string;
 }
 
 export interface AdminAccountRoleRecord {

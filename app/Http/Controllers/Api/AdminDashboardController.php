@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\Concerns\AuthorizesAdminRequests;
 use App\Http\Controllers\Controller;
 use App\Models\Account;
 use App\Models\Booking;
+use App\Models\Campaign;
 use App\Models\ContactInquiry;
 use App\Models\IdentityVerification;
 use App\Models\PayoutRequest;
@@ -95,6 +96,23 @@ class AdminDashboardController extends Controller
                         ->count(),
                     'needs_message_review' => Booking::query()
                         ->whereHas('messages', fn ($query) => $query->flagged())
+                        ->count(),
+                ],
+                'campaigns' => [
+                    'active' => Campaign::query()
+                        ->where('is_enabled', true)
+                        ->activeAt(now())
+                        ->count(),
+                    'scheduled' => Campaign::query()
+                        ->where('is_enabled', true)
+                        ->where('starts_at', '>', now())
+                        ->count(),
+                    'inactive' => Campaign::query()
+                        ->where(function ($query): void {
+                            $query
+                                ->where('is_enabled', false)
+                                ->orWhere('ends_at', '<', now());
+                        })
                         ->count(),
                 ],
                 'pricing_rules' => [
@@ -297,6 +315,26 @@ class AdminDashboardController extends Controller
                                 'has_flagged_message' => true,
                                 'sort' => 'updated_at',
                                 'direction' => 'desc',
+                            ],
+                        ],
+                    ],
+                    'campaigns' => [
+                        'active' => [
+                            'path' => '/api/admin/campaigns',
+                            'query' => [
+                                'state' => 'active',
+                            ],
+                        ],
+                        'scheduled' => [
+                            'path' => '/api/admin/campaigns',
+                            'query' => [
+                                'state' => 'scheduled',
+                            ],
+                        ],
+                        'inactive' => [
+                            'path' => '/api/admin/campaigns',
+                            'query' => [
+                                'state' => 'inactive',
                             ],
                         ],
                     ],

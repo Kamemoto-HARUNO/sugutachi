@@ -4,6 +4,7 @@ namespace App\Services\Bookings;
 
 use App\Models\Booking;
 use App\Models\BookingQuote;
+use App\Services\Campaigns\CampaignBenefitCalculator;
 use App\Services\Pricing\BookingQuoteCalculator;
 use Carbon\CarbonImmutable;
 use RuntimeException;
@@ -15,6 +16,10 @@ class BookingSettlementCalculator
     public const BILLING_STEP_MINUTES = 15;
 
     public const MINIMUM_BILLABLE_MINUTES = 15;
+
+    public function __construct(
+        private readonly CampaignBenefitCalculator $campaignBenefitCalculator,
+    ) {}
 
     public function authorizationDurationMinutes(int $requestedDurationMinutes): int
     {
@@ -47,7 +52,14 @@ class BookingSettlementCalculator
         $therapistGrossAmount = max(0, $baseAmount + $travelFeeAmount + $nightFeeAmount + $demandFeeAmount + $profileAdjustmentAmount);
         $platformFeeAmount = (int) round($therapistGrossAmount * BookingQuoteCalculator::PLATFORM_FEE_RATE);
         $therapistNetAmount = max(0, $therapistGrossAmount - $platformFeeAmount);
-        $totalAmount = $therapistGrossAmount + $matchingFeeAmount;
+        $preDiscountTotalAmount = $therapistGrossAmount + $matchingFeeAmount;
+        $discounts = $this->campaignBenefitCalculator->applyDiscount(
+            therapistNetAmount: $therapistNetAmount,
+            platformFeeAmount: $platformFeeAmount,
+            matchingFeeAmount: $matchingFeeAmount,
+            preDiscountTotalAmount: $preDiscountTotalAmount,
+            discountSnapshot: $quote->discount_snapshot_json,
+        );
 
         return [
             'duration_minutes' => $durationMinutes,
@@ -58,9 +70,10 @@ class BookingSettlementCalculator
             'profile_adjustment_amount' => $profileAdjustmentAmount,
             'matching_fee_amount' => $matchingFeeAmount,
             'platform_fee_amount' => $platformFeeAmount,
+            'discount_amount' => $discounts['discount_amount'],
             'therapist_gross_amount' => $therapistGrossAmount,
             'therapist_net_amount' => $therapistNetAmount,
-            'total_amount' => $totalAmount,
+            'total_amount' => $discounts['total_amount'],
         ];
     }
 
@@ -132,8 +145,8 @@ class BookingSettlementCalculator
             return [
                 'total_amount' => $authorizedAmount,
                 'therapist_net_amount' => (int) $quote->therapist_net_amount,
-                'platform_fee_amount' => (int) $quote->platform_fee_amount,
-                'matching_fee_amount' => (int) $quote->matching_fee_amount,
+                'platform_fee_amount' => (int) ($quote->discounted_platform_fee_amount ?: $quote->platform_fee_amount),
+                'matching_fee_amount' => (int) ($quote->discounted_matching_fee_amount ?: $quote->matching_fee_amount),
             ];
         }
 

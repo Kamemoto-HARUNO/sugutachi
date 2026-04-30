@@ -91,6 +91,7 @@ class BookingRequestAdjustmentService
             requestedStartAt: $proposedStartAt->toIso8601String(),
             originLat: $originLat,
             originLng: $originLng,
+            discountSnapshot: $booking->currentQuote->discount_snapshot_json,
         );
 
         $authorizedAmount = (int) ($booking->currentPaymentIntent?->amount ?? 0);

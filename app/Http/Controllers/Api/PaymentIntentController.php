@@ -8,6 +8,7 @@ use App\Http\Resources\PaymentIntentResource;
 use App\Models\Booking;
 use App\Models\BookingQuote;
 use App\Models\PaymentIntent;
+use App\Services\Campaigns\CampaignService;
 use App\Services\Bookings\BookingSettlementCalculator;
 use App\Services\Payments\BookingPaymentIntentCancellationService;
 use Illuminate\Http\JsonResponse;
@@ -46,30 +47,40 @@ class PaymentIntentController extends Controller
             'profile_adjustment_amount' => $authorizationAmounts['profile_adjustment_amount'],
             'matching_fee_amount' => $authorizationAmounts['matching_fee_amount'],
             'platform_fee_amount' => $authorizationAmounts['platform_fee_amount'],
+            'discount_amount' => $authorizationAmounts['discount_amount'],
             'total_amount' => $authorizationAmounts['total_amount'],
             'therapist_gross_amount' => $authorizationAmounts['therapist_gross_amount'],
             'therapist_net_amount' => $authorizationAmounts['therapist_net_amount'],
         ]);
 
         $connectedAccount = $booking->therapistProfile->stripeConnectedAccount;
-        $createdIntent = $gateway->create($booking, $authorizationQuote, $connectedAccount);
+        $canUseStripeTransferSplit = (bool) (
+            $connectedAccount?->canReceiveStripeTransfers()
+            && (int) $quote->total_amount >= (int) $quote->therapist_net_amount
+            && (int) $authorizationQuote->total_amount >= (int) $authorizationQuote->therapist_net_amount
+        );
+        $createdIntent = $gateway->create(
+            $booking,
+            $authorizationQuote,
+            $canUseStripeTransferSplit ? $connectedAccount : null,
+        );
 
-        $paymentIntent = DB::transaction(function () use ($booking, $quote, $authorizationQuote, $connectedAccount, $createdIntent): PaymentIntent {
+        $paymentIntent = DB::transaction(function () use ($booking, $quote, $authorizationQuote, $connectedAccount, $createdIntent, $canUseStripeTransferSplit): PaymentIntent {
             $booking->paymentIntents()->update(['is_current' => false]);
 
             return PaymentIntent::create([
                 'booking_id' => $booking->id,
                 'payer_account_id' => $booking->user_account_id,
                 'stripe_payment_intent_id' => $createdIntent->id,
-                'stripe_connected_account_id' => $connectedAccount?->id,
+                'stripe_connected_account_id' => $canUseStripeTransferSplit ? $connectedAccount?->id : null,
                 'status' => $createdIntent->status,
                 'capture_method' => 'manual',
                 'currency' => config('services.stripe.currency', 'jpy'),
                 'amount' => $authorizationQuote->total_amount,
-                'application_fee_amount' => $connectedAccount?->canReceiveStripeTransfers()
-                    ? $authorizationQuote->platform_fee_amount + $authorizationQuote->matching_fee_amount
+                'application_fee_amount' => $canUseStripeTransferSplit
+                    ? max(0, (int) $authorizationQuote->total_amount - (int) $authorizationQuote->therapist_net_amount)
                     : 0,
-                'transfer_amount' => $connectedAccount?->canReceiveStripeTransfers()
+                'transfer_amount' => $canUseStripeTransferSplit
                     ? $authorizationQuote->therapist_net_amount
                     : 0,
                 'is_current' => true,
@@ -92,6 +103,7 @@ class PaymentIntentController extends Controller
         Request $request,
         Booking $booking,
         BookingPaymentIntentCancellationService $bookingPaymentIntentCancellationService,
+        CampaignService $campaignService,
     ): JsonResponse {
         abort_unless($booking->user_account_id === $request->user()->id, 404);
         abort_unless(
@@ -100,7 +112,7 @@ class PaymentIntentController extends Controller
             'カード確認中の予約だけ中止できます。'
         );
 
-        $abandonedBooking = DB::transaction(function () use ($booking, $bookingPaymentIntentCancellationService): Booking {
+        $abandonedBooking = DB::transaction(function () use ($booking, $bookingPaymentIntentCancellationService, $campaignService): Booking {
             $lockedBooking = Booking::query()
                 ->whereKey($booking->id)
                 ->lockForUpdate()
@@ -147,6 +159,7 @@ class PaymentIntentController extends Controller
                 ],
             ]);
 
+            $campaignService->restoreBookingCampaignApplication($lockedBooking->refresh(), 'payment_authorization_failed');
             return $lockedBooking->refresh()->load([
                 'currentPaymentIntent',
                 'currentQuote',

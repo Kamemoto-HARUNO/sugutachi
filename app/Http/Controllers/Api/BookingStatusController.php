@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\BookingResource;
 use App\Models\Booking;
+use App\Services\Campaigns\CampaignService;
 use App\Services\Bookings\BookingCompletionService;
 use App\Services\Bookings\BookingRequestAdjustmentService;
 use App\Services\Bookings\BookingSettlementService;
@@ -24,6 +25,7 @@ class BookingStatusController extends Controller
         Request $request,
         Booking $booking,
         BookingStatusTransitionService $transition,
+        CampaignService $campaignService,
         ScheduledBookingPolicy $scheduledBookingPolicy,
         BookingNotificationService $bookingNotificationService,
     ): BookingResource {
@@ -77,6 +79,8 @@ class BookingStatusController extends Controller
             ),
         );
 
+        $campaignService->grantTherapistBookingBonus($booking->refresh());
+        $campaignService->confirmBookingCampaignApplication($booking->refresh());
         $bookingNotificationService->notifyAccepted($booking->refresh());
 
         return new BookingResource($booking->load('currentQuote'));
@@ -131,6 +135,7 @@ class BookingStatusController extends Controller
         Request $request,
         Booking $booking,
         BookingRequestAdjustmentService $bookingRequestAdjustmentService,
+        CampaignService $campaignService,
         BookingStatusTransitionService $transition,
         BookingNotificationService $bookingNotificationService,
     ): BookingResource {
@@ -149,6 +154,8 @@ class BookingStatusController extends Controller
             attributes: $attributes,
         );
 
+        $campaignService->grantTherapistBookingBonus($booking->refresh());
+        $campaignService->confirmBookingCampaignApplication($booking->refresh());
         $bookingNotificationService->notifyAccepted($booking->refresh()->loadMissing(['userAccount', 'therapistProfile']));
         $bookingNotificationService->notifyAdjustmentAccepted($booking->refresh()->loadMissing(['therapistAccount', 'therapistProfile']));
 
@@ -161,6 +168,7 @@ class BookingStatusController extends Controller
         BookingRequestAdjustmentService $bookingRequestAdjustmentService,
         BookingStatusTransitionService $transition,
         BookingPaymentIntentCancellationService $paymentIntentCancellationService,
+        CampaignService $campaignService,
         BookingNotificationService $bookingNotificationService,
     ): BookingResource {
         abort_unless($booking->user_account_id === $request->user()->id, 404);
@@ -187,6 +195,7 @@ class BookingStatusController extends Controller
             booking: $booking,
             lastStripeEventId: 'system.user_rejected_adjustment',
         );
+        $campaignService->restoreBookingCampaignApplication($booking->refresh(), 'user_rejected_adjustment');
 
         $bookingNotificationService->notifyCanceled($booking->refresh());
 
@@ -203,6 +212,7 @@ class BookingStatusController extends Controller
         Booking $booking,
         BookingStatusTransitionService $transition,
         BookingPaymentIntentCancellationService $paymentIntentCancellationService,
+        CampaignService $campaignService,
         BookingNotificationService $bookingNotificationService,
     ): BookingResource {
         $this->authorizeTherapist($request, $booking);
@@ -226,6 +236,7 @@ class BookingStatusController extends Controller
             booking: $booking,
             lastStripeEventId: 'system.therapist_rejected',
         );
+        $campaignService->restoreBookingCampaignApplication($booking->refresh(), 'therapist_rejected');
 
         $bookingNotificationService->notifyCanceled($booking->refresh());
 

@@ -4,6 +4,7 @@ namespace App\Services\Bookings;
 
 use App\Models\Booking;
 use App\Models\PaymentIntent;
+use App\Services\Campaigns\CampaignService;
 use App\Services\Notifications\BookingNotificationService;
 use App\Services\Payments\BookingPaymentIntentCancellationService;
 use Carbon\CarbonInterface;
@@ -19,6 +20,7 @@ class BookingRequestExpirationService
 
     public function __construct(
         private readonly BookingPaymentIntentCancellationService $paymentIntentCancellationService,
+        private readonly CampaignService $campaignService,
         private readonly BookingNotificationService $bookingNotificationService,
     ) {}
 
@@ -91,6 +93,7 @@ class BookingRequestExpirationService
                         'reason_code' => 'request_expired',
                     ]);
 
+                    $this->campaignService->restoreBookingCampaignApplication($booking->refresh(), 'request_expired', $now);
                     $this->bookingNotificationService->notifyCanceled(
                         $booking->refresh(),
                         reasonCode: 'request_expired',

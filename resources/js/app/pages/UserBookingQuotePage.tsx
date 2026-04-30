@@ -612,6 +612,21 @@ export function UserBookingQuotePage() {
                         <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">料金内訳</p>
                         {quote ? (
                             <div className="mt-5 space-y-4">
+                                {quote.discount ? (
+                                    <div className="campaign-offer-float campaign-offer-banner-light rounded-[22px] px-5 py-4" style={{ animationDelay: '0.5s' }}>
+                                        <p className="text-xs font-semibold tracking-wide text-[#9a661c]">期間限定キャンペーン適用中</p>
+                                        <p className="mt-2 text-sm font-semibold text-[#17202b]">{quote.discount.offer_text}</p>
+                                        <p className="mt-2 text-xs leading-6 text-[#5d4724]">
+                                            {quote.discount.trigger_label}として {quote.discount.benefit_summary} が反映されています。
+                                        </p>
+                                        {quote.discount.offer_expires_at ? (
+                                            <p className="mt-2 text-xs leading-6 text-[#5d4724]">
+                                                オファー有効期限: {formatDateTime(quote.discount.offer_expires_at)}
+                                            </p>
+                                        ) : null}
+                                    </div>
+                                ) : null}
+
                                 {[
                                     ['基本料金', quote.amounts.base_amount],
                                     ['移動費', quote.amounts.travel_fee_amount],
@@ -625,6 +640,13 @@ export function UserBookingQuotePage() {
                                         <span className="font-semibold text-[#17202b]">{formatCurrency(Number(amount))}</span>
                                     </div>
                                 ))}
+
+                                {quote.amounts.discount_amount > 0 ? (
+                                    <div className="flex items-center justify-between gap-4 text-sm text-[#7f4d14]">
+                                        <span>キャンペーン割引</span>
+                                        <span className="font-semibold">-{formatCurrency(quote.amounts.discount_amount)}</span>
+                                    </div>
+                                ) : null}
 
                                 <div className="border-t border-[#efe5d7] pt-4">
                                     <div className="flex items-center justify-between gap-4">

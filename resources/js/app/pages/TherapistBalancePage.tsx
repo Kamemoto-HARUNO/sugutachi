@@ -71,6 +71,8 @@ function ledgerEntryTypeLabel(type: string): string {
     switch (type) {
         case 'booking_sale':
             return '予約売上';
+        case 'campaign_bonus':
+            return 'キャンペーン特典';
         case 'refund_adjustment':
             return '返金調整';
         default:
@@ -437,6 +439,9 @@ export function TherapistBalancePage() {
                                         <div className="flex items-start justify-between gap-4">
                                             <div className="space-y-2">
                                                 <p className="text-sm font-semibold text-white">{ledgerEntryTypeLabel(entry.entry_type)}</p>
+                                                {entry.description ? (
+                                                    <p className="text-xs leading-6 text-slate-400">{entry.description}</p>
+                                                ) : null}
                                             </div>
                                             <p className={`text-sm font-semibold ${
                                                 entry.amount_signed >= 0 ? 'text-emerald-200' : 'text-rose-200'
