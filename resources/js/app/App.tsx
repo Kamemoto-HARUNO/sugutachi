@@ -51,6 +51,7 @@ import { AccountProfilePage } from './pages/AccountProfilePage';
 import { TherapistBookingInterruptPage, UserBookingInterruptPage } from './pages/BookingInterruptPage';
 import { TherapistBookingNoShowPage, UserBookingNoShowPage } from './pages/BookingNoShowPage';
 import { ContactPage } from './pages/ContactPage';
+import { FirstTimeGuidePage } from './pages/FirstTimeGuidePage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { PublicHomePage } from './pages/PublicHomePage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -111,6 +112,7 @@ function AppRoutes() {
                 <Route path="/user/therapists/:publicId" element={<LegacyUserTherapistDetailRedirect />} />
 
                 <Route element={<PublicLayout />}>
+                    <Route path="/first-time" element={<FirstTimeGuidePage />} />
                     <Route path="/help" element={<HelpPage />} />
                     <Route path="/terms" element={<LegalDocumentPage documentType="terms" title="利用規約" />} />
                     <Route path="/privacy" element={<LegalDocumentPage documentType="privacy" title="プライバシーポリシー" />} />
