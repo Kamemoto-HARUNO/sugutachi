@@ -237,7 +237,8 @@ ssh -p "$REMOTE_PORT" "$REMOTE_HOST" "
 if [[ "$ACTIVATE_DOCROOT" == true ]]; then
   echo "Activating Laravel public files in docroot ..."
   INDEX_WRAPPER="$(mktemp)"
-  trap 'rm -f "$TMP_ENV" "$INDEX_WRAPPER"' EXIT
+  HTACCESS_WRAPPER="$(mktemp)"
+  trap 'rm -f "$TMP_ENV" "$INDEX_WRAPPER" "$HTACCESS_WRAPPER"' EXIT
   cat > "$INDEX_WRAPPER" <<PHP
 <?php
 
@@ -260,13 +261,17 @@ require \$appRoot.'/vendor/autoload.php';
 \$app->handleRequest(Request::capture());
 PHP
 
+  cp "$ROOT_DIR/public/.htaccess" "$HTACCESS_WRAPPER"
+
   scp -P "$REMOTE_PORT" "$INDEX_WRAPPER" "$REMOTE_HOST:$DOCROOT/index.php"
+  scp -P "$REMOTE_PORT" "$HTACCESS_WRAPPER" "$REMOTE_HOST:$DOCROOT/.htaccess"
 
   ssh -p "$REMOTE_PORT" "$REMOTE_HOST" "
     cat > '$DOCROOT/php85.cgi' <<'SH'
 #!/usr/bin/sh
 exec $REMOTE_PHP_CGI
 SH
+    chmod 644 '$DOCROOT/index.php' '$DOCROOT/.htaccess'
     chmod 755 '$DOCROOT/php85.cgi'
     python3 - <<'PY'
 from pathlib import Path

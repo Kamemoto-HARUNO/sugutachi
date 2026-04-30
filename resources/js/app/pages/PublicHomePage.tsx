@@ -480,6 +480,36 @@ export function PublicHomePage() {
                     ]}
                 />
 
+                <section className="rounded-[32px] bg-[#fff9f0] p-6 text-[#17202b] shadow-[0_10px_24px_rgba(23,32,43,0.08)] md:p-8">
+                    <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
+                        <div className="max-w-3xl space-y-3">
+                            <p className="text-xs font-semibold tracking-[0.2em] text-[#9a7a49]">FIRST GUIDE</p>
+                            <h2 className="text-[2rem] font-semibold leading-tight">
+                                サービスの流れと、安心して使うためのポイントを先に確認できます。
+                            </h2>
+                            <p className="text-sm leading-7 text-[#5b6470] md:text-base md:leading-8">
+                                「何ができるのか」「予約はどう進むのか」「料金や安全面はどうなっているのか」を、
+                                はじめての方向けに1ページでまとめました。
+                            </p>
+                        </div>
+
+                        <div className="flex flex-col gap-3 sm:flex-row lg:flex-col">
+                            <Link
+                                to="/first-time"
+                                className="inline-flex items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-bold text-[#1a2430] transition hover:brightness-105"
+                            >
+                                はじめての方へ
+                            </Link>
+                            <Link
+                                to="/help"
+                                className="inline-flex items-center justify-center rounded-full bg-[#f2ebe0] px-5 py-3 text-sm font-bold text-[#1a2430] transition hover:bg-[#ebe0cf]"
+                            >
+                                よくある質問を見る
+                            </Link>
+                        </div>
+                    </div>
+                </section>
+
 
                 <section ref={nearbyTherapistsSectionRef} className="space-y-6">
                     <div className="space-y-1">
