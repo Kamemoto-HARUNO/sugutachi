@@ -201,14 +201,19 @@ ssh -p "$REMOTE_PORT" "$REMOTE_HOST" "
 "
 
 echo "Syncing public assets to docroot ..."
+rsync -az --delete \
+  --exclude '.user.ini' \
+  --exclude 'index.php' \
+  --exclude '.htaccess' \
+  --exclude 'php85.cgi' \
+  -e "ssh -p $REMOTE_PORT" \
+  "$BUILD_DIR/public/" "$REMOTE_HOST:$DOCROOT/"
+
 ssh -p "$REMOTE_PORT" "$REMOTE_HOST" "
-  rsync -a --delete \
-    --exclude '.user.ini' \
-    --exclude 'index.php' \
-    --exclude '.htaccess' \
-    --exclude 'php85.cgi' \
-    '$APP_DIR/public/' '$DOCROOT/' && \
-  ln -sfn '$APP_DIR/storage/app/public' '$DOCROOT/storage'
+  ln -sfn '$APP_DIR/storage/app/public' '$DOCROOT/storage' && \
+  test -f '$DOCROOT/manifest.webmanifest' && \
+  test -f '$DOCROOT/build/manifest.json' && \
+  find '$DOCROOT/build/assets' -maxdepth 1 -type f | grep -q '.'
 "
 
 if [[ "$ENV_SOURCE_MODE" == "managed" ]]; then
