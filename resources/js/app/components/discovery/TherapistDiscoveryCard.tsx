@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { buildEstimatedPriceLabel, formatTrainingStatus, formatTravelTimeEstimate } from '../../lib/discovery';
+import { buildEstimatedPriceLabel, formatTravelTimeEstimate } from '../../lib/discovery';
 
 interface TherapistDiscoveryCardProps {
     name: string;
@@ -13,7 +13,6 @@ interface TherapistDiscoveryCardProps {
     walkingTimeRange: string | null | undefined;
     estimatedTotalAmount: number | null | undefined;
     durationMinutes?: number | null;
-    trainingStatus?: string | null;
     therapistCancellationCount?: number;
     tags?: string[];
     photoUrl?: string | null;
@@ -57,7 +56,6 @@ function CardBody({
     walkingTimeRange,
     estimatedTotalAmount,
     durationMinutes,
-    trainingStatus,
     tags,
     photoUrl,
     footerHint,
@@ -90,11 +88,6 @@ function CardBody({
                     <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
                             <h3 className="text-[1.65rem] font-semibold leading-none text-[#17202b]">{name}</h3>
-                            {trainingStatus ? (
-                                <span className="rounded-full bg-[#e8f1eb] px-2.5 py-1 text-xs font-medium text-[#2d5b3d]">
-                                    {formatTrainingStatus(trainingStatus)}
-                                </span>
-                            ) : null}
                             {showOfflineStatus && !isOnline ? (
                                 <span className="rounded-full bg-[#f7e1db] px-2.5 py-1 text-xs font-medium text-[#9a4b35]">
                                     現在オフライン

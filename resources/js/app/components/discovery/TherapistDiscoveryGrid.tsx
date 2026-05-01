@@ -45,7 +45,6 @@ export function TherapistDiscoveryGrid({
                     walkingTimeRange={therapist.walking_time_range}
                     estimatedTotalAmount={therapist.estimated_total_amount}
                     durationMinutes={durationMinutes}
-                    trainingStatus={therapist.training_status}
                     therapistCancellationCount={therapist.therapist_cancellation_count}
                     photoUrl={therapist.photos[0]?.url ?? null}
                     to={buildLink(therapist)}
