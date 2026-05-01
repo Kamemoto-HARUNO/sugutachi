@@ -61,6 +61,12 @@ function buildCounterpartyName(booking: BookingListRecord): string {
     return '相手を確認中';
 }
 
+function buildCounterpartyAvatarLabel(booking: BookingListRecord): string {
+    const name = buildCounterpartyName(booking).trim();
+
+    return name.length > 0 ? name.slice(0, 1).toUpperCase() : '?';
+}
+
 function threadTimestamp(booking: BookingListRecord): number {
     return new Date(
         booking.latest_incoming_message_sent_at
@@ -69,16 +75,18 @@ function threadTimestamp(booking: BookingListRecord): number {
     ).getTime();
 }
 
-function latestActivityLabel(booking: BookingListRecord): string {
-    return booking.latest_incoming_message_sent_at ? '最終受信' : '最終メッセージ';
-}
-
 function latestActivityValue(booking: BookingListRecord): string {
     return formatDateTime(booking.latest_incoming_message_sent_at ?? booking.latest_message_sent_at);
 }
 
-function unreadBadgeLabel(unreadCount: number): string {
-    return unreadCount > 99 ? '99+' : String(unreadCount);
+function buildThreadSummaryLine(booking: BookingListRecord): string {
+    const bookingMeta = buildBookingMetaLine(booking);
+
+    if (!bookingMeta) {
+        return buildScheduleLine(booking);
+    }
+
+    return `${buildScheduleLine(booking)} ・ ${bookingMeta}`;
 }
 
 function latestMessagePreview(
@@ -151,8 +159,6 @@ export function BookingMessagesPage({ role }: BookingMessagesPageProps) {
             return new Date(right.latest_message_sent_at ?? right.created_at).getTime()
                 - new Date(left.latest_message_sent_at ?? left.created_at).getTime();
         });
-    const unreadMessageCount = threads.reduce((total, booking) => total + booking.unread_message_count, 0);
-    const unreadThreadCount = threads.filter((booking) => booking.unread_message_count > 0).length;
     const roleLabel = role === 'user' ? 'タチキャストとの' : '利用者との';
 
     if (isLoading) {
@@ -160,58 +166,20 @@ export function BookingMessagesPage({ role }: BookingMessagesPageProps) {
     }
 
     return (
-        <div className="space-y-6">
-            <section className="rounded-[32px] border border-[#eadfd0] bg-white px-6 py-6 shadow-[0_20px_55px_rgba(15,23,42,0.08)] sm:px-7">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
-                    <div className="space-y-3">
-                        <span className="inline-flex items-center rounded-full bg-[#f6ede2] px-3 py-1 text-xs font-semibold tracking-[0.18em] text-[#8a5c2f]">
-                            Messages
-                        </span>
-                        <div className="space-y-2">
-                            <h1 className="text-[1.8rem] font-semibold leading-tight text-[#17202b] sm:text-[2rem]">
-                                メッセージ一覧
-                            </h1>
-                            <p className="max-w-2xl text-sm leading-7 text-slate-600">
-                                予約ごとの最新連絡をまとめて確認できます。未読があるスレッドから優先して戻れるようにしています。
-                            </p>
-                        </div>
-                    </div>
+        <div>
+            <section className="rounded-[32px] border border-[#eadfd0] bg-white p-4 shadow-[0_20px_55px_rgba(15,23,42,0.08)] sm:p-5">
+                <div className="flex items-center justify-between gap-3 px-2 pb-4">
+                    <h1 className="text-lg font-semibold text-[#17202b]">メッセージ一覧</h1>
                     <button
                         type="button"
                         onClick={() => {
                             void loadThreads(true);
                         }}
-                        className="inline-flex min-h-11 items-center justify-center rounded-full border border-[#d7c6b2] bg-[#f8f1e8] px-4 py-2 text-sm font-semibold text-[#704a22] transition hover:bg-[#f1e4d4]"
+                        className="inline-flex min-h-10 items-center justify-center rounded-full border border-[#ddd0bf] bg-[#faf5ee] px-4 py-2 text-sm font-semibold text-[#6b4a27] transition hover:bg-[#f2e7d9]"
                         disabled={isRefreshing}
                     >
-                        {isRefreshing ? '更新中…' : '更新する'}
+                        {isRefreshing ? '更新中…' : '更新'}
                     </button>
-                </div>
-
-                <div className="mt-6 grid gap-3 sm:grid-cols-3">
-                    <article className="rounded-[24px] border border-[#efe4d6] bg-[#fcf8f2] px-5 py-4">
-                        <p className="text-xs font-semibold tracking-[0.16em] text-slate-500">スレッド</p>
-                        <p className="mt-3 text-2xl font-semibold text-[#17202b]">{threads.length}</p>
-                    </article>
-                    <article className="rounded-[24px] border border-[#efe4d6] bg-[#fcf8f2] px-5 py-4">
-                        <p className="text-xs font-semibold tracking-[0.16em] text-slate-500">未読メッセージ</p>
-                        <p className="mt-3 text-2xl font-semibold text-[#17202b]">{unreadMessageCount}</p>
-                    </article>
-                    <article className="rounded-[24px] border border-[#efe4d6] bg-[#fcf8f2] px-5 py-4">
-                        <p className="text-xs font-semibold tracking-[0.16em] text-slate-500">未読スレッド</p>
-                        <p className="mt-3 text-2xl font-semibold text-[#17202b]">{unreadThreadCount}</p>
-                    </article>
-                </div>
-            </section>
-
-            <section className="rounded-[32px] border border-[#eadfd0] bg-white p-4 shadow-[0_20px_55px_rgba(15,23,42,0.08)] sm:p-5">
-                <div className="flex items-center justify-between gap-3 px-2 pb-4">
-                    <div>
-                        <h2 className="text-lg font-semibold text-[#17202b]">スレッド一覧</h2>
-                        <p className="mt-1 text-sm text-slate-500">
-                            新しく届いた連絡がある予約から順番に表示しています。
-                        </p>
-                    </div>
                 </div>
 
                 {threads.length === 0 ? (
@@ -227,42 +195,43 @@ export function BookingMessagesPage({ role }: BookingMessagesPageProps) {
                             <Link
                                 key={booking.public_id}
                                 to={buildBookingMessagesDetailPath(role, booking.public_id)}
-                                className="group block rounded-[28px] border border-[#ece1d3] bg-[#fffdfa] p-5 transition hover:-translate-y-0.5 hover:border-[#d8bf9b] hover:shadow-[0_18px_35px_rgba(23,32,43,0.08)]"
+                                className={[
+                                    'group block rounded-[26px] border p-4 transition',
+                                    booking.unread_message_count > 0
+                                        ? 'border-[#d9c19e] bg-[#fffaf3] shadow-[0_14px_30px_rgba(23,32,43,0.06)]'
+                                        : 'border-[#ece1d3] bg-[#fffdfa] hover:border-[#d8bf9b] hover:bg-[#fffaf3] hover:shadow-[0_16px_32px_rgba(23,32,43,0.06)]',
+                                ].join(' ')}
                             >
-                                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                                    <div className="min-w-0 flex-1 space-y-4">
-                                        <div className="space-y-1">
-                                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">from</p>
-                                            <p className="text-base font-semibold text-[#17202b]">{buildScheduleLine(booking)}</p>
-                                            <p className="text-sm text-slate-500">{buildBookingMetaLine(booking) || '関連予約情報を確認中'}</p>
-                                        </div>
-
-                                        <div className="space-y-1">
-                                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">poster</p>
-                                            <p className="text-sm font-semibold text-[#243244]">{buildCounterpartyName(booking)}</p>
-                                        </div>
-
-                                        <div className="space-y-1">
-                                            <p className="text-[11px] font-semibold uppercase tracking-[0.16em] text-slate-400">latest message</p>
-                                            <p className="line-clamp-2 text-sm leading-7 text-slate-600">
-                                                {latestMessagePreview(booking, role)}
-                                            </p>
-                                        </div>
+                                <div className="flex items-start gap-4">
+                                    <div className="flex h-14 w-14 shrink-0 items-center justify-center rounded-full bg-[radial-gradient(circle_at_top,#f3e5d1_0%,#ead6b8_55%,#dbc09a_100%)] text-lg font-semibold text-[#6f4b26] shadow-[inset_0_1px_0_rgba(255,255,255,0.75)]">
+                                        {buildCounterpartyAvatarLabel(booking)}
                                     </div>
-
-                                    <div className="flex shrink-0 items-center gap-3 self-start lg:flex-col lg:items-end">
-                                        <div className="text-right">
-                                            <p className="text-[11px] font-semibold tracking-[0.16em] text-slate-400">{latestActivityLabel(booking)}</p>
-                                            <p className="mt-1 text-sm font-semibold text-[#243244]">{latestActivityValue(booking)}</p>
+                                    <div className="min-w-0 flex-1">
+                                        <div className="flex items-start gap-3">
+                                            <div className="min-w-0 flex-1">
+                                                <div className="flex items-center gap-2">
+                                                    <p className="truncate text-[1rem] font-semibold text-[#17202b]">
+                                                        {buildCounterpartyName(booking)}
+                                                    </p>
+                                                    {booking.unread_message_count > 0 ? (
+                                                        <span className="inline-flex h-6 shrink-0 items-center justify-center rounded-full bg-[#d67c7c] px-2.5 text-[11px] font-bold text-white shadow-[0_8px_18px_rgba(214,124,124,0.24)]">
+                                                            未読
+                                                        </span>
+                                                    ) : null}
+                                                </div>
+                                                <p className="mt-1 truncate text-[13px] text-slate-500">
+                                                    {buildThreadSummaryLine(booking)}
+                                                </p>
+                                            </div>
+                                            <div className="shrink-0 pl-2 text-right">
+                                                <p className="text-xs font-medium text-slate-400">
+                                                    {latestActivityValue(booking)}
+                                                </p>
+                                            </div>
                                         </div>
-                                        {booking.unread_message_count > 0 ? (
-                                            <span className="inline-flex min-h-8 items-center justify-center rounded-full bg-[#d67c7c] px-3 text-xs font-bold text-white shadow-[0_10px_24px_rgba(214,124,124,0.28)]">
-                                                未読 {unreadBadgeLabel(booking.unread_message_count)}
-                                            </span>
-                                        ) : null}
-                                        <span className="text-xl text-slate-300 transition group-hover:translate-x-0.5 group-hover:text-slate-500">
-                                            ›
-                                        </span>
+                                        <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">
+                                            {latestMessagePreview(booking, role)}
+                                        </p>
                                     </div>
                                 </div>
                             </Link>
