@@ -249,13 +249,7 @@ function AppRoutes() {
                                 description="プロフィール審査から空き枠、料金ルール、売上管理までをここからつないでいきます。"
                                 hideHero
                                 compactActions
-                                actions={[
-                                    { label: '準備状況', to: '/therapist/onboarding', description: '本人確認と公開条件の進み具合を確認します。' },
-                                    { label: 'プロフィール編集', to: '/therapist/profile', description: '公開プロフィールと写真を整えます。' },
-                                    { label: '空き枠管理', to: '/therapist/availability', description: '公開枠と出動拠点を管理します。' },
-                                    { label: '予約管理', to: '/therapist/bookings', description: '承諾待ちから完了までを確認します。' },
-                                    { label: '公開・受付設定', to: '/therapist#settings-overview', description: 'プロフィール公開、オンライン受付、現在地更新を切り替えます。' },
-                                ]}
+                                actions={[]}
                             >
                                 <TherapistSettingsOverviewPanel />
                             </SectionHomePage>

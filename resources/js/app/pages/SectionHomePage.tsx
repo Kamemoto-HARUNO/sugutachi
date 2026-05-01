@@ -41,23 +41,25 @@ export function SectionHomePage({
                 </section>
             )}
 
-            <section className={`grid ${compactActions ? 'gap-3 md:grid-cols-2 xl:grid-cols-5' : 'gap-4 md:grid-cols-2 xl:grid-cols-3'}`}>
-                {actions.map((action) => (
-                    <Link
-                        key={action.to}
-                        to={action.to}
-                        className={[
-                            'rounded-[24px] border border-white/10 bg-white/[0.04] shadow-[0_16px_34px_rgba(2,6,23,0.12)] transition hover:-translate-y-0.5 hover:bg-white/[0.07] hover:shadow-[0_22px_42px_rgba(2,6,23,0.18)]',
-                            compactActions ? 'p-5' : 'p-6',
-                        ].join(' ')}
-                    >
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">よく使う操作</p>
-                        <h3 className={`mt-3 font-semibold text-white ${compactActions ? 'text-lg leading-7' : 'text-xl'}`}>{action.label}</h3>
-                        <p className={`mt-3 text-sm text-slate-300 ${compactActions ? 'leading-6' : 'leading-7'}`}>{action.description}</p>
-                        <p className={`text-sm font-semibold text-white ${compactActions ? 'mt-4' : 'mt-5'}`}>開く</p>
-                    </Link>
-                ))}
-            </section>
+            {actions.length > 0 ? (
+                <section className={`grid ${compactActions ? 'gap-3 md:grid-cols-2 xl:grid-cols-5' : 'gap-4 md:grid-cols-2 xl:grid-cols-3'}`}>
+                    {actions.map((action) => (
+                        <Link
+                            key={action.to}
+                            to={action.to}
+                            className={[
+                                'rounded-[24px] border border-white/10 bg-white/[0.04] shadow-[0_16px_34px_rgba(2,6,23,0.12)] transition hover:-translate-y-0.5 hover:bg-white/[0.07] hover:shadow-[0_22px_42px_rgba(2,6,23,0.18)]',
+                                compactActions ? 'p-5' : 'p-6',
+                            ].join(' ')}
+                        >
+                            <p className="text-xs font-semibold tracking-wide text-[#d2b179]">よく使う操作</p>
+                            <h3 className={`mt-3 font-semibold text-white ${compactActions ? 'text-lg leading-7' : 'text-xl'}`}>{action.label}</h3>
+                            <p className={`mt-3 text-sm text-slate-300 ${compactActions ? 'leading-6' : 'leading-7'}`}>{action.description}</p>
+                            <p className={`text-sm font-semibold text-white ${compactActions ? 'mt-4' : 'mt-5'}`}>開く</p>
+                        </Link>
+                    ))}
+                </section>
+            ) : null}
 
             {children}
         </div>

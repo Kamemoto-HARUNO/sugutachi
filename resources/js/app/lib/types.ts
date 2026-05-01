@@ -575,6 +575,14 @@ export interface TherapistProfileRecord {
     is_listed: boolean;
     online_since: string | null;
     last_location_updated_at: string | null;
+    location?: {
+        lat: number;
+        lng: number;
+        accuracy_m: number | null;
+        source: string | null;
+        is_searchable: boolean;
+        updated_at: string | null;
+    } | null;
     rating_average: number;
     review_count: number;
     approved_at: string | null;
