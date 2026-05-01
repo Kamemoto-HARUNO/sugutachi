@@ -71,6 +71,14 @@ function roleLabel(role: string): string {
     }
 }
 
+function hasActiveRole(account: AdminAccountRecord | null | undefined, roleName: string): boolean {
+    return account?.roles?.some((role) => (
+        role.role === roleName
+        && role.status === 'active'
+        && !role.revoked_at
+    )) ?? false;
+}
+
 function profilePhotoReviewLabel(status: string | null | undefined): string {
     switch (status) {
         case 'approved':
@@ -267,6 +275,36 @@ export function AdminAccountsPage() {
         }
     }
 
+    async function handleGrantAdmin() {
+        if (!token || !selectedAccount) {
+            return;
+        }
+
+        setIsSubmitting(true);
+        setActionError(null);
+        setSuccessMessage(null);
+
+        try {
+            const payload = await apiRequest<ApiEnvelope<AdminAccountRecord>>(`/admin/accounts/${selectedAccount.public_id}/grant-admin`, {
+                method: 'POST',
+                token,
+            });
+
+            const updated = unwrapData(payload);
+            setSelectedAccount(updated);
+            setAccounts((current) => current.map((account) => account.public_id === updated.public_id ? updated : account));
+            setSuccessMessage('運営権限を付与しました。');
+        } catch (requestError) {
+            const message = requestError instanceof ApiError
+                ? requestError.message
+                : '運営権限の付与に失敗しました。';
+
+            setActionError(message);
+        } finally {
+            setIsSubmitting(false);
+        }
+    }
+
     function updateFilters(next: Partial<Record<'status' | 'role' | 'sort' | 'direction' | 'q', string | null>>) {
         const params = new URLSearchParams(searchParams);
 
@@ -287,6 +325,7 @@ export function AdminAccountsPage() {
     }
 
     const detailAccount = selectedAccount ?? selectedListAccount;
+    const detailHasAdminRole = hasActiveRole(detailAccount, 'admin');
 
     return (
         <div className="space-y-6">
@@ -618,6 +657,38 @@ export function AdminAccountsPage() {
                                             {detailAccount.travel_request_restriction_reason ?? detailAccount.travel_request_last_warning_reason ?? '理由未設定'}
                                         </p>
                                     </div>
+                                </div>
+                            </article>
+
+                            <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">ROLE ACCESS</p>
+                                <div className="mt-4 space-y-4">
+                                    <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3 text-sm text-[#48505a]">
+                                        <p className="text-xs font-semibold tracking-wide text-[#7d6852]">運営権限</p>
+                                        <p className="mt-1 font-semibold text-[#17202b]">
+                                            {detailHasAdminRole ? '付与済み' : '未付与'}
+                                        </p>
+                                        <p className="mt-1 text-xs text-[#68707a]">
+                                            付与すると、対象ユーザーは運営ダッシュボードへログインできるようになります。
+                                        </p>
+                                    </div>
+
+                                    {detailHasAdminRole ? (
+                                        <div className="rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#48505a]">
+                                            このアカウントにはすでに運営権限があります。
+                                        </div>
+                                    ) : (
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                void handleGrantAdmin();
+                                            }}
+                                            disabled={isSubmitting}
+                                            className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243140] disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            {isSubmitting ? '付与しています...' : '運営権限を付与'}
+                                        </button>
+                                    )}
                                 </div>
                             </article>
 

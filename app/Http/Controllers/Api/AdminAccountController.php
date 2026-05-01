@@ -10,6 +10,7 @@ use App\Http\Resources\AdminAccountResource;
 use App\Models\Account;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 
 class AdminAccountController extends Controller
@@ -108,8 +109,39 @@ class AdminAccountController extends Controller
         ]));
     }
 
+    public function grantAdmin(Request $request, Account $account): AdminAccountResource
+    {
+        $admin = $request->user();
+        $this->authorizeAdmin($admin);
+
+        $before = $this->snapshot($account);
+
+        DB::transaction(function () use ($account): void {
+            $roleAssignment = $account->roleAssignments()->firstOrNew(['role' => 'admin']);
+
+            $roleAssignment->forceFill([
+                'status' => 'active',
+                'granted_at' => $roleAssignment->granted_at ?? now(),
+                'revoked_at' => null,
+            ])->save();
+        });
+
+        $refreshed = $account->fresh([
+            'roleAssignments',
+            'latestIdentityVerification',
+            'userProfile',
+            'therapistProfile',
+        ]);
+
+        $this->recordAdminAudit($request, 'account.grant_admin', $refreshed, $before, $this->snapshot($refreshed));
+
+        return new AdminAccountResource($refreshed);
+    }
+
     private function snapshot(Account $account): array
     {
+        $account->loadMissing('roleAssignments');
+
         return $account->only([
             'id',
             'public_id',
@@ -120,6 +152,16 @@ class AdminAccountController extends Controller
             'last_active_role',
             'suspended_at',
             'suspension_reason',
-        ]);
+        ]) + [
+            'roles' => $account->roleAssignments
+                ->map(fn ($role) => [
+                    'role' => $role->role,
+                    'status' => $role->status,
+                    'granted_at' => $role->granted_at,
+                    'revoked_at' => $role->revoked_at,
+                ])
+                ->values()
+                ->all(),
+        ];
     }
 }
