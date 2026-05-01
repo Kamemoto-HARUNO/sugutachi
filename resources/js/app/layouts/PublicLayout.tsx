@@ -1,8 +1,6 @@
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { RoleModeSwitcher } from '../components/account/RoleModeSwitcher';
-import { BrandMark } from '../components/brand/BrandMark';
-import { BookingMessagesLink } from '../components/messages/BookingMessagesLink';
-import { NotificationBellLink } from '../components/notifications/NotificationBellLink';
+import { useMemo } from 'react';
+import { NavLink, Outlet, useLocation } from 'react-router-dom';
+import { PublicHeaderBar, type PublicHeaderAction } from '../components/public/PublicHeaderBar';
 import { getMyPageEntryPath } from '../lib/account';
 import { publicNavItems } from '../lib/navigation';
 import { useAuth } from '../hooks/useAuth';
@@ -15,25 +13,44 @@ function navLinkClass(isActive: boolean): string {
 }
 
 export function PublicLayout() {
-    const { account, isAuthenticated, logout } = useAuth();
+    const { account, isAuthenticated } = useAuth();
     const location = useLocation();
     const returnTo = `${location.pathname}${location.search}`;
     const loginPath = location.pathname === '/login' ? '/login' : `/login?return_to=${encodeURIComponent(returnTo)}`;
     const registerPath = location.pathname === '/register' ? '/register' : `/register?return_to=${encodeURIComponent(returnTo)}`;
     const myPagePath = getMyPageEntryPath(account);
+    const headerActions = useMemo<PublicHeaderAction[]>(() => {
+        if (isAuthenticated) {
+            return [
+                {
+                    label: 'マイページ',
+                    to: myPagePath,
+                    icon: 'mypage',
+                },
+            ];
+        }
+
+        return [
+            {
+                label: 'ログイン',
+                to: loginPath,
+                icon: 'login',
+            },
+            {
+                label: '会員登録',
+                to: registerPath,
+                variant: 'secondary',
+                icon: 'register',
+            },
+        ];
+    }, [isAuthenticated, loginPath, myPagePath, registerPath]);
 
     return (
         <div className="min-h-screen">
             <header className="border-b border-white/10">
-                <div className="mx-auto flex w-full max-w-7xl flex-col gap-4 px-6 py-5 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="space-y-1">
-                        <BrandMark inverse />
-                        <p className="text-sm text-slate-300">
-                            リラクゼーション / ボディケア / もみほぐしの予約プラットフォーム
-                        </p>
-                    </div>
-
-                    <div className="flex flex-col gap-3 lg:items-end">
+                <div className="mx-auto w-full max-w-7xl px-6 py-5">
+                    <PublicHeaderBar actions={headerActions} />
+                    <div className="mt-4 border-t border-white/10 pt-4">
                         <nav className="flex flex-wrap gap-2">
                             {publicNavItems.map((item) => (
                                 <NavLink key={item.to} to={item.to} end={item.exact} className={({ isActive }) => navLinkClass(isActive)}>
@@ -41,46 +58,6 @@ export function PublicLayout() {
                                 </NavLink>
                             ))}
                         </nav>
-
-                        <div className="flex flex-wrap items-center gap-3">
-                            {isAuthenticated ? (
-                                <>
-                                    <NotificationBellLink />
-                                    <BookingMessagesLink />
-                                    <RoleModeSwitcher />
-                                    <Link
-                                        to={myPagePath}
-                                        className="rounded-full border border-rose-300/40 px-4 py-2 text-sm font-medium text-rose-100 transition hover:bg-rose-300/10"
-                                    >
-                                        マイページ
-                                    </Link>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            void logout();
-                                        }}
-                                        className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
-                                    >
-                                        ログアウト
-                                    </button>
-                                </>
-                            ) : (
-                                <>
-                                    <Link
-                                        to={loginPath}
-                                        className="rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
-                                    >
-                                        ログイン
-                                    </Link>
-                                    <Link
-                                        to={registerPath}
-                                        className="rounded-full bg-rose-300 px-4 py-2 text-sm font-medium text-slate-950 transition hover:bg-rose-200"
-                                    >
-                                        無料ではじめる
-                                    </Link>
-                                </>
-                            )}
-                        </div>
                     </div>
                 </div>
             </header>

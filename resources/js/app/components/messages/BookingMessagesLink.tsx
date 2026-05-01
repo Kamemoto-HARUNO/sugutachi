@@ -37,6 +37,10 @@ export function BookingMessagesLink({
         [account],
     );
 
+    if (inboxRoles.length === 0) {
+        return null;
+    }
+
     async function loadSummary() {
         if (!isAuthenticated || !token || inboxRoles.length === 0) {
             setUnreadCount(0);
