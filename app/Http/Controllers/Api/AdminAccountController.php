@@ -24,7 +24,7 @@ class AdminAccountController extends Controller
         $this->authorizeAdmin($request->user());
 
         $validated = $request->validate([
-            'status' => ['nullable', Rule::in([Account::STATUS_ACTIVE, Account::STATUS_SUSPENDED])],
+            'status' => ['nullable', Rule::in([Account::STATUS_ACTIVE, Account::STATUS_SUSPENDED, Account::STATUS_WITHDRAWN])],
             'role' => ['nullable', Rule::in(['user', 'therapist', 'admin'])],
             'q' => ['nullable', 'string', 'max:100'],
             'sort' => ['nullable', Rule::in(['created_at', 'last_login_at', 'display_name', 'email'])],

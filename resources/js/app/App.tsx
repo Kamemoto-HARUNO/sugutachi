@@ -49,6 +49,8 @@ import { AdminTherapistProfilesPage } from './pages/AdminTherapistProfilesPage';
 import { AdminTravelRequestsPage } from './pages/AdminTravelRequestsPage';
 import { AccountIdentityVerificationPage } from './pages/AccountIdentityVerificationPage';
 import { AccountProfilePage } from './pages/AccountProfilePage';
+import { AccountWithdrawalCompletePage } from './pages/AccountWithdrawalCompletePage';
+import { AccountWithdrawalPage } from './pages/AccountWithdrawalPage';
 import { TherapistBookingInterruptPage, UserBookingInterruptPage } from './pages/BookingInterruptPage';
 import { TherapistBookingNoShowPage, UserBookingNoShowPage } from './pages/BookingNoShowPage';
 import { ContactPage } from './pages/ContactPage';
@@ -110,6 +112,7 @@ function AppRoutes() {
         <>
             <Routes>
                 <Route path="/" element={<PublicHomePage />} />
+                <Route path="/withdrawal/completed" element={<AccountWithdrawalCompletePage />} />
                 <Route path="/therapists/:publicId" element={<UserTherapistDetailPage />} />
                 <Route path="/user/therapists/:publicId" element={<LegacyUserTherapistDetailRedirect />} />
 
@@ -135,6 +138,7 @@ function AppRoutes() {
                     <Route path="/role-select" element={<RoleSelectPage />} />
                     <Route path="/identity-verification" element={<AccountIdentityVerificationPage />} />
                     <Route path="/profile" element={<AccountProfilePage />} />
+                    <Route path="/profile/withdrawal" element={<AccountWithdrawalPage />} />
                 </Route>
 
             <Route element={<RoleRoute role="user" hasRole={hasRole} isAuthenticated={isAuthenticated} activeRole={activeRole} selectRole={selectRole} />}>

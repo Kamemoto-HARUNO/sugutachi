@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AccountBlockController;
+use App\Http\Controllers\Api\AccountWithdrawalController;
 use App\Http\Controllers\Api\AccountRoleController;
 use App\Http\Controllers\Api\AdminAccountController;
 use App\Http\Controllers\Api\AdminAuditLogController;
@@ -96,6 +97,8 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::patch('/me/profile', [MeProfileController::class, 'update']);
     Route::patch('/me/profile/email', [MeProfileController::class, 'updateEmail']);
     Route::post('/me/profile/password-reset-link', [MeProfileController::class, 'sendPasswordResetLink']);
+    Route::get('/me/withdrawal', [AccountWithdrawalController::class, 'show']);
+    Route::post('/me/withdrawal', [AccountWithdrawalController::class, 'store']);
     Route::post('/me/profile/photos', [ProfilePhotoController::class, 'store']);
     Route::delete('/me/profile/photos/{profilePhoto}', [ProfilePhotoController::class, 'destroy']);
     Route::get('/me/profile/photos/{profilePhoto}/file', [ProfilePhotoFileController::class, 'showOwned']);

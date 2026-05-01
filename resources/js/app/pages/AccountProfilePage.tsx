@@ -390,13 +390,13 @@ export function AccountProfilePage() {
 
                     <div className="pt-2 text-right">
                         <Link
-                            to="/contact?category=account"
+                            to="/profile/withdrawal"
                             className="text-xs font-medium text-slate-500 transition hover:text-slate-300"
                         >
-                            アカウント削除
+                            退会
                         </Link>
                         <p className="mt-1 text-[11px] text-slate-600">
-                            現在はサポート窓口で個別に受け付けています。
+                            この手続きは元に戻せません。
                         </p>
                     </div>
                 </div>

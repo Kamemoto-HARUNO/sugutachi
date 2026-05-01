@@ -44,6 +44,20 @@ class Account extends Authenticatable
 
     public const STATUS_SUSPENDED = 'suspended';
 
+    public const STATUS_WITHDRAWN = 'withdrawn';
+
+    public const WITHDRAWAL_REASON_NOT_NEEDED = 'not_needed';
+
+    public const WITHDRAWAL_REASON_HARD_TO_USE = 'hard_to_use';
+
+    public const WITHDRAWAL_REASON_CANNOT_FIND_MATCH = 'cannot_find_match';
+
+    public const WITHDRAWAL_REASON_PRIVACY_CONCERN = 'privacy_concern';
+
+    public const WITHDRAWAL_REASON_USE_OTHER_SERVICE = 'use_other_service';
+
+    public const WITHDRAWAL_REASON_OTHER = 'other';
+
     public function roleAssignments(): HasMany
     {
         return $this->hasMany(AccountRole::class);
@@ -257,9 +271,25 @@ class Account extends Authenticatable
             'phone_verified_at' => 'datetime',
             'last_login_at' => 'datetime',
             'suspended_at' => 'datetime',
+            'withdrawn_at' => 'datetime',
             'travel_request_last_warned_at' => 'datetime',
             'travel_request_restricted_until' => 'datetime',
             'password' => 'hashed',
+        ];
+    }
+
+    /**
+     * @return array<string, string>
+     */
+    public static function withdrawalReasonOptions(): array
+    {
+        return [
+            self::WITHDRAWAL_REASON_NOT_NEEDED => 'サービスを使わなくなった',
+            self::WITHDRAWAL_REASON_HARD_TO_USE => '使い方がわかりにくかった',
+            self::WITHDRAWAL_REASON_CANNOT_FIND_MATCH => '希望に合う相手が見つからなかった',
+            self::WITHDRAWAL_REASON_PRIVACY_CONCERN => 'プライバシーや安全面が気になった',
+            self::WITHDRAWAL_REASON_USE_OTHER_SERVICE => '他のサービスを使うことにした',
+            self::WITHDRAWAL_REASON_OTHER => 'その他',
         ];
     }
 

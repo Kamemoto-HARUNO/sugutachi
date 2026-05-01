@@ -175,6 +175,33 @@ export interface MeProfileRecord {
     updated_at: string;
 }
 
+export interface AccountWithdrawalReasonOption {
+    code: string;
+    label: string;
+}
+
+export interface AccountWithdrawalBookingBlocker {
+    public_id: string;
+    role: 'user' | 'therapist';
+    status: string;
+    scheduled_start_at: string | null;
+}
+
+export interface AccountWithdrawalStatusRecord {
+    can_withdraw: boolean;
+    reason_options: AccountWithdrawalReasonOption[];
+    blocking_booking_count: number;
+    next_blocking_booking: AccountWithdrawalBookingBlocker | null;
+    has_processing_payout_request: boolean;
+    remaining_balance_amount: number;
+    balance: {
+        pending_amount: number;
+        available_amount: number;
+        payout_requested_amount: number;
+        held_amount: number;
+    };
+}
+
 export interface ContactInquirySubmissionRecord {
     public_id: string;
     status: string;
