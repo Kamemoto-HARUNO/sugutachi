@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react';
-import { Link, NavLink, Outlet } from 'react-router-dom';
+import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { RoleModeSwitcher } from '../components/account/RoleModeSwitcher';
 import { BrandMark } from '../components/brand/BrandMark';
 import { NotificationBellLink } from '../components/notifications/NotificationBellLink';
@@ -23,13 +23,62 @@ function navLinkClass(isActive: boolean): string {
     ].join(' ');
 }
 
+function headerActionClass(fullWidth = false): string {
+    return [
+        'inline-flex min-h-11 items-center justify-center rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/6',
+        fullWidth ? 'w-full' : '',
+    ].join(' ').trim();
+}
+
+function MobileMenuButton({
+    isOpen,
+    onToggle,
+}: {
+    isOpen: boolean;
+    onToggle: () => void;
+}) {
+    return (
+        <button
+            type="button"
+            onClick={onToggle}
+            aria-label={isOpen ? 'グローバルメニューを閉じる' : 'グローバルメニューを開く'}
+            aria-expanded={isOpen}
+            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition hover:bg-white/15 md:hidden"
+        >
+            <span className="relative block h-4 w-5">
+                <span
+                    className={[
+                        'absolute left-0 top-0 h-0.5 w-5 rounded-full bg-current transition',
+                        isOpen ? 'translate-y-[7px] rotate-45' : '',
+                    ].join(' ')}
+                />
+                <span
+                    className={[
+                        'absolute left-0 top-[7px] h-0.5 w-5 rounded-full bg-current transition',
+                        isOpen ? 'opacity-0' : '',
+                    ].join(' ')}
+                />
+                <span
+                    className={[
+                        'absolute left-0 top-[14px] h-0.5 w-5 rounded-full bg-current transition',
+                        isOpen ? '-translate-y-[7px] -rotate-45' : '',
+                    ].join(' ')}
+                />
+            </span>
+        </button>
+    );
+}
+
 export function DashboardLayout({ role, title, description, navItems }: DashboardLayoutProps) {
     const { logout, token } = useAuth();
+    const location = useLocation();
     const [therapistPublicId, setTherapistPublicId] = useState<string | null>(null);
     const [therapistDashboardCampaigns, setTherapistDashboardCampaigns] = useState<PublicCampaignRecord[]>([]);
     const navScrollRef = useRef<HTMLDivElement | null>(null);
+    const mobileMenuRef = useRef<HTMLDivElement | null>(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
+    const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
 
     useEffect(() => {
         if (role !== 'therapist' || !token) {
@@ -117,6 +166,40 @@ export function DashboardLayout({ role, title, description, navItems }: Dashboar
         };
     }, [navItems]);
 
+    useEffect(() => {
+        setIsMobileMenuOpen(false);
+    }, [location.pathname, location.search]);
+
+    useEffect(() => {
+        if (!isMobileMenuOpen) {
+            return;
+        }
+
+        const handlePointerDown = (event: PointerEvent) => {
+            if (!(event.target instanceof Node)) {
+                return;
+            }
+
+            if (!mobileMenuRef.current?.contains(event.target)) {
+                setIsMobileMenuOpen(false);
+            }
+        };
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setIsMobileMenuOpen(false);
+            }
+        };
+
+        document.addEventListener('pointerdown', handlePointerDown);
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            document.removeEventListener('pointerdown', handlePointerDown);
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isMobileMenuOpen]);
+
     const scrollTabs = (direction: 'left' | 'right') => {
         const container = navScrollRef.current;
 
@@ -138,19 +221,90 @@ export function DashboardLayout({ role, title, description, navItems }: Dashboar
                 <header className="overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(118deg,rgba(23,32,43,0.96)_0%,rgba(31,45,61,0.94)_52%,rgba(42,59,79,0.96)_100%)] shadow-[0_30px_70px_rgba(2,6,23,0.34)]">
                     <div className="space-y-6 p-6 sm:p-7 lg:p-8">
                         <div className="flex flex-col gap-5 xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start xl:gap-8">
-                            <div className="min-w-0 flex-1 space-y-4">
-                                <div className="flex flex-wrap items-center gap-3">
-                                    <BrandMark inverse compact />
-                                    <RoleModeSwitcher />
-                                </div>
+                            <div className="min-w-0 flex-1">
+                                <div className="min-w-0 flex-1 space-y-4">
+                                    <div className="flex items-start justify-between gap-3">
+                                        <BrandMark inverse compact />
+                                        <div ref={mobileMenuRef} className="relative flex shrink-0 items-center gap-2 md:gap-3">
+                                            <NotificationBellLink compact className="border-white/15 bg-white/10 hover:bg-white/15 md:hidden" />
+                                            <NotificationBellLink className="hidden md:inline-flex" />
 
-                                <div className="space-y-3">
-                                    <h1 className="max-w-[16ch] text-[2.2rem] font-semibold leading-[1.4] text-white sm:max-w-[20ch] sm:text-[2.5rem] xl:max-w-none xl:whitespace-nowrap">
-                                        {title}
-                                    </h1>
-                                    <p className="max-w-3xl text-sm leading-7 text-slate-300 sm:text-[0.95rem]">
-                                        {description}
-                                    </p>
+                                            <div className="hidden items-center gap-3 md:flex">
+                                                {role === 'therapist' && therapistPublicId ? (
+                                                    <Link
+                                                        to={`/therapists/${therapistPublicId}`}
+                                                        className={headerActionClass()}
+                                                    >
+                                                        自分のページを確認
+                                                    </Link>
+                                                ) : null}
+                                                <Link
+                                                    to="/profile"
+                                                    className={headerActionClass()}
+                                                >
+                                                    アカウント設定
+                                                </Link>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        void logout();
+                                                    }}
+                                                    className={headerActionClass()}
+                                                >
+                                                    ログアウト
+                                                </button>
+                                            </div>
+
+                                            <MobileMenuButton
+                                                isOpen={isMobileMenuOpen}
+                                                onToggle={() => {
+                                                    setIsMobileMenuOpen((current) => !current);
+                                                }}
+                                            />
+
+                                            {isMobileMenuOpen ? (
+                                                <div className="absolute right-0 top-full z-20 mt-3 flex w-[min(18rem,calc(100vw-2rem))] flex-col gap-2 rounded-[24px] border border-white/12 bg-[rgba(23,32,43,0.96)] p-3 shadow-[0_18px_45px_rgba(23,32,43,0.28)] backdrop-blur md:hidden">
+                                                    {role === 'therapist' && therapistPublicId ? (
+                                                        <Link
+                                                            to={`/therapists/${therapistPublicId}`}
+                                                            onClick={() => setIsMobileMenuOpen(false)}
+                                                            className={headerActionClass(true)}
+                                                        >
+                                                            自分のページを確認
+                                                        </Link>
+                                                    ) : null}
+                                                    <Link
+                                                        to="/profile"
+                                                        onClick={() => setIsMobileMenuOpen(false)}
+                                                        className={headerActionClass(true)}
+                                                    >
+                                                        アカウント設定
+                                                    </Link>
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setIsMobileMenuOpen(false);
+                                                            void logout();
+                                                        }}
+                                                        className={headerActionClass(true)}
+                                                    >
+                                                        ログアウト
+                                                    </button>
+                                                </div>
+                                            ) : null}
+                                        </div>
+                                    </div>
+
+                                    <RoleModeSwitcher />
+
+                                    <div className="space-y-3">
+                                        <h1 className="max-w-[16ch] text-[2.2rem] font-semibold leading-[1.4] text-white sm:max-w-[20ch] sm:text-[2.5rem] xl:max-w-none xl:whitespace-nowrap">
+                                            {title}
+                                        </h1>
+                                        <p className="max-w-3xl text-sm leading-7 text-slate-300 sm:text-[0.95rem]">
+                                            {description}
+                                        </p>
+                                    </div>
                                 </div>
 
                                 {role === 'therapist' && therapistDashboardCampaigns.length > 0 ? (
@@ -170,33 +324,6 @@ export function DashboardLayout({ role, title, description, navItems }: Dashboar
                                         ))}
                                     </div>
                                 ) : null}
-                            </div>
-
-                            <div className="flex flex-wrap items-center gap-3 xl:ml-4 xl:shrink-0 xl:flex-nowrap xl:justify-end">
-                                <NotificationBellLink />
-                                {role === 'therapist' && therapistPublicId ? (
-                                    <Link
-                                        to={`/therapists/${therapistPublicId}`}
-                                        className="inline-flex min-h-11 items-center rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/6"
-                                    >
-                                        自分のページを確認
-                                    </Link>
-                                ) : null}
-                                <Link
-                                    to="/profile"
-                                    className="inline-flex min-h-11 items-center rounded-full border border-white/10 bg-white/[0.04] px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/6"
-                                >
-                                    アカウント設定
-                                </Link>
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        void logout();
-                                    }}
-                                    className="inline-flex min-h-11 items-center rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-100 transition hover:bg-white/6"
-                                >
-                                    ログアウト
-                                </button>
                             </div>
                         </div>
 
