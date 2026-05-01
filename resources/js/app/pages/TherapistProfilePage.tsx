@@ -1169,12 +1169,6 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
                                 自分のページを確認
                             </Link>
                         ) : null}
-                        <Link
-                            to="/therapist/settings"
-                            className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
-                        >
-                            公開状態は設定で調整
-                        </Link>
                     </div>
 
                     <form onSubmit={handleProfileSave} className="space-y-5 rounded-[24px] border border-white/10 bg-white/5 p-6">
