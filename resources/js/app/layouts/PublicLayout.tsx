@@ -50,15 +50,16 @@ export function PublicLayout() {
             <header className="border-0">
                 <div className="mx-auto w-full max-w-7xl px-6 py-5">
                     <PublicHeaderBar actions={headerActions} />
-                    <div className="mt-4 pt-0" style={{ borderTop: 'none' }}>
-                        <nav className="flex flex-wrap gap-2">
-                            {publicNavItems.map((item) => (
-                                <NavLink key={item.to} to={item.to} end={item.exact} className={({ isActive }) => navLinkClass(isActive)}>
-                                    {item.label}
-                                </NavLink>
-                            ))}
-                        </nav>
-                    </div>
+                    <nav
+                        className="public-layout-nav mt-4 flex flex-wrap gap-2 border-0 pt-0 shadow-none"
+                        style={{ borderTop: 'none', boxShadow: 'none' }}
+                    >
+                        {publicNavItems.map((item) => (
+                            <NavLink key={item.to} to={item.to} end={item.exact} className={({ isActive }) => navLinkClass(isActive)}>
+                                {item.label}
+                            </NavLink>
+                        ))}
+                    </nav>
                 </div>
             </header>
 

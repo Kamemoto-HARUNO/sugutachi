@@ -46,6 +46,13 @@
 }
 
 @layer components {
+    .public-layout-nav,
+    .public-layout-nav::before,
+    .public-layout-nav::after {
+        border-top: none !important;
+        box-shadow: none !important;
+    }
+
     @keyframes campaign-offer-float {
         0%,
         100% {
