@@ -46,7 +46,6 @@ export function PublicHomePage() {
     const [selectedDuration, setSelectedDuration] = useState<number>(DEFAULT_DISCOVERY_DURATION);
     const [selectedStartType, setSelectedStartType] = useState<BookingStartType>('now');
     const [scheduledStartAt, setScheduledStartAt] = useState('');
-    const [trainingOnly, setTrainingOnly] = useState(false);
     const [ratingOnly, setRatingOnly] = useState(false);
     const [walkingOnly, setWalkingOnly] = useState(false);
     const [priceRange, setPriceRange] = useState<DiscoveryPriceRange>('all');
@@ -73,10 +72,6 @@ export function PublicHomePage() {
     const previewDetailQueryString = canUseUserMode ? previewQueryString : '';
     const filteredPreviewTherapists = useMemo(() => {
         const filtered = previewTherapists.filter((therapist) => {
-            if (trainingOnly && therapist.training_status !== 'completed') {
-                return false;
-            }
-
             if (ratingOnly && therapist.rating_average < 4.5) {
                 return false;
             }
@@ -93,7 +88,7 @@ export function PublicHomePage() {
         });
 
         return sortTherapistSearchResults(filtered, selectedSort);
-    }, [previewTherapists, priceRange, ratingOnly, selectedSort, trainingOnly, walkingOnly]);
+    }, [previewTherapists, priceRange, ratingOnly, selectedSort, walkingOnly]);
     const heroMyPagePath = getMyPageEntryPath(account);
 
     useEffect(() => {
@@ -388,8 +383,6 @@ export function PublicHomePage() {
             onSelectStartType={handleSelectStartType}
             scheduledStartAt={scheduledStartAt}
             onScheduledStartAtChange={setScheduledStartAt}
-            trainingOnly={trainingOnly}
-            onToggleTraining={() => setTrainingOnly((value) => !value)}
             ratingOnly={ratingOnly}
             onToggleRating={() => setRatingOnly((value) => !value)}
             walkingOnly={walkingOnly}

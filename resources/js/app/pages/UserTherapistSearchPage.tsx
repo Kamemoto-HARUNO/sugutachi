@@ -62,7 +62,6 @@ export function UserTherapistSearchPage() {
     const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
     const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
-    const [trainingOnly, setTrainingOnly] = useState(false);
     const [ratingOnly, setRatingOnly] = useState(false);
     const [walkingOnly, setWalkingOnly] = useState(false);
     const [priceRange, setPriceRange] = useState<DiscoveryPriceRange>('all');
@@ -212,10 +211,6 @@ export function UserTherapistSearchPage() {
 
     const filteredTherapists = useMemo(() => {
         return therapists.filter((therapist) => {
-            if (trainingOnly && therapist.training_status !== 'completed') {
-                return false;
-            }
-
             if (ratingOnly && therapist.rating_average < 4.5) {
                 return false;
             }
@@ -230,7 +225,7 @@ export function UserTherapistSearchPage() {
 
             return true;
         });
-    }, [priceRange, ratingOnly, therapists, trainingOnly, walkingOnly]);
+    }, [priceRange, ratingOnly, therapists, walkingOnly]);
 
     const updateSearchParam = (updates: Record<string, string | null>) => {
         setSearchParams((previous) => {
@@ -263,8 +258,6 @@ export function UserTherapistSearchPage() {
             onSelectStartType={handleSelectStartType}
             scheduledStartAt={scheduledStartAt}
             onScheduledStartAtChange={(value) => updateSearchParam({ scheduled_start_at: value || null })}
-            trainingOnly={trainingOnly}
-            onToggleTraining={() => setTrainingOnly((value) => !value)}
             ratingOnly={ratingOnly}
             onToggleRating={() => setRatingOnly((value) => !value)}
             walkingOnly={walkingOnly}

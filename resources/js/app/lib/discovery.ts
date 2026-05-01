@@ -22,7 +22,6 @@ export const DISCOVERY_SORT_OPTIONS: Array<{ value: DiscoverySort; label: string
     { value: 'rating', label: '評価順' },
 ];
 export const DISCOVERY_FILTER_LABELS = {
-    training: '研修済み',
     rating: '星4.5以上',
     walking: '移動時間30分以内',
 } as const;

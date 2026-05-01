@@ -79,13 +79,6 @@ function formatFileSize(sizeBytes: number): string {
     return `${(sizeBytes / (1024 * 1024)).toFixed(1)}MB`;
 }
 
-const trainingOptions = [
-    { value: 'none', label: '研修情報なし' },
-    { value: 'in_progress', label: '研修中' },
-    { value: 'completed', label: '研修済み' },
-    { value: 'pending', label: '確認中' },
-];
-
 function createMenuDraft(menu?: TherapistMenu): MenuDraft {
     return {
         public_id: menu?.public_id ?? null,
@@ -604,7 +597,7 @@ export function TherapistProfilePage() {
                         <p className="text-xs font-semibold tracking-wide text-rose-200">プロフィール</p>
                         <h1 className="text-3xl font-semibold text-white">タチキャストプロフィール</h1>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                            公開名、紹介文、研修ステータス、対応内容を整える画面です。本人確認・年齢確認と必須情報が揃えば、このまま公開準備が整います。
+                            公開名、紹介文、対応内容を整える画面です。本人確認・年齢確認と必須情報が揃えば、このまま公開準備が整います。
                         </p>
                     </div>
 
@@ -787,21 +780,6 @@ export function TherapistProfilePage() {
                             className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
                             placeholder="対応の雰囲気や得意なケア、安心してもらうための自己紹介を入力"
                         />
-                    </label>
-
-                    <label className="space-y-2">
-                        <span className="text-sm font-semibold text-white">研修ステータス</span>
-                        <select
-                            value={trainingStatus}
-                            onChange={(event) => setTrainingStatus(event.target.value)}
-                            className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                        >
-                            {trainingOptions.map((option) => (
-                                <option key={option.value} value={option.value}>
-                                    {option.label}
-                                </option>
-                            ))}
-                        </select>
                     </label>
 
                     <button
