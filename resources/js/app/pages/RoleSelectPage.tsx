@@ -13,7 +13,6 @@ import {
     type RoleName,
 } from '../lib/account';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
-import { formatProfileStatus, formatStripeStatus } from '../lib/therapist';
 import type {
     ApiEnvelope,
     PublicCampaignRecord,
@@ -57,17 +56,6 @@ interface RoleGuide {
     };
 }
 
-function statusTone(kind: 'ready' | 'pending' | 'neutral'): string {
-    switch (kind) {
-        case 'ready':
-            return 'border-emerald-300/30 bg-emerald-300/10 text-emerald-100';
-        case 'pending':
-            return 'border-amber-300/30 bg-amber-300/10 text-amber-100';
-        default:
-            return 'border-white/10 bg-white/5 text-slate-200';
-    }
-}
-
 function rolePageLabel(role: RoleName): string {
     switch (role) {
         case 'user':
@@ -82,22 +70,11 @@ function rolePageLabel(role: RoleName): string {
 function roleAccessLabel(role: RoleName): string {
     switch (role) {
         case 'user':
-            return '利用者ダッシュボードにアクセス';
+            return '利用者モードを選択';
         case 'therapist':
-            return 'タチキャストダッシュボードにアクセス';
+            return 'タチキャストモードを選択';
         case 'admin':
-            return '運営ダッシュボードにアクセス';
-    }
-}
-
-function userProfileStatusLabel(status: string | null | undefined): string {
-    switch (status) {
-        case 'active':
-            return '入力完了';
-        case 'incomplete':
-            return '要入力';
-        default:
-            return '未設定';
+            return '運営モードを選択';
     }
 }
 
@@ -148,7 +125,7 @@ function roleGuides(): Record<RoleName, RoleGuide> {
 export function RoleSelectPage() {
     const navigate = useNavigate();
     const [searchParams] = useSearchParams();
-    const { account, activeRole, token, addRole, selectRole } = useAuth();
+    const { account, activeRole, token, addRole, logout, selectRole } = useAuth();
     const [error, setError] = useState<string | null>(null);
     const [snapshotError, setSnapshotError] = useState<string | null>(null);
     const [pendingRole, setPendingRole] = useState<RoleName | null>(null);
@@ -269,40 +246,6 @@ export function RoleSelectPage() {
                 return isTherapistReady();
             case 'admin':
                 return true;
-        }
-    }
-
-    function roleStatusLabel(role: RoleName): string {
-        if (isLoadingSnapshots && role !== 'admin') {
-            return '準備状況を確認中';
-        }
-
-        switch (role) {
-            case 'user':
-                return roleSetupReady(role) ? '予約を始められます' : '予約前の設定が残っています';
-            case 'therapist':
-                return roleSetupReady(role) ? '公開して依頼を受けられます' : '公開前の準備が残っています';
-            case 'admin':
-                return '運営ページを利用できます';
-        }
-    }
-
-    function roleSummary(role: RoleName): string {
-        if (isLoadingSnapshots && role !== 'admin') {
-            return '関連する設定状況を読み込んでいます。';
-        }
-
-        switch (role) {
-            case 'user':
-                if (!userSnapshot) {
-                    return 'プロフィールと待ち合わせ場所の準備状況を確認できます。';
-                }
-
-                return `${userProfileStatusLabel(userSnapshot.profileStatus)} / 待ち合わせ場所 ${userSnapshot.addressCount}件`;
-            case 'therapist':
-                return `${formatProfileStatus(therapistSnapshot?.reviewStatus?.profile.profile_status)} / 受取設定 ${formatStripeStatus(therapistSnapshot?.stripeStatus?.status)}`;
-            case 'admin':
-                return '審査、通報、予約監視、料金運用をまとめて扱えます。';
         }
     }
 
@@ -439,7 +382,6 @@ export function RoleSelectPage() {
                         {roles.map((role) => {
                             const guide = guides[role];
                             const isCurrent = activeRole === role;
-                            const isReady = roleSetupReady(role);
 
                             return (
                                 <article
@@ -473,25 +415,6 @@ export function RoleSelectPage() {
                                         </span>
                                     </div>
 
-                                    <div className="space-y-3">
-                                        <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(isReady ? 'ready' : 'pending')}`}>
-                                            {roleStatusLabel(role)}
-                                        </span>
-                                        <p className={`text-sm font-semibold ${guide.accent.subtle}`}>{roleSummary(role)}</p>
-                                    </div>
-
-                                    {role === 'user' && userSnapshot?.defaultAddressLabel ? (
-                                        <p className="text-sm text-slate-400">
-                                            いつも使う待ち合わせ場所: <span className="font-semibold text-slate-200">{userSnapshot.defaultAddressLabel}</span>
-                                        </p>
-                                    ) : null}
-
-                                    {role === 'therapist' && therapistSnapshot?.reviewStatus ? (
-                                        <p className="text-sm text-slate-400">
-                                            公開中メニュー {therapistSnapshot.reviewStatus.active_menu_count}件 / 写真 {formatProfileStatus(therapistSnapshot.reviewStatus.profile.photo_review_status)}
-                                        </p>
-                                    ) : null}
-
                                     {renderRoleCampaigns(role)}
 
                                     <div className="mt-auto pt-1">
@@ -510,12 +433,23 @@ export function RoleSelectPage() {
                         })}
                     </div>
                     <div className="mt-6">
-                        <Link
-                            to="/help"
-                            className="inline-flex min-h-11 items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/6"
-                        >
-                            使い方を見る
-                        </Link>
+                        <div className="flex flex-wrap gap-3">
+                            <Link
+                                to="/help"
+                                className="inline-flex min-h-11 items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/6"
+                            >
+                                使い方を見る
+                            </Link>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    void logout();
+                                }}
+                                className="inline-flex min-h-11 items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/6"
+                            >
+                                ログアウト
+                            </button>
+                        </div>
                     </div>
                 </section>
             </section>
