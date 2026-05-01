@@ -6,7 +6,6 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import {
     formatRoleLabel,
-    getAccountDisplayName,
     getActiveRoles,
     getRoleDashboardPath,
     inferRoleFromPath,
@@ -14,7 +13,7 @@ import {
     type RoleName,
 } from '../lib/account';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
-import { formatIdentityVerificationStatus, formatProfileStatus, formatStripeStatus } from '../lib/therapist';
+import { formatProfileStatus, formatStripeStatus } from '../lib/therapist';
 import type {
     ApiEnvelope,
     PublicCampaignRecord,
@@ -45,18 +44,14 @@ const emptyRoleCampaigns: Record<RoleName, PublicCampaignRecord[]> = {
 };
 
 interface RoleGuide {
-    label: string;
     eyebrow: string;
     title: string;
-    description: string;
-    bullets: string[];
     addTitle: string;
     addDescription: string;
     accent: {
         badge: string;
         subtle: string;
         primaryButton: string;
-        secondaryButton: string;
         border: string;
         highlight: string;
     };
@@ -76,35 +71,11 @@ function statusTone(kind: 'ready' | 'pending' | 'neutral'): string {
 function rolePageLabel(role: RoleName): string {
     switch (role) {
         case 'user':
-            return '利用者ダッシュボード';
+            return '利用者モード';
         case 'therapist':
-            return 'タチキャストダッシュボード';
+            return 'タチキャストモード';
         case 'admin':
-            return '運営ダッシュボード';
-    }
-}
-
-function roleSwitchHint(role: RoleName): string {
-    switch (role) {
-        case 'user':
-            return '検索、予約、オファー確認の入口を開きます。';
-        case 'therapist':
-            return '準備状況、依頼対応、売上確認の入口を開きます。';
-        case 'admin':
-            return '審査・監視・運用管理を開きます。';
-    }
-}
-
-function rolePageHint(role: RoleName, isReady: boolean): string {
-    switch (role) {
-        case 'user':
-            return '検索、予約、住所管理は利用者ダッシュボードから確認できます。';
-        case 'therapist':
-            return isReady
-                ? '依頼対応、レビュー確認、売上管理はタチキャストダッシュボードから確認できます。'
-                : '公開準備が残っている場合は、タチキャストダッシュボード内の「準備状況」から確認できます。';
-        case 'admin':
-            return '審査、監視、法務運用は運営ダッシュボードから確認できます。';
+            return '運営モード';
     }
 }
 
@@ -133,64 +104,40 @@ function userProfileStatusLabel(status: string | null | undefined): string {
 function roleGuides(): Record<RoleName, RoleGuide> {
     return {
         user: {
-            label: '利用者',
             eyebrow: '予約する側',
             title: '近くのタチキャストを探して、予約まで進む',
-            description: 'タチキャスト探しから予約、やり取り、レビュー確認までを、このマイページからまとめて行えます。',
-            bullets: [
-                '近くのタチキャスト検索とプロフィール確認',
-                '待ち合わせ場所の管理と予約前の料金確認',
-                '予約一覧、メッセージ、レビュー、報告履歴の確認',
-            ],
             addTitle: '利用者モードを追加',
             addDescription: 'タチキャスト探しや予約を始めるためのモードです。見ていた公開プロフィールからそのまま続けられます。',
             accent: {
                 badge: 'border-amber-300/30 bg-amber-300/10 text-amber-100',
                 subtle: 'text-amber-100/90',
                 primaryButton: 'bg-amber-200 text-[#17202b] hover:bg-amber-100',
-                secondaryButton: 'border-amber-200/25 text-amber-100 hover:bg-amber-200/10',
                 border: 'border-amber-300/25',
                 highlight: 'ring-1 ring-amber-200/60',
             },
         },
         therapist: {
-            label: 'タチキャスト',
             eyebrow: 'サービスを提供する側',
             title: '公開プロフィールを整えて、依頼と売上を管理する',
-            description: 'プロフィール公開の準備から依頼対応、レビュー確認、売上管理までを、このマイページからまとめて行えます。',
-            bullets: [
-                'プロフィール、写真、料金、空き時間の公開準備',
-                '依頼対応、予約の進行、メッセージ対応',
-                'レビュー確認、売上確認、出金申請、受取設定',
-            ],
             addTitle: 'タチキャストモードを追加',
             addDescription: 'タチキャストとして活動を始めるためのモードです。本人確認、プロフィール入力、受取設定へそのまま進めます。',
             accent: {
                 badge: 'border-emerald-300/30 bg-emerald-300/10 text-emerald-100',
                 subtle: 'text-emerald-100/90',
                 primaryButton: 'bg-emerald-200 text-[#17202b] hover:bg-emerald-100',
-                secondaryButton: 'border-emerald-200/25 text-emerald-100 hover:bg-emerald-200/10',
                 border: 'border-emerald-300/25',
                 highlight: 'ring-1 ring-emerald-200/60',
             },
         },
         admin: {
-            label: '運営',
             eyebrow: '運営・サポート',
             title: '審査・監視・運用管理をまとめて行う',
-            description: '審査、監視、各種設定の確認を、このマイページからまとめて行えます。',
-            bullets: [
-                '本人確認、写真、プロフィールの審査',
-                '予約、通報、メッセージ監視、返金対応',
-                '法務文書、料金ルール、出金申請の管理',
-            ],
             addTitle: '運営マイページはここでは追加できません',
             addDescription: '運営マイページは管理者に設定されたアカウントだけ使えます。',
             accent: {
                 badge: 'border-sky-300/30 bg-sky-300/10 text-sky-100',
                 subtle: 'text-sky-100/90',
                 primaryButton: 'bg-sky-200 text-[#17202b] hover:bg-sky-100',
-                secondaryButton: 'border-sky-200/25 text-sky-100 hover:bg-sky-200/10',
                 border: 'border-sky-300/25',
                 highlight: 'ring-1 ring-sky-200/60',
             },
@@ -359,29 +306,6 @@ export function RoleSelectPage() {
         }
     }
 
-    function roleMetrics(role: RoleName): Array<{ label: string; value: string }> {
-        switch (role) {
-            case 'user':
-                return [
-                    { label: '本人確認', value: formatIdentityVerificationStatus(identityStatus) },
-                    { label: 'プロフィール', value: userProfileStatusLabel(userSnapshot?.profileStatus) },
-                    { label: '待ち合わせ場所', value: userSnapshot ? `${userSnapshot.addressCount}件` : '確認中' },
-                ];
-            case 'therapist':
-                return [
-                    { label: '本人確認', value: formatIdentityVerificationStatus(identityStatus) },
-                    { label: 'プロフィール', value: formatProfileStatus(therapistSnapshot?.reviewStatus?.profile.profile_status) },
-                    { label: '受取設定', value: formatStripeStatus(therapistSnapshot?.stripeStatus?.status) },
-                ];
-            case 'admin':
-                return [
-                    { label: '本人確認', value: formatIdentityVerificationStatus(identityStatus) },
-                    { label: '使えるページ', value: `${roles.length}種類` },
-                    { label: '共通情報', value: 'アカウント単位で保持' },
-                ];
-        }
-    }
-
     function renderRoleCampaigns(role: RoleName) {
         const campaigns = roleCampaigns[role].slice(0, 2);
 
@@ -451,12 +375,10 @@ export function RoleSelectPage() {
 
     const requestedRoleLabel = requestedRole ? formatRoleLabel(requestedRole) : null;
     const highlightedRole = requestedRole ?? returnRole;
-    const currentAccountName = getAccountDisplayName(account);
-    const activeRoleLabel = activeRole ? rolePageLabel(activeRole) : '未選択';
 
     return (
         <div className="mx-auto w-full max-w-[1180px] space-y-14 px-4 py-8 sm:px-6 lg:px-8">
-            <section className="grid gap-10 lg:grid-cols-[minmax(0,1.3fr)_360px] lg:items-start">
+            <section className="space-y-6">
                 <div className="space-y-6">
                     <div className="flex flex-wrap items-center gap-3 text-sm text-slate-300">
                         <BrandMark inverse compact />
@@ -464,41 +386,10 @@ export function RoleSelectPage() {
                         <span>モード選択</span>
                     </div>
 
-                    <div className="space-y-4">
-                        <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-slate-200">
-                            モード選択
-                        </span>
-                        <div className="space-y-3">
-                            <h1 className="max-w-[13ch] text-[2.4rem] font-semibold leading-[1.4] text-white sm:max-w-none sm:text-[3.2rem]">
-                                どのモードで
-                                <br />
-                                ダッシュボードへ入るか選ぶ
-                            </h1>
-                            <p className="max-w-3xl text-sm leading-7 text-slate-300 sm:text-[0.95rem]">
-                                マイページを開くと、まずこの画面で利用者モードかタチキャストモードかを選べます。
-                                片方しか使っていないアカウントでも、ここからそのまま別モードを追加できます。
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-3">
-                        {requestedRole && roles.includes(requestedRole) ? (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    openRole(requestedRole, 'continue');
-                                }}
-                                className="inline-flex min-h-11 items-center rounded-full bg-[#f3dec0] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#f7e7cd]"
-                            >
-                                今の続きを開く
-                            </button>
-                        ) : null}
-                        <Link
-                            to="/help"
-                            className="inline-flex min-h-11 items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/6"
-                        >
-                            使い方を見る
-                        </Link>
+                    <div className="space-y-3">
+                        <h1 className="text-[2.4rem] font-semibold leading-[1.4] text-white sm:text-[3rem]">
+                            モードを選択
+                        </h1>
                     </div>
 
                     {requestedRole ? (
@@ -526,7 +417,6 @@ export function RoleSelectPage() {
                         </div>
                     ) : null}
 
-
                     {snapshotError ? (
                         <div className="rounded-[22px] border border-white/10 bg-white/5 px-5 py-4 text-sm text-slate-200">
                             {snapshotError}
@@ -534,180 +424,98 @@ export function RoleSelectPage() {
                     ) : null}
                 </div>
 
-                <aside className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_24px_60px_rgba(2,6,23,0.24)]">
+                <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_24px_60px_rgba(2,6,23,0.24)]">
                     <p className="text-xs font-semibold tracking-wide text-[#f3dec0]">アカウント情報</p>
-                    <div className="mt-4 space-y-4">
-                        <div>
-                            <p className="text-sm text-slate-300">ログイン中アカウント</p>
-                            <p className="mt-1 text-2xl font-semibold text-white">{currentAccountName}</p>
-                            <p className="mt-1 break-all text-sm text-slate-400">{account?.email}</p>
-                        </div>
+                    <div className="mt-4 grid gap-4 lg:grid-cols-3">
+                        {roles.map((role) => {
+                            const guide = guides[role];
+                            const isCurrent = activeRole === role;
+                            const isReady = roleSetupReady(role);
 
-                        <div className="rounded-[20px] border border-white/10 bg-[#111923] px-4 py-4">
-                            <div>
-                                <p className="text-xs font-semibold tracking-wide text-slate-400">いま選ばれているモード</p>
-                                <p className="mt-2 text-lg font-semibold text-white">{activeRoleLabel}</p>
-                                <p className="mt-1 text-xs text-slate-400">下のボタンからそのまま入口を切り替えられます。</p>
-                            </div>
+                            return (
+                                <article
+                                    key={role}
+                                    className={[
+                                        'flex h-full flex-col gap-5 rounded-[24px] border bg-[#111923] px-5 py-5 shadow-[0_18px_34px_rgba(2,6,23,0.18)]',
+                                        guide.accent.border,
+                                        isCurrent ? 'bg-white/[0.08] ring-2 ring-white/60' : '',
+                                        highlightedRole === role ? guide.accent.highlight : '',
+                                    ].join(' ')}
+                                >
+                                    <div className="flex items-start justify-between gap-3">
+                                        <div className="space-y-3">
+                                            <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${guide.accent.badge}`}>
+                                                {guide.eyebrow}
+                                            </span>
+                                            <div className="space-y-2">
+                                                <h2 className="text-xl font-semibold text-white">{rolePageLabel(role)}</h2>
+                                                <p className="text-sm leading-7 text-slate-300">{guide.title}</p>
+                                            </div>
+                                        </div>
+                                        <span
+                                            className={[
+                                                'inline-flex shrink-0 items-center rounded-full px-3 py-1 text-xs font-semibold',
+                                                isCurrent
+                                                    ? guide.accent.primaryButton
+                                                    : 'border border-white/10 bg-white/5 text-slate-200',
+                                            ].join(' ')}
+                                        >
+                                            {isCurrent ? '選択中' : '開く'}
+                                        </span>
+                                    </div>
 
-                            <div className="mt-4 grid gap-3">
-                                {roles.map((role) => {
-                                    const guide = guides[role];
-                                    const isCurrent = activeRole === role;
+                                    <div className="space-y-3">
+                                        <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(isReady ? 'ready' : 'pending')}`}>
+                                            {roleStatusLabel(role)}
+                                        </span>
+                                        <p className={`text-sm font-semibold ${guide.accent.subtle}`}>{roleSummary(role)}</p>
+                                    </div>
 
-                                    return (
+                                    {role === 'user' && userSnapshot?.defaultAddressLabel ? (
+                                        <p className="text-sm text-slate-400">
+                                            いつも使う待ち合わせ場所: <span className="font-semibold text-slate-200">{userSnapshot.defaultAddressLabel}</span>
+                                        </p>
+                                    ) : null}
+
+                                    {role === 'therapist' && therapistSnapshot?.reviewStatus ? (
+                                        <p className="text-sm text-slate-400">
+                                            公開中メニュー {therapistSnapshot.reviewStatus.active_menu_count}件 / 写真 {formatProfileStatus(therapistSnapshot.reviewStatus.profile.photo_review_status)}
+                                        </p>
+                                    ) : null}
+
+                                    {renderRoleCampaigns(role)}
+
+                                    <div className="mt-auto pt-1">
                                         <button
-                                            key={`switch-${role}`}
                                             type="button"
                                             onClick={() => {
                                                 openRole(role);
                                             }}
-                                            className={[
-                                                'flex w-full items-center justify-between gap-4 rounded-[18px] border px-4 py-4 text-left transition',
-                                                isCurrent
-                                                    ? `bg-white/[0.08] ${guide.accent.border} ${guide.accent.highlight}`
-                                                    : 'border-white/10 bg-white/[0.03] hover:bg-white/[0.06]',
-                                            ].join(' ')}
+                                            className={`inline-flex min-h-11 items-center rounded-full px-5 py-3 text-sm font-semibold transition ${guide.accent.primaryButton}`}
                                         >
-                                            <div className="space-y-1">
-                                                <p className="text-sm font-semibold text-white">{rolePageLabel(role)}</p>
-                                                <p className="text-xs text-slate-400">{roleSwitchHint(role)}</p>
-                                            </div>
-                                            <span
-                                                className={[
-                                                    'inline-flex shrink-0 items-center rounded-full px-3 py-1 text-xs font-semibold',
-                                                    isCurrent
-                                                        ? guide.accent.primaryButton
-                                                        : 'border border-white/10 bg-white/5 text-slate-200',
-                                                ].join(' ')}
-                                            >
-                                                {isCurrent ? '選択中' : '開く'}
-                                            </span>
+                                            {roleAccessLabel(role)}
                                         </button>
-                                    );
-                                })}
-                            </div>
-                        </div>
-
-                        <div className="rounded-[20px] border border-white/10 bg-[#111923] px-4 py-4">
-                            <p className="text-xs font-semibold tracking-wide text-slate-400">本人確認</p>
-                            <p className="mt-2 text-lg font-semibold text-white">{formatIdentityVerificationStatus(identityStatus)}</p>
-                        </div>
-
-                        <div className="rounded-[20px] border border-white/10 bg-[#111923] px-4 py-4 text-sm leading-7 text-slate-300">
-                            表示名、電話番号、本人確認・年齢確認はアカウント単位で保持します。タチキャストとして活動する場合のみ、
-                            追加でプロフィール入力と受取設定が必要です。
-                        </div>
+                                    </div>
+                                </article>
+                            );
+                        })}
                     </div>
-                </aside>
-            </section>
-
-            <section className="space-y-5">
-                <div className="space-y-2">
-                    <p className="text-xs font-semibold tracking-wide text-slate-400">利用できるモード</p>
-                    <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">今すぐ入れるダッシュボード</h2>
-                    <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                        このアカウントで使える各モードの準備状況と、ここから入れるダッシュボードをまとめています。
-                    </p>
-                </div>
-
-                <div className="grid gap-5 lg:grid-cols-2">
-                    {roles.map((role) => {
-                        const guide = guides[role];
-                        const isReady = roleSetupReady(role);
-
-                        return (
-                            <article
-                                key={role}
-                                className={[
-                                    'flex h-full flex-col gap-6 rounded-[28px] border bg-white/[0.04] p-6 shadow-[0_24px_60px_rgba(2,6,23,0.2)]',
-                                    guide.accent.border,
-                                    activeRole === role ? 'bg-white/[0.08] ring-2 ring-white/60' : '',
-                                    highlightedRole === role ? guide.accent.highlight : '',
-                                ].join(' ')}
-                            >
-                                <div className="flex flex-wrap items-start justify-between gap-3">
-                                    <div className="space-y-3">
-                                        <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${guide.accent.badge}`}>
-                                            {guide.eyebrow}
-                                        </span>
-                                        <div className="space-y-2">
-                                            <h3 className="text-2xl font-semibold text-white">{guide.label}</h3>
-                                            <p className="max-w-xl text-sm leading-7 text-slate-300">{guide.title}</p>
-                                        </div>
-                                    </div>
-                                    <div className="flex flex-col items-start gap-2">
-                                        <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${statusTone(isReady ? 'ready' : 'pending')}`}>
-                                            {roleStatusLabel(role)}
-                                        </span>
-                                        {activeRole === role ? (
-                                            <span className="inline-flex items-center rounded-full bg-[#f3dec0] px-3 py-1 text-xs font-bold text-[#17202b] shadow-[0_10px_24px_rgba(243,222,192,0.18)]">
-                                                現在のモード
-                                            </span>
-                                        ) : null}
-                                    </div>
-                                </div>
-
-                                <p className="text-sm leading-7 text-slate-300">{guide.description}</p>
-
-                                {renderRoleCampaigns(role)}
-
-                                <div className="grid gap-3 sm:grid-cols-3">
-                                    {roleMetrics(role).map((metric) => (
-                                        <div key={`${role}-${metric.label}`} className="rounded-[20px] border border-white/10 bg-[#111923] px-4 py-4">
-                                            <p className="text-xs font-semibold tracking-wide text-slate-400">{metric.label}</p>
-                                            <p className="mt-2 text-base font-semibold text-white">{metric.value}</p>
-                                        </div>
-                                    ))}
-                                </div>
-
-                                <div className="space-y-3">
-                                    <p className={`text-sm font-semibold ${guide.accent.subtle}`}>{roleSummary(role)}</p>
-                                    <ul className="space-y-2 text-sm leading-7 text-slate-300">
-                                        {guide.bullets.map((bullet) => (
-                                            <li key={`${role}-${bullet}`} className="flex gap-3">
-                                                <span className="mt-[0.7rem] h-1.5 w-1.5 shrink-0 rounded-full bg-white/55" />
-                                                <span>{bullet}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
-                                    <p className="text-sm text-slate-400">{rolePageHint(role, isReady)}</p>
-                                </div>
-
-                                {role === 'user' && userSnapshot?.defaultAddressLabel ? (
-                                    <p className="text-sm text-slate-400">
-                                        いつも使う待ち合わせ場所: <span className="font-semibold text-slate-200">{userSnapshot.defaultAddressLabel}</span>
-                                    </p>
-                                ) : null}
-
-                                {role === 'therapist' && therapistSnapshot?.reviewStatus ? (
-                                    <p className="text-sm text-slate-400">
-                                        公開中メニュー {therapistSnapshot.reviewStatus.active_menu_count}件 / 写真 {formatProfileStatus(therapistSnapshot.reviewStatus.profile.photo_review_status)}
-                                    </p>
-                                ) : null}
-
-                                <div className="mt-auto pt-2">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            openRole(role);
-                                        }}
-                                        className={`inline-flex min-h-11 items-center rounded-full px-5 py-3 text-sm font-semibold transition ${guide.accent.primaryButton}`}
-                                    >
-                                        {roleAccessLabel(role)}
-                                    </button>
-                                </div>
-                            </article>
-                        );
-                    })}
-                </div>
+                    <div className="mt-6">
+                        <Link
+                            to="/help"
+                            className="inline-flex min-h-11 items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/6"
+                        >
+                            使い方を見る
+                        </Link>
+                    </div>
+                </section>
             </section>
 
             {addableRoles.length > 0 ? (
                 <section className="space-y-5">
                     <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-slate-400">追加できる使い方</p>
-                        <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">今のアカウントに追加できるモード</h2>
+                        <p className="text-xs font-semibold tracking-wide text-slate-400">モード追加</p>
+                        <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">モードを追加する</h2>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
                             まだ使っていないモードは、ここから今のアカウントに追加できます。別のアカウントを作る必要はありません。
                         </p>
@@ -737,15 +545,6 @@ export function RoleSelectPage() {
                                     </div>
 
                                     {renderRoleCampaigns(role)}
-
-                                    <ul className="space-y-2 text-sm leading-7 text-slate-300">
-                                        {guide.bullets.map((bullet) => (
-                                            <li key={`${role}-add-${bullet}`} className="flex gap-3">
-                                                <span className="mt-[0.7rem] h-1.5 w-1.5 shrink-0 rounded-full bg-white/55" />
-                                                <span>{bullet}</span>
-                                            </li>
-                                        ))}
-                                    </ul>
 
                                     <div className="mt-auto pt-2">
                                         <button
