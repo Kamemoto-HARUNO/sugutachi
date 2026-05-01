@@ -80,6 +80,8 @@ Route::get('/therapists/{therapistProfile:public_id}/reviews', [ReviewController
 Route::get('/profile-photos/{profilePhoto}/file', [ProfilePhotoFileController::class, 'showPublic']);
 Route::get('/profile-photos/{profilePhoto}/signed-file', [ProfilePhotoFileController::class, 'showSigned'])
     ->name('profile-photos.signed-file');
+Route::get('/bookings/{booking:public_id}/messages/{message}/signed-file', [BookingMessageController::class, 'showSigned'])
+    ->name('booking-messages.signed-file');
 Route::get('/admin/identity-verifications/{identityVerification}/signed-document', [AdminIdentityVerificationFileController::class, 'showDocument'])
     ->name('admin.identity-verifications.signed-document');
 Route::get('/admin/identity-verifications/{identityVerification}/signed-selfie', [AdminIdentityVerificationFileController::class, 'showSelfie'])

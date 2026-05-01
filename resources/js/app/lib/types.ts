@@ -444,6 +444,10 @@ export interface AdminBookingMessageRecord {
     sender: AdminBookingMessageSenderSummary | null;
     message_type: string;
     body: string;
+    attachment_url: string | null;
+    attachment_original_name: string | null;
+    attachment_mime_type: string | null;
+    attachment_size_bytes: number | null;
     detected_contact_exchange: boolean;
     moderation_status: string;
     moderated_by_admin: {
@@ -1190,6 +1194,10 @@ export interface BookingMessageRecord {
     sender_role: string | null;
     message_type: string;
     body: string;
+    attachment_url: string | null;
+    attachment_original_name: string | null;
+    attachment_mime_type: string | null;
+    attachment_size_bytes: number | null;
     detected_contact_exchange: boolean;
     moderation_status: string;
     is_own: boolean | null;
