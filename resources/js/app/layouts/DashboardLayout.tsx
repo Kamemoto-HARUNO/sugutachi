@@ -299,7 +299,12 @@ export function DashboardLayout({ role, title, description, navItems }: Dashboar
                                         </div>
                                     </div>
 
-                                    <RoleModeSwitcher />
+                                    <div className="flex flex-wrap items-center gap-3">
+                                        <span className="text-sm font-semibold text-slate-200">
+                                            モード切り替え
+                                        </span>
+                                        <RoleModeSwitcher />
+                                    </div>
 
                                     <div className="space-y-3">
                                         <h1 className="max-w-[16ch] text-[2.2rem] font-semibold leading-[1.4] text-white sm:max-w-[20ch] sm:text-[2.5rem] xl:max-w-none xl:whitespace-nowrap">
