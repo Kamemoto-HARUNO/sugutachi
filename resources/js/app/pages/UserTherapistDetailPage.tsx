@@ -235,6 +235,7 @@ export function UserTherapistDetailPage() {
     const photoDragRef = useRef<PhotoDragState | null>(null);
     const photoAnimationHandledRef = useRef(true);
     const suppressMainPhotoClickRef = useRef(false);
+    const previousTherapistPublicIdRef = useRef<string | null>(null);
 
     const selectedAddressId = searchParams.get('service_address_id');
     const selectedMenuId = searchParams.get('therapist_menu_id');
@@ -694,6 +695,15 @@ export function UserTherapistDetailPage() {
     }, [closePrivatePhotoViewer, isPrivatePhotoViewerOpen, privatePhotoCloseAt]);
 
     useEffect(() => {
+        const nextPublicId = therapistDetail?.public_id ?? null;
+        const previousPublicId = previousTherapistPublicIdRef.current;
+
+        previousTherapistPublicIdRef.current = nextPublicId;
+
+        if (previousPublicId === null || previousPublicId === nextPublicId) {
+            return;
+        }
+
         setIsPrivatePhotoConfirmOpen(false);
 
         if (isPrivatePhotoViewerOpen) {
