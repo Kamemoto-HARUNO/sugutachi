@@ -4,6 +4,7 @@ interface DiscoveryHeroAction {
     label: string;
     to: string;
     variant?: 'primary' | 'secondary';
+    icon?: 'login' | 'register' | 'mypage';
 }
 
 interface DiscoveryHeroShellProps {
@@ -13,7 +14,7 @@ interface DiscoveryHeroShellProps {
     topBadge: string;
     bullets: string[];
     primaryAction: DiscoveryHeroAction;
-    secondaryAction: DiscoveryHeroAction;
+    secondaryAction?: DiscoveryHeroAction | null;
     children: React.ReactNode;
 }
 
@@ -33,10 +34,7 @@ export function DiscoveryHeroShell({
                 <div className="flex flex-col gap-8">
                     <div className="flex flex-col gap-5 lg:flex-row lg:items-center lg:justify-between">
                         <StickyHeroHeader
-                            actions={[
-                                primaryAction,
-                                secondaryAction,
-                            ]}
+                            actions={[primaryAction, secondaryAction].filter((action): action is DiscoveryHeroAction => Boolean(action))}
                         />
                     </div>
 

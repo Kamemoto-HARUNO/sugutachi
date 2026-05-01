@@ -8,6 +8,7 @@ export interface StickyHeroHeaderAction {
     label: string;
     to: string;
     variant?: 'primary' | 'secondary';
+    icon?: 'login' | 'register' | 'mypage';
 }
 
 interface StickyHeroHeaderProps {
@@ -19,17 +20,73 @@ function actionClass(variant: 'primary' | 'secondary', fullWidth = false): strin
 
     if (variant === 'secondary') {
         return [
-            'inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-bold transition',
-            'bg-[#f2ebe0] text-[#1a2430] hover:bg-[#ebe0cf]',
+            'inline-flex items-center justify-center gap-2.5 rounded-full border border-white/18 px-6 py-3 text-sm font-bold transition',
+            'bg-white/6 text-[#f7f1e6] hover:bg-white/10',
             widthClass,
         ].join(' ');
     }
 
     return [
-        'inline-flex items-center justify-center rounded-full px-6 py-3 text-sm font-bold transition',
-        'bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] text-[#1a2430] hover:brightness-105',
+        'inline-flex items-center justify-center gap-2.5 rounded-full px-6 py-3 text-sm font-bold transition',
+        'bg-[#f1dfbd] text-[#17202b] shadow-[0_16px_30px_rgba(232,213,178,0.18)] hover:bg-[#f6e8cb]',
         widthClass,
     ].join(' ');
+}
+
+function ActionIcon({ icon }: { icon: NonNullable<StickyHeroHeaderAction['icon']> }) {
+    switch (icon) {
+        case 'login':
+            return (
+                <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    className="h-[18px] w-[18px] shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                >
+                    <path d="M14 4h3a2 2 0 0 1 2 2v12a2 2 0 0 1-2 2h-3" />
+                    <path d="M10 16l4-4-4-4" />
+                    <path d="M4 12h10" />
+                </svg>
+            );
+        case 'register':
+            return (
+                <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    className="h-[18px] w-[18px] shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                >
+                    <path d="M15.5 19a5.5 5.5 0 0 0-11 0" />
+                    <circle cx="10" cy="8" r="3.25" />
+                    <path d="M19 8v6" />
+                    <path d="M16 11h6" />
+                </svg>
+            );
+        case 'mypage':
+            return (
+                <svg
+                    viewBox="0 0 24 24"
+                    aria-hidden="true"
+                    className="h-[18px] w-[18px] shrink-0"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.8"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                >
+                    <circle cx="12" cy="8" r="3.25" />
+                    <path d="M17.5 19a5.5 5.5 0 0 0-11 0" />
+                </svg>
+            );
+    }
 }
 
 function MobileMenuButton({
@@ -119,9 +176,10 @@ function HeaderBar({
             {actions.length > 0 ? (
                 <>
                     <div className="hidden items-center gap-3 md:flex">
-                        {isAuthenticated ? <NotificationBellLink compact className="border-white/15 bg-white/10 hover:bg-white/15" /> : null}
+                        {isAuthenticated ? <NotificationBellLink className="border-white/15 bg-white/10 hover:bg-white/15" /> : null}
                         {actions.map((action) => (
                             <Link key={`${action.label}-${action.to}`} to={action.to} className={actionClass(action.variant ?? 'primary')}>
+                                {action.icon ? <ActionIcon icon={action.icon} /> : null}
                                 {action.label}
                             </Link>
                         ))}
@@ -141,6 +199,7 @@ function HeaderBar({
                                     onClick={() => setIsMenuOpen(false)}
                                     className={actionClass(action.variant ?? 'primary', true)}
                                 >
+                                    {action.icon ? <ActionIcon icon={action.icon} /> : null}
                                     {action.label}
                                 </Link>
                             ))}
@@ -224,7 +283,7 @@ export function StickyHeroHeader({ actions }: StickyHeroHeaderProps) {
                 </div>
             </div>
 
-            <div ref={sentinelRef}>
+            <div ref={sentinelRef} className="w-full">
                 <HeaderBar actions={actions} />
             </div>
         </>
