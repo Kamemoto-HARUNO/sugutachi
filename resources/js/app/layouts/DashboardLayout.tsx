@@ -2,6 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { RoleModeSwitcher } from '../components/account/RoleModeSwitcher';
 import { BrandMark } from '../components/brand/BrandMark';
+import { BookingMessagesLink } from '../components/messages/BookingMessagesLink';
 import { NotificationBellLink } from '../components/notifications/NotificationBellLink';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatRoleLabel } from '../lib/account';
@@ -277,6 +278,13 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
                                             <div className="hidden md:block">
                                                 <NotificationBellLink className="border-white/15 bg-white/10 hover:bg-white/15" />
                                             </div>
+                                            {role === 'user' || role === 'therapist' ? (
+                                                <BookingMessagesLink
+                                                    role={role}
+                                                    adaptive
+                                                    className="border-white/15 bg-white/10 hover:bg-white/15"
+                                                />
+                                            ) : null}
 
                                             <div className="hidden items-center gap-3 md:flex">
                                                 {role === 'therapist' && therapistPublicId ? (

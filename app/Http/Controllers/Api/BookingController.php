@@ -51,6 +51,7 @@ class BookingController extends Controller
                     'currentQuote',
                     'currentPaymentIntent',
                     'canceledBy',
+                    'latestMessage',
                     'userAccount',
                     'therapistAccount',
                     'therapistProfile',
@@ -66,6 +67,10 @@ class BookingController extends Controller
                         ->where('status', Report::STATUS_OPEN),
                 ])
                 ->withMax('messages as latest_message_sent_at', 'sent_at')
+                ->withMax([
+                    'messages as latest_incoming_message_sent_at' => fn ($query) => $query
+                        ->where('sender_account_id', '!=', $account->id),
+                ], 'sent_at')
                 ->when(
                     $role === 'user',
                     fn ($query) => $query->where('user_account_id', $account->id)

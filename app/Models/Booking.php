@@ -150,6 +150,12 @@ class Booking extends Model
         return $this->hasMany(BookingMessage::class);
     }
 
+    public function latestMessage(): HasOne
+    {
+        return $this->hasOne(BookingMessage::class)
+            ->latestOfMany('sent_at');
+    }
+
     public function paymentIntents(): HasMany
     {
         return $this->hasMany(PaymentIntent::class);

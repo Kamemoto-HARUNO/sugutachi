@@ -1135,7 +1135,17 @@ export interface BookingListRecord {
     refund_count: number;
     open_report_count: number;
     latest_message_sent_at: string | null;
+    latest_incoming_message_sent_at: string | null;
+    latest_message_summary: BookingLatestMessageSummary | null;
     created_at: string;
+}
+
+export interface BookingLatestMessageSummary {
+    message_type: string;
+    excerpt: string;
+    sent_at: string | null;
+    sender_role: string | null;
+    is_deleted: boolean;
 }
 
 export interface BookingCanceledByAccount {

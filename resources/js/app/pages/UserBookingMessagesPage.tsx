@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { notifyBookingMessageSummaryChanged } from '../lib/bookingMessages';
 import { formatFileSize, prepareBookingMessageImage } from '../lib/bookingMessageImages';
 import { formatJstDateTime } from '../lib/datetime';
 import { getServiceAddressLabel } from '../lib/discovery';
@@ -482,6 +483,7 @@ export function UserBookingMessagesPage() {
             });
 
             await loadData({ refresh: true, silent: true, preserveSuccess: true });
+            notifyBookingMessageSummaryChanged();
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError

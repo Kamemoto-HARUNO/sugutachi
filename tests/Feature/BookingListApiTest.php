@@ -40,7 +40,11 @@ class BookingListApiTest extends TestCase
             ->assertJsonPath('data.0.refund_count', 1)
             ->assertJsonPath('data.0.open_report_count', 1)
             ->assertJsonPath('data.0.current_payment_intent.status', PaymentIntent::STRIPE_STATUS_REQUIRES_CAPTURE)
-            ->assertJsonPath('data.0.latest_message_sent_at', fn ($value) => filled($value));
+            ->assertJsonPath('data.0.latest_message_sent_at', fn ($value) => filled($value))
+            ->assertJsonPath('data.0.latest_incoming_message_sent_at', fn ($value) => filled($value))
+            ->assertJsonPath('data.0.latest_message_summary.message_type', BookingMessage::TYPE_TEXT)
+            ->assertJsonPath('data.0.latest_message_summary.sender_role', 'user')
+            ->assertJsonPath('data.0.latest_message_summary.excerpt', '受け付けに着いたらメッセージします。');
     }
 
     public function test_therapist_can_list_own_bookings_with_user_counterparty(): void
@@ -290,6 +294,13 @@ class BookingListApiTest extends TestCase
             'sender_account_id' => $therapist->id,
             'message_type' => 'text',
             'body_encrypted' => Crypt::encryptString('到着予定の少し前に連絡します。'),
+            'sent_at' => now()->subMinutes(7),
+        ]);
+        BookingMessage::create([
+            'booking_id' => $scheduledBooking->id,
+            'sender_account_id' => $user->id,
+            'message_type' => 'text',
+            'body_encrypted' => Crypt::encryptString('受け付けに着いたらメッセージします。'),
             'sent_at' => now()->subMinutes(5),
         ]);
         BookingMessage::create([

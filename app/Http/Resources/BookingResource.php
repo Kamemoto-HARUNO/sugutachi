@@ -2,10 +2,12 @@
 
 namespace App\Http\Resources;
 
+use App\Models\BookingMessage;
 use App\Models\Refund;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Str;
 
 class BookingResource extends JsonResource
 {
@@ -118,8 +120,57 @@ class BookingResource extends JsonResource
             'refund_count' => $this->when(isset($this->refunds_count), fn () => $this->refunds_count),
             'open_report_count' => $this->when(isset($this->open_report_count), fn () => $this->open_report_count),
             'latest_message_sent_at' => $this->when(isset($this->latest_message_sent_at), fn () => $this->latest_message_sent_at),
+            'latest_incoming_message_sent_at' => $this->when(
+                isset($this->latest_incoming_message_sent_at),
+                fn () => $this->latest_incoming_message_sent_at,
+            ),
+            'latest_message_summary' => $this->whenLoaded('latestMessage', fn () => $this->latestMessageSummary()),
             'created_at' => $this->created_at,
         ];
+    }
+
+    private function latestMessageSummary(): ?array
+    {
+        if (! $this->latestMessage) {
+            return null;
+        }
+
+        $message = $this->latestMessage;
+        $isDeletedImage = $message->message_type === BookingMessage::TYPE_IMAGE
+            && ! $message->attachment_storage_key_encrypted;
+
+        return [
+            'message_type' => $message->message_type,
+            'excerpt' => match ($message->message_type) {
+                BookingMessage::TYPE_IMAGE => $isDeletedImage
+                    ? '削除済みの画像メッセージ'
+                    : '画像が送信されました。',
+                default => $this->messageTextExcerpt($message),
+            },
+            'sent_at' => $message->sent_at,
+            'sender_role' => match ($message->sender_account_id) {
+                $this->user_account_id => 'user',
+                $this->therapist_account_id => 'therapist',
+                default => null,
+            },
+            'is_deleted' => $isDeletedImage,
+        ];
+    }
+
+    private function messageTextExcerpt(BookingMessage $message): string
+    {
+        $body = rescue(
+            fn () => Crypt::decryptString($message->body_encrypted),
+            '',
+            false,
+        );
+        $normalized = trim(preg_replace('/\s+/u', ' ', $body) ?? '');
+
+        if ($normalized === '') {
+            return 'メッセージが送信されました。';
+        }
+
+        return Str::limit($normalized, 120);
     }
 
     private function counterparty(Request $request): ?array

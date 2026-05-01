@@ -55,6 +55,7 @@ import { TherapistBookingInterruptPage, UserBookingInterruptPage } from './pages
 import { TherapistBookingNoShowPage, UserBookingNoShowPage } from './pages/BookingNoShowPage';
 import { ContactPage } from './pages/ContactPage';
 import { FirstTimeGuidePage } from './pages/FirstTimeGuidePage';
+import { BookingMessagesPage } from './pages/BookingMessagesPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { PublicHomePage } from './pages/PublicHomePage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -176,6 +177,7 @@ function AppRoutes() {
                     />
                     <Route path="offers" element={<UserCampaignOffersPage />} />
                     <Route path="bookings" element={<UserBookingsPage />} />
+                    <Route path="messages" element={<BookingMessagesPage role="user" />} />
                     <Route path="bookings/:publicId" element={<UserBookingDetailPage />} />
                     <Route path="bookings/:publicId/messages" element={<UserBookingMessagesPage />} />
                     <Route path="bookings/:publicId/review" element={<UserBookingReviewPage />} />
@@ -271,6 +273,7 @@ function AppRoutes() {
                     <Route path="requests/:publicId" element={<TherapistRequestsPage />} />
                     <Route path="reviews" element={<TherapistReviewsPage />} />
                     <Route path="bookings" element={<TherapistBookingsPage />} />
+                    <Route path="messages" element={<BookingMessagesPage role="therapist" />} />
                     <Route path="bookings/:publicId" element={<TherapistBookingDetailPage />} />
                     <Route path="bookings/:publicId/review" element={<TherapistBookingReviewPage />} />
                     <Route path="bookings/:publicId/interrupt" element={<TherapistBookingInterruptPage />} />
