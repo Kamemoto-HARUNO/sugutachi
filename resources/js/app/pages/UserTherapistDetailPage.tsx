@@ -13,7 +13,9 @@ import {
     formatCurrency,
     formatMenuHourlyRateLabel,
     formatMenuMinimumDurationLabel,
+    formatTravelModeLabel,
     formatTravelTimeEstimate,
+    formatWalkingTimeRange,
     getDefaultServiceAddress,
     getMenuMinimumDurationMinutes,
     getPendingScheduledRequestActionLabel,
@@ -90,6 +92,19 @@ function buildReviewMeta(review: ReviewSummary): string {
     ].filter(Boolean);
 
     return labels.length > 0 ? labels.join(' / ') : '総合評価を反映しています。';
+}
+
+function buildCompactTravelSummary(
+    travelMode: 'walking' | 'bicycle' | 'transit' | 'car' | null | undefined,
+    range: string | null | undefined,
+): string {
+    const timeLabel = formatWalkingTimeRange(range);
+
+    if (timeLabel === '到着目安は準備中' || timeLabel === '対応エリア外') {
+        return timeLabel;
+    }
+
+    return `${formatTravelModeLabel(travelMode)}で ${timeLabel}に到着`;
 }
 
 function buildShareableTherapistUrl(publicId: string): string {
@@ -221,6 +236,7 @@ export function UserTherapistDetailPage() {
     const [isLoadingDetail, setIsLoadingDetail] = useState(false);
     const [activePhotoIndex, setActivePhotoIndex] = useState(0);
     const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+    const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
     const [isPrivatePhotoConfirmOpen, setIsPrivatePhotoConfirmOpen] = useState(false);
     const [isPrivatePhotoLoading, setIsPrivatePhotoLoading] = useState(false);
     const [isPrivatePhotoViewerOpen, setIsPrivatePhotoViewerOpen] = useState(false);
@@ -523,6 +539,7 @@ export function UserTherapistDetailPage() {
     useEffect(() => {
         setActivePhotoIndex(0);
         setIsPhotoModalOpen(false);
+        setIsReviewModalOpen(false);
     }, [therapistDetail?.public_id]);
 
     useEffect(() => {
@@ -553,6 +570,27 @@ export function UserTherapistDetailPage() {
             window.removeEventListener('keydown', handleKeyDown);
         };
     }, [isPhotoModalOpen]);
+
+    useEffect(() => {
+        if (!isReviewModalOpen) {
+            return;
+        }
+
+        const previousOverflow = document.body.style.overflow;
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setIsReviewModalOpen(false);
+            }
+        };
+
+        document.body.style.overflow = 'hidden';
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isReviewModalOpen]);
 
     useEffect(() => {
         setPhotoDragOffsetX(0);
@@ -750,6 +788,9 @@ export function UserTherapistDetailPage() {
     const privatePhotoCount = privatePhotoSessionPhotos.length;
     const wrappedPrivatePhotoIndex = wrapPhotoIndex(privatePhotoActiveIndex, privatePhotoCount);
     const activePrivatePhoto = privatePhotoSessionPhotos[wrappedPrivatePhotoIndex] ?? null;
+    const compactTravelSummary = therapistDetail
+        ? buildCompactTravelSummary(therapistDetail.travel_mode, therapistDetail.walking_time_range)
+        : '到着目安は準備中';
 
     const animatePhotoSlide = (direction: 1 | -1) => {
         if (!therapistDetail || therapistDetail.photos.length <= 1 || isPhotoTrackAnimating) {
@@ -998,36 +1039,57 @@ export function UserTherapistDetailPage() {
                                         <div className="space-y-3">
                                             <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">PROFILE</p>
                                             <div className="space-y-2">
-                                                <div className="flex flex-wrap items-center gap-3">
-                                                    <h1 className="text-3xl font-semibold text-[#17202b] md:text-4xl">
-                                                        {therapistDetail.public_name}
-                                                    </h1>
-                                                    {therapistDetail.is_online ? (
-                                                        <span className="rounded-full bg-[#e8f1eb] px-3 py-1 text-xs font-semibold text-[#2d5b3d]">
-                                                            オンライン
-                                                        </span>
-                                                    ) : (
-                                                        <span className="rounded-full bg-[#f3eee4] px-3 py-1 text-xs font-semibold text-[#48505a]">
-                                                            予約のみ受付中
-                                                        </span>
-                                                    )}
+                                                <div className="flex items-start justify-between gap-3">
+                                                    <div className="flex flex-wrap items-center gap-3">
+                                                        <h1 className="text-3xl font-semibold text-[#17202b] md:text-4xl">
+                                                            {therapistDetail.public_name}
+                                                        </h1>
+                                                        {therapistDetail.is_online ? (
+                                                            <span className="rounded-full bg-[#e8f1eb] px-3 py-1 text-xs font-semibold text-[#2d5b3d]">
+                                                                オンライン
+                                                            </span>
+                                                        ) : (
+                                                            <span className="rounded-full bg-[#f3eee4] px-3 py-1 text-xs font-semibold text-[#48505a]">
+                                                                予約のみ受付中
+                                                            </span>
+                                                        )}
+                                                    </div>
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleShareButtonClick}
+                                                        className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full border border-[#ddcfb4] bg-white text-[#17202b] shadow-[0_10px_24px_rgba(23,32,43,0.08)] transition hover:-translate-y-0.5 hover:bg-[#f8f2e8] focus:outline-none focus:ring-2 focus:ring-[#9a7a49] focus:ring-offset-2 focus:ring-offset-[#fffdf8]"
+                                                        aria-label="この詳細ページのURLをコピーして共有"
+                                                    >
+                                                        <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                                            <circle cx="18" cy="5" r="3" />
+                                                            <circle cx="6" cy="12" r="3" />
+                                                            <circle cx="18" cy="19" r="3" />
+                                                            <path d="M8.7 10.7 15.3 6.3" />
+                                                            <path d="m8.7 13.3 6.6 4.4" />
+                                                        </svg>
+                                                    </button>
                                                 </div>
                                                 {profileSummary ? (
                                                     <p className="text-sm font-medium tracking-wide text-[#68707a]">
                                                         {profileSummary}
                                                     </p>
                                                 ) : null}
-                                                <div className="pt-2">
+                                                <div className="flex flex-wrap items-center gap-2 pt-2 text-sm font-medium text-[#48505a]">
+                                                    <span className="font-semibold text-[#17202b]">
+                                                        ⭐️{therapistDetail.rating_average.toFixed(1)}
+                                                    </span>
                                                     <button
                                                         type="button"
-                                                        onClick={handleShareButtonClick}
-                                                        className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_32px_rgba(23,32,43,0.18)] transition hover:-translate-y-0.5 hover:bg-[#223142] focus:outline-none focus:ring-2 focus:ring-[#9a7a49] focus:ring-offset-2 focus:ring-offset-[#fffdf8]"
+                                                        onClick={() => setIsReviewModalOpen(true)}
+                                                        className="font-semibold text-[#17202b] underline decoration-[#c8b389] underline-offset-4 transition hover:text-[#8f5c22]"
+                                                        aria-label={`レビュー${therapistDetail.review_count}件を表示`}
                                                     >
-                                                        URLをコピーして共有
+                                                        （{therapistDetail.review_count}）
                                                     </button>
-                                                    <p className="mt-2 text-xs text-[#68707a]">
-                                                        この詳細ページのURLをコピーして、すぐに共有できます。
-                                                    </p>
+                                                    <span className="text-[#b6a78f]">｜</span>
+                                                    <span>{compactTravelSummary}</span>
+                                                    <span className="text-[#b6a78f]">｜</span>
+                                                    <span>キャンセル{therapistDetail.therapist_cancellation_count}回</span>
                                                 </div>
                                             </div>
                                         </div>
@@ -1199,33 +1261,6 @@ export function UserTherapistDetailPage() {
                                                 </div>
                                             </article>
                                         ) : null}
-
-                                        <div className="space-y-4">
-                                            <article className="rounded-[24px] bg-[#f6f1e7] p-5">
-                                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">REVIEW</p>
-                                                <p className="mt-2 text-2xl font-semibold text-[#17202b]">
-                                                    ★{therapistDetail.rating_average.toFixed(1)}
-                                                </p>
-                                                <p className="mt-1 text-sm text-[#68707a]">{therapistDetail.review_count}件のレビュー</p>
-                                            </article>
-                                            <article className="rounded-[24px] bg-[#f6f1e7] p-5">
-                                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">DISTANCE</p>
-                                                <p className="mt-2 text-lg font-semibold text-[#17202b]">
-                                                    {formatTravelTimeEstimate(
-                                                        therapistDetail.travel_mode,
-                                                        therapistDetail.walking_time_range,
-                                                    )}
-                                                </p>
-                                                <p className="mt-1 text-sm text-[#68707a]">正確な位置は一覧と詳細に表示しません。</p>
-                                            </article>
-                                            <article className="rounded-[24px] bg-[#f6f1e7] p-5">
-                                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">POLICY</p>
-                                                <p className="mt-2 text-lg font-semibold text-[#17202b]">
-                                                    タチキャスト都合キャンセル {therapistDetail.therapist_cancellation_count}回
-                                                </p>
-                                                <p className="mt-1 text-sm text-[#68707a]">利用前に確認できる公開指標です。</p>
-                                            </article>
-                                        </div>
                                     </div>
 
                                     <div className="space-y-5">
@@ -1284,44 +1319,6 @@ export function UserTherapistDetailPage() {
                                 </div>
                             </section>
 
-                            <section className="rounded-[32px] bg-[#fffdf8] p-6 shadow-[0_10px_24px_rgba(23,32,43,0.08)] md:p-8">
-                                <div className="flex flex-col gap-2 md:flex-row md:items-end md:justify-between">
-                                    <div>
-                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">REVIEWS</p>
-                                        <h2 className="mt-1 text-2xl font-semibold text-[#17202b]">レビュー</h2>
-                                    </div>
-                                    <p className="text-sm text-[#68707a]">
-                                        公開中の利用者レビューだけを表示しています。
-                                    </p>
-                                </div>
-
-                                <div className="mt-6 space-y-4">
-                                    {reviews.length > 0 ? (
-                                        reviews.map((review) => (
-                                            <article key={review.id} className="rounded-[24px] border border-[#efe5d7] bg-white p-5">
-                                                <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
-                                                    <div className="space-y-2">
-                                                        <div className="flex flex-wrap items-center gap-3">
-                                                            <p className="text-lg font-semibold text-[#17202b]">
-                                                                ★{review.rating_overall.toFixed(1)}
-                                                            </p>
-                                                            <p className="text-sm text-[#68707a]">{formatReviewDate(review.created_at)}</p>
-                                                        </div>
-                                                        <p className="text-sm text-[#68707a]">{buildReviewMeta(review)}</p>
-                                                    </div>
-                                                </div>
-                                                <p className="mt-4 text-sm leading-7 text-[#48505a]">
-                                                    {review.public_comment ?? 'コメントは未入力です。'}
-                                                </p>
-                                            </article>
-                                        ))
-                                    ) : (
-                                        <div className="rounded-[24px] border border-dashed border-[#ddcfb4] bg-[#fff8ee] p-5 text-sm leading-7 text-[#68707a]">
-                                            まだ公開レビューはありません。プロフィール文と対応内容を見ながら判断できます。
-                                        </div>
-                                    )}
-                                </div>
-                            </section>
                         </div>
 
                         <aside className="space-y-6">
@@ -1639,6 +1636,68 @@ export function UserTherapistDetailPage() {
                             >
                                 {isPrivatePhotoLoading ? '準備中...' : '表示する'}
                             </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {therapistDetail && isReviewModalOpen ? (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(12,16,24,0.72)] px-4 py-6"
+                    onClick={() => setIsReviewModalOpen(false)}
+                >
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-labelledby="therapist-review-modal-title"
+                        className="w-full max-w-[760px] rounded-[28px] bg-[#fffdf8] p-6 shadow-[0_24px_60px_rgba(23,32,43,0.22)] md:p-8"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <div className="flex items-start justify-between gap-4">
+                            <div>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">REVIEWS</p>
+                                <h2 id="therapist-review-modal-title" className="mt-2 text-2xl font-semibold text-[#17202b]">
+                                    レビュー
+                                </h2>
+                                <p className="mt-2 text-sm text-[#68707a]">
+                                    公開中の利用者レビューだけを表示しています。
+                                </p>
+                            </div>
+                            <button
+                                type="button"
+                                onClick={() => setIsReviewModalOpen(false)}
+                                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#17202b] text-xl font-semibold text-white transition hover:bg-[#223142]"
+                                aria-label="レビューを閉じる"
+                            >
+                                ×
+                            </button>
+                        </div>
+
+                        <div className="mt-6 max-h-[70vh] space-y-4 overflow-y-auto pr-1">
+                            {reviews.length > 0 ? (
+                                reviews.map((review) => (
+                                    <article key={review.id} className="rounded-[24px] border border-[#efe5d7] bg-white p-5">
+                                        <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
+                                            <div className="space-y-2">
+                                                <div className="flex flex-wrap items-center gap-3">
+                                                    <p className="text-lg font-semibold text-[#17202b]">
+                                                        ★{review.rating_overall.toFixed(1)}
+                                                    </p>
+                                                    <p className="text-sm text-[#68707a]">{formatReviewDate(review.created_at)}</p>
+                                                </div>
+                                                <p className="text-sm text-[#68707a]">{buildReviewMeta(review)}</p>
+                                            </div>
+                                        </div>
+                                        <p className="mt-4 text-sm leading-7 text-[#48505a]">
+                                            {review.public_comment ?? 'コメントは未入力です。'}
+                                        </p>
+                                    </article>
+                                ))
+                            ) : (
+                                <div className="rounded-[24px] border border-dashed border-[#ddcfb4] bg-[#fff8ee] p-5 text-sm leading-7 text-[#68707a]">
+                                    まだ公開レビューはありません。プロフィール文と対応内容を見ながら判断できます。
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>
