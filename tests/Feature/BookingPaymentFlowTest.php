@@ -148,6 +148,28 @@ class BookingPaymentFlowTest extends TestCase
         ]);
     }
 
+    public function test_on_demand_quote_is_rejected_when_therapist_is_offline(): void
+    {
+        [, , $userToken, $therapistProfileId, $therapistMenuId, $serviceAddressId] = $this->createBookableFixture();
+
+        TherapistProfile::query()
+            ->where('public_id', $therapistProfileId)
+            ->update([
+                'is_online' => false,
+                'online_since' => null,
+            ]);
+
+        $this->withToken($userToken)
+            ->postJson('/api/booking-quotes', [
+                'therapist_profile_id' => $therapistProfileId,
+                'therapist_menu_id' => $therapistMenuId,
+                'service_address_id' => $serviceAddressId,
+                'duration_minutes' => 60,
+                'is_on_demand' => true,
+            ])
+            ->assertNotFound();
+    }
+
     public function test_quote_rejects_duration_shorter_than_menu_minimum(): void
     {
         [, , $userToken, $therapistProfileId, $therapistMenuId, $serviceAddressId] = $this->createBookableFixture();

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { DiscoveryFooter } from '../components/discovery/DiscoveryFooter';
-import { StickyHeroHeader } from '../components/discovery/StickyHeroHeader';
+import { StickyHeroHeader, type StickyHeroHeaderAction } from '../components/discovery/StickyHeroHeader';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -343,6 +343,18 @@ export function UserTherapistDetailPage() {
     );
     const pendingScheduledRequest = therapistDetail?.pending_scheduled_request ?? null;
     const pendingScheduledRequestPath = pendingScheduledRequest ? `/user/bookings/${pendingScheduledRequest.public_id}` : '/user/bookings';
+    const shouldBlockOfflineNowRequest = Boolean(
+        therapistDetail
+        && !therapistDetail.is_online
+        && selectedStartType === 'now'
+        && canUseUserFlows
+        && selectedAddress
+        && isUserVerificationReady
+        && !pendingScheduledRequest,
+    );
+    const handleOfflineNowRequestClick = useCallback(() => {
+        showError('このタチキャストは現在オフラインです');
+    }, [showError]);
     const loginAvailabilityPath = intendedPrimaryActionPath
         ? `/login?return_to=${encodeURIComponent(intendedPrimaryActionPath)}`
         : '/login';
@@ -363,7 +375,7 @@ export function UserTherapistDetailPage() {
     const travelRequestEnableRolePath = intendedTravelRequestPath
         ? `/role-select?add_role=user&return_to=${encodeURIComponent(intendedTravelRequestPath)}`
         : '/role-select?add_role=user&return_to=%2Fuser';
-    const travelRequestAction = canUseUserFlows
+    const travelRequestAction: StickyHeroHeaderAction = canUseUserFlows
         ? { label: '出張リクエストを送る', to: intendedTravelRequestPath ?? '/user/therapists' }
         : isAuthenticated
             ? { label: '利用者モードを追加して出張リクエストを送る', to: travelRequestEnableRolePath }
@@ -373,11 +385,18 @@ export function UserTherapistDetailPage() {
         : isAuthenticated
             ? '/role-select?add_role=user&return_to=%2Fuser%2Fservice-addresses'
             : '/register';
-    const primaryAction = canUseUserFlows
+    const primaryAction: StickyHeroHeaderAction = canUseUserFlows
         ? !selectedAddress
             ? { label: '待ち合わせ場所を設定する', to: serviceAddressPath }
             : !isUserVerificationReady
             ? { label: '本人確認・年齢確認を完了する', to: '/user/identity-verification' }
+            : shouldBlockOfflineNowRequest
+            ? {
+                label: '依頼をリクエストする',
+                to: availabilityPath,
+                disabled: true,
+                onClick: handleOfflineNowRequestClick,
+            }
             : {
                 label: pendingScheduledRequest
                     ? getPendingScheduledRequestActionLabel(pendingScheduledRequest)
@@ -399,7 +418,7 @@ export function UserTherapistDetailPage() {
                     : 'ログインして依頼をリクエストする',
                 to: loginAvailabilityPath,
             };
-    const secondaryAction = canUseUserFlows
+    const secondaryAction: StickyHeroHeaderAction = canUseUserFlows
         ? { label: '一覧へ戻る', to: listPath, variant: 'secondary' as const }
         : isAuthenticated
             ? { label: '利用モードを管理する', to: '/role-select', variant: 'secondary' as const }
@@ -1555,12 +1574,26 @@ export function UserTherapistDetailPage() {
                                             </>
                                         ) : (
                                             <>
-                                                <Link
-                                                    to={primaryAction.to}
-                                                    className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-bold text-[#1a2430] transition hover:brightness-105"
-                                                >
-                                                    {primaryAction.label}
-                                                </Link>
+                                                {primaryAction.onClick ? (
+                                                    <button
+                                                        type="button"
+                                                        onClick={primaryAction.onClick}
+                                                        aria-disabled={primaryAction.disabled || undefined}
+                                                        className={[
+                                                            'inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-bold text-[#1a2430] shadow-[0_16px_30px_rgba(232,213,178,0.18)]',
+                                                            primaryAction.disabled ? 'cursor-not-allowed opacity-60' : 'transition hover:brightness-105',
+                                                        ].join(' ')}
+                                                    >
+                                                        {primaryAction.label}
+                                                    </button>
+                                                ) : (
+                                                    <Link
+                                                        to={primaryAction.to}
+                                                        className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-bold text-[#1a2430] transition hover:brightness-105"
+                                                    >
+                                                        {primaryAction.label}
+                                                    </Link>
+                                                )}
                                                 <Link
                                                     to={travelRequestAction.to}
                                                     className="inline-flex w-full items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]"
