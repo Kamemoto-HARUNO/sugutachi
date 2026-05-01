@@ -223,6 +223,37 @@ class TherapistDiscoveryApiTest extends TestCase
                 ->etc());
     }
 
+    public function test_therapist_self_preview_includes_private_photos(): void
+    {
+        [, , $nearbyProfile, , $nearbyTherapist] = $this->createDiscoveryFixture();
+
+        ProfilePhoto::create([
+            'account_id' => $nearbyTherapist->id,
+            'therapist_profile_id' => $nearbyProfile->id,
+            'usage_type' => 'therapist_profile',
+            'visibility' => ProfilePhoto::VISIBILITY_PRIVATE,
+            'storage_key_encrypted' => Crypt::encryptString('profiles/self-preview-private.jpg'),
+            'status' => ProfilePhoto::STATUS_APPROVED,
+            'sort_order' => 0,
+        ]);
+
+        $this->withToken($nearbyTherapist->createToken('api')->plainTextToken)
+            ->getJson("/api/therapists/{$nearbyProfile->public_id}")
+            ->assertOk()
+            ->assertJsonPath('data.is_self_view', true)
+            ->assertJsonCount(2, 'data.photos')
+            ->assertJsonPath('data.photos.0.visibility', ProfilePhoto::VISIBILITY_PUBLIC)
+            ->assertJsonPath('data.photos.1.visibility', ProfilePhoto::VISIBILITY_PRIVATE)
+            ->assertJson(fn ($json) => $json
+                ->where('data.photos.0.url', fn (string $url) => str_contains($url, '/api/profile-photos/')
+                    && str_contains($url, '/signed-file')
+                    && str_contains($url, 'signature='))
+                ->where('data.photos.1.url', fn (string $url) => str_contains($url, '/api/profile-photos/')
+                    && str_contains($url, '/signed-file')
+                    && str_contains($url, 'signature='))
+                ->etc());
+    }
+
     public function test_therapist_can_view_own_public_reviews_while_authenticated(): void
     {
         [$user, , $nearbyProfile, , $nearbyTherapist, $booking] = $this->createDiscoveryFixture();

@@ -166,6 +166,10 @@ function wrapPhotoIndex(index: number, count: number): number {
     return ((index % count) + count) % count;
 }
 
+function therapistPhotoVisibilityLabel(visibility: 'public' | 'private'): string {
+    return visibility === 'private' ? '非公開写真' : '公開写真';
+}
+
 interface PhotoDragState {
     element: HTMLDivElement;
     pointerId: number;
@@ -796,6 +800,11 @@ export function UserTherapistDetailPage() {
                                                             ))}
                                                         </div>
                                                     </div>
+                                                    {isSelfPreview ? (
+                                                        <span className="absolute left-4 top-4 rounded-full bg-[rgba(23,32,43,0.72)] px-3 py-1 text-xs font-semibold text-white">
+                                                            {therapistPhotoVisibilityLabel(mainPhoto.visibility)}
+                                                        </span>
+                                                    ) : null}
                                                     {photoCount > 1 ? (
                                                         <>
                                                             <button
@@ -1169,7 +1178,7 @@ export function UserTherapistDetailPage() {
                                                     自分のページのため予約は行えません。
                                                 </p>
                                                 <p className="mt-2 text-xs text-[#68707a]">
-                                                    公開プロフィールの見え方を確認できます。予約や出張リクエストは利用者側の画面からのみ行えます。
+                                                    公開プロフィールの見え方に加えて、登録済みの非公開写真もこのプレビューで確認できます。予約や出張リクエストは利用者側の画面からのみ行えます。
                                                 </p>
                                             </div>
                                         ) : null}
@@ -1299,6 +1308,11 @@ export function UserTherapistDetailPage() {
                                     ))}
                                 </div>
                             </div>
+                            {isSelfPreview ? (
+                                <span className="absolute left-4 top-4 rounded-full bg-[rgba(23,32,43,0.72)] px-3 py-1 text-xs font-semibold text-white">
+                                    {therapistPhotoVisibilityLabel(mainPhoto.visibility)}
+                                </span>
+                            ) : null}
                             {photoCount > 1 ? (
                                 <>
                                     <button

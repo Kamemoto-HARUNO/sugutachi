@@ -475,6 +475,7 @@ export interface ReportListMeta {
 
 export interface PublicProfilePhoto {
     sort_order: number;
+    visibility: 'public' | 'private';
     url: string;
 }
 

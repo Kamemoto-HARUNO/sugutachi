@@ -266,7 +266,7 @@ class TherapistDiscoveryController extends Controller
                 'pricingRules',
                 'photos' => fn ($query) => $query
                     ->where('status', ProfilePhoto::STATUS_APPROVED)
-                    ->where('visibility', ProfilePhoto::VISIBILITY_PUBLIC)
+                    ->orderByRaw("case when visibility = ? then 0 else 1 end", [ProfilePhoto::VISIBILITY_PUBLIC])
                     ->orderBy('sort_order')
                     ->orderBy('id'),
             ]);
@@ -511,6 +511,7 @@ class TherapistDiscoveryController extends Controller
         return $photos
             ->map(fn (ProfilePhoto $photo): array => [
                 'sort_order' => $photo->sort_order,
+                'visibility' => $photo->visibility,
                 'url' => $signed
                     ? URL::temporarySignedRoute('profile-photos.signed-file', now()->addMinutes(30), [
                         'profilePhoto' => $photo->id,

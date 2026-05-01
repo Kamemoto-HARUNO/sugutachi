@@ -11,6 +11,7 @@ class PublicProfilePhotoResource extends JsonResource
     {
         return [
             'sort_order' => data_get($this->resource, 'sort_order'),
+            'visibility' => data_get($this->resource, 'visibility', 'public'),
             'url' => data_get($this->resource, 'url'),
         ];
     }
