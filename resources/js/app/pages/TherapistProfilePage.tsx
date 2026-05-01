@@ -17,6 +17,10 @@ import type {
     TherapistReviewStatus,
 } from '../lib/types';
 
+interface TherapistProfilePageProps {
+    tab?: 'profile' | 'menus';
+}
+
 interface MenuDraft {
     public_id: string | null;
     name: string;
@@ -127,8 +131,9 @@ function listingStatusTone(profile: TherapistProfileRecord | null): string {
         : 'bg-[#f3ece4] text-[#6a5642]';
 }
 
-export function TherapistProfilePage() {
+export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePageProps) {
     const { token } = useAuth();
+    const isMenuTab = tab === 'menus';
     const [meProfile, setMeProfile] = useState<MeProfileRecord | null>(null);
     const [profile, setProfile] = useState<TherapistProfileRecord | null>(null);
     const [reviewStatus, setReviewStatus] = useState<TherapistReviewStatus | null>(null);
@@ -154,7 +159,7 @@ export function TherapistProfilePage() {
     const [isDeletingPhotoId, setIsDeletingPhotoId] = useState<number | null>(null);
     const [pendingMenuId, setPendingMenuId] = useState<string | null>(null);
 
-    usePageTitle('タチキャストプロフィール');
+    usePageTitle(isMenuTab ? 'タチキャストメニュー' : 'タチキャストプロフィール');
     useToastOnMessage(successMessage, 'success');
     useToastOnMessage(error, 'error');
     useToastOnMessage(photoSuccessMessage, 'success');
@@ -267,14 +272,14 @@ export function TherapistProfilePage() {
     }, [photoFile]);
 
     useEffect(() => {
-        if (isLoading || window.location.hash !== '#profile-photos') {
+        if (isMenuTab || isLoading || window.location.hash !== '#profile-photos') {
             return;
         }
 
         window.requestAnimationFrame(() => {
             document.getElementById('profile-photos')?.scrollIntoView({ behavior: 'smooth', block: 'start' });
         });
-    }, [isLoading]);
+    }, [isLoading, isMenuTab]);
 
     function updateMenuDraft(publicId: string | null, patch: Partial<MenuDraft>) {
         setMenuDrafts((current) => current.map((draft) => (
@@ -586,7 +591,9 @@ export function TherapistProfilePage() {
     }, [menuDrafts]);
 
     if (isLoading) {
-        return <LoadingScreen title="プロフィールを読み込み中" message="公開プロフィールと対応内容を準備しています。" />;
+        return isMenuTab
+            ? <LoadingScreen title="メニューを読み込み中" message="提供内容と料金を準備しています。" />
+            : <LoadingScreen title="プロフィールを読み込み中" message="公開プロフィールと写真を準備しています。" />;
     }
 
     return (
@@ -594,21 +601,39 @@ export function TherapistProfilePage() {
             <section className="space-y-4 rounded-[28px] border border-white/10 bg-white/5 p-6 md:p-8">
                 <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
                     <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">プロフィール</p>
-                        <h1 className="text-3xl font-semibold text-white">タチキャストプロフィール</h1>
-                        <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                            公開名、紹介文、対応内容を整える画面です。本人確認・年齢確認と必須情報が揃えば、このまま公開準備が整います。
-                        </p>
+                        <p className="text-xs font-semibold tracking-wide text-rose-200">{isMenuTab ? 'メニュー' : 'プロフィール'}</p>
+                        <h1 className="text-3xl font-semibold text-white">{isMenuTab ? '提供メニュー' : 'タチキャストプロフィール'}</h1>
+                        {isMenuTab ? (
+                            <p className="max-w-3xl text-sm leading-7 text-slate-300">
+                                提供内容、最短時間、料金を管理する画面です。公開プロフィールには有効なメニューが最低1件必要です。
+                            </p>
+                        ) : (
+                            <p className="max-w-3xl text-sm leading-7 text-slate-300">
+                                公開名、紹介文、写真を整える画面です。本人確認・年齢確認と必須情報が揃えば、このまま公開準備が整います。
+                            </p>
+                        )}
                     </div>
 
                     <div className="rounded-2xl border border-white/10 bg-[#111923] px-5 py-4 text-sm text-slate-200">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">公開状況</p>
-                        <p className="mt-2 text-2xl font-semibold text-white">
-                            {formatProfileStatus(profile?.profile_status)}
-                        </p>
-                        <p className="mt-2 text-xs text-slate-400">
-                            公開中の対応内容 {activeMenuCount}件 / 公開写真 {publicTherapistPhotos.length}枚 / 非公開写真 {privateTherapistPhotos.length}枚
-                        </p>
+                        {isMenuTab ? (
+                            <>
+                                <p className="text-xs font-semibold tracking-wide text-rose-200">メニュー状況</p>
+                                <p className="mt-2 text-2xl font-semibold text-white">{activeMenuCount}件</p>
+                                <p className="mt-2 text-xs text-slate-400">
+                                    有効メニュー {activeMenuCount}件 / 登録済みメニュー {menuDrafts.length}件
+                                </p>
+                            </>
+                        ) : (
+                            <>
+                                <p className="text-xs font-semibold tracking-wide text-rose-200">公開状況</p>
+                                <p className="mt-2 text-2xl font-semibold text-white">
+                                    {formatProfileStatus(profile?.profile_status)}
+                                </p>
+                                <p className="mt-2 text-xs text-slate-400">
+                                    公開中の対応内容 {activeMenuCount}件 / 公開写真 {publicTherapistPhotos.length}枚 / 非公開写真 {privateTherapistPhotos.length}枚
+                                </p>
+                            </>
+                        )}
                     </div>
                 </div>
 
@@ -619,6 +644,14 @@ export function TherapistProfilePage() {
                     >
                         準備状況へ戻る
                     </Link>
+                    {isMenuTab ? (
+                        <Link
+                            to="/therapist/profile"
+                            className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
+                        >
+                            プロフィールへ移動
+                        </Link>
+                    ) : null}
                     {profile?.public_id ? (
                         <Link
                             to={`/therapists/${profile.public_id}`}
@@ -627,12 +660,21 @@ export function TherapistProfilePage() {
                             自分のページを確認
                         </Link>
                     ) : null}
-                    <a
-                        href="#profile-photos"
-                        className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
-                    >
-                        写真を管理
-                    </a>
+                    {isMenuTab ? (
+                        <Link
+                            to="/therapist/pricing"
+                            className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
+                        >
+                            料金ルールを確認
+                        </Link>
+                    ) : (
+                        <a
+                            href="#profile-photos"
+                            className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
+                        >
+                            写真を管理
+                        </a>
+                    )}
                 </div>
                 {profile?.rejected_reason_code ? (
                     <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm leading-7 text-amber-100">
@@ -641,403 +683,142 @@ export function TherapistProfilePage() {
                 ) : null}
             </section>
 
-            <section className="rounded-[24px] border border-white/10 bg-white/5 p-6">
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">公開設定</p>
-                        <h2 className="text-xl font-semibold text-white">プロフィールを公開するかここで切り替え</h2>
-                        <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                            利用者にこのプロフィールを見せるかどうかを、このページでもすぐ切り替えられます。オンライン受付や現在地の設定は「設定」タブで続けて調整できます。
-                        </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-[#111923] px-5 py-4 text-sm text-slate-200">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">現在の公開状態</p>
-                        <span className={['mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold', listingStatusTone(profile)].join(' ')}>
-                            {listingStatusLabel(profile)}
-                        </span>
-                        <p className="mt-3 text-xs leading-6 text-slate-400">
-                            {profile?.profile_status === 'approved'
-                                ? profile.is_listed
-                                    ? '公開中は検索結果や詳細ページに表示されます。'
-                                    : '非公開中は検索結果や詳細ページに表示されません。'
-                                : '本人確認・年齢確認と必須情報が揃うと公開できます。'}
-                        </p>
-                    </div>
-                </div>
-
-                <div className="mt-5 flex flex-wrap gap-3">
-                    <button
-                        type="button"
-                        onClick={() => {
-                            void updateListingState(true);
-                        }}
-                        disabled={isUpdatingListing || !canListProfile}
-                        className="inline-flex items-center rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                        {isUpdatingListing && canListProfile ? '切り替え中...' : 'プロフィールを公開する'}
-                    </button>
-                    <button
-                        type="button"
-                        onClick={() => {
-                            void updateListingState(false);
-                        }}
-                        disabled={isUpdatingListing || !canHideProfile}
-                        className="inline-flex items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                        {isUpdatingListing && canHideProfile ? '切り替え中...' : 'プロフィールを非公開にする'}
-                    </button>
-                    <Link
-                        to="/therapist/settings"
-                        className="inline-flex items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/5"
-                    >
-                        オンライン受付や現在地は設定で調整
-                    </Link>
-                </div>
-            </section>
-
-            <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-                <form onSubmit={handleProfileSave} className="space-y-5 rounded-[24px] border border-white/10 bg-white/5 p-6">
-                    <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">基本情報</p>
-                        <h2 className="text-xl font-semibold text-white">公開プロフィール</h2>
-                    </div>
-
-                    <label className="space-y-2">
-                        <span className="text-sm font-semibold text-white">公開名</span>
-                        <input
-                            value={publicName}
-                            onChange={(event) => setPublicName(event.target.value)}
-                            className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                            placeholder="公開用の表示名"
-                            required
-                        />
-                    </label>
-
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <label className="space-y-2">
-                            <span className="text-sm font-semibold text-white">年齢</span>
-                            <input
-                                value={profile?.age != null ? `${profile.age}歳` : ''}
-                                readOnly
-                                disabled
-                                className="w-full rounded-[18px] border border-white/10 bg-[#0c141d] px-4 py-3 text-sm text-slate-300 outline-none"
-                                placeholder="本人確認後に自動表示"
-                            />
-                            <p className="text-xs leading-6 text-slate-400">
-                                本人確認で提出した生年月日から自動で計算されます。ここでは変更できません。
+            {isMenuTab ? (
+                <section className="space-y-5 rounded-[24px] border border-white/10 bg-white/5 p-6">
+                    <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
+                        <div className="space-y-2">
+                            <p className="text-xs font-semibold tracking-wide text-rose-200">対応内容</p>
+                            <h2 className="text-xl font-semibold text-white">提供内容と時間単価</h2>
+                            <p className="text-sm leading-7 text-slate-300">
+                                公開プロフィールには有効な対応内容が最低1件必要です。内容、最短時間、料金を整えると、そのまま公開条件に反映されます。
                             </p>
-                        </label>
+                        </div>
 
-                        <label className="space-y-2">
-                            <span className="text-sm font-semibold text-white">身長（cm）</span>
-                            <input
-                                type="number"
-                                min={100}
-                                max={250}
-                                value={heightCm}
-                                onChange={(event) => setHeightCm(event.target.value)}
-                                className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                placeholder="175"
-                            />
-                        </label>
+                        <div className="rounded-2xl border border-white/10 bg-[#111923] px-5 py-4 text-sm text-slate-200">
+                            <p className="text-xs font-semibold tracking-wide text-rose-200">メニューの公開状況</p>
+                            <p className="mt-2 text-2xl font-semibold text-white">{activeMenuCount}件</p>
+                            <p className="mt-2 text-xs leading-6 text-slate-400">
+                                有効メニューが1件以上あると、公開プロフィールに料金と対応内容を表示できます。
+                            </p>
+                        </div>
                     </div>
 
-                    <div className="grid gap-4 md:grid-cols-2">
-                        <label className="space-y-2">
-                            <span className="text-sm font-semibold text-white">体重（kg）</span>
-                            <input
-                                type="number"
-                                min={30}
-                                max={250}
-                                value={weightKg}
-                                onChange={(event) => setWeightKg(event.target.value)}
-                                className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                placeholder="68"
-                            />
-                        </label>
-
-                        <label className="space-y-2">
-                            <span className="text-sm font-semibold text-white">Pサイズ（cm）</span>
-                            <input
-                                type="number"
-                                min={1}
-                                max={50}
-                                value={pSizeCm}
-                                onChange={(event) => setPSizeCm(event.target.value)}
-                                className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                placeholder="15"
-                            />
-                        </label>
-                    </div>
-
-                    <label className="space-y-2">
-                        <span className="text-sm font-semibold text-white">自己紹介</span>
-                        <textarea
-                            value={bio}
-                            onChange={(event) => setBio(event.target.value)}
-                            rows={6}
-                            className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                            placeholder="対応の雰囲気や得意なケア、安心してもらうための自己紹介を入力"
-                        />
-                    </label>
-
-                    <button
-                        type="submit"
-                        disabled={isSavingProfile}
-                        className="inline-flex items-center rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                        {isSavingProfile ? '保存中...' : 'プロフィールを保存する'}
-                    </button>
-
-                </form>
-
-                <article className="space-y-4 rounded-[24px] border border-white/10 bg-white/5 p-6">
-                    <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">公開条件</p>
-                        <h2 className="text-xl font-semibold text-white">公開前にそろえること</h2>
-                    </div>
-
-                    <div className="space-y-3">
-                        {requirementList.map((requirement) => (
-                            <div key={requirement.key} className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
-                                <div className="flex items-center justify-between gap-3">
-                                    <p className="text-sm font-semibold text-white">{requirement.label}</p>
-                                    <span className={[
-                                        'rounded-full border px-3 py-1 text-xs font-semibold',
-                                        requirement.is_satisfied
-                                            ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100'
-                                            : 'border-amber-300/30 bg-amber-300/10 text-amber-100',
-                                    ].join(' ')}>
-                                        {requirement.is_satisfied ? 'OK' : '要対応'}
-                                    </span>
+                    <div className="space-y-4">
+                        {menuDrafts.map((draft) => (
+                            <article key={draft.public_id ?? 'draft'} className="rounded-[22px] border border-white/10 bg-[#111923] p-5">
+                                <div className="grid gap-4 md:grid-cols-2">
+                                    <label className="space-y-2">
+                                        <span className="text-sm font-semibold text-white">対応内容名</span>
+                                        <input
+                                            value={draft.name}
+                                            onChange={(event) => updateMenuDraft(draft.public_id, { name: event.target.value })}
+                                            className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                        />
+                                    </label>
+                                    <label className="space-y-2">
+                                        <span className="text-sm font-semibold text-white">最短時間（分）</span>
+                                        <input
+                                            type="number"
+                                            min={30}
+                                            max={240}
+                                            step={15}
+                                            value={draft.minimum_duration_minutes}
+                                            onChange={(event) => updateMenuDraft(draft.public_id, { minimum_duration_minutes: Number(event.target.value) })}
+                                            className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                        />
+                                    </label>
                                 </div>
-                            </div>
+
+                                <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_180px_140px]">
+                                    <label className="space-y-2">
+                                        <span className="text-sm font-semibold text-white">説明</span>
+                                        <input
+                                            value={draft.description}
+                                            onChange={(event) => updateMenuDraft(draft.public_id, { description: event.target.value })}
+                                            className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                        />
+                                    </label>
+                                    <label className="space-y-2">
+                                        <span className="text-sm font-semibold text-white">60分料金（円）</span>
+                                        <input
+                                            type="number"
+                                            min={1000}
+                                            max={300000}
+                                            step={500}
+                                            value={draft.hourly_rate_amount}
+                                            onChange={(event) => updateMenuDraft(draft.public_id, { hourly_rate_amount: Number(event.target.value) })}
+                                            className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                        />
+                                    </label>
+                                    <label className="space-y-2">
+                                        <span className="text-sm font-semibold text-white">並び順</span>
+                                        <input
+                                            type="number"
+                                            min={0}
+                                            max={1000}
+                                            value={draft.sort_order}
+                                            onChange={(event) => updateMenuDraft(draft.public_id, { sort_order: Number(event.target.value) })}
+                                            className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                        />
+                                    </label>
+                                </div>
+
+                                <div className="mt-4 flex flex-wrap items-center gap-3">
+                                    <label className="inline-flex items-center gap-3 rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200">
+                                        <input
+                                            type="checkbox"
+                                            checked={draft.is_active}
+                                            onChange={(event) => updateMenuDraft(draft.public_id, { is_active: event.target.checked })}
+                                            className="h-4 w-4 rounded border-white/20 bg-transparent"
+                                        />
+                                        公開中
+                                    </label>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            void saveMenu(draft);
+                                        }}
+                                        disabled={pendingMenuId === draft.public_id}
+                                        className="inline-flex items-center rounded-full bg-rose-300 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        {pendingMenuId === draft.public_id ? '保存中...' : 'この内容を保存'}
+                                    </button>
+
+                                    <button
+                                        type="button"
+                                        onClick={() => {
+                                            if (draft.public_id) {
+                                                void deleteMenu(draft.public_id);
+                                            }
+                                        }}
+                                        disabled={pendingMenuId === draft.public_id}
+                                        className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+                                    >
+                                        削除
+                                    </button>
+                                </div>
+                            </article>
                         ))}
                     </div>
 
-                    <p className="text-sm leading-7 text-slate-300">
-                        本人確認・年齢確認と公開中の対応内容が揃うと、プロフィールは自動で公開可能になります。実際に公開するかどうかは稼働設定で切り替えられます。
-                    </p>
-                    <p className="text-sm leading-7 text-slate-400">
-                        保存のたびに運営承認を待つ必要はありません。不足項目が出たときだけ公開プロフィールから外れます。
-                    </p>
-                </article>
-            </section>
-
-            <section id="profile-photos" className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
-                <article className="space-y-5 rounded-[24px] border border-white/10 bg-white/5 p-6">
-                    <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">写真</p>
-                        <h2 className="text-xl font-semibold text-white">プロフィール写真</h2>
-                        <p className="text-sm leading-7 text-slate-300">
-                            顔や雰囲気が分かる写真を登録します。公開写真はプロフィールに表示され、非公開写真は自分だけが管理できる控えとして保存されます。
-                        </p>
-                    </div>
-
-                    <form onSubmit={handlePhotoUpload} className="space-y-4 rounded-[22px] border border-white/10 bg-[#111923] p-5">
-                        <div className="space-y-2">
-                            <p className="text-sm font-semibold text-white">公開設定</p>
-                            <div className="flex flex-wrap gap-3">
-                                {([
-                                    { value: 'public', label: '公開写真', description: 'プロフィールにそのまま表示されます。' },
-                                    { value: 'private', label: '非公開写真', description: '公開プロフィールには表示されません。' },
-                                ] as const).map((option) => (
-                                    <button
-                                        key={option.value}
-                                        type="button"
-                                        onClick={() => setPhotoVisibility(option.value)}
-                                        className={[
-                                            'rounded-2xl border px-4 py-3 text-left text-sm transition',
-                                            photoVisibility === option.value
-                                                ? 'border-rose-300/40 bg-rose-300/10 text-white'
-                                                : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10',
-                                        ].join(' ')}
-                                    >
-                                        <p className="font-semibold">{option.label}</p>
-                                        <p className="mt-1 text-xs leading-6 text-slate-400">{option.description}</p>
-                                    </button>
-                                ))}
+                    <article className="rounded-[22px] border border-dashed border-white/15 bg-[#111923] p-5">
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <p className="text-sm font-semibold text-white">新しい対応内容を追加</p>
+                                <p className="text-sm leading-7 text-slate-300">
+                                    対応内容、最短時間、60分料金を決めて、まず1件目の公開内容を作ると公開条件が整いやすくなります。
+                                </p>
                             </div>
-                            <p className="text-xs leading-6 text-slate-400">
-                                非公開写真は最大3枚までです。現在 {privateTherapistPhotos.length} / 3 枚登録しています。
-                            </p>
-                        </div>
 
-                        <label className="block space-y-2">
-                            <span className="text-sm font-semibold text-white">写真を追加</span>
-                            <input
-                                type="file"
-                                accept=".jpg,.jpeg,.png,.webp"
-                                onChange={handlePhotoFileChange}
-                                className="block w-full rounded-[18px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white"
-                            />
-                            <p className="text-xs text-slate-400">
-                                {photoFile ? photoFile.name : 'jpg / png / webp の画像を選択'}
-                            </p>
-                        </label>
-
-                        {photoFile && photoPreviewUrl ? (
-                            <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
-                                <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
-                                    <div className="h-28 w-28 overflow-hidden rounded-[18px] bg-[#1d2a37]">
-                                        <img src={photoPreviewUrl} alt="" className="h-full w-full object-cover" />
-                                    </div>
-                                    <div className="space-y-2 text-sm text-slate-300">
-                                        <p className="font-semibold text-white">{photoFile.name}</p>
-                                        <p>{formatFileSize(photoFile.size)}</p>
-                                        <p className="text-xs leading-6 text-slate-400">
-                                            {photoVisibility === 'private'
-                                                ? '非公開写真もここでプレビューしながら管理できます。'
-                                                : '明るくて見やすい写真ほど、公開後の安心感につながります。'}
-                                        </p>
-                                        <button
-                                            type="button"
-                                            onClick={() => setPhotoFile(null)}
-                                            className="inline-flex items-center rounded-full border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/5"
-                                        >
-                                            選択を取り消す
-                                        </button>
-                                    </div>
-                                </div>
-                            </div>
-                        ) : null}
-
-                        <button
-                            type="submit"
-                            disabled={isUploadingPhoto || !photoFile || (photoVisibility === 'private' && isPrivatePhotoLimitReached)}
-                            className="inline-flex items-center rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                            {isUploadingPhoto ? 'アップロード中...' : '写真を追加する'}
-                        </button>
-                    </form>
-
-                    {therapistPhotos.length > 0 ? (
-                        <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
-                            {therapistPhotos.map((photo) => (
-                                <article
-                                    key={photo.id}
-                                    className="overflow-hidden rounded-[22px] border border-white/10 bg-[#111923]"
-                                >
-                                    <div className="aspect-[1.05] bg-[#1d2a37]">
-                                        {photo.url ? (
-                                            <img src={photo.url} alt="" className="h-full w-full object-cover" />
-                                        ) : (
-                                            <div className="flex h-full items-center justify-center text-sm font-semibold text-slate-400">
-                                                画像を準備中
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="space-y-3 px-4 py-4 text-sm text-slate-300">
-                                        <div className="flex flex-wrap items-center gap-2">
-                                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200">
-                                                {photoVisibilityLabel(photo.visibility)}
-                                            </span>
-                                            <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${photoStatusTone(photo.status)}`}>
-                                                {photoStatusLabel(photo.status)}
-                                            </span>
-                                        </div>
-
-                                        {photo.rejection_reason_code ? (
-                                            <p className="text-xs leading-6 text-rose-200">
-                                                差し戻し理由: {formatRejectionReason(photo.rejection_reason_code)}
-                                            </p>
-                                        ) : (
-                                            <p className="text-xs leading-6 text-slate-400">
-                                                登録日時: {formatJstDateTime(photo.created_at, {
-                                                    month: 'numeric',
-                                                    day: 'numeric',
-                                                    hour: '2-digit',
-                                                    minute: '2-digit',
-                                                }) ?? '未設定'}
-                                            </p>
-                                        )}
-
-                                        <button
-                                            type="button"
-                                            onClick={() => {
-                                                void deletePhoto(photo.id);
-                                            }}
-                                            disabled={isDeletingPhotoId === photo.id}
-                                            className="inline-flex items-center rounded-full border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
-                                        >
-                                            {isDeletingPhotoId === photo.id ? '削除中...' : '削除'}
-                                        </button>
-                                    </div>
-                                </article>
-                            ))}
-                        </div>
-                    ) : (
-                        <div className="rounded-[22px] border border-dashed border-white/15 bg-[#111923] px-4 py-5 text-sm leading-7 text-slate-300">
-                            まだタチキャスト用のプロフィール写真はありません。まず1枚追加すると、公開プロフィールの印象が伝わりやすくなります。
-                        </div>
-                    )}
-                </article>
-
-                <article className="space-y-4 rounded-[24px] border border-white/10 bg-white/5 p-6">
-                    <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">写真</p>
-                        <h2 className="text-xl font-semibold text-white">写真の公開状況</h2>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
-                        <p className="text-sm font-semibold text-white">現在の状態</p>
-                        <p className="mt-2 text-sm text-slate-300">{publicTherapistPhotos.length > 0 ? '公開写真あり' : '公開写真未登録'}</p>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
-                        <p className="text-sm font-semibold text-white">登録済み写真</p>
-                        <p className="mt-2 text-sm text-slate-300">{therapistPhotos.length}枚</p>
-                        <p className="mt-2 text-xs text-slate-400">
-                            公開中または確認中の公開写真: {publicApprovedOrPendingPhotoCount}枚 / 全写真: {approvedOrPendingPhotoCount}枚
-                        </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
-                        <p className="text-sm font-semibold text-white">公開前の目安</p>
-                        <p className="mt-2 text-sm leading-7 text-slate-300">
-                            公開写真が1枚以上あると、公開プロフィールの雰囲気が伝わりやすくなります。非公開写真は最大3枚まで追加できます。
-                        </p>
-                    </div>
-
-                    <div className="flex flex-wrap gap-3 pt-2">
-                        <Link
-                            to="/therapist/onboarding"
-                            className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
-                        >
-                            準備状況を確認
-                        </Link>
-                        <Link
-                            to="/therapist/availability"
-                            className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
-                        >
-                            空き枠へ進む
-                        </Link>
-                    </div>
-                </article>
-            </section>
-
-            <section className="space-y-5 rounded-[24px] border border-white/10 bg-white/5 p-6">
-                <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-                    <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">対応内容</p>
-                        <h2 className="text-xl font-semibold text-white">提供内容と時間単価</h2>
-                        <p className="text-sm leading-7 text-slate-300">
-                            公開プロフィールには有効な対応内容が最低1件必要です。内容、最短時間、料金を整えると、そのまま公開条件に反映されます。
-                        </p>
-                    </div>
-                </div>
-
-                <div className="space-y-4">
-                    {menuDrafts.map((draft) => (
-                        <article key={draft.public_id ?? 'draft'} className="rounded-[22px] border border-white/10 bg-[#111923] p-5">
                             <div className="grid gap-4 md:grid-cols-2">
                                 <label className="space-y-2">
                                     <span className="text-sm font-semibold text-white">対応内容名</span>
                                     <input
-                                        value={draft.name}
-                                        onChange={(event) => updateMenuDraft(draft.public_id, { name: event.target.value })}
+                                        value={newMenuDraft.name}
+                                        onChange={(event) => setNewMenuDraft((current) => ({ ...current, name: event.target.value }))}
                                         className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                        placeholder="例: リラクゼーション / デート / ご飯"
                                     />
                                 </label>
                                 <label className="space-y-2">
@@ -1047,20 +828,21 @@ export function TherapistProfilePage() {
                                         min={30}
                                         max={240}
                                         step={15}
-                                        value={draft.minimum_duration_minutes}
-                                        onChange={(event) => updateMenuDraft(draft.public_id, { minimum_duration_minutes: Number(event.target.value) })}
+                                        value={newMenuDraft.minimum_duration_minutes}
+                                        onChange={(event) => setNewMenuDraft((current) => ({ ...current, minimum_duration_minutes: Number(event.target.value) }))}
                                         className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
                                     />
                                 </label>
                             </div>
 
-                            <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_180px_140px]">
+                            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_180px_140px]">
                                 <label className="space-y-2">
                                     <span className="text-sm font-semibold text-white">説明</span>
                                     <input
-                                        value={draft.description}
-                                        onChange={(event) => updateMenuDraft(draft.public_id, { description: event.target.value })}
+                                        value={newMenuDraft.description}
+                                        onChange={(event) => setNewMenuDraft((current) => ({ ...current, description: event.target.value }))}
                                         className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                        placeholder="例: もみほぐし中心 / ゆったり会話OK / 食事のみも可"
                                     />
                                 </label>
                                 <label className="space-y-2">
@@ -1070,8 +852,8 @@ export function TherapistProfilePage() {
                                         min={1000}
                                         max={300000}
                                         step={500}
-                                        value={draft.hourly_rate_amount}
-                                        onChange={(event) => updateMenuDraft(draft.public_id, { hourly_rate_amount: Number(event.target.value) })}
+                                        value={newMenuDraft.hourly_rate_amount}
+                                        onChange={(event) => setNewMenuDraft((current) => ({ ...current, hourly_rate_amount: Number(event.target.value) }))}
                                         className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
                                     />
                                 </label>
@@ -1081,133 +863,404 @@ export function TherapistProfilePage() {
                                         type="number"
                                         min={0}
                                         max={1000}
-                                        value={draft.sort_order}
-                                        onChange={(event) => updateMenuDraft(draft.public_id, { sort_order: Number(event.target.value) })}
+                                        value={newMenuDraft.sort_order}
+                                        onChange={(event) => setNewMenuDraft((current) => ({ ...current, sort_order: Number(event.target.value) }))}
                                         className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
                                     />
                                 </label>
                             </div>
 
-                            <div className="mt-4 flex flex-wrap items-center gap-3">
-                                <label className="inline-flex items-center gap-3 rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    void createMenu();
+                                }}
+                                disabled={pendingMenuId === 'new'}
+                                className="inline-flex items-center rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {pendingMenuId === 'new' ? '追加中...' : '対応内容を追加する'}
+                            </button>
+                        </div>
+                    </article>
+                </section>
+            ) : (
+                <>
+                    <section className="rounded-[24px] border border-white/10 bg-white/5 p-6">
+                        <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
+                            <div className="space-y-2">
+                                <p className="text-xs font-semibold tracking-wide text-rose-200">公開設定</p>
+                                <h2 className="text-xl font-semibold text-white">プロフィールを公開するかここで切り替え</h2>
+                                <p className="max-w-3xl text-sm leading-7 text-slate-300">
+                                    利用者にこのプロフィールを見せるかどうかを、このページでもすぐ切り替えられます。オンライン受付や現在地の設定は「設定」タブで続けて調整できます。
+                                </p>
+                            </div>
+
+                            <div className="rounded-2xl border border-white/10 bg-[#111923] px-5 py-4 text-sm text-slate-200">
+                                <p className="text-xs font-semibold tracking-wide text-rose-200">現在の公開状態</p>
+                                <span className={['mt-3 inline-flex rounded-full px-3 py-1 text-xs font-semibold', listingStatusTone(profile)].join(' ')}>
+                                    {listingStatusLabel(profile)}
+                                </span>
+                                <p className="mt-3 text-xs leading-6 text-slate-400">
+                                    {profile?.profile_status === 'approved'
+                                        ? profile.is_listed
+                                            ? '公開中は検索結果や詳細ページに表示されます。'
+                                            : '非公開中は検索結果や詳細ページに表示されません。'
+                                        : '本人確認・年齢確認と必須情報が揃うと公開できます。'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="mt-5 flex flex-wrap gap-3">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    void updateListingState(true);
+                                }}
+                                disabled={isUpdatingListing || !canListProfile}
+                                className="inline-flex items-center rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {isUpdatingListing && canListProfile ? '切り替え中...' : 'プロフィールを公開する'}
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    void updateListingState(false);
+                                }}
+                                disabled={isUpdatingListing || !canHideProfile}
+                                className="inline-flex items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {isUpdatingListing && canHideProfile ? '切り替え中...' : 'プロフィールを非公開にする'}
+                            </button>
+                            <Link
+                                to="/therapist/settings"
+                                className="inline-flex items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-slate-200 transition hover:bg-white/5"
+                            >
+                                オンライン受付や現在地は設定で調整
+                            </Link>
+                        </div>
+                    </section>
+
+                    <section className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+                        <form onSubmit={handleProfileSave} className="space-y-5 rounded-[24px] border border-white/10 bg-white/5 p-6">
+                            <div className="space-y-2">
+                                <p className="text-xs font-semibold tracking-wide text-rose-200">基本情報</p>
+                                <h2 className="text-xl font-semibold text-white">公開プロフィール</h2>
+                            </div>
+
+                            <label className="space-y-2">
+                                <span className="text-sm font-semibold text-white">公開名</span>
+                                <input
+                                    value={publicName}
+                                    onChange={(event) => setPublicName(event.target.value)}
+                                    className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                    placeholder="公開用の表示名"
+                                    required
+                                />
+                            </label>
+
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <label className="space-y-2">
+                                    <span className="text-sm font-semibold text-white">年齢</span>
                                     <input
-                                        type="checkbox"
-                                        checked={draft.is_active}
-                                        onChange={(event) => updateMenuDraft(draft.public_id, { is_active: event.target.checked })}
-                                        className="h-4 w-4 rounded border-white/20 bg-transparent"
+                                        value={profile?.age != null ? `${profile.age}歳` : ''}
+                                        readOnly
+                                        disabled
+                                        className="w-full rounded-[18px] border border-white/10 bg-[#0c141d] px-4 py-3 text-sm text-slate-300 outline-none"
+                                        placeholder="本人確認後に自動表示"
                                     />
-                                    公開中
+                                    <p className="text-xs leading-6 text-slate-400">
+                                        本人確認で提出した生年月日から自動で計算されます。ここでは変更できません。
+                                    </p>
                                 </label>
 
-                                <button
-                                    type="button"
-                                    onClick={() => {
-                                        void saveMenu(draft);
-                                    }}
-                                    disabled={pendingMenuId === draft.public_id}
-                                    className="inline-flex items-center rounded-full bg-rose-300 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
-                                >
-                                    {pendingMenuId === draft.public_id ? '保存中...' : 'この内容を保存'}
-                                </button>
+                                <label className="space-y-2">
+                                    <span className="text-sm font-semibold text-white">身長（cm）</span>
+                                    <input
+                                        type="number"
+                                        min={100}
+                                        max={250}
+                                        value={heightCm}
+                                        onChange={(event) => setHeightCm(event.target.value)}
+                                        className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                        placeholder="175"
+                                    />
+                                </label>
+                            </div>
+
+                            <div className="grid gap-4 md:grid-cols-2">
+                                <label className="space-y-2">
+                                    <span className="text-sm font-semibold text-white">体重（kg）</span>
+                                    <input
+                                        type="number"
+                                        min={30}
+                                        max={250}
+                                        value={weightKg}
+                                        onChange={(event) => setWeightKg(event.target.value)}
+                                        className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                        placeholder="68"
+                                    />
+                                </label>
+
+                                <label className="space-y-2">
+                                    <span className="text-sm font-semibold text-white">Pサイズ（cm）</span>
+                                    <input
+                                        type="number"
+                                        min={1}
+                                        max={50}
+                                        value={pSizeCm}
+                                        onChange={(event) => setPSizeCm(event.target.value)}
+                                        className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                        placeholder="15"
+                                    />
+                                </label>
+                            </div>
+
+                            <label className="space-y-2">
+                                <span className="text-sm font-semibold text-white">自己紹介</span>
+                                <textarea
+                                    value={bio}
+                                    onChange={(event) => setBio(event.target.value)}
+                                    rows={6}
+                                    className="w-full rounded-[18px] border border-white/10 bg-[#111923] px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                    placeholder="対応の雰囲気や得意なケア、安心してもらうための自己紹介を入力"
+                                />
+                            </label>
+
+                            <button
+                                type="submit"
+                                disabled={isSavingProfile}
+                                className="inline-flex items-center rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {isSavingProfile ? '保存中...' : 'プロフィールを保存する'}
+                            </button>
+                        </form>
+
+                        <article className="space-y-4 rounded-[24px] border border-white/10 bg-white/5 p-6">
+                            <div className="space-y-2">
+                                <p className="text-xs font-semibold tracking-wide text-rose-200">公開条件</p>
+                                <h2 className="text-xl font-semibold text-white">公開前にそろえること</h2>
+                            </div>
+
+                            <div className="space-y-3">
+                                {requirementList.map((requirement) => (
+                                    <div key={requirement.key} className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
+                                        <div className="flex items-center justify-between gap-3">
+                                            <p className="text-sm font-semibold text-white">{requirement.label}</p>
+                                            <span className={[
+                                                'rounded-full border px-3 py-1 text-xs font-semibold',
+                                                requirement.is_satisfied
+                                                    ? 'border-emerald-400/30 bg-emerald-400/10 text-emerald-100'
+                                                    : 'border-amber-300/30 bg-amber-300/10 text-amber-100',
+                                            ].join(' ')}>
+                                                {requirement.is_satisfied ? 'OK' : '要対応'}
+                                            </span>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+
+                            <p className="text-sm leading-7 text-slate-300">
+                                本人確認・年齢確認と公開中の対応内容が揃うと、プロフィールは自動で公開可能になります。実際に公開するかどうかは稼働設定で切り替えられます。
+                            </p>
+                            <p className="text-sm leading-7 text-slate-400">
+                                保存のたびに運営承認を待つ必要はありません。不足項目が出たときだけ公開プロフィールから外れます。
+                            </p>
+                        </article>
+                    </section>
+
+                    <section id="profile-photos" className="grid gap-4 lg:grid-cols-[minmax(0,1fr)_360px]">
+                        <article className="space-y-5 rounded-[24px] border border-white/10 bg-white/5 p-6">
+                            <div className="space-y-2">
+                                <p className="text-xs font-semibold tracking-wide text-rose-200">写真</p>
+                                <h2 className="text-xl font-semibold text-white">プロフィール写真</h2>
+                                <p className="text-sm leading-7 text-slate-300">
+                                    顔や雰囲気が分かる写真を登録します。公開写真はプロフィールに表示され、非公開写真は自分だけが管理できる控えとして保存されます。
+                                </p>
+                            </div>
+
+                            <form onSubmit={handlePhotoUpload} className="space-y-4 rounded-[22px] border border-white/10 bg-[#111923] p-5">
+                                <div className="space-y-2">
+                                    <p className="text-sm font-semibold text-white">公開設定</p>
+                                    <div className="flex flex-wrap gap-3">
+                                        {([
+                                            { value: 'public', label: '公開写真', description: 'プロフィールにそのまま表示されます。' },
+                                            { value: 'private', label: '非公開写真', description: '公開プロフィールには表示されません。' },
+                                        ] as const).map((option) => (
+                                            <button
+                                                key={option.value}
+                                                type="button"
+                                                onClick={() => setPhotoVisibility(option.value)}
+                                                className={[
+                                                    'rounded-2xl border px-4 py-3 text-left text-sm transition',
+                                                    photoVisibility === option.value
+                                                        ? 'border-rose-300/40 bg-rose-300/10 text-white'
+                                                        : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10',
+                                                ].join(' ')}
+                                            >
+                                                <p className="font-semibold">{option.label}</p>
+                                                <p className="mt-1 text-xs leading-6 text-slate-400">{option.description}</p>
+                                            </button>
+                                        ))}
+                                    </div>
+                                    <p className="text-xs leading-6 text-slate-400">
+                                        非公開写真は最大3枚までです。現在 {privateTherapistPhotos.length} / 3 枚登録しています。
+                                    </p>
+                                </div>
+
+                                <label className="block space-y-2">
+                                    <span className="text-sm font-semibold text-white">写真を追加</span>
+                                    <input
+                                        type="file"
+                                        accept=".jpg,.jpeg,.png,.webp"
+                                        onChange={handlePhotoFileChange}
+                                        className="block w-full rounded-[18px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white"
+                                    />
+                                    <p className="text-xs text-slate-400">
+                                        {photoFile ? photoFile.name : 'jpg / png / webp の画像を選択'}
+                                    </p>
+                                </label>
+
+                                {photoFile && photoPreviewUrl ? (
+                                    <div className="rounded-[20px] border border-white/10 bg-white/5 p-4">
+                                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                                            <div className="h-28 w-28 overflow-hidden rounded-[18px] bg-[#1d2a37]">
+                                                <img src={photoPreviewUrl} alt="" className="h-full w-full object-cover" />
+                                            </div>
+                                            <div className="space-y-2 text-sm text-slate-300">
+                                                <p className="font-semibold text-white">{photoFile.name}</p>
+                                                <p>{formatFileSize(photoFile.size)}</p>
+                                                <p className="text-xs leading-6 text-slate-400">
+                                                    {photoVisibility === 'private'
+                                                        ? '非公開写真もここでプレビューしながら管理できます。'
+                                                        : '明るくて見やすい写真ほど、公開後の安心感につながります。'}
+                                                </p>
+                                                <button
+                                                    type="button"
+                                                    onClick={() => setPhotoFile(null)}
+                                                    className="inline-flex items-center rounded-full border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/5"
+                                                >
+                                                    選択を取り消す
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ) : null}
 
                                 <button
-                                    type="button"
-                                    onClick={() => {
-                                        if (draft.public_id) {
-                                            void deleteMenu(draft.public_id);
-                                        }
-                                    }}
-                                    disabled={pendingMenuId === draft.public_id}
-                                    className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+                                    type="submit"
+                                    disabled={isUploadingPhoto || !photoFile || (photoVisibility === 'private' && isPrivatePhotoLimitReached)}
+                                    className="inline-flex items-center rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
-                                    削除
+                                    {isUploadingPhoto ? 'アップロード中...' : '写真を追加する'}
                                 </button>
+                            </form>
+
+                            {therapistPhotos.length > 0 ? (
+                                <div className="grid gap-4 sm:grid-cols-2 xl:grid-cols-3">
+                                    {therapistPhotos.map((photo) => (
+                                        <article
+                                            key={photo.id}
+                                            className="overflow-hidden rounded-[22px] border border-white/10 bg-[#111923]"
+                                        >
+                                            <div className="aspect-[1.05] bg-[#1d2a37]">
+                                                {photo.url ? (
+                                                    <img src={photo.url} alt="" className="h-full w-full object-cover" />
+                                                ) : (
+                                                    <div className="flex h-full items-center justify-center text-sm font-semibold text-slate-400">
+                                                        画像を準備中
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <div className="space-y-3 px-4 py-4 text-sm text-slate-300">
+                                                <div className="flex flex-wrap items-center gap-2">
+                                                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200">
+                                                        {photoVisibilityLabel(photo.visibility)}
+                                                    </span>
+                                                    <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${photoStatusTone(photo.status)}`}>
+                                                        {photoStatusLabel(photo.status)}
+                                                    </span>
+                                                </div>
+
+                                                {photo.rejection_reason_code ? (
+                                                    <p className="text-xs leading-6 text-rose-200">
+                                                        差し戻し理由: {formatRejectionReason(photo.rejection_reason_code)}
+                                                    </p>
+                                                ) : (
+                                                    <p className="text-xs leading-6 text-slate-400">
+                                                        登録日時: {formatJstDateTime(photo.created_at, {
+                                                            month: 'numeric',
+                                                            day: 'numeric',
+                                                            hour: '2-digit',
+                                                            minute: '2-digit',
+                                                        }) ?? '未設定'}
+                                                    </p>
+                                                )}
+
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        void deletePhoto(photo.id);
+                                                    }}
+                                                    disabled={isDeletingPhotoId === photo.id}
+                                                    className="inline-flex items-center rounded-full border border-white/10 px-3 py-2 text-xs font-semibold text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+                                                >
+                                                    {isDeletingPhotoId === photo.id ? '削除中...' : '削除'}
+                                                </button>
+                                            </div>
+                                        </article>
+                                    ))}
+                                </div>
+                            ) : (
+                                <div className="rounded-[22px] border border-dashed border-white/15 bg-[#111923] px-4 py-5 text-sm leading-7 text-slate-300">
+                                    まだタチキャスト用のプロフィール写真はありません。まず1枚追加すると、公開プロフィールの印象が伝わりやすくなります。
+                                </div>
+                            )}
+                        </article>
+
+                        <article className="space-y-4 rounded-[24px] border border-white/10 bg-white/5 p-6">
+                            <div className="space-y-2">
+                                <p className="text-xs font-semibold tracking-wide text-rose-200">写真</p>
+                                <h2 className="text-xl font-semibold text-white">写真の公開状況</h2>
+                            </div>
+
+                            <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
+                                <p className="text-sm font-semibold text-white">現在の状態</p>
+                                <p className="mt-2 text-sm text-slate-300">{publicTherapistPhotos.length > 0 ? '公開写真あり' : '公開写真未登録'}</p>
+                            </div>
+
+                            <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
+                                <p className="text-sm font-semibold text-white">登録済み写真</p>
+                                <p className="mt-2 text-sm text-slate-300">{therapistPhotos.length}枚</p>
+                                <p className="mt-2 text-xs text-slate-400">
+                                    公開中または確認中の公開写真: {publicApprovedOrPendingPhotoCount}枚 / 全写真: {approvedOrPendingPhotoCount}枚
+                                </p>
+                            </div>
+
+                            <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
+                                <p className="text-sm font-semibold text-white">公開前の目安</p>
+                                <p className="mt-2 text-sm leading-7 text-slate-300">
+                                    公開写真が1枚以上あると、公開プロフィールの雰囲気が伝わりやすくなります。非公開写真は最大3枚まで追加できます。
+                                </p>
+                            </div>
+
+                            <div className="flex flex-wrap gap-3 pt-2">
+                                <Link
+                                    to="/therapist/onboarding"
+                                    className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
+                                >
+                                    準備状況を確認
+                                </Link>
+                                <Link
+                                    to="/therapist/availability"
+                                    className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
+                                >
+                                    空き枠へ進む
+                                </Link>
                             </div>
                         </article>
-                    ))}
-                </div>
-
-                <article className="rounded-[22px] border border-dashed border-white/15 bg-[#111923] p-5">
-                    <div className="space-y-4">
-                        <div className="space-y-2">
-                            <p className="text-sm font-semibold text-white">新しい対応内容を追加</p>
-                            <p className="text-sm leading-7 text-slate-300">
-                                対応内容、最短時間、60分料金を決めて、まず1件目の公開内容を作ると公開条件が整いやすくなります。
-                            </p>
-                        </div>
-
-                        <div className="grid gap-4 md:grid-cols-2">
-                            <label className="space-y-2">
-                                <span className="text-sm font-semibold text-white">対応内容名</span>
-                                <input
-                                    value={newMenuDraft.name}
-                                    onChange={(event) => setNewMenuDraft((current) => ({ ...current, name: event.target.value }))}
-                                    className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                    placeholder="例: リラクゼーション / デート / ご飯"
-                                />
-                            </label>
-                            <label className="space-y-2">
-                                <span className="text-sm font-semibold text-white">最短時間（分）</span>
-                                <input
-                                    type="number"
-                                    min={30}
-                                    max={240}
-                                    step={15}
-                                    value={newMenuDraft.minimum_duration_minutes}
-                                    onChange={(event) => setNewMenuDraft((current) => ({ ...current, minimum_duration_minutes: Number(event.target.value) }))}
-                                    className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                />
-                            </label>
-                        </div>
-
-                        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_180px_140px]">
-                            <label className="space-y-2">
-                                <span className="text-sm font-semibold text-white">説明</span>
-                                <input
-                                    value={newMenuDraft.description}
-                                    onChange={(event) => setNewMenuDraft((current) => ({ ...current, description: event.target.value }))}
-                                    className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                    placeholder="例: もみほぐし中心 / ゆったり会話OK / 食事のみも可"
-                                />
-                            </label>
-                            <label className="space-y-2">
-                                <span className="text-sm font-semibold text-white">60分料金（円）</span>
-                                <input
-                                    type="number"
-                                    min={1000}
-                                    max={300000}
-                                    step={500}
-                                    value={newMenuDraft.hourly_rate_amount}
-                                    onChange={(event) => setNewMenuDraft((current) => ({ ...current, hourly_rate_amount: Number(event.target.value) }))}
-                                    className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                />
-                            </label>
-                            <label className="space-y-2">
-                                <span className="text-sm font-semibold text-white">並び順</span>
-                                <input
-                                    type="number"
-                                    min={0}
-                                    max={1000}
-                                    value={newMenuDraft.sort_order}
-                                    onChange={(event) => setNewMenuDraft((current) => ({ ...current, sort_order: Number(event.target.value) }))}
-                                    className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                />
-                            </label>
-                        </div>
-
-                        <button
-                            type="button"
-                            onClick={() => {
-                                void createMenu();
-                            }}
-                            disabled={pendingMenuId === 'new'}
-                            className="inline-flex items-center rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                            {pendingMenuId === 'new' ? '追加中...' : '対応内容を追加する'}
-                        </button>
-                    </div>
-                </article>
-            </section>
+                    </section>
+                </>
+            )}
         </div>
     );
 }

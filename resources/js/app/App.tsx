@@ -260,6 +260,7 @@ function AppRoutes() {
                     <Route path="stripe-connect" element={<TherapistStripeConnectPage />} />
                     <Route path="photos" element={<Navigate to="/therapist/profile#profile-photos" replace />} />
                     <Route path="profile" element={<TherapistProfilePage />} />
+                    <Route path="menus" element={<TherapistProfilePage tab="menus" />} />
                     <Route path="pricing" element={<TherapistPricingPage />} />
                     <Route path="availability" element={<TherapistAvailabilityPage />} />
                     <Route path="requests" element={<Navigate to="/therapist/bookings?group=requested" replace />} />
@@ -278,7 +279,7 @@ function AppRoutes() {
                     <Route path="payouts" element={<Navigate to="/therapist/balance" replace />} />
                     <Route path="settings" element={<TherapistSettingsHubPage />} />
                     {therapistPlaceholderRoutes
-                        .filter((route) => !['onboarding', 'identity-verification', 'stripe-connect', 'photos', 'profile', 'pricing', 'availability', 'requests', 'requests/:publicId', 'reviews', 'bookings', 'bookings/:publicId', 'bookings/:publicId/review', 'bookings/:publicId/interrupt', 'bookings/:publicId/no-show', 'bookings/:publicId/messages', 'bookings/:publicId/report', 'travel-requests', 'travel-requests/:publicId', 'balance', 'payouts', 'settings'].includes(route.path))
+                        .filter((route) => !['onboarding', 'identity-verification', 'stripe-connect', 'photos', 'profile', 'menus', 'pricing', 'availability', 'requests', 'requests/:publicId', 'reviews', 'bookings', 'bookings/:publicId', 'bookings/:publicId/review', 'bookings/:publicId/interrupt', 'bookings/:publicId/no-show', 'bookings/:publicId/messages', 'bookings/:publicId/report', 'travel-requests', 'travel-requests/:publicId', 'balance', 'payouts', 'settings'].includes(route.path))
                         .map((route) => (
                         <Route
                             key={route.path}

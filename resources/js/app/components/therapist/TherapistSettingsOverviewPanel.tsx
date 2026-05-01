@@ -153,7 +153,7 @@ export function TherapistSettingsOverviewPanel() {
             description: hasMenuConfigured
                 ? `${activeMenuCount}件のメニューを設定済みです。`
                 : 'メニューを1件以上設定してください。',
-            to: '/therapist/profile',
+            to: '/therapist/menus',
             actionLabel: 'メニューを開く',
         },
         {
