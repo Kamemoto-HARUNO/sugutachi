@@ -226,8 +226,12 @@ export function DashboardLayout({ role, title, description, navItems }: Dashboar
                                     <div className="flex items-start justify-between gap-3">
                                         <BrandMark inverse compact />
                                         <div ref={mobileMenuRef} className="relative flex shrink-0 items-center gap-2 md:gap-3">
-                                            <NotificationBellLink compact className="border-white/15 bg-white/10 hover:bg-white/15 md:hidden" />
-                                            <NotificationBellLink className="hidden md:inline-flex" />
+                                            <div className="md:hidden">
+                                                <NotificationBellLink compact className="border-white/15 bg-white/10 hover:bg-white/15" />
+                                            </div>
+                                            <div className="hidden md:block">
+                                                <NotificationBellLink className="border-white/15 bg-white/10 hover:bg-white/15" />
+                                            </div>
 
                                             <div className="hidden items-center gap-3 md:flex">
                                                 {role === 'therapist' && therapistPublicId ? (
