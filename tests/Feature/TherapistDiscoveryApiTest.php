@@ -34,10 +34,12 @@ class TherapistDiscoveryApiTest extends TestCase
             ->assertJsonPath('data.0.weight_kg', 68)
             ->assertJsonPath('data.0.p_size_cm', 14)
             ->assertJsonPath('data.0.therapist_cancellation_count', 1)
+            ->assertJsonPath('data.0.is_online', true)
             ->assertJsonPath('data.0.walking_time_range', 'within_15_min')
             ->assertJsonPath('data.0.estimated_total_amount', 12300)
             ->assertJsonPath('data.1.public_id', $farProfile->public_id)
             ->assertJsonPath('data.1.therapist_cancellation_count', 3)
+            ->assertJsonPath('data.1.is_online', true)
             ->assertJsonPath('data.1.walking_time_range', 'within_45_min')
             ->assertJsonPath('data.1.estimated_total_amount', 12300)
             ->assertJsonStructure([
@@ -54,6 +56,7 @@ class TherapistDiscoveryApiTest extends TestCase
                         'rating_average',
                         'review_count',
                         'therapist_cancellation_count',
+                        'is_online',
                         'walking_time_range',
                         'estimated_total_amount',
                         'photos' => [
@@ -78,6 +81,20 @@ class TherapistDiscoveryApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.public_id', $farProfile->public_id)
             ->assertJsonPath('data.1.public_id', $nearbyProfile->public_id);
+    }
+
+    public function test_user_can_include_offline_therapists_in_on_demand_search(): void
+    {
+        [$user, $address] = $this->createDiscoveryFixture();
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->getJson("/api/therapists?service_address_id={$address->public_id}&menu_duration_minutes=60&start_type=now&include_offline=1&sort=recommended")
+            ->assertOk()
+            ->assertJsonCount(3, 'data')
+            ->assertJsonFragment([
+                'public_id' => 'thp_offline',
+                'is_online' => false,
+            ]);
     }
 
     public function test_user_can_view_therapist_detail_with_menu_estimates(): void

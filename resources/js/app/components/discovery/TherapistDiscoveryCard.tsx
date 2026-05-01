@@ -19,6 +19,10 @@ interface TherapistDiscoveryCardProps {
     photoUrl?: string | null;
     to?: string;
     footerHint?: string;
+    isOnline?: boolean;
+    showOfflineStatus?: boolean;
+    hideTravelTimePlaceholder?: boolean;
+    hideEstimatedPricePlaceholder?: boolean;
 }
 
 function buildMetaLine(reviewCount: number, ratingAverage: number): string {
@@ -57,9 +61,17 @@ function CardBody({
     tags,
     photoUrl,
     footerHint,
+    isOnline = true,
+    showOfflineStatus = false,
+    hideTravelTimePlaceholder = false,
+    hideEstimatedPricePlaceholder = false,
 }: Omit<TherapistDiscoveryCardProps, 'to'>) {
     const resolvedTags = tags && tags.length > 0 ? tags : [];
     const profileLine = buildProfileLine({ heightCm, weightKg, age, pSizeCm });
+    const travelTimeLabel = formatTravelTimeEstimate(travelMode, walkingTimeRange);
+    const estimatedPriceLabel = buildEstimatedPriceLabel(durationMinutes, estimatedTotalAmount);
+    const shouldShowTravelTime = !hideTravelTimePlaceholder || travelTimeLabel !== '到着目安は準備中';
+    const shouldShowEstimatedPrice = !hideEstimatedPricePlaceholder || estimatedPriceLabel !== '料金は詳細で確認';
 
     return (
         <div className="flex h-full flex-col">
@@ -83,6 +95,11 @@ function CardBody({
                                     {formatTrainingStatus(trainingStatus)}
                                 </span>
                             ) : null}
+                            {showOfflineStatus && !isOnline ? (
+                                <span className="rounded-full bg-[#f7e1db] px-2.5 py-1 text-xs font-medium text-[#9a4b35]">
+                                    現在オフライン
+                                </span>
+                            ) : null}
                         </div>
                         {profileLine ? (
                             <p className="text-sm font-medium tracking-wide text-[#68707a]">
@@ -92,15 +109,19 @@ function CardBody({
 
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#68707a]">
                             <span>{buildMetaLine(reviewCount, ratingAverage)}</span>
-                            <span>{formatTravelTimeEstimate(travelMode, walkingTimeRange)}</span>
+                            {shouldShowTravelTime ? (
+                                <span>{travelTimeLabel}</span>
+                            ) : null}
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <p className="text-xl font-bold text-[#17202b]">
-                            {buildEstimatedPriceLabel(durationMinutes, estimatedTotalAmount)}
-                        </p>
-                    </div>
+                    {shouldShowEstimatedPrice ? (
+                        <div className="space-y-2">
+                            <p className="text-xl font-bold text-[#17202b]">
+                                {estimatedPriceLabel}
+                            </p>
+                        </div>
+                    ) : null}
 
                     {resolvedTags.length > 0 ? (
                         <div className="flex flex-wrap gap-2">

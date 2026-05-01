@@ -79,6 +79,7 @@ class TherapistDiscoveryController extends Controller
                 'rating_average' => (float) $profile->rating_average,
                 'review_count' => $profile->review_count,
                 'therapist_cancellation_count' => (int) $profile->therapist_cancellation_count,
+                'is_online' => (bool) $profile->is_online,
                 'travel_mode' => $profile->bookingSetting?->travel_mode,
                 'walking_time_range' => null,
                 'estimated_total_amount' => null,
@@ -150,6 +151,8 @@ class TherapistDiscoveryController extends Controller
     {
         [$validated, $serviceAddress] = $this->validatedDiscoveryContext($request, requireServiceAddress: true);
         $viewer = $request->user();
+        $includeOffline = ($validated['start_type'] ?? 'now') !== 'scheduled'
+            && (bool) ($validated['include_offline'] ?? false);
         $profiles = ($validated['start_type'] ?? 'now') === 'scheduled'
             ? TherapistProfile::query()
                 ->scheduledDiscoverableTo($viewer)
@@ -169,7 +172,7 @@ class TherapistDiscoveryController extends Controller
                         ->orderBy('id'),
                 ])
                 ->get()
-            : $this->discoverableProfilesQuery($viewer)->get();
+            : $this->discoverableProfilesQuery($viewer, $includeOffline)->get();
 
         $results = $this->buildSearchResults(
             profiles: $profiles,
@@ -217,10 +220,13 @@ class TherapistDiscoveryController extends Controller
         );
     }
 
-    private function discoverableProfilesQuery(Account $viewer): Builder
+    private function discoverableProfilesQuery(Account $viewer, bool $includeOffline = false): Builder
     {
         return TherapistProfile::query()
-            ->discoverableTo($viewer)
+            ->visibleTo($viewer)
+            ->when(! $includeOffline, fn (Builder $query) => $query->where('is_online', true))
+            ->whereHas('location', fn (Builder $query) => $query->where('is_searchable', true))
+            ->whereHas('menus', fn (Builder $query) => $query->where('is_active', true))
             ->with([
                 'account.latestIdentityVerification',
                 'bookingSetting',
@@ -346,6 +352,7 @@ class TherapistDiscoveryController extends Controller
                     'rating_average' => (float) $profile->rating_average,
                     'review_count' => $profile->review_count,
                     'therapist_cancellation_count' => (int) $profile->therapist_cancellation_count,
+                    'is_online' => (bool) $profile->is_online,
                     'travel_mode' => $profile->bookingSetting?->travel_mode,
                     'walking_time_range' => $estimate['walking_time_range'],
                     'estimated_total_amount' => $estimate['total_amount'],
@@ -602,9 +609,11 @@ class TherapistDiscoveryController extends Controller
             'start_type' => ['nullable', Rule::in(['now', 'scheduled'])],
             'scheduled_start_at' => ['nullable', 'date', 'after_or_equal:now'],
             'sort' => ['nullable', Rule::in(['recommended', 'soonest', 'rating'])],
+            'include_offline' => ['nullable', 'boolean'],
         ]);
 
         $validated['start_type'] = $validated['start_type'] ?? 'now';
+        $validated['include_offline'] = $request->boolean('include_offline');
 
         if ($validated['start_type'] === 'scheduled' && blank($validated['scheduled_start_at'] ?? null)) {
             throw ValidationException::withMessages([
