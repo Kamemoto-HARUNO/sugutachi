@@ -148,7 +148,7 @@ function AppRoutes() {
                 </Route>
                 <Route
                     path="/user"
-                    element={<DashboardLayout role="user" title="利用者ダッシュボード" description="検索、予約、メッセージ、安全導線の入口です。" navItems={userNavItems} />}
+                    element={<DashboardLayout role="user" description="検索、予約、メッセージ、安全導線の入口です。" navItems={userNavItems} />}
                 >
                     <Route
                         index
@@ -230,7 +230,6 @@ function AppRoutes() {
                     element={
                         <DashboardLayout
                             role="therapist"
-                            title="タチキャストダッシュボード"
                             description="公開準備、空き枠、予約依頼、売上確認の入口です。"
                             navItems={therapistNavItems}
                         />
@@ -294,7 +293,7 @@ function AppRoutes() {
             <Route element={<RoleRoute role="admin" hasRole={hasRole} isAuthenticated={isAuthenticated} activeRole={activeRole} selectRole={selectRole} />}>
                 <Route
                     path="/admin"
-                    element={<DashboardLayout role="admin" title="運営ダッシュボード" description="監視、審査、法務、料金運用の入口です。" navItems={adminNavItems} />}
+                    element={<DashboardLayout role="admin" description="監視、審査、法務、料金運用の入口です。" navItems={adminNavItems} />}
                 >
                     <Route index element={<AdminDashboardPage />} />
                     <Route path="accounts" element={<AdminAccountsPage />} />

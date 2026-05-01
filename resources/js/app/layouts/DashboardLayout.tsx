@@ -9,7 +9,6 @@ import { useAuth } from '../hooks/useAuth';
 
 interface DashboardLayoutProps {
     role: RoleName;
-    title: string;
     description: string;
     navItems: NavItem[];
 }
@@ -69,7 +68,7 @@ function MobileMenuButton({
     );
 }
 
-export function DashboardLayout({ role, title, description, navItems }: DashboardLayoutProps) {
+export function DashboardLayout({ role, description, navItems }: DashboardLayoutProps) {
     const { logout, token } = useAuth();
     const location = useLocation();
     const [therapistPublicId, setTherapistPublicId] = useState<string | null>(null);
@@ -308,7 +307,7 @@ export function DashboardLayout({ role, title, description, navItems }: Dashboar
 
                                     <div className="space-y-3">
                                         <h1 className="max-w-[16ch] text-[2.2rem] font-semibold leading-[1.4] text-white sm:max-w-[20ch] sm:text-[2.5rem] xl:max-w-none xl:whitespace-nowrap">
-                                            {title}
+                                            ダッシュボード
                                         </h1>
                                         <p className="max-w-3xl text-sm leading-7 text-slate-300 sm:text-[0.95rem]">
                                             {description}
