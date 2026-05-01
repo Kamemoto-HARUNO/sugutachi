@@ -44,6 +44,7 @@ class TherapistDiscoveryController extends Controller
                 'bookingSetting',
                 'photos' => fn ($query) => $query
                     ->where('status', ProfilePhoto::STATUS_APPROVED)
+                    ->where('visibility', ProfilePhoto::VISIBILITY_PUBLIC)
                     ->orderBy('sort_order')
                     ->orderBy('id'),
             ])
@@ -156,6 +157,7 @@ class TherapistDiscoveryController extends Controller
                     'pricingRules',
                     'photos' => fn ($query) => $query
                         ->where('status', ProfilePhoto::STATUS_APPROVED)
+                        ->where('visibility', ProfilePhoto::VISIBILITY_PUBLIC)
                         ->orderBy('sort_order')
                         ->orderBy('id'),
                 ])
@@ -223,6 +225,7 @@ class TherapistDiscoveryController extends Controller
                 'pricingRules',
                 'photos' => fn ($query) => $query
                     ->where('status', ProfilePhoto::STATUS_APPROVED)
+                    ->where('visibility', ProfilePhoto::VISIBILITY_PUBLIC)
                     ->orderBy('sort_order')
                     ->orderBy('id'),
             ]);
@@ -243,6 +246,7 @@ class TherapistDiscoveryController extends Controller
                 'pricingRules',
                 'photos' => fn ($query) => $query
                     ->where('status', ProfilePhoto::STATUS_APPROVED)
+                    ->where('visibility', ProfilePhoto::VISIBILITY_PUBLIC)
                     ->orderBy('sort_order')
                     ->orderBy('id'),
             ]);
@@ -262,6 +266,7 @@ class TherapistDiscoveryController extends Controller
                 'pricingRules',
                 'photos' => fn ($query) => $query
                     ->where('status', ProfilePhoto::STATUS_APPROVED)
+                    ->where('visibility', ProfilePhoto::VISIBILITY_PUBLIC)
                     ->orderBy('sort_order')
                     ->orderBy('id'),
             ]);

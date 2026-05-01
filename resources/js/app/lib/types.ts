@@ -142,6 +142,7 @@ export interface ServiceAddress {
 export interface SelfProfilePhotoSummary {
     id: number;
     usage_type: string;
+    visibility: 'public' | 'private';
     status: string;
     rejection_reason_code: string | null;
     sort_order: number;
@@ -1383,6 +1384,7 @@ export interface AdminTherapistMenuRecord {
 export interface AdminProfilePhotoRecord {
     id: number;
     usage_type: string;
+    visibility: 'public' | 'private';
     content_hash: string | null;
     status: string;
     rejection_reason_code: string | null;

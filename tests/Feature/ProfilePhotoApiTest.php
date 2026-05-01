@@ -45,6 +45,7 @@ class ProfilePhotoApiTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('data.usage_type', 'therapist_profile')
+            ->assertJsonPath('data.visibility', ProfilePhoto::VISIBILITY_PUBLIC)
             ->assertJsonPath('data.status', ProfilePhoto::STATUS_APPROVED)
             ->assertJsonPath('data.sort_order', 2)
             ->assertJsonPath('data.therapist_profile.public_id', $profile->public_id)
@@ -81,6 +82,7 @@ class ProfilePhotoApiTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('data.usage_type', 'account_profile')
+            ->assertJsonPath('data.visibility', ProfilePhoto::VISIBILITY_PUBLIC)
             ->assertJsonPath('data.therapist_profile', null);
 
         $this->assertDatabaseHas('profile_photos', [
@@ -125,5 +127,56 @@ class ProfilePhotoApiTest extends TestCase
             'id' => $photo->id,
         ]);
         $this->assertSame(ProfilePhoto::STATUS_PENDING, $profile->fresh()->photo_review_status);
+    }
+
+    public function test_therapist_private_profile_photos_are_limited_to_three_images(): void
+    {
+        Storage::fake('local');
+
+        $therapist = Account::factory()->create(['public_id' => 'acc_private_photo_limit']);
+        TherapistProfile::create([
+            'account_id' => $therapist->id,
+            'public_id' => 'thp_private_photo_limit',
+            'public_name' => 'Private Photo Limit Therapist',
+            'profile_status' => TherapistProfile::STATUS_APPROVED,
+            'photo_review_status' => ProfilePhoto::STATUS_APPROVED,
+        ]);
+        $token = $therapist->createToken('api')->plainTextToken;
+
+        foreach (range(1, 3) as $index) {
+            $tempFileId = $this->withToken($token)
+                ->post('/api/temp-files', [
+                    'purpose' => 'profile_photo',
+                    'file' => UploadedFile::fake()->image("private-{$index}.jpg", 800, 800),
+                ])
+                ->assertCreated()
+                ->json('data.file_id');
+
+            $this->withToken($token)
+                ->postJson('/api/me/profile/photos', [
+                    'temp_file_id' => $tempFileId,
+                    'usage_type' => 'therapist_profile',
+                    'visibility' => ProfilePhoto::VISIBILITY_PRIVATE,
+                ])
+                ->assertCreated()
+                ->assertJsonPath('data.visibility', ProfilePhoto::VISIBILITY_PRIVATE);
+        }
+
+        $tempFileId = $this->withToken($token)
+            ->post('/api/temp-files', [
+                'purpose' => 'profile_photo',
+                'file' => UploadedFile::fake()->image('private-over-limit.jpg', 800, 800),
+            ])
+            ->assertCreated()
+            ->json('data.file_id');
+
+        $this->withToken($token)
+            ->postJson('/api/me/profile/photos', [
+                'temp_file_id' => $tempFileId,
+                'usage_type' => 'therapist_profile',
+                'visibility' => ProfilePhoto::VISIBILITY_PRIVATE,
+            ])
+            ->assertStatus(422)
+            ->assertJsonValidationErrors('visibility');
     }
 }

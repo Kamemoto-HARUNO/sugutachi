@@ -99,4 +99,41 @@ class ProfilePhotoFileApiTest extends TestCase
 
         $this->assertSame('signed-photo', $response->streamedContent());
     }
+
+    public function test_private_profile_photo_is_not_available_from_public_file_route(): void
+    {
+        $account = Account::factory()->create(['public_id' => 'acc_private_photo_hidden']);
+        $profile = TherapistProfile::create([
+            'account_id' => $account->id,
+            'public_id' => 'thp_private_photo_hidden',
+            'public_name' => 'Hidden Private Photo Therapist',
+            'profile_status' => TherapistProfile::STATUS_APPROVED,
+            'training_status' => 'completed',
+            'photo_review_status' => ProfilePhoto::STATUS_APPROVED,
+        ]);
+        IdentityVerification::create([
+            'account_id' => $account->id,
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'is_age_verified' => true,
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now(),
+        ]);
+
+        $path = 'profiles/acc_private_photo_hidden/private.webp';
+        Storage::disk('local')->put($path, 'private-photo');
+
+        $photo = ProfilePhoto::create([
+            'account_id' => $account->id,
+            'therapist_profile_id' => $profile->id,
+            'usage_type' => 'therapist_profile',
+            'visibility' => ProfilePhoto::VISIBILITY_PRIVATE,
+            'storage_key_encrypted' => Crypt::encryptString($path),
+            'content_hash' => hash('sha256', 'private-photo'),
+            'status' => ProfilePhoto::STATUS_APPROVED,
+            'sort_order' => 0,
+        ]);
+
+        $this->get("/api/profile-photos/{$photo->id}/file")
+            ->assertNotFound();
+    }
 }

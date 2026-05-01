@@ -67,6 +67,10 @@ function photoStatusTone(status: string): string {
     }
 }
 
+function photoVisibilityLabel(visibility: 'public' | 'private'): string {
+    return visibility === 'private' ? '非公開写真' : '公開写真';
+}
+
 function formatFileSize(sizeBytes: number): string {
     if (sizeBytes < 1024 * 1024) {
         return `${Math.max(1, Math.round(sizeBytes / 1024))}KB`;
@@ -149,6 +153,7 @@ export function TherapistProfilePage() {
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [photoFile, setPhotoFile] = useState<File | null>(null);
     const [photoPreviewUrl, setPhotoPreviewUrl] = useState<string | null>(null);
+    const [photoVisibility, setPhotoVisibility] = useState<'public' | 'private'>('public');
     const [isLoading, setIsLoading] = useState(true);
     const [isSavingProfile, setIsSavingProfile] = useState(false);
     const [isUpdatingListing, setIsUpdatingListing] = useState(false);
@@ -221,12 +226,25 @@ export function TherapistProfilePage() {
         () => (meProfile?.photos ?? []).filter((photo) => photo.usage_type === 'therapist_profile'),
         [meProfile],
     );
+    const publicTherapistPhotos = useMemo(
+        () => therapistPhotos.filter((photo) => photo.visibility === 'public'),
+        [therapistPhotos],
+    );
+    const privateTherapistPhotos = useMemo(
+        () => therapistPhotos.filter((photo) => photo.visibility === 'private'),
+        [therapistPhotos],
+    );
     const canListProfile = Boolean(profile?.profile_status === 'approved' && !profile.is_listed);
     const canHideProfile = Boolean(profile?.profile_status === 'approved' && profile.is_listed);
     const approvedOrPendingPhotoCount = useMemo(
         () => therapistPhotos.filter((photo) => photo.status === 'approved' || photo.status === 'pending').length,
         [therapistPhotos],
     );
+    const publicApprovedOrPendingPhotoCount = useMemo(
+        () => publicTherapistPhotos.filter((photo) => photo.status === 'approved' || photo.status === 'pending').length,
+        [publicTherapistPhotos],
+    );
+    const isPrivatePhotoLimitReached = privateTherapistPhotos.length >= 3;
     useEffect(() => {
         if (!photoFile) {
             setPhotoPreviewUrl((currentUrl) => {
@@ -396,6 +414,11 @@ export function TherapistProfilePage() {
             return;
         }
 
+        if (photoVisibility === 'private' && isPrivatePhotoLimitReached) {
+            setPhotoError('非公開写真は最大3枚までです。既存の非公開写真を削除してから追加してください。');
+            return;
+        }
+
         setIsUploadingPhoto(true);
         setError(null);
         setPhotoError(null);
@@ -411,11 +434,18 @@ export function TherapistProfilePage() {
                 body: {
                     temp_file_id: tempFile.file_id,
                     usage_type: 'therapist_profile',
+                    visibility: photoVisibility,
                 },
             });
 
+            const uploadedVisibility = photoVisibility;
             setPhotoFile(null);
-            await refreshAfterPhotoMutation('プロフィール写真を追加しました。公開プロフィールに反映されます。');
+            setPhotoVisibility('public');
+            await refreshAfterPhotoMutation(
+                uploadedVisibility === 'private'
+                    ? '非公開写真を追加しました。公開プロフィールには表示されません。'
+                    : '公開写真を追加しました。公開プロフィールに反映されます。',
+            );
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -584,7 +614,7 @@ export function TherapistProfilePage() {
                             {formatProfileStatus(profile?.profile_status)}
                         </p>
                         <p className="mt-2 text-xs text-slate-400">
-                            公開中の対応内容 {activeMenuCount}件 / 登録済み写真 {therapistPhotos.length}枚
+                            公開中の対応内容 {activeMenuCount}件 / 公開写真 {publicTherapistPhotos.length}枚 / 非公開写真 {privateTherapistPhotos.length}枚
                         </p>
                     </div>
                 </div>
@@ -823,11 +853,39 @@ export function TherapistProfilePage() {
                         <p className="text-xs font-semibold tracking-wide text-rose-200">写真</p>
                         <h2 className="text-xl font-semibold text-white">プロフィール写真</h2>
                         <p className="text-sm leading-7 text-slate-300">
-                            顔や雰囲気が分かる写真を登録します。アップロードした写真はそのまま公開プロフィールに反映され、必要に応じて運営が監視・削除します。
+                            顔や雰囲気が分かる写真を登録します。公開写真はプロフィールに表示され、非公開写真は自分だけが管理できる控えとして保存されます。
                         </p>
                     </div>
 
                     <form onSubmit={handlePhotoUpload} className="space-y-4 rounded-[22px] border border-white/10 bg-[#111923] p-5">
+                        <div className="space-y-2">
+                            <p className="text-sm font-semibold text-white">公開設定</p>
+                            <div className="flex flex-wrap gap-3">
+                                {([
+                                    { value: 'public', label: '公開写真', description: 'プロフィールにそのまま表示されます。' },
+                                    { value: 'private', label: '非公開写真', description: '公開プロフィールには表示されません。' },
+                                ] as const).map((option) => (
+                                    <button
+                                        key={option.value}
+                                        type="button"
+                                        onClick={() => setPhotoVisibility(option.value)}
+                                        className={[
+                                            'rounded-2xl border px-4 py-3 text-left text-sm transition',
+                                            photoVisibility === option.value
+                                                ? 'border-rose-300/40 bg-rose-300/10 text-white'
+                                                : 'border-white/10 bg-white/5 text-slate-300 hover:bg-white/10',
+                                        ].join(' ')}
+                                    >
+                                        <p className="font-semibold">{option.label}</p>
+                                        <p className="mt-1 text-xs leading-6 text-slate-400">{option.description}</p>
+                                    </button>
+                                ))}
+                            </div>
+                            <p className="text-xs leading-6 text-slate-400">
+                                非公開写真は最大3枚までです。現在 {privateTherapistPhotos.length} / 3 枚登録しています。
+                            </p>
+                        </div>
+
                         <label className="block space-y-2">
                             <span className="text-sm font-semibold text-white">写真を追加</span>
                             <input
@@ -851,7 +909,9 @@ export function TherapistProfilePage() {
                                         <p className="font-semibold text-white">{photoFile.name}</p>
                                         <p>{formatFileSize(photoFile.size)}</p>
                                         <p className="text-xs leading-6 text-slate-400">
-                                            明るくて見やすい写真ほど、公開後の安心感につながります。
+                                            {photoVisibility === 'private'
+                                                ? '非公開写真もここでプレビューしながら管理できます。'
+                                                : '明るくて見やすい写真ほど、公開後の安心感につながります。'}
                                         </p>
                                         <button
                                             type="button"
@@ -867,7 +927,7 @@ export function TherapistProfilePage() {
 
                         <button
                             type="submit"
-                            disabled={isUploadingPhoto || !photoFile}
+                            disabled={isUploadingPhoto || !photoFile || (photoVisibility === 'private' && isPrivatePhotoLimitReached)}
                             className="inline-flex items-center rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {isUploadingPhoto ? 'アップロード中...' : '写真を追加する'}
@@ -892,6 +952,9 @@ export function TherapistProfilePage() {
                                     </div>
                                     <div className="space-y-3 px-4 py-4 text-sm text-slate-300">
                                         <div className="flex flex-wrap items-center gap-2">
+                                            <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200">
+                                                {photoVisibilityLabel(photo.visibility)}
+                                            </span>
                                             <span className={`rounded-full border px-3 py-1 text-xs font-semibold ${photoStatusTone(photo.status)}`}>
                                                 {photoStatusLabel(photo.status)}
                                             </span>
@@ -941,21 +1004,21 @@ export function TherapistProfilePage() {
 
                     <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
                         <p className="text-sm font-semibold text-white">現在の状態</p>
-                        <p className="mt-2 text-sm text-slate-300">{therapistPhotos.length > 0 ? '写真を公開中' : '写真未登録'}</p>
+                        <p className="mt-2 text-sm text-slate-300">{publicTherapistPhotos.length > 0 ? '公開写真あり' : '公開写真未登録'}</p>
                     </div>
 
                     <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
                         <p className="text-sm font-semibold text-white">登録済み写真</p>
                         <p className="mt-2 text-sm text-slate-300">{therapistPhotos.length}枚</p>
                         <p className="mt-2 text-xs text-slate-400">
-                            公開中または確認中の写真: {approvedOrPendingPhotoCount}枚
+                            公開中または確認中の公開写真: {publicApprovedOrPendingPhotoCount}枚 / 全写真: {approvedOrPendingPhotoCount}枚
                         </p>
                     </div>
 
                     <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
                         <p className="text-sm font-semibold text-white">公開前の目安</p>
                         <p className="mt-2 text-sm leading-7 text-slate-300">
-                            写真が1枚以上あると、公開プロフィールの雰囲気が伝わりやすくなります。
+                            公開写真が1枚以上あると、公開プロフィールの雰囲気が伝わりやすくなります。非公開写真は最大3枚まで追加できます。
                         </p>
                     </div>
 

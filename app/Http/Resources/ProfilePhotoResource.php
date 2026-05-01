@@ -13,6 +13,7 @@ class ProfilePhotoResource extends JsonResource
         return [
             'id' => $this->id,
             'usage_type' => $this->usage_type,
+            'visibility' => $this->visibility,
             'content_hash' => $this->content_hash,
             'status' => $this->status,
             'rejection_reason_code' => $this->rejection_reason_code,

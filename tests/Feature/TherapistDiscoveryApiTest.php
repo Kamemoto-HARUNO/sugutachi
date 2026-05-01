@@ -127,6 +127,26 @@ class TherapistDiscoveryApiTest extends TestCase
             ->assertJsonPath('data.lowest_estimated_total_amount', null);
     }
 
+    public function test_private_therapist_photos_are_excluded_from_public_detail(): void
+    {
+        [$user, $address, $nearbyProfile, , $nearbyTherapist] = $this->createDiscoveryFixture();
+
+        ProfilePhoto::create([
+            'account_id' => $nearbyTherapist->id,
+            'therapist_profile_id' => $nearbyProfile->id,
+            'usage_type' => 'therapist_profile',
+            'visibility' => ProfilePhoto::VISIBILITY_PRIVATE,
+            'storage_key_encrypted' => Crypt::encryptString('profiles/private-near.jpg'),
+            'status' => ProfilePhoto::STATUS_APPROVED,
+            'sort_order' => 99,
+        ]);
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->getJson("/api/therapists/{$nearbyProfile->public_id}?service_address_id={$address->public_id}")
+            ->assertOk()
+            ->assertJsonCount(1, 'data.photos');
+    }
+
     public function test_user_can_view_pending_scheduled_request_summary_on_therapist_detail(): void
     {
         [$user, $address, $nearbyProfile, , $nearbyTherapist] = $this->createDiscoveryFixture();
