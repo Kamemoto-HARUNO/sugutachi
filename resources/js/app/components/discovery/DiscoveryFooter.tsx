@@ -4,6 +4,8 @@ import { BrandMark } from '../brand/BrandMark';
 interface DiscoveryFooterAction {
     label: string;
     to: string;
+    disabled?: boolean;
+    onClick?: () => void;
 }
 
 interface DiscoveryFooterProps {
@@ -38,12 +40,26 @@ export function DiscoveryFooter({
                         </div>
 
                         <div className="flex flex-col gap-3 md:min-w-[260px]">
-                            <Link
-                                to={primaryAction.to}
-                                className="inline-flex items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-6 py-3 text-sm font-bold text-[#1a2430] transition hover:brightness-105"
-                            >
-                                {primaryAction.label}
-                            </Link>
+                            {primaryAction.onClick ? (
+                                <button
+                                    type="button"
+                                    onClick={primaryAction.onClick}
+                                    aria-disabled={primaryAction.disabled || undefined}
+                                    className={[
+                                        'inline-flex items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-6 py-3 text-sm font-bold text-[#1a2430] shadow-[0_16px_30px_rgba(232,213,178,0.18)]',
+                                        primaryAction.disabled ? 'cursor-not-allowed opacity-60' : 'transition hover:brightness-105',
+                                    ].join(' ')}
+                                >
+                                    {primaryAction.label}
+                                </button>
+                            ) : (
+                                <Link
+                                    to={primaryAction.to}
+                                    className="inline-flex items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-6 py-3 text-sm font-bold text-[#1a2430] transition hover:brightness-105"
+                                >
+                                    {primaryAction.label}
+                                </Link>
+                            )}
                             <Link
                                 to={secondaryAction.to}
                                 className="inline-flex items-center justify-center rounded-full bg-[#f2ebe0] px-6 py-3 text-sm font-bold text-[#1a2430] transition hover:bg-[#ebe0cf]"

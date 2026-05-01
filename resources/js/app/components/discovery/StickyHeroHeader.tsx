@@ -9,26 +9,32 @@ export interface StickyHeroHeaderAction {
     to: string;
     variant?: 'primary' | 'secondary';
     icon?: 'login' | 'register' | 'mypage';
+    disabled?: boolean;
+    onClick?: () => void;
 }
 
 interface StickyHeroHeaderProps {
     actions: StickyHeroHeaderAction[];
 }
 
-function actionClass(variant: 'primary' | 'secondary', fullWidth = false): string {
+function actionClass(variant: 'primary' | 'secondary', fullWidth = false, disabled = false): string {
     const widthClass = fullWidth ? 'w-full' : '';
 
     if (variant === 'secondary') {
         return [
             'inline-flex items-center justify-center gap-2.5 rounded-full border border-white/18 px-6 py-3 text-sm font-bold transition',
-            'bg-white/6 text-[#f7f1e6] hover:bg-white/10',
+            disabled
+                ? 'cursor-not-allowed bg-white/6 text-[#f7f1e6] opacity-60'
+                : 'bg-white/6 text-[#f7f1e6] hover:bg-white/10',
             widthClass,
         ].join(' ');
     }
 
     return [
         'inline-flex items-center justify-center gap-2.5 rounded-full px-6 py-3 text-sm font-bold transition',
-        'bg-[#f1dfbd] text-[#17202b] shadow-[0_16px_30px_rgba(232,213,178,0.18)] hover:bg-[#f6e8cb]',
+        disabled
+            ? 'cursor-not-allowed bg-[#f1dfbd] text-[#17202b] opacity-60 shadow-[0_16px_30px_rgba(232,213,178,0.18)]'
+            : 'bg-[#f1dfbd] text-[#17202b] shadow-[0_16px_30px_rgba(232,213,178,0.18)] hover:bg-[#f6e8cb]',
         widthClass,
     ].join(' ');
 }
@@ -175,15 +181,26 @@ function HeaderBar({
 
             {actions.length > 0 ? (
                 <>
-                    <div className="hidden items-center gap-3 md:flex">
-                        {isAuthenticated ? <NotificationBellLink className="border-white/15 bg-white/10 hover:bg-white/15" /> : null}
-                        {actions.map((action) => (
-                            <Link key={`${action.label}-${action.to}`} to={action.to} className={actionClass(action.variant ?? 'primary')}>
-                                {action.icon ? <ActionIcon icon={action.icon} /> : null}
-                                {action.label}
-                            </Link>
-                        ))}
-                    </div>
+                        <div className="hidden items-center gap-3 md:flex">
+                            {isAuthenticated ? <NotificationBellLink className="border-white/15 bg-white/10 hover:bg-white/15" /> : null}
+                            {actions.map((action) => action.onClick ? (
+                                <button
+                                    key={`${action.label}-${action.to}`}
+                                    type="button"
+                                    onClick={action.onClick}
+                                    aria-disabled={action.disabled || undefined}
+                                    className={actionClass(action.variant ?? 'primary', false, action.disabled)}
+                                >
+                                    {action.icon ? <ActionIcon icon={action.icon} /> : null}
+                                    {action.label}
+                                </button>
+                            ) : (
+                                <Link key={`${action.label}-${action.to}`} to={action.to} className={actionClass(action.variant ?? 'primary')}>
+                                    {action.icon ? <ActionIcon icon={action.icon} /> : null}
+                                    {action.label}
+                                </Link>
+                            ))}
+                        </div>
 
                     <div className="flex items-center gap-2 md:hidden">
                         {isAuthenticated ? <NotificationBellLink compact className="border-white/15 bg-white/10 hover:bg-white/15" /> : null}
@@ -192,7 +209,21 @@ function HeaderBar({
 
                     {isMenuOpen ? (
                         <div className="absolute right-0 top-full z-20 mt-3 flex w-[min(18rem,calc(100vw-2rem))] flex-col gap-2 rounded-[24px] border border-white/12 bg-[rgba(23,32,43,0.96)] p-3 shadow-[0_18px_45px_rgba(23,32,43,0.28)] backdrop-blur md:hidden">
-                            {actions.map((action) => (
+                            {actions.map((action) => action.onClick ? (
+                                <button
+                                    key={`${action.label}-${action.to}-mobile`}
+                                    type="button"
+                                    onClick={() => {
+                                        setIsMenuOpen(false);
+                                        action.onClick?.();
+                                    }}
+                                    aria-disabled={action.disabled || undefined}
+                                    className={actionClass(action.variant ?? 'primary', true, action.disabled)}
+                                >
+                                    {action.icon ? <ActionIcon icon={action.icon} /> : null}
+                                    {action.label}
+                                </button>
+                            ) : (
                                 <Link
                                     key={`${action.label}-${action.to}-mobile`}
                                     to={action.to}
