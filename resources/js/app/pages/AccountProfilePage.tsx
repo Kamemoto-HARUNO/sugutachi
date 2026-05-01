@@ -37,39 +37,6 @@ function phoneStatusTone(verifiedAt: string | null): string {
         : 'border-white/10 bg-white/5 text-slate-200';
 }
 
-function roleActionDescription(role: RoleName): string {
-    switch (role) {
-        case 'user':
-            return '年齢層、体型、共有したいプロフィール情報を整えます。';
-        case 'therapist':
-            return '公開名、紹介文、対応内容、写真の準備を進めます。';
-        case 'admin':
-            return '審査、監視、問い合わせ対応などの運営画面を開きます。';
-    }
-}
-
-function roleActionLabel(role: RoleName): string {
-    switch (role) {
-        case 'user':
-            return '利用者プロフィールを開く';
-        case 'therapist':
-            return 'タチキャストプロフィールを開く';
-        case 'admin':
-            return '運営マイページを開く';
-    }
-}
-
-function roleActionPath(role: RoleName): string {
-    switch (role) {
-        case 'user':
-            return '/user/profile';
-        case 'therapist':
-            return '/therapist/profile';
-        case 'admin':
-            return '/admin';
-    }
-}
-
 export function AccountProfilePage() {
     const { account, activeRole, refreshAccount, token } = useAuth();
     const [profile, setProfile] = useState<MeProfileRecord | null>(null);
@@ -266,7 +233,7 @@ export function AccountProfilePage() {
                             </h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300 sm:text-[0.95rem]">
                                 ここで変更した表示名、電話番号、ログイン用メールアドレス、パスワードは、利用者とタチキャストのどちらでも同じアカウント情報として使われます。
-                                役割ごとの詳細プロフィールは、この下のボタンからそれぞれ開けます。
+                                役割ごとの詳細プロフィールは、それぞれのマイページで個別に管理します。
                             </p>
                         </div>
                     </div>
@@ -421,35 +388,17 @@ export function AccountProfilePage() {
                         </section>
                     </div>
 
-                    <section className="space-y-5">
-                        <div className="space-y-2">
-                            <p className="text-xs font-semibold tracking-wide text-slate-400">役割ごとの詳細プロフィール</p>
-                            <h2 className="text-2xl font-semibold text-white">必要に応じて各マイページを開く</h2>
-                            <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                                ここでは共通情報だけを管理しています。利用目的ごとの詳細設定は、それぞれのマイページで編集します。
-                            </p>
-                        </div>
-
-                        <div className="grid gap-5 md:grid-cols-2 xl:grid-cols-3">
-                            {roles.map((role) => (
-                                <article key={role} className="flex h-full flex-col gap-4 rounded-[24px] border border-white/10 bg-white/[0.04] p-5 shadow-[0_16px_34px_rgba(2,6,23,0.12)]">
-                                    <div className="space-y-2">
-                                        <p className="text-xs font-semibold tracking-wide text-[#f3dec0]">{formatRoleLabel(role)}</p>
-                                        <h3 className="text-xl font-semibold text-white">
-                                            {role === 'admin' ? '運営マイページ' : `${formatRoleLabel(role)}プロフィール`}
-                                        </h3>
-                                        <p className="text-sm leading-7 text-slate-300">{roleActionDescription(role)}</p>
-                                    </div>
-                                    <Link
-                                        to={roleActionPath(role)}
-                                        className="mt-auto inline-flex min-h-11 items-center rounded-full border border-white/10 px-4 py-3 text-sm font-semibold text-slate-100 transition hover:bg-white/6"
-                                    >
-                                        {roleActionLabel(role)}
-                                    </Link>
-                                </article>
-                            ))}
-                        </div>
-                    </section>
+                    <div className="pt-2 text-right">
+                        <Link
+                            to="/contact?category=account"
+                            className="text-xs font-medium text-slate-500 transition hover:text-slate-300"
+                        >
+                            アカウント削除
+                        </Link>
+                        <p className="mt-1 text-[11px] text-slate-600">
+                            現在はサポート窓口で個別に受け付けています。
+                        </p>
+                    </div>
                 </div>
 
                 <aside className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_24px_60px_rgba(2,6,23,0.24)]">
