@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState, type ChangeEvent, type FormEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { Link } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
@@ -28,6 +28,17 @@ interface MenuDraft {
     hourly_rate_amount: number;
     is_active: boolean;
     sort_order: number;
+}
+
+interface MenuReorderSession {
+    menuId: string;
+    pointerId: number;
+    pointerType: string;
+    startClientX: number;
+    startClientY: number;
+    isDragging: boolean;
+    longPressTimeoutId: number | null;
+    originalOrder: string[];
 }
 
 async function uploadProfilePhotoTempFile(token: string, file: File): Promise<TempFileRecord> {
@@ -104,6 +115,55 @@ function toOptionalNumber(value: string): number | null {
     return Number.isFinite(parsed) ? parsed : null;
 }
 
+function formatMenuPrice(amount: number): string {
+    return `${amount.toLocaleString('ja-JP')}円`;
+}
+
+function normalizeMenuSortOrder(drafts: MenuDraft[]): MenuDraft[] {
+    return drafts.map((draft, index) => ({
+        ...draft,
+        sort_order: index,
+    }));
+}
+
+function areMenuOrdersEqual(left: string[], right: string[]): boolean {
+    if (left.length !== right.length) {
+        return false;
+    }
+
+    return left.every((value, index) => value === right[index]);
+}
+
+function moveMenuDraft(
+    drafts: MenuDraft[],
+    draggedId: string,
+    targetId: string,
+    insertAfter: boolean,
+): MenuDraft[] {
+    const draggedIndex = drafts.findIndex((draft) => draft.public_id === draggedId);
+    const targetIndex = drafts.findIndex((draft) => draft.public_id === targetId);
+
+    if (draggedIndex < 0 || targetIndex < 0 || draggedIndex === targetIndex) {
+        return drafts;
+    }
+
+    const nextDrafts = [...drafts];
+    const [draggedDraft] = nextDrafts.splice(draggedIndex, 1);
+    let insertIndex = targetIndex;
+
+    if (draggedIndex < targetIndex) {
+        insertIndex -= 1;
+    }
+
+    if (insertAfter) {
+        insertIndex += 1;
+    }
+
+    nextDrafts.splice(insertIndex, 0, draggedDraft);
+
+    return normalizeMenuSortOrder(nextDrafts);
+}
+
 export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePageProps) {
     const { token } = useAuth();
     const isMenuTab = tab === 'menus';
@@ -129,6 +189,12 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
     const [isUploadingPhoto, setIsUploadingPhoto] = useState(false);
     const [isDeletingPhotoId, setIsDeletingPhotoId] = useState<number | null>(null);
     const [pendingMenuId, setPendingMenuId] = useState<string | null>(null);
+    const [editingMenuId, setEditingMenuId] = useState<string | null>(null);
+    const [isCreatingMenu, setIsCreatingMenu] = useState(false);
+    const [draggingMenuId, setDraggingMenuId] = useState<string | null>(null);
+    const [isSavingMenuOrder, setIsSavingMenuOrder] = useState(false);
+    const menuDraftsRef = useRef<MenuDraft[]>([]);
+    const menuReorderSessionRef = useRef<MenuReorderSession | null>(null);
 
     usePageTitle(isMenuTab ? 'タチキャストメニュー' : 'タチキャストプロフィール');
     useToastOnMessage(successMessage, 'success');
@@ -191,23 +257,12 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
         () => (meProfile?.photos ?? []).filter((photo) => photo.usage_type === 'therapist_profile'),
         [meProfile],
     );
-    const publicTherapistPhotos = useMemo(
-        () => therapistPhotos.filter((photo) => photo.visibility === 'public'),
-        [therapistPhotos],
-    );
     const privateTherapistPhotos = useMemo(
         () => therapistPhotos.filter((photo) => photo.visibility === 'private'),
         [therapistPhotos],
     );
-    const approvedOrPendingPhotoCount = useMemo(
-        () => therapistPhotos.filter((photo) => photo.status === 'approved' || photo.status === 'pending').length,
-        [therapistPhotos],
-    );
-    const publicApprovedOrPendingPhotoCount = useMemo(
-        () => publicTherapistPhotos.filter((photo) => photo.status === 'approved' || photo.status === 'pending').length,
-        [publicTherapistPhotos],
-    );
     const isPrivatePhotoLimitReached = privateTherapistPhotos.length >= 3;
+    const isMenuEditorOpen = editingMenuId !== null || isCreatingMenu;
     useEffect(() => {
         if (!photoFile) {
             setPhotoPreviewUrl((currentUrl) => {
@@ -237,6 +292,16 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
     }, [photoFile]);
 
     useEffect(() => {
+        menuDraftsRef.current = menuDrafts;
+    }, [menuDrafts]);
+
+    useEffect(() => {
+        if (editingMenuId && !menuDrafts.some((draft) => draft.public_id === editingMenuId)) {
+            setEditingMenuId(null);
+        }
+    }, [editingMenuId, menuDrafts]);
+
+    useEffect(() => {
         if (isMenuTab || isLoading || window.location.hash !== '#profile-photos') {
             return;
         }
@@ -251,6 +316,209 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
             draft.public_id === publicId ? { ...draft, ...patch } : draft
         )));
     }
+
+    const persistMenuOrder = useCallback(async (originalOrder: string[]) => {
+        if (!token) {
+            return;
+        }
+
+        const normalizedDrafts = normalizeMenuSortOrder(menuDraftsRef.current);
+        const previousIndexMap = new Map(originalOrder.map((menuId, index) => [menuId, index]));
+        const changedDrafts = normalizedDrafts.filter((draft) => {
+            if (!draft.public_id) {
+                return false;
+            }
+
+            return previousIndexMap.get(draft.public_id) !== draft.sort_order;
+        });
+
+        if (changedDrafts.length === 0) {
+            setMenuDrafts(normalizedDrafts);
+            return;
+        }
+
+        setMenuDrafts(normalizedDrafts);
+        setIsSavingMenuOrder(true);
+        setError(null);
+        setSuccessMessage(null);
+
+        try {
+            await Promise.all(changedDrafts.map((draft) => (
+                apiRequest<ApiEnvelope<TherapistMenu>>(`/me/therapist/menus/${draft.public_id}`, {
+                    method: 'PATCH',
+                    token,
+                    body: {
+                        sort_order: draft.sort_order,
+                    },
+                })
+            )));
+
+            await loadData();
+            setSuccessMessage('メニューの並び順を更新しました。');
+        } catch (requestError) {
+            const message =
+                requestError instanceof ApiError
+                    ? requestError.message
+                    : 'メニューの並び替えに失敗しました。';
+
+            setError(message);
+            await loadData().catch(() => undefined);
+        } finally {
+            setIsSavingMenuOrder(false);
+        }
+    }, [loadData, token]);
+
+    const handleMenuReorderGlobalPointerMove = useCallback((event: PointerEvent) => {
+        const session = menuReorderSessionRef.current;
+
+        if (!session || session.pointerId !== event.pointerId) {
+            return;
+        }
+
+        const deltaX = event.clientX - session.startClientX;
+        const deltaY = event.clientY - session.startClientY;
+
+        if (!session.isDragging) {
+            if (Math.abs(deltaX) > 8 || Math.abs(deltaY) > 8) {
+                if (session.longPressTimeoutId !== null) {
+                    window.clearTimeout(session.longPressTimeoutId);
+                }
+
+                menuReorderSessionRef.current = null;
+                setDraggingMenuId(null);
+                window.removeEventListener('pointermove', handleMenuReorderGlobalPointerMove);
+                window.removeEventListener('pointerup', handleMenuReorderGlobalPointerUp);
+                window.removeEventListener('pointercancel', handleMenuReorderGlobalPointerUp);
+            }
+
+            return;
+        }
+
+        event.preventDefault();
+        const hoveredElement = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-menu-public-id]');
+        const targetId = hoveredElement?.dataset.menuPublicId ?? null;
+
+        if (!targetId || targetId === session.menuId) {
+            return;
+        }
+
+        const targetRect = hoveredElement?.getBoundingClientRect();
+        if (!targetRect) {
+            return;
+        }
+
+        const insertAfter = event.clientY > targetRect.top + (targetRect.height / 2);
+
+        setMenuDrafts((current) => moveMenuDraft(current, session.menuId, targetId, insertAfter));
+    }, []);
+
+    const handleMenuReorderGlobalPointerUp = useCallback((event: PointerEvent) => {
+        const session = menuReorderSessionRef.current;
+
+        if (!session || session.pointerId !== event.pointerId) {
+            return;
+        }
+
+        if (session.longPressTimeoutId !== null) {
+            window.clearTimeout(session.longPressTimeoutId);
+        }
+
+        menuReorderSessionRef.current = null;
+        setDraggingMenuId(null);
+        window.removeEventListener('pointermove', handleMenuReorderGlobalPointerMove);
+        window.removeEventListener('pointerup', handleMenuReorderGlobalPointerUp);
+        window.removeEventListener('pointercancel', handleMenuReorderGlobalPointerUp);
+
+        if (!session.isDragging) {
+            return;
+        }
+
+        const nextOrder = menuDraftsRef.current
+            .map((draft) => draft.public_id)
+            .filter((menuId): menuId is string => Boolean(menuId));
+
+        if (!areMenuOrdersEqual(session.originalOrder, nextOrder)) {
+            void persistMenuOrder(session.originalOrder);
+        }
+    }, [handleMenuReorderGlobalPointerMove, persistMenuOrder]);
+
+    const handleMenuReorderPointerDown = useCallback((event: ReactPointerEvent<HTMLButtonElement>, menuId: string) => {
+        if (isMenuEditorOpen || isSavingMenuOrder || pendingMenuId !== null) {
+            return;
+        }
+
+        if (event.pointerType === 'mouse' && event.button !== 0) {
+            return;
+        }
+
+        event.preventDefault();
+
+        const existingLongPressTimeoutId = menuReorderSessionRef.current?.longPressTimeoutId;
+        if (existingLongPressTimeoutId !== null && existingLongPressTimeoutId !== undefined) {
+            window.clearTimeout(existingLongPressTimeoutId);
+        }
+
+        window.removeEventListener('pointermove', handleMenuReorderGlobalPointerMove);
+        window.removeEventListener('pointerup', handleMenuReorderGlobalPointerUp);
+        window.removeEventListener('pointercancel', handleMenuReorderGlobalPointerUp);
+
+        const nextSession: MenuReorderSession = {
+            menuId,
+            pointerId: event.pointerId,
+            pointerType: event.pointerType,
+            startClientX: event.clientX,
+            startClientY: event.clientY,
+            isDragging: event.pointerType === 'mouse',
+            longPressTimeoutId: null,
+            originalOrder: menuDraftsRef.current
+                .map((draft) => draft.public_id)
+                .filter((draftId): draftId is string => Boolean(draftId)),
+        };
+
+        if (nextSession.isDragging) {
+            setDraggingMenuId(menuId);
+        } else {
+            nextSession.longPressTimeoutId = window.setTimeout(() => {
+                const currentSession = menuReorderSessionRef.current;
+
+                if (!currentSession || currentSession.pointerId !== event.pointerId) {
+                    return;
+                }
+
+                menuReorderSessionRef.current = {
+                    ...currentSession,
+                    isDragging: true,
+                    longPressTimeoutId: null,
+                };
+                setDraggingMenuId(menuId);
+            }, 260);
+        }
+
+        menuReorderSessionRef.current = nextSession;
+        window.addEventListener('pointermove', handleMenuReorderGlobalPointerMove);
+        window.addEventListener('pointerup', handleMenuReorderGlobalPointerUp);
+        window.addEventListener('pointercancel', handleMenuReorderGlobalPointerUp);
+    }, [
+        handleMenuReorderGlobalPointerMove,
+        handleMenuReorderGlobalPointerUp,
+        isMenuEditorOpen,
+        isSavingMenuOrder,
+        pendingMenuId,
+    ]);
+
+    useEffect(() => {
+        return () => {
+            const longPressTimeoutId = menuReorderSessionRef.current?.longPressTimeoutId;
+
+            if (longPressTimeoutId !== null && longPressTimeoutId !== undefined) {
+                window.clearTimeout(longPressTimeoutId);
+            }
+
+            window.removeEventListener('pointermove', handleMenuReorderGlobalPointerMove);
+            window.removeEventListener('pointerup', handleMenuReorderGlobalPointerUp);
+            window.removeEventListener('pointercancel', handleMenuReorderGlobalPointerUp);
+        };
+    }, [handleMenuReorderGlobalPointerMove, handleMenuReorderGlobalPointerUp]);
 
     function handlePhotoFileChange(event: ChangeEvent<HTMLInputElement>) {
         const nextFile = event.target.files?.[0] ?? null;
@@ -441,6 +709,7 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
             });
 
             await refreshAfterMutation('対応内容を更新しました。');
+            setEditingMenuId(null);
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -471,12 +740,13 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
                     description: newMenuDraft.description || null,
                     minimum_duration_minutes: newMenuDraft.minimum_duration_minutes,
                     hourly_rate_amount: newMenuDraft.hourly_rate_amount,
-                    sort_order: newMenuDraft.sort_order,
+                    sort_order: menuDraftsRef.current.length,
                 },
             });
 
             setNewMenuDraft(createMenuDraft());
             await refreshAfterMutation('対応内容を追加しました。');
+            setIsCreatingMenu(false);
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -505,6 +775,7 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
             });
 
             await refreshAfterMutation('対応内容を削除しました。');
+            setEditingMenuId(null);
         } catch (requestError) {
             const message =
                 requestError instanceof ApiError
@@ -517,9 +788,41 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
         }
     }
 
+    function startEditingMenu(publicId: string) {
+        setIsCreatingMenu(false);
+        setEditingMenuId(publicId);
+        setError(null);
+        setSuccessMessage(null);
+    }
+
+    function startCreatingMenu() {
+        setEditingMenuId(null);
+        setIsCreatingMenu(true);
+        setNewMenuDraft({
+            ...createMenuDraft(),
+            sort_order: menuDraftsRef.current.length,
+        });
+        setError(null);
+        setSuccessMessage(null);
+    }
+
+    function cancelCreatingMenu() {
+        setIsCreatingMenu(false);
+        setNewMenuDraft({
+            ...createMenuDraft(),
+            sort_order: menuDraftsRef.current.length,
+        });
+    }
+
+    function cancelEditingMenu() {
+        setEditingMenuId(null);
+        void loadData().catch(() => undefined);
+    }
+
     const activeMenuCount = useMemo(() => {
         return menuDrafts.filter((menu) => menu.is_active).length;
     }, [menuDrafts]);
+    const canReorderMenus = !isMenuEditorOpen && !isSavingMenuOrder && pendingMenuId === null;
 
     if (isLoading) {
         return isMenuTab
@@ -531,238 +834,303 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
         <div className="space-y-8">
             {isMenuTab ? (
                 <>
-                    <section className="space-y-4 rounded-[28px] border border-white/10 bg-white/5 p-6 md:p-8">
-                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                            <div className="space-y-3">
-                                <p className="text-xs font-semibold tracking-wide text-rose-200">メニュー</p>
-                                <h1 className="text-3xl font-semibold text-white">提供メニュー</h1>
-                                <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                                    提供内容、最短時間、料金を管理する画面です。公開プロフィールには有効なメニューが最低1件必要です。
-                                </p>
-                            </div>
-
-                            <div className="rounded-2xl border border-white/10 bg-[#111923] px-5 py-4 text-sm text-slate-200">
-                                <p className="text-xs font-semibold tracking-wide text-rose-200">メニュー状況</p>
-                                <p className="mt-2 text-2xl font-semibold text-white">{activeMenuCount}件</p>
-                                <p className="mt-2 text-xs text-slate-400">
-                                    有効メニュー {activeMenuCount}件 / 登録済みメニュー {menuDrafts.length}件
-                                </p>
-                            </div>
+                    {profile?.rejected_reason_code ? (
+                        <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm leading-7 text-amber-100">
+                            差し戻し理由: {formatRejectionReason(profile.rejected_reason_code)}
                         </div>
-
-                        <div className="flex flex-wrap gap-3">
-                            <Link
-                                to="/therapist/onboarding"
-                                className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
-                            >
-                                準備状況へ戻る
-                            </Link>
-                            <Link
-                                to="/therapist/profile"
-                                className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
-                            >
-                                プロフィールへ移動
-                            </Link>
-                            {profile?.public_id ? (
-                                <Link
-                                    to={`/therapists/${profile.public_id}`}
-                                    className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
-                                >
-                                    自分のページを確認
-                                </Link>
-                            ) : null}
-                            <Link
-                                to="/therapist/pricing"
-                                className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
-                            >
-                                料金ルールを確認
-                            </Link>
-                        </div>
-                        {profile?.rejected_reason_code ? (
-                            <div className="rounded-2xl border border-amber-300/20 bg-amber-300/10 px-4 py-3 text-sm leading-7 text-amber-100">
-                                差し戻し理由: {formatRejectionReason(profile.rejected_reason_code)}
-                            </div>
-                        ) : null}
-                    </section>
+                    ) : null}
 
                     <section className="space-y-5 rounded-[24px] border border-white/10 bg-white/5 p-6">
-                        {menuDrafts.map((draft) => (
-                            <article key={draft.public_id ?? 'draft'} className="rounded-[22px] border border-white/10 bg-[#111923] p-5">
-                                <div className="grid gap-4 md:grid-cols-2">
-                                    <label className="space-y-2">
-                                        <span className="text-sm font-semibold text-white">対応内容名</span>
-                                        <input
-                                            value={draft.name}
-                                            onChange={(event) => updateMenuDraft(draft.public_id, { name: event.target.value })}
-                                            className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                        />
-                                    </label>
-                                    <label className="space-y-2">
-                                        <span className="text-sm font-semibold text-white">最短時間（分）</span>
-                                        <input
-                                            type="number"
-                                            min={30}
-                                            max={240}
-                                            step={15}
-                                            value={draft.minimum_duration_minutes}
-                                            onChange={(event) => updateMenuDraft(draft.public_id, { minimum_duration_minutes: Number(event.target.value) })}
-                                            className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                        />
-                                    </label>
-                                </div>
-
-                                <div className="mt-4 grid gap-4 md:grid-cols-[minmax(0,1fr)_180px_140px]">
-                                    <label className="space-y-2">
-                                        <span className="text-sm font-semibold text-white">説明</span>
-                                        <input
-                                            value={draft.description}
-                                            onChange={(event) => updateMenuDraft(draft.public_id, { description: event.target.value })}
-                                            className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                        />
-                                    </label>
-                                    <label className="space-y-2">
-                                        <span className="text-sm font-semibold text-white">60分料金（円）</span>
-                                        <input
-                                            type="number"
-                                            min={1000}
-                                            max={300000}
-                                            step={500}
-                                            value={draft.hourly_rate_amount}
-                                            onChange={(event) => updateMenuDraft(draft.public_id, { hourly_rate_amount: Number(event.target.value) })}
-                                            className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                        />
-                                    </label>
-                                    <label className="space-y-2">
-                                        <span className="text-sm font-semibold text-white">並び順</span>
-                                        <input
-                                            type="number"
-                                            min={0}
-                                            max={1000}
-                                            value={draft.sort_order}
-                                            onChange={(event) => updateMenuDraft(draft.public_id, { sort_order: Number(event.target.value) })}
-                                            className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                        />
-                                    </label>
-                                </div>
-
-                                <div className="mt-4 flex flex-wrap items-center gap-3">
-                                    <label className="inline-flex items-center gap-3 rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200">
-                                        <input
-                                            type="checkbox"
-                                            checked={draft.is_active}
-                                            onChange={(event) => updateMenuDraft(draft.public_id, { is_active: event.target.checked })}
-                                            className="h-4 w-4 rounded border-white/20 bg-transparent"
-                                        />
-                                        公開中
-                                    </label>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            void saveMenu(draft);
-                                        }}
-                                        disabled={pendingMenuId === draft.public_id}
-                                        className="inline-flex items-center rounded-full bg-rose-300 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
-                                        {pendingMenuId === draft.public_id ? '保存中...' : 'この内容を保存'}
-                                    </button>
-
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            if (draft.public_id) {
-                                                void deleteMenu(draft.public_id);
-                                            }
-                                        }}
-                                        disabled={pendingMenuId === draft.public_id}
-                                        className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
-                                        削除
-                                    </button>
-                                </div>
-                            </article>
-                        ))}
-
-                    <article className="rounded-[22px] border border-dashed border-white/15 bg-[#111923] p-5">
-                        <div className="space-y-4">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                             <div className="space-y-2">
-                                <p className="text-sm font-semibold text-white">新しい対応内容を追加</p>
+                                <div className="flex flex-wrap items-center gap-3">
+                                    <h2 className="text-xl font-semibold text-white">登録済みメニュー</h2>
+                                    <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-200">
+                                        {menuDrafts.length}件登録 / 公開中 {activeMenuCount}件
+                                    </span>
+                                </div>
                                 <p className="text-sm leading-7 text-slate-300">
-                                    対応内容、最短時間、60分料金を決めて、まず1件目の公開内容を作ると公開条件が整いやすくなります。
+                                    {canReorderMenus
+                                        ? '一覧はドラッグで並び替えできます。スマホでは長押しで移動可能です。'
+                                        : isSavingMenuOrder
+                                            ? '並び順を保存中です。完了するまで少しお待ちください。'
+                                            : '編集中は並び替えを一時停止しています。'}
                                 </p>
-                            </div>
-
-                            <div className="grid gap-4 md:grid-cols-2">
-                                <label className="space-y-2">
-                                    <span className="text-sm font-semibold text-white">対応内容名</span>
-                                    <input
-                                        value={newMenuDraft.name}
-                                        onChange={(event) => setNewMenuDraft((current) => ({ ...current, name: event.target.value }))}
-                                        className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                        placeholder="例: リラクゼーション / デート / ご飯"
-                                    />
-                                </label>
-                                <label className="space-y-2">
-                                    <span className="text-sm font-semibold text-white">最短時間（分）</span>
-                                    <input
-                                        type="number"
-                                        min={30}
-                                        max={240}
-                                        step={15}
-                                        value={newMenuDraft.minimum_duration_minutes}
-                                        onChange={(event) => setNewMenuDraft((current) => ({ ...current, minimum_duration_minutes: Number(event.target.value) }))}
-                                        className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                    />
-                                </label>
-                            </div>
-
-                            <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_180px_140px]">
-                                <label className="space-y-2">
-                                    <span className="text-sm font-semibold text-white">説明</span>
-                                    <input
-                                        value={newMenuDraft.description}
-                                        onChange={(event) => setNewMenuDraft((current) => ({ ...current, description: event.target.value }))}
-                                        className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                        placeholder="例: もみほぐし中心 / ゆったり会話OK / 食事のみも可"
-                                    />
-                                </label>
-                                <label className="space-y-2">
-                                    <span className="text-sm font-semibold text-white">60分料金（円）</span>
-                                    <input
-                                        type="number"
-                                        min={1000}
-                                        max={300000}
-                                        step={500}
-                                        value={newMenuDraft.hourly_rate_amount}
-                                        onChange={(event) => setNewMenuDraft((current) => ({ ...current, hourly_rate_amount: Number(event.target.value) }))}
-                                        className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                    />
-                                </label>
-                                <label className="space-y-2">
-                                    <span className="text-sm font-semibold text-white">並び順</span>
-                                    <input
-                                        type="number"
-                                        min={0}
-                                        max={1000}
-                                        value={newMenuDraft.sort_order}
-                                        onChange={(event) => setNewMenuDraft((current) => ({ ...current, sort_order: Number(event.target.value) }))}
-                                        className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                    />
-                                </label>
                             </div>
 
                             <button
                                 type="button"
-                                onClick={() => {
-                                    void createMenu();
-                                }}
-                                disabled={pendingMenuId === 'new'}
-                                className="inline-flex items-center rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+                                onClick={startCreatingMenu}
+                                disabled={isMenuEditorOpen || isSavingMenuOrder || pendingMenuId !== null}
+                                className="inline-flex items-center justify-center rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
                             >
-                                {pendingMenuId === 'new' ? '追加中...' : '対応内容を追加する'}
+                                新規作成
                             </button>
                         </div>
-                    </article>
+
+                        <div className="space-y-3">
+                            {menuDrafts.length === 0 && !isCreatingMenu ? (
+                                <div className="rounded-[22px] border border-dashed border-white/15 bg-[#111923] px-5 py-6 text-sm leading-7 text-slate-300">
+                                    まだメニューがありません。新規作成から最初のメニューを追加してください。
+                                </div>
+                            ) : null}
+
+                            {menuDrafts.map((draft, index) => (
+                                editingMenuId === draft.public_id ? (
+                                    <article key={draft.public_id ?? 'draft'} className="space-y-4 rounded-[22px] border border-rose-300/30 bg-[#111923] p-5">
+                                        <div className="flex flex-wrap items-center justify-between gap-3">
+                                            <div>
+                                                <p className="text-sm font-semibold text-white">{draft.name || 'メニューを編集中'}</p>
+                                                <p className="mt-1 text-xs text-slate-400">必要な項目だけ整えて保存できます。</p>
+                                            </div>
+                                            <span className="rounded-full border border-rose-300/20 bg-rose-300/10 px-3 py-1 text-xs font-semibold text-rose-100">
+                                                編集中
+                                            </span>
+                                        </div>
+
+                                        <div className="grid gap-4 md:grid-cols-2">
+                                            <label className="space-y-2">
+                                                <span className="text-sm font-semibold text-white">対応内容名</span>
+                                                <input
+                                                    value={draft.name}
+                                                    onChange={(event) => updateMenuDraft(draft.public_id, { name: event.target.value })}
+                                                    className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                                />
+                                            </label>
+                                            <label className="space-y-2">
+                                                <span className="text-sm font-semibold text-white">最短時間（分）</span>
+                                                <input
+                                                    type="number"
+                                                    min={30}
+                                                    max={240}
+                                                    step={15}
+                                                    value={draft.minimum_duration_minutes}
+                                                    onChange={(event) => updateMenuDraft(draft.public_id, { minimum_duration_minutes: Number(event.target.value) })}
+                                                    className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                                />
+                                            </label>
+                                        </div>
+
+                                        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+                                            <label className="space-y-2">
+                                                <span className="text-sm font-semibold text-white">説明</span>
+                                                <input
+                                                    value={draft.description}
+                                                    onChange={(event) => updateMenuDraft(draft.public_id, { description: event.target.value })}
+                                                    className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                                />
+                                            </label>
+                                            <label className="space-y-2">
+                                                <span className="text-sm font-semibold text-white">60分料金（円）</span>
+                                                <input
+                                                    type="number"
+                                                    min={1000}
+                                                    max={300000}
+                                                    step={500}
+                                                    value={draft.hourly_rate_amount}
+                                                    onChange={(event) => updateMenuDraft(draft.public_id, { hourly_rate_amount: Number(event.target.value) })}
+                                                    className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                                />
+                                            </label>
+                                        </div>
+
+                                        <label className="inline-flex items-center gap-3 rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200">
+                                            <input
+                                                type="checkbox"
+                                                checked={draft.is_active}
+                                                onChange={(event) => updateMenuDraft(draft.public_id, { is_active: event.target.checked })}
+                                                className="h-4 w-4 rounded border-white/20 bg-transparent"
+                                            />
+                                            公開中
+                                        </label>
+
+                                        <div className="flex flex-wrap gap-3">
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    void saveMenu(draft);
+                                                }}
+                                                disabled={pendingMenuId === draft.public_id}
+                                                className="inline-flex items-center rounded-full bg-rose-300 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+                                            >
+                                                {pendingMenuId === draft.public_id ? '保存中...' : '保存する'}
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={cancelEditingMenu}
+                                                disabled={pendingMenuId === draft.public_id}
+                                                className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+                                            >
+                                                キャンセル
+                                            </button>
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (draft.public_id) {
+                                                        void deleteMenu(draft.public_id);
+                                                    }
+                                                }}
+                                                disabled={pendingMenuId === draft.public_id}
+                                                className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+                                            >
+                                                {pendingMenuId === draft.public_id ? '削除中...' : '削除'}
+                                            </button>
+                                        </div>
+                                    </article>
+                                ) : (
+                                    <article
+                                        key={draft.public_id ?? `menu-${index}`}
+                                        data-menu-public-id={draft.public_id ?? undefined}
+                                        className={[
+                                            'rounded-[22px] border bg-[#111923] p-4 transition',
+                                            draggingMenuId === draft.public_id
+                                                ? 'border-rose-300/40 bg-rose-300/10'
+                                                : 'border-white/10',
+                                        ].join(' ')}
+                                    >
+                                        <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                                            <div className="flex items-start gap-3">
+                                                <button
+                                                    type="button"
+                                                    onPointerDown={(event) => {
+                                                        if (draft.public_id) {
+                                                            handleMenuReorderPointerDown(event, draft.public_id);
+                                                        }
+                                                    }}
+                                                    disabled={!canReorderMenus}
+                                                    aria-label={`${draft.name || 'メニュー'}の並び順を変更`}
+                                                    className="inline-flex min-h-11 min-w-11 items-center justify-center rounded-2xl border border-white/10 bg-white/5 px-3 text-xs font-semibold text-slate-200 transition hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+                                                    style={{ touchAction: 'none' }}
+                                                >
+                                                    移動
+                                                </button>
+                                                <div className="space-y-2">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <p className="text-sm font-semibold text-white">{draft.name}</p>
+                                                        <span className={[
+                                                            'rounded-full border px-3 py-1 text-xs font-semibold',
+                                                            draft.is_active
+                                                                ? 'border-emerald-400/20 bg-emerald-400/10 text-emerald-100'
+                                                                : 'border-white/10 bg-white/5 text-slate-300',
+                                                        ].join(' ')}>
+                                                            {draft.is_active ? '公開中' : '非公開'}
+                                                        </span>
+                                                        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300">
+                                                            {index + 1}番目
+                                                        </span>
+                                                    </div>
+                                                    <div className="flex flex-wrap gap-3 text-sm text-slate-300">
+                                                        <span>最短 {draft.minimum_duration_minutes}分</span>
+                                                        <span>60分 {formatMenuPrice(draft.hourly_rate_amount)}</span>
+                                                    </div>
+                                                    {draft.description ? (
+                                                        <p className="text-sm leading-7 text-slate-400">{draft.description}</p>
+                                                    ) : (
+                                                        <p className="text-sm leading-7 text-slate-500">説明はまだありません。</p>
+                                                    )}
+                                                </div>
+                                            </div>
+
+                                            <button
+                                                type="button"
+                                                onClick={() => {
+                                                    if (draft.public_id) {
+                                                        startEditingMenu(draft.public_id);
+                                                    }
+                                                }}
+                                                disabled={!draft.public_id || !canReorderMenus}
+                                                className="inline-flex items-center justify-center rounded-full border border-white/10 px-4 py-2 text-sm font-semibold text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+                                            >
+                                                編集
+                                            </button>
+                                        </div>
+                                    </article>
+                                )
+                            ))}
+
+                            {isCreatingMenu ? (
+                                <article className="space-y-4 rounded-[22px] border border-rose-300/30 bg-[#111923] p-5">
+                                    <div className="flex flex-wrap items-center justify-between gap-3">
+                                        <div>
+                                            <p className="text-sm font-semibold text-white">新しいメニューを作成</p>
+                                            <p className="mt-1 text-xs text-slate-400">まずは名前、最短時間、料金を入れると一覧に追加できます。</p>
+                                        </div>
+                                        <span className="rounded-full border border-rose-300/20 bg-rose-300/10 px-3 py-1 text-xs font-semibold text-rose-100">
+                                            新規作成中
+                                        </span>
+                                    </div>
+
+                                    <div className="grid gap-4 md:grid-cols-2">
+                                        <label className="space-y-2">
+                                            <span className="text-sm font-semibold text-white">対応内容名</span>
+                                            <input
+                                                value={newMenuDraft.name}
+                                                onChange={(event) => setNewMenuDraft((current) => ({ ...current, name: event.target.value }))}
+                                                className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                                placeholder="例: リラクゼーション / デート / ご飯"
+                                            />
+                                        </label>
+                                        <label className="space-y-2">
+                                            <span className="text-sm font-semibold text-white">最短時間（分）</span>
+                                            <input
+                                                type="number"
+                                                min={30}
+                                                max={240}
+                                                step={15}
+                                                value={newMenuDraft.minimum_duration_minutes}
+                                                onChange={(event) => setNewMenuDraft((current) => ({ ...current, minimum_duration_minutes: Number(event.target.value) }))}
+                                                className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                            />
+                                        </label>
+                                    </div>
+
+                                    <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+                                        <label className="space-y-2">
+                                            <span className="text-sm font-semibold text-white">説明</span>
+                                            <input
+                                                value={newMenuDraft.description}
+                                                onChange={(event) => setNewMenuDraft((current) => ({ ...current, description: event.target.value }))}
+                                                className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                                placeholder="例: もみほぐし中心 / ゆったり会話OK / 食事のみも可"
+                                            />
+                                        </label>
+                                        <label className="space-y-2">
+                                            <span className="text-sm font-semibold text-white">60分料金（円）</span>
+                                            <input
+                                                type="number"
+                                                min={1000}
+                                                max={300000}
+                                                step={500}
+                                                value={newMenuDraft.hourly_rate_amount}
+                                                onChange={(event) => setNewMenuDraft((current) => ({ ...current, hourly_rate_amount: Number(event.target.value) }))}
+                                                className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                            />
+                                        </label>
+                                    </div>
+
+                                    <div className="flex flex-wrap gap-3">
+                                        <button
+                                            type="button"
+                                            onClick={() => {
+                                                void createMenu();
+                                            }}
+                                            disabled={pendingMenuId === 'new'}
+                                            className="inline-flex items-center rounded-full bg-rose-300 px-5 py-3 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            {pendingMenuId === 'new' ? '作成中...' : '作成する'}
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={cancelCreatingMenu}
+                                            disabled={pendingMenuId === 'new'}
+                                            className="inline-flex items-center rounded-full border border-white/10 px-5 py-3 text-sm text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+                                        >
+                                            キャンセル
+                                        </button>
+                                    </div>
+                                </article>
+                            ) : null}
+                        </div>
                     </section>
                 </>
             ) : (
