@@ -4,6 +4,7 @@ import { RoleModeSwitcher } from '../components/account/RoleModeSwitcher';
 import { BrandMark } from '../components/brand/BrandMark';
 import { NotificationBellLink } from '../components/notifications/NotificationBellLink';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { formatRoleLabel } from '../lib/account';
 import type { ApiEnvelope, NavItem, PublicCampaignRecord, RoleName, ServiceMeta } from '../lib/types';
 import { useAuth } from '../hooks/useAuth';
 
@@ -73,11 +74,13 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
     const location = useLocation();
     const [therapistPublicId, setTherapistPublicId] = useState<string | null>(null);
     const [therapistDashboardCampaigns, setTherapistDashboardCampaigns] = useState<PublicCampaignRecord[]>([]);
+    const headerRef = useRef<HTMLElement | null>(null);
     const navScrollRef = useRef<HTMLDivElement | null>(null);
     const mobileMenuRef = useRef<HTMLDivElement | null>(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [showModeBanner, setShowModeBanner] = useState(false);
 
     useEffect(() => {
         if (role !== 'therapist' || !token) {
@@ -199,6 +202,27 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
         };
     }, [isMobileMenuOpen]);
 
+    useEffect(() => {
+        const headerElement = headerRef.current;
+
+        if (!headerElement) {
+            return;
+        }
+
+        const updateModeBannerVisibility = () => {
+            setShowModeBanner(headerElement.getBoundingClientRect().bottom <= 0);
+        };
+
+        updateModeBannerVisibility();
+        window.addEventListener('scroll', updateModeBannerVisibility, { passive: true });
+        window.addEventListener('resize', updateModeBannerVisibility);
+
+        return () => {
+            window.removeEventListener('scroll', updateModeBannerVisibility);
+            window.removeEventListener('resize', updateModeBannerVisibility);
+        };
+    }, [location.pathname, location.search]);
+
     const scrollTabs = (direction: 'left' | 'right') => {
         const container = navScrollRef.current;
 
@@ -216,8 +240,19 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
 
     return (
         <div className="min-h-screen">
+            {showModeBanner ? (
+                <div className="pointer-events-none fixed inset-x-0 top-0 z-40">
+                    <div className="border-b border-white/10 bg-[rgba(18,25,34,0.96)] backdrop-blur">
+                        <div className="mx-auto w-full max-w-[1380px] px-4 sm:px-6 lg:px-8">
+                            <p className="py-2 text-xs font-semibold tracking-wide text-slate-100">
+                                {formatRoleLabel(role)}モード
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
             <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-8 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
-                <header className="overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(118deg,rgba(23,32,43,0.96)_0%,rgba(31,45,61,0.94)_52%,rgba(42,59,79,0.96)_100%)] shadow-[0_30px_70px_rgba(2,6,23,0.34)]">
+                <header ref={headerRef} className="overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(118deg,rgba(23,32,43,0.96)_0%,rgba(31,45,61,0.94)_52%,rgba(42,59,79,0.96)_100%)] shadow-[0_30px_70px_rgba(2,6,23,0.34)]">
                     <div className="space-y-6 p-6 sm:p-7 lg:p-8">
                         <div className="flex flex-col gap-5 xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start xl:gap-8">
                             <div className="min-w-0 flex-1">
