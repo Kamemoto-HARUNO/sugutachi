@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -15,19 +15,9 @@ import type {
     BookingMessagesMeta,
 } from '../lib/types';
 
-type ReadFilter = 'all' | 'unread' | 'read';
-
 type BookingMessagesResponse = ApiEnvelope<BookingMessageRecord[]> & {
     meta?: BookingMessagesMeta;
 };
-
-function normalizeReadFilter(value: string | null): ReadFilter {
-    if (value === 'read' || value === 'unread') {
-        return value;
-    }
-
-    return 'all';
-}
 
 function statusLabel(status: string): string {
     switch (status) {
@@ -109,17 +99,6 @@ function buildPrimaryTime(booking: BookingDetailRecord): string {
     return `${formatDateTime(booking.scheduled_start_at)} - ${formatDateTime(booking.scheduled_end_at)}`;
 }
 
-function readFilterLabel(filter: ReadFilter): string {
-    switch (filter) {
-        case 'unread':
-            return '未読のみ';
-        case 'read':
-            return '既読のみ';
-        default:
-            return 'すべて';
-    }
-}
-
 function PhotoIcon() {
     return (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
@@ -162,8 +141,6 @@ function TrashIcon() {
 export function UserBookingMessagesPage() {
     const { publicId } = useParams();
     const { token } = useAuth();
-    const [searchParams, setSearchParams] = useSearchParams();
-    const readFilter = normalizeReadFilter(searchParams.get('read_status'));
 
     const [booking, setBooking] = useState<BookingDetailRecord | null>(null);
     const [messages, setMessages] = useState<BookingMessageRecord[]>([]);
@@ -212,12 +189,11 @@ export function UserBookingMessagesPage() {
         }
 
         try {
-            const query = readFilter === 'all' ? '' : `?read_status=${readFilter}`;
             const [bookingPayload, messagesPayload] = await Promise.all([
                 apiRequest<ApiEnvelope<BookingDetailRecord>>(`/bookings/${publicId}`, {
                     token,
                 }),
-                apiRequest<BookingMessagesResponse>(`/bookings/${publicId}/messages${query}`, {
+                apiRequest<BookingMessagesResponse>(`/bookings/${publicId}/messages`, {
                     token,
                 }),
             ]);
@@ -237,7 +213,7 @@ export function UserBookingMessagesPage() {
             setIsLoading(false);
             setIsRefreshing(false);
         }
-    }, [publicId, readFilter, token]);
+    }, [publicId, token]);
 
     useEffect(() => {
         void loadData();
@@ -585,12 +561,6 @@ export function UserBookingMessagesPage() {
                             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
                                 {statusLabel(booking.status)}
                             </span>
-                            <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
-                                {readFilterLabel(readFilter)}
-                            </span>
-                            <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
-                                受信未読 {meta?.unread_count ?? unreadIncomingCount}件
-                            </span>
                             {meta?.counterparty_typing ? (
                                 <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
                                     {counterpartyName}が入力中...
@@ -637,48 +607,7 @@ export function UserBookingMessagesPage() {
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
                 <section className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                    <div className="flex flex-col gap-4 border-b border-[#efe5d7] pb-5 md:flex-row md:items-end md:justify-between">
-                        <div>
-                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">やりとり</p>
-                            <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">やりとり一覧</h2>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                            {[
-                                ['all', 'すべて'],
-                                ['unread', '未読'],
-                                ['read', '既読'],
-                            ].map(([value, label]) => (
-                                <button
-                                    key={value}
-                                    type="button"
-                                    onClick={() => {
-                                        setSearchParams((previous) => {
-                                            const next = new URLSearchParams(previous);
-
-                                            if (value === 'all') {
-                                                next.delete('read_status');
-                                            } else {
-                                                next.set('read_status', value);
-                                            }
-
-                                            return next;
-                                        });
-                                    }}
-                                    className={[
-                                        'rounded-full px-4 py-2 text-sm font-semibold transition',
-                                        readFilter === value
-                                            ? 'bg-[#17202b] text-white'
-                                            : 'bg-[#f5efe4] text-[#48505a] hover:bg-[#ebe2d3]',
-                                    ].join(' ')}
-                                >
-                                    {label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="mt-6 space-y-4">
+                    <div className="space-y-4">
                         {messages.length > 0 ? messages.map((message) => {
                             const isPendingRead = pendingReadIds.includes(message.id);
                             const isDeletingImage = deletingImageMessageIds.includes(message.id);
@@ -703,7 +632,7 @@ export function UserBookingMessagesPage() {
                                             ].join(' ')}
                                         >
                                             {isDeletedImageMessage ? (
-                                                <p className="text-sm leading-7 opacity-80">（画像が削除されました）</p>
+                                                <p className="text-sm leading-[160%] opacity-80">（画像が削除されました）</p>
                                             ) : isImageMessage ? (
                                                 <div className="space-y-3">
                                                     <button
@@ -719,10 +648,10 @@ export function UserBookingMessagesPage() {
                                                             className="max-h-[26rem] w-full rounded-[18px] object-cover"
                                                         />
                                                     </button>
-                                                    {message.body ? <p className="text-sm leading-7">{message.body}</p> : null}
+                                                    {message.body ? <p className="text-sm leading-[160%]">{message.body}</p> : null}
                                                 </div>
                                             ) : (
-                                                <p className="text-sm leading-7">{message.body}</p>
+                                                <p className="text-sm leading-[160%]">{message.body}</p>
                                             )}
                                         </div>
 
@@ -793,7 +722,7 @@ export function UserBookingMessagesPage() {
                         <input
                             ref={fileInputRef}
                             type="file"
-                            accept="image/jpeg,image/png,image/webp"
+                            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
                             className="hidden"
                             onChange={handleImageChange}
                         />
@@ -870,9 +799,15 @@ export function UserBookingMessagesPage() {
                             </button>
                         </div>
 
-                        <div className="flex flex-wrap items-center justify-between gap-3 px-1 text-xs text-[#7a7066]">
-                            <span>連絡先や外部決済情報は送信できません。</span>
-                            <span>{draft.length}/1000</span>
+                        <div className="px-1 text-right text-xs text-[#7a7066]">
+                            {draft.length}/1000
+                        </div>
+
+                        <div className="flex items-start gap-2 px-1 text-xs text-[#7a7066]">
+                            <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#f1e7d8] text-[10px] font-bold text-[#8b6a3e]">
+                                !
+                            </span>
+                            <span>連絡先交換につながる文言は送れません。待ち合わせや進行確認に必要な連絡だけに絞って使います。</span>
                         </div>
 
                         {composeError ? (
