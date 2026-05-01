@@ -41,6 +41,11 @@ interface MenuReorderSession {
     originalOrder: string[];
 }
 
+interface MenuDragOffset {
+    x: number;
+    y: number;
+}
+
 async function uploadProfilePhotoTempFile(token: string, file: File): Promise<TempFileRecord> {
     const formData = new FormData();
     formData.append('purpose', 'profile_photo');
@@ -192,6 +197,7 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
     const [editingMenuId, setEditingMenuId] = useState<string | null>(null);
     const [isCreatingMenu, setIsCreatingMenu] = useState(false);
     const [draggingMenuId, setDraggingMenuId] = useState<string | null>(null);
+    const [draggingMenuOffset, setDraggingMenuOffset] = useState<MenuDragOffset>({ x: 0, y: 0 });
     const [isSavingMenuOrder, setIsSavingMenuOrder] = useState(false);
     const menuDraftsRef = useRef<MenuDraft[]>([]);
     const menuReorderSessionRef = useRef<MenuReorderSession | null>(null);
@@ -386,6 +392,7 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
 
                 menuReorderSessionRef.current = null;
                 setDraggingMenuId(null);
+                setDraggingMenuOffset({ x: 0, y: 0 });
                 window.removeEventListener('pointermove', handleMenuReorderGlobalPointerMove);
                 window.removeEventListener('pointerup', handleMenuReorderGlobalPointerUp);
                 window.removeEventListener('pointercancel', handleMenuReorderGlobalPointerUp);
@@ -395,6 +402,10 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
         }
 
         event.preventDefault();
+        setDraggingMenuOffset({
+            x: deltaX,
+            y: deltaY,
+        });
         const hoveredElement = document.elementFromPoint(event.clientX, event.clientY)?.closest<HTMLElement>('[data-menu-public-id]');
         const targetId = hoveredElement?.dataset.menuPublicId ?? null;
 
@@ -425,6 +436,7 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
 
         menuReorderSessionRef.current = null;
         setDraggingMenuId(null);
+        setDraggingMenuOffset({ x: 0, y: 0 });
         window.removeEventListener('pointermove', handleMenuReorderGlobalPointerMove);
         window.removeEventListener('pointerup', handleMenuReorderGlobalPointerUp);
         window.removeEventListener('pointercancel', handleMenuReorderGlobalPointerUp);
@@ -477,6 +489,7 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
 
         if (nextSession.isDragging) {
             setDraggingMenuId(menuId);
+            setDraggingMenuOffset({ x: 0, y: 0 });
         } else {
             nextSession.longPressTimeoutId = window.setTimeout(() => {
                 const currentSession = menuReorderSessionRef.current;
@@ -491,6 +504,7 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
                     longPressTimeoutId: null,
                 };
                 setDraggingMenuId(menuId);
+                setDraggingMenuOffset({ x: 0, y: 0 });
             }, 260);
         }
 
@@ -514,6 +528,7 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
                 window.clearTimeout(longPressTimeoutId);
             }
 
+            setDraggingMenuOffset({ x: 0, y: 0 });
             window.removeEventListener('pointermove', handleMenuReorderGlobalPointerMove);
             window.removeEventListener('pointerup', handleMenuReorderGlobalPointerUp);
             window.removeEventListener('pointercancel', handleMenuReorderGlobalPointerUp);
@@ -984,9 +999,16 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
                                         className={[
                                             'rounded-[22px] border bg-[#111923] p-4 transition',
                                             draggingMenuId === draft.public_id
-                                                ? 'border-rose-300/40 bg-rose-300/10'
+                                                ? 'border-rose-300/40 bg-rose-300/10 shadow-2xl shadow-rose-950/30'
                                                 : 'border-white/10',
                                         ].join(' ')}
+                                        style={draggingMenuId === draft.public_id ? {
+                                            opacity: 0.58,
+                                            transform: `translate3d(${draggingMenuOffset.x}px, ${draggingMenuOffset.y}px, 0) scale(1.01)`,
+                                            zIndex: 20,
+                                            position: 'relative',
+                                            pointerEvents: 'none',
+                                        } : undefined}
                                     >
                                         <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                                             <div className="flex items-start gap-3">
