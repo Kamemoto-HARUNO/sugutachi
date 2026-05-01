@@ -1,6 +1,7 @@
 import { useEffect, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { BrandMark } from '../brand/BrandMark';
+import { BookingMessagesLink } from '../messages/BookingMessagesLink';
 import { NotificationBellLink } from '../notifications/NotificationBellLink';
 import { useAuth } from '../../hooks/useAuth';
 
@@ -183,6 +184,7 @@ function HeaderBar({
                 <>
                         <div className="hidden items-center gap-3 md:flex">
                             {isAuthenticated ? <NotificationBellLink className="border-white/15 bg-white/10 hover:bg-white/15" /> : null}
+                            {isAuthenticated ? <BookingMessagesLink className="border-white/15 bg-white/10 hover:bg-white/15" /> : null}
                             {actions.map((action) => action.onClick ? (
                                 <button
                                     key={`${action.label}-${action.to}`}
@@ -204,6 +206,7 @@ function HeaderBar({
 
                     <div className="flex items-center gap-2 md:hidden">
                         {isAuthenticated ? <NotificationBellLink compact className="border-white/15 bg-white/10 hover:bg-white/15" /> : null}
+                        {isAuthenticated ? <BookingMessagesLink compact className="border-white/15 bg-white/10 hover:bg-white/15" /> : null}
                         <MobileMenuButton isOpen={isMenuOpen} onToggle={() => setIsMenuOpen((value) => !value)} />
                     </div>
 

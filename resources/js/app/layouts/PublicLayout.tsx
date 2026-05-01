@@ -1,6 +1,7 @@
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { RoleModeSwitcher } from '../components/account/RoleModeSwitcher';
 import { BrandMark } from '../components/brand/BrandMark';
+import { BookingMessagesLink } from '../components/messages/BookingMessagesLink';
 import { NotificationBellLink } from '../components/notifications/NotificationBellLink';
 import { getMyPageEntryPath } from '../lib/account';
 import { publicNavItems } from '../lib/navigation';
@@ -45,6 +46,7 @@ export function PublicLayout() {
                             {isAuthenticated ? (
                                 <>
                                     <NotificationBellLink />
+                                    <BookingMessagesLink />
                                     <RoleModeSwitcher />
                                     <Link
                                         to={myPagePath}
