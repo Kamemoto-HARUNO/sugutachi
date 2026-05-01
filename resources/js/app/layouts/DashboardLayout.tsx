@@ -280,7 +280,6 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
                                             </div>
                                             {role === 'user' || role === 'therapist' ? (
                                                 <BookingMessagesLink
-                                                    role={role}
                                                     adaptive
                                                     className="border-white/15 bg-white/10 hover:bg-white/15"
                                                 />

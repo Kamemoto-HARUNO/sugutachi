@@ -1,15 +1,17 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { ApiError, apiRequest, unwrapData } from '../../lib/api';
+import { getActiveRoles } from '../../lib/account';
+import { ApiError } from '../../lib/api';
 import {
     bookingMessageSummaryRefreshEvent,
     buildBookingMessagesIndexPath,
+    countUnreadBookingInboxMessages,
+    fetchBookingInboxThreads,
+    getBookingInboxRoles,
 } from '../../lib/bookingMessages';
-import type { ApiEnvelope, BookingListRecord, RoleName } from '../../lib/types';
 
 interface BookingMessagesLinkProps {
-    role: Extract<RoleName, 'user' | 'therapist'>;
     className?: string;
     compact?: boolean;
     adaptive?: boolean;
@@ -24,27 +26,27 @@ function badgeLabel(unreadCount: number): string {
 }
 
 export function BookingMessagesLink({
-    role,
     className = '',
     compact = false,
     adaptive = false,
 }: BookingMessagesLinkProps) {
-    const { isAuthenticated, token } = useAuth();
+    const { account, isAuthenticated, token } = useAuth();
     const [unreadCount, setUnreadCount] = useState(0);
+    const inboxRoles = useMemo(
+        () => getBookingInboxRoles(getActiveRoles(account)),
+        [account],
+    );
 
     async function loadSummary() {
-        if (!isAuthenticated || !token) {
+        if (!isAuthenticated || !token || inboxRoles.length === 0) {
             setUnreadCount(0);
             return;
         }
 
         try {
-            const payload = await apiRequest<ApiEnvelope<BookingListRecord[]>>(`/bookings?role=${role}&sort=updated_at&direction=desc`, {
-                token,
-            });
-            const bookings = unwrapData(payload);
+            const threads = await fetchBookingInboxThreads(token, inboxRoles);
 
-            setUnreadCount(bookings.reduce((total, booking) => total + booking.unread_message_count, 0));
+            setUnreadCount(countUnreadBookingInboxMessages(threads));
         } catch (error) {
             if (error instanceof ApiError && error.status === 401) {
                 setUnreadCount(0);
@@ -53,7 +55,7 @@ export function BookingMessagesLink({
     }
 
     useEffect(() => {
-        if (!isAuthenticated || !token) {
+        if (!isAuthenticated || !token || inboxRoles.length === 0) {
             setUnreadCount(0);
             return;
         }
@@ -85,11 +87,11 @@ export function BookingMessagesLink({
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener(bookingMessageSummaryRefreshEvent, handleSummaryRefresh);
         };
-    }, [isAuthenticated, role, token]);
+    }, [inboxRoles, isAuthenticated, token]);
 
     return (
         <Link
-            to={buildBookingMessagesIndexPath(role)}
+            to={buildBookingMessagesIndexPath()}
             aria-label={unreadCount > 0 ? `メッセージ ${unreadCount}件未読` : 'メッセージ'}
             className={[
                 'relative inline-flex min-h-11 items-center justify-center rounded-full border border-white/12 bg-white/[0.04] text-slate-100 transition hover:bg-white/8',

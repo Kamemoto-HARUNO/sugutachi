@@ -1,18 +1,20 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
-import { ApiError, apiRequest, unwrapData } from '../lib/api';
-import { buildBookingMessagesDetailPath } from '../lib/bookingMessages';
+import { formatRoleLabel, getActiveRoles } from '../lib/account';
+import { ApiError } from '../lib/api';
+import {
+    type BookingInboxRecord,
+    buildBookingMessagesDetailPath,
+    fetchBookingInboxThreads,
+    getBookingInboxRoles,
+} from '../lib/bookingMessages';
 import { formatJstDateTime } from '../lib/datetime';
 import { getServiceAddressLabel } from '../lib/discovery';
-import type { ApiEnvelope, BookingListRecord, RoleName } from '../lib/types';
-
-interface BookingMessagesPageProps {
-    role: Extract<RoleName, 'user' | 'therapist'>;
-}
+import type { BookingListRecord } from '../lib/types';
 
 function requestTypeLabel(value: BookingListRecord['request_type']): string {
     return value === 'scheduled' ? '予定予約' : '今すぐ';
@@ -91,7 +93,7 @@ function buildThreadSummaryLine(booking: BookingListRecord): string {
 
 function latestMessagePreview(
     booking: BookingListRecord,
-    role: Extract<RoleName, 'user' | 'therapist'>,
+    role: BookingInboxRecord['inbox_role'],
 ): string {
     const excerpt = booking.latest_message_summary?.excerpt ?? 'メッセージを確認できます。';
 
@@ -102,12 +104,17 @@ function latestMessagePreview(
     return excerpt;
 }
 
-export function BookingMessagesPage({ role }: BookingMessagesPageProps) {
-    const { token } = useAuth();
-    const [bookings, setBookings] = useState<BookingListRecord[]>([]);
+export function BookingMessagesPage() {
+    const { account, token } = useAuth();
+    const [bookings, setBookings] = useState<BookingInboxRecord[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const availableInboxRoles = useMemo(
+        () => getBookingInboxRoles(getActiveRoles(account)),
+        [account],
+    );
+    const showRoleBadge = availableInboxRoles.length > 1;
 
     usePageTitle('メッセージ一覧');
     useToastOnMessage(error, 'error');
@@ -124,10 +131,7 @@ export function BookingMessagesPage({ role }: BookingMessagesPageProps) {
         }
 
         try {
-            const payload = await apiRequest<ApiEnvelope<BookingListRecord[]>>(`/bookings?role=${role}&sort=updated_at&direction=desc`, {
-                token,
-            });
-            const nextBookings = unwrapData(payload);
+            const nextBookings = await fetchBookingInboxThreads(token, availableInboxRoles);
 
             setBookings(nextBookings);
             setError(null);
@@ -144,8 +148,14 @@ export function BookingMessagesPage({ role }: BookingMessagesPageProps) {
     }
 
     useEffect(() => {
+        if (!token) {
+            setBookings([]);
+            setIsLoading(false);
+            return;
+        }
+
         void loadThreads();
-    }, [role, token]);
+    }, [availableInboxRoles, token]);
 
     const threads = [...bookings]
         .filter((booking) => booking.latest_message_summary || booking.latest_message_sent_at)
@@ -159,10 +169,9 @@ export function BookingMessagesPage({ role }: BookingMessagesPageProps) {
             return new Date(right.latest_message_sent_at ?? right.created_at).getTime()
                 - new Date(left.latest_message_sent_at ?? left.created_at).getTime();
         });
-    const roleLabel = role === 'user' ? 'タチキャストとの' : '利用者との';
 
     if (isLoading) {
-        return <LoadingScreen title="メッセージ一覧を読み込み中" message={`${roleLabel}連絡履歴を確認しています。`} />;
+        return <LoadingScreen title="メッセージ一覧を読み込み中" message="利用者・タチキャスト両方の連絡履歴を確認しています。" />;
     }
 
     return (
@@ -194,7 +203,7 @@ export function BookingMessagesPage({ role }: BookingMessagesPageProps) {
                         {threads.map((booking) => (
                             <Link
                                 key={booking.public_id}
-                                to={buildBookingMessagesDetailPath(role, booking.public_id)}
+                                to={buildBookingMessagesDetailPath(booking.inbox_role, booking.public_id)}
                                 className={[
                                     'group block rounded-[26px] border p-4 transition',
                                     booking.unread_message_count > 0
@@ -213,6 +222,16 @@ export function BookingMessagesPage({ role }: BookingMessagesPageProps) {
                                                     <p className="truncate text-[1rem] font-semibold text-[#17202b]">
                                                         {buildCounterpartyName(booking)}
                                                     </p>
+                                                    {showRoleBadge ? (
+                                                        <span className={[
+                                                            'inline-flex h-6 shrink-0 items-center justify-center rounded-full px-2.5 text-[11px] font-semibold',
+                                                            booking.inbox_role === 'user'
+                                                                ? 'bg-[#fff3d8] text-[#8a6516]'
+                                                                : 'bg-[#e7f5ec] text-[#2d7048]',
+                                                        ].join(' ')}>
+                                                            {formatRoleLabel(booking.inbox_role)}
+                                                        </span>
+                                                    ) : null}
                                                     {booking.unread_message_count > 0 ? (
                                                         <span className="inline-flex h-6 shrink-0 items-center justify-center rounded-full bg-[#d67c7c] px-2.5 text-[11px] font-bold text-white shadow-[0_8px_18px_rgba(214,124,124,0.24)]">
                                                             未読
@@ -230,7 +249,7 @@ export function BookingMessagesPage({ role }: BookingMessagesPageProps) {
                                             </div>
                                         </div>
                                         <p className="mt-2 line-clamp-2 text-sm leading-6 text-slate-600">
-                                            {latestMessagePreview(booking, role)}
+                                            {latestMessagePreview(booking, booking.inbox_role)}
                                         </p>
                                     </div>
                                 </div>

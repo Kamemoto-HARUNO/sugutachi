@@ -127,6 +127,7 @@ function AppRoutes() {
                     <Route path="/reset-password" element={<ResetPasswordPage />} />
                     <Route element={<ProtectedRoute isAuthenticated={isAuthenticated} />}>
                         <Route path="/notifications" element={<NotificationsPage />} />
+                        <Route path="/messages" element={<MessagesEntryRedirect account={account} activeRole={activeRole} />} />
                     </Route>
                     <Route element={<GuestOnlyRoute isAuthenticated={isAuthenticated} accountPath={getPostAuthPath(account, activeRole)} />}>
                         <Route path="/login" element={<LoginPage />} />
@@ -177,7 +178,7 @@ function AppRoutes() {
                     />
                     <Route path="offers" element={<UserCampaignOffersPage />} />
                     <Route path="bookings" element={<UserBookingsPage />} />
-                    <Route path="messages" element={<BookingMessagesPage role="user" />} />
+                    <Route path="messages" element={<BookingMessagesPage />} />
                     <Route path="bookings/:publicId" element={<UserBookingDetailPage />} />
                     <Route path="bookings/:publicId/messages" element={<UserBookingMessagesPage />} />
                     <Route path="bookings/:publicId/review" element={<UserBookingReviewPage />} />
@@ -273,7 +274,7 @@ function AppRoutes() {
                     <Route path="requests/:publicId" element={<TherapistRequestsPage />} />
                     <Route path="reviews" element={<TherapistReviewsPage />} />
                     <Route path="bookings" element={<TherapistBookingsPage />} />
-                    <Route path="messages" element={<BookingMessagesPage role="therapist" />} />
+                    <Route path="messages" element={<BookingMessagesPage />} />
                     <Route path="bookings/:publicId" element={<TherapistBookingDetailPage />} />
                     <Route path="bookings/:publicId/review" element={<TherapistBookingReviewPage />} />
                     <Route path="bookings/:publicId/interrupt" element={<TherapistBookingInterruptPage />} />
@@ -441,6 +442,28 @@ function RoleEntryRedirect({
     }
 
     return <Navigate to={`/role-select?return_to=${encodeURIComponent(getRoleDashboardPath(role))}`} replace />;
+}
+
+function MessagesEntryRedirect({
+    account,
+    activeRole,
+}: {
+    account: ReturnType<typeof useAuth>['account'];
+    activeRole: RoleName | null;
+}) {
+    const availableInboxRoles = getActiveRoles(account).filter((role): role is 'user' | 'therapist' => (
+        role === 'user' || role === 'therapist'
+    ));
+
+    if (activeRole === 'user' || activeRole === 'therapist') {
+        return <Navigate to={`/${activeRole}/messages`} replace />;
+    }
+
+    if (availableInboxRoles.length > 0) {
+        return <Navigate to={`/${availableInboxRoles[0]}/messages`} replace />;
+    }
+
+    return <Navigate to="/notifications" replace />;
 }
 
 function LegacyUserTherapistDetailRedirect() {
