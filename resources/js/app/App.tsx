@@ -126,7 +126,7 @@ function AppRoutes() {
                     <Route path="/contact" element={<ContactPage />} />
                     <Route path="/reset-password" element={<ResetPasswordPage />} />
                     <Route element={<ProtectedRoute isAuthenticated={isAuthenticated} />}>
-                        <Route path="/notifications" element={<NotificationsPage />} />
+                        <Route path="/notifications" element={<NotificationsEntryRedirect account={account} activeRole={activeRole} />} />
                         <Route path="/messages" element={<MessagesEntryRedirect account={account} activeRole={activeRole} />} />
                     </Route>
                     <Route element={<GuestOnlyRoute isAuthenticated={isAuthenticated} accountPath={getPostAuthPath(account, activeRole)} />}>
@@ -177,6 +177,7 @@ function AppRoutes() {
                         }
                     />
                     <Route path="offers" element={<UserCampaignOffersPage />} />
+                    <Route path="notifications" element={<NotificationsPage />} />
                     <Route path="bookings" element={<UserBookingsPage />} />
                     <Route path="messages" element={<BookingMessagesPage />} />
                     <Route path="bookings/:publicId" element={<UserBookingDetailPage />} />
@@ -267,6 +268,7 @@ function AppRoutes() {
                     <Route path="photos" element={<Navigate to="/therapist/profile#profile-photos" replace />} />
                     <Route path="profile" element={<TherapistProfilePage />} />
                     <Route path="menus" element={<TherapistProfilePage tab="menus" />} />
+                    <Route path="notifications" element={<NotificationsPage />} />
                     <Route path="pricing" element={<TherapistPricingPage />} />
                     <Route path="availability" element={<TherapistAvailabilityPage />} />
                     <Route path="bases" element={<TherapistAvailabilityPage tab="bases" />} />
@@ -304,6 +306,7 @@ function AppRoutes() {
                     element={<DashboardLayout role="admin" description="監視、審査、法務、料金運用の入口です。" navItems={adminNavItems} />}
                 >
                     <Route index element={<AdminDashboardPage />} />
+                    <Route path="notifications" element={<NotificationsPage />} />
                     <Route path="accounts" element={<AdminAccountsPage />} />
                     <Route path="accounts/:publicId" element={<AdminAccountsPage />} />
                     <Route path="identity-verifications" element={<AdminIdentityVerificationsPage />} />
@@ -464,6 +467,26 @@ function MessagesEntryRedirect({
     }
 
     return <Navigate to="/notifications" replace />;
+}
+
+function NotificationsEntryRedirect({
+    account,
+    activeRole,
+}: {
+    account: ReturnType<typeof useAuth>['account'];
+    activeRole: RoleName | null;
+}) {
+    if (activeRole === 'user' || activeRole === 'therapist' || activeRole === 'admin') {
+        return <Navigate to={`/${activeRole}/notifications`} replace />;
+    }
+
+    const availableRoles = getActiveRoles(account);
+
+    if (availableRoles.length > 0) {
+        return <Navigate to={`/${availableRoles[0]}/notifications`} replace />;
+    }
+
+    return <Navigate to="/" replace />;
 }
 
 function LegacyUserTherapistDetailRedirect() {
