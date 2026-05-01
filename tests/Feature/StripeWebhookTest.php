@@ -191,6 +191,55 @@ class StripeWebhookTest extends TestCase
         $this->assertDatabaseCount('stripe_webhook_events', 0);
     }
 
+    public function test_payment_intent_webhook_ignores_unknown_external_payment_intent(): void
+    {
+        config()->set('services.stripe.webhook_secret', 'whsec_test');
+
+        $payload = $this->paymentIntentPayload(
+            eventId: 'evt_external_payment_intent',
+            type: 'payment_intent.succeeded',
+            stripePaymentIntentId: 'pi_external_unknown',
+            status: PaymentIntent::STRIPE_STATUS_SUCCEEDED,
+            amount: 500,
+        );
+
+        $this->sendStripeWebhook($payload)
+            ->assertOk()
+            ->assertJsonPath('status', StripeWebhookEvent::STATUS_IGNORED);
+
+        $this->assertDatabaseHas('stripe_webhook_events', [
+            'stripe_event_id' => 'evt_external_payment_intent',
+            'event_type' => 'payment_intent.succeeded',
+            'processed_status' => StripeWebhookEvent::STATUS_IGNORED,
+        ]);
+    }
+
+    public function test_payment_intent_webhook_fails_for_missing_managed_payment_intent(): void
+    {
+        config()->set('services.stripe.webhook_secret', 'whsec_test');
+
+        $payload = $this->paymentIntentPayload(
+            eventId: 'evt_missing_managed_payment_intent',
+            type: 'payment_intent.succeeded',
+            stripePaymentIntentId: 'pi_missing_managed',
+            status: PaymentIntent::STRIPE_STATUS_SUCCEEDED,
+            metadata: [
+                'booking_public_id' => 'book_missing',
+                'quote_public_id' => 'quote_missing',
+                'user_account_public_id' => 'acc_user_missing',
+                'therapist_account_public_id' => 'acc_therapist_missing',
+            ],
+        );
+
+        $this->sendStripeWebhook($payload)->assertStatus(500);
+
+        $this->assertDatabaseHas('stripe_webhook_events', [
+            'stripe_event_id' => 'evt_missing_managed_payment_intent',
+            'event_type' => 'payment_intent.succeeded',
+            'processed_status' => StripeWebhookEvent::STATUS_FAILED,
+        ]);
+    }
+
     public function test_account_updated_webhook_syncs_connected_account_status(): void
     {
         config()->set('services.stripe.webhook_secret', 'whsec_test');
@@ -487,6 +536,8 @@ class StripeWebhookTest extends TestCase
         string $type,
         string $stripePaymentIntentId,
         string $status,
+        int $amount = 12300,
+        array $metadata = [],
     ): string {
         return json_encode([
             'id' => $eventId,
@@ -497,8 +548,9 @@ class StripeWebhookTest extends TestCase
                     'id' => $stripePaymentIntentId,
                     'object' => 'payment_intent',
                     'status' => $status,
-                    'amount' => 12300,
+                    'amount' => $amount,
                     'currency' => 'jpy',
+                    'metadata' => $metadata,
                 ],
             ],
         ], JSON_THROW_ON_ERROR);

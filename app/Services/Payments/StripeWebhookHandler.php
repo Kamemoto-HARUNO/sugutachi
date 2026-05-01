@@ -139,6 +139,10 @@ class StripeWebhookHandler
             ->first();
 
         if (! $paymentIntent) {
+            if (! $this->isManagedPaymentIntentPayload($stripePaymentIntent)) {
+                return StripeWebhookEvent::STATUS_IGNORED;
+            }
+
             throw new RuntimeException("PaymentIntent [{$stripePaymentIntent['id']}] was not found.");
         }
 
@@ -358,6 +362,20 @@ class StripeWebhookHandler
         }
 
         return $paymentIntent;
+    }
+
+    private function isManagedPaymentIntentPayload(array $stripePaymentIntent): bool
+    {
+        $metadata = $stripePaymentIntent['metadata'] ?? null;
+
+        if (! is_array($metadata)) {
+            return false;
+        }
+
+        return filled($metadata['booking_public_id'] ?? null)
+            || filled($metadata['quote_public_id'] ?? null)
+            || filled($metadata['user_account_public_id'] ?? null)
+            || filled($metadata['therapist_account_public_id'] ?? null);
     }
 
     private function fallbackPaymentIntentStatus(string $eventType): string
