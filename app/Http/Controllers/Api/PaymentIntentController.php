@@ -160,7 +160,6 @@ class PaymentIntentController extends Controller
             ]);
 
             $campaignService->restoreBookingCampaignApplication($lockedBooking->refresh(), 'payment_authorization_failed');
-
             return $lockedBooking->refresh()->load([
                 'currentPaymentIntent',
                 'currentQuote',
