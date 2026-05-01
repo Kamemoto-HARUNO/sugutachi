@@ -393,7 +393,7 @@ export function RoleSelectPage() {
                                         highlightedRole === role ? guide.accent.highlight : '',
                                     ].join(' ')}
                                 >
-                                    <div className="flex items-start justify-between gap-3">
+                                    <div className="space-y-3">
                                         <div className="space-y-3">
                                             <span className={`inline-flex items-center rounded-full border px-3 py-1 text-xs font-semibold ${guide.accent.badge}`}>
                                                 {guide.eyebrow}
@@ -403,16 +403,6 @@ export function RoleSelectPage() {
                                                 <p className="text-sm leading-7 text-slate-300">{guide.title}</p>
                                             </div>
                                         </div>
-                                        <span
-                                            className={[
-                                                'inline-flex shrink-0 items-center rounded-full px-3 py-1 text-xs font-semibold',
-                                                isCurrent
-                                                    ? guide.accent.primaryButton
-                                                    : 'border border-white/10 bg-white/5 text-slate-200',
-                                            ].join(' ')}
-                                        >
-                                            {isCurrent ? '選択中' : '開く'}
-                                        </span>
                                     </div>
 
                                     {renderRoleCampaigns(role)}
