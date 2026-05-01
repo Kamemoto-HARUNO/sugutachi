@@ -173,7 +173,7 @@ export function PublicHeaderBar({
                 'relative flex w-full items-center justify-between gap-4',
                 sticky
                     ? 'rounded-[26px] border border-white/12 bg-[rgba(23,32,43,0.94)] px-4 py-3 shadow-[0_18px_45px_rgba(23,32,43,0.28)] backdrop-blur'
-                    : '',
+                    : 'border-0',
             ].join(' ')}
         >
             <BrandMark inverse />

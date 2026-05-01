@@ -50,7 +50,7 @@ export function PublicLayout() {
             <header className="border-b border-white/10">
                 <div className="mx-auto w-full max-w-7xl px-6 py-5">
                     <PublicHeaderBar actions={headerActions} />
-                    <div className="mt-4 pt-4">
+                    <div className="mt-4 border-0 pt-0">
                         <nav className="flex flex-wrap gap-2">
                             {publicNavItems.map((item) => (
                                 <NavLink key={item.to} to={item.to} end={item.exact} className={({ isActive }) => navLinkClass(isActive)}>
