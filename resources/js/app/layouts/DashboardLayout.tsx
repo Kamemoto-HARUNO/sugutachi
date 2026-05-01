@@ -30,6 +30,17 @@ function headerActionClass(fullWidth = false): string {
     ].join(' ').trim();
 }
 
+function modeBannerClass(role: RoleName): string {
+    switch (role) {
+        case 'user':
+            return 'border-[#d6b35a] bg-[#f3dec0] text-[#17202b]';
+        case 'therapist':
+            return 'border-[#4aa36d] bg-[#dff1e5] text-[#1f5e3b]';
+        case 'admin':
+            return 'border-[#5c8ed9] bg-[#dfeeff] text-[#244f87]';
+    }
+}
+
 function MobileMenuButton({
     isOpen,
     onToggle,
@@ -242,9 +253,9 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
         <div className="min-h-screen">
             {showModeBanner ? (
                 <div className="pointer-events-none fixed inset-x-0 top-0 z-40">
-                    <div className="border-b border-white/10 bg-[rgba(18,25,34,0.96)] backdrop-blur">
+                    <div className={['border-b backdrop-blur', modeBannerClass(role)].join(' ')}>
                         <div className="mx-auto w-full max-w-[1380px] px-4 sm:px-6 lg:px-8">
-                            <p className="py-2 text-xs font-semibold tracking-wide text-slate-100">
+                            <p className="py-2 text-xs font-semibold tracking-wide">
                                 {formatRoleLabel(role)}モード
                             </p>
                         </div>
