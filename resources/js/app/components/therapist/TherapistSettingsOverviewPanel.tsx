@@ -140,6 +140,7 @@ export function TherapistSettingsOverviewPanel() {
 
     const unreadNotifications = notificationMeta?.unread_count ?? notifications.filter((notification) => !notification.is_read).length;
     const activeStripeRequirements = stripeStatus?.requirements_currently_due ?? [];
+    const isListingActive = Boolean(profile?.profile_status === 'approved' && profile.is_listed);
     const canGoOnline = Boolean(profile?.profile_status === 'approved' && profile.is_listed && !profile.is_online);
     const canGoOffline = Boolean(profile?.is_online);
     const canListProfile = Boolean(profile?.profile_status === 'approved' && !profile.is_listed);
@@ -342,7 +343,7 @@ export function TherapistSettingsOverviewPanel() {
                                 <div className="flex items-start justify-between gap-4">
                                     <div className="space-y-2">
                                         <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">プロフィールの公開</p>
-                                        <p className="text-base font-semibold text-[#17202b]">{profile?.is_listed ? '公開中' : '非公開'}</p>
+                                        <p className="text-base font-semibold text-[#17202b]">{isListingActive ? '公開中' : '非公開'}</p>
                                         <p className="text-sm leading-7 text-[#68707a]">
                                             公開中は利用者にプロフィールが表示されます。今すぐ受付を止めても、予定予約の案内は継続できます。
                                         </p>
@@ -350,7 +351,7 @@ export function TherapistSettingsOverviewPanel() {
                                     <button
                                         type="button"
                                         role="switch"
-                                        aria-checked={profile?.is_listed ?? false}
+                                        aria-checked={isListingActive}
                                         aria-label="プロフィール公開を切り替える"
                                         onClick={() => {
                                             if (isUpdatingListing || !profile) {
@@ -369,7 +370,7 @@ export function TherapistSettingsOverviewPanel() {
                                         disabled={isUpdatingListing || (!profile?.is_listed && !canListProfile) || (Boolean(profile?.is_listed) && !canHideProfile)}
                                         className={[
                                             'relative inline-flex h-8 w-14 shrink-0 items-center rounded-full border transition disabled:cursor-not-allowed disabled:opacity-60',
-                                            profile?.is_listed
+                                            isListingActive
                                                 ? 'border-[#17202b] bg-[#17202b]'
                                                 : 'border-[#d8c6a8] bg-[#efe3cf]',
                                         ].join(' ')}
@@ -377,7 +378,7 @@ export function TherapistSettingsOverviewPanel() {
                                         <span
                                             className={[
                                                 'inline-block h-6 w-6 rounded-full bg-white shadow-sm transition',
-                                                profile?.is_listed ? 'translate-x-7' : 'translate-x-1',
+                                                isListingActive ? 'translate-x-7' : 'translate-x-1',
                                             ].join(' ')}
                                         />
                                     </button>
