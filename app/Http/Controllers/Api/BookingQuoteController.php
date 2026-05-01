@@ -21,6 +21,8 @@ use Illuminate\Validation\ValidationException;
 
 class BookingQuoteController extends Controller
 {
+    private const INPUT_TIMEZONE = 'Asia/Tokyo';
+
     public function store(
         Request $request,
         BookingQuoteCalculator $calculator,
@@ -40,7 +42,7 @@ class BookingQuoteController extends Controller
 
         $isOnDemand = $validated['is_on_demand'] ?? true;
         $requestedStartAt = filled($validated['requested_start_at'] ?? null)
-            ? CarbonImmutable::parse($validated['requested_start_at'])
+            ? $this->parseInputDateTime($validated['requested_start_at'])
             : null;
 
         $scheduledBookingPolicy->assertUserCanBook($request->user());
@@ -200,5 +202,15 @@ class BookingQuoteController extends Controller
             (float) $therapistProfile->bookingSetting->scheduled_base_lat,
             (float) $therapistProfile->bookingSetting->scheduled_base_lng,
         ];
+    }
+
+    private function parseInputDateTime(string $value): CarbonImmutable
+    {
+        $hasTimezone = preg_match('/(?:Z|[+\-]\d{2}:\d{2})$/', $value) === 1;
+
+        return ($hasTimezone
+            ? CarbonImmutable::parse($value)
+            : CarbonImmutable::parse($value, self::INPUT_TIMEZONE))
+            ->utc();
     }
 }

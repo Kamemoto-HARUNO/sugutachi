@@ -17,6 +17,8 @@ class BookingQuoteCalculator
 
     public const PLATFORM_FEE_RATE = 0.10;
 
+    private const SERVICE_TIMEZONE = 'Asia/Tokyo';
+
     private const TRAVEL_MODE_PROFILES = [
         TherapistBookingSetting::TRAVEL_MODE_WALKING => ['speed_kmh' => 4.0, 'route_factor' => 1.3, 'fixed_minutes' => 0],
         TherapistBookingSetting::TRAVEL_MODE_BICYCLE => ['speed_kmh' => 12.0, 'route_factor' => 1.15, 'fixed_minutes' => 0],
@@ -230,7 +232,7 @@ class BookingQuoteCalculator
         $serviceAddress->loadMissing('account.userProfile');
 
         $context = [
-            'requested_hour' => $this->effectiveRequestedAt($requestedStartAt, $isOnDemand)?->hour,
+            'requested_hour' => $this->effectiveRequestedAt($requestedStartAt, $isOnDemand)?->setTimezone(self::SERVICE_TIMEZONE)->hour,
             'walking_time_range' => $walking['walking_time_range'],
             'demand_level' => $this->demandLevel($therapistProfile, $menu, $isOnDemand),
         ];

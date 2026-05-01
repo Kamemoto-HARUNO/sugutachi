@@ -1,4 +1,8 @@
-import { buildCurrentJstDateTimeLocalValue, buildRoundedJstDateTimeLocalValue } from './datetime';
+import {
+    buildCurrentJstDateTimeLocalValue,
+    buildRoundedJstDateTimeLocalValue,
+    parseJstDateTimeLocalInput,
+} from './datetime';
 import type { PendingScheduledRequestSummary, ServiceAddress, TherapistMenu, TherapistSearchResult } from './types';
 
 export type BookingStartType = 'now' | 'scheduled';
@@ -124,7 +128,7 @@ export function formatDiscoveryScheduledApiValue(value: string): string {
         return '';
     }
 
-    return `${value.replace('T', ' ')}:00`;
+    return parseJstDateTimeLocalInput(value)?.toISOString() ?? '';
 }
 
 export function buildDefaultDiscoveryScheduledStartAt(now = new Date()): string {

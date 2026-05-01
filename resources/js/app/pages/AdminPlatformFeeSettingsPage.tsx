@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { parseJstDateTimeLocalInput } from '../lib/datetime';
 import { formatDateTime } from '../lib/therapist';
 import type {
     AdminPlatformFeeSettingRecord,
@@ -41,9 +42,9 @@ function toIsoOrNull(value: string): string | null {
         return null;
     }
 
-    const date = new Date(value);
+    const date = parseJstDateTimeLocalInput(value);
 
-    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+    return date ? date.toISOString() : null;
 }
 
 export function AdminPlatformFeeSettingsPage() {

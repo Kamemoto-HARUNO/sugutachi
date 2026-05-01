@@ -8,6 +8,7 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import {
     addDaysToJstDateValue,
+    buildJstDateValue,
     buildCurrentJstDateValue,
     getJstMinutesSinceStartOfDay,
     formatJstDateTime,
@@ -80,6 +81,10 @@ function normalizeDateValue(value: string | null): string {
 
 function addDaysToDateValue(value: string, days: number): string {
     return addDaysToJstDateValue(value, days);
+}
+
+function requestedDateValue(value: string | null): string | null {
+    return buildJstDateValue(value);
 }
 
 function formatDateLabel(value: string): string {
@@ -653,7 +658,7 @@ export function UserTherapistAvailabilityPage() {
     }, [requestedStartAt, selectedMenu, selectedWindow]);
 
     const selectedCalendarDate = useMemo(() => {
-        const targetDate = requestedStartAt ? requestedStartAt.slice(0, 10) : selectedDate;
+        const targetDate = requestedDateValue(requestedStartAt) ?? selectedDate;
 
         return calendarDates.find((calendarDate) => calendarDate.date === targetDate) ?? null;
     }, [calendarDates, requestedStartAt, selectedDate]);
@@ -691,7 +696,7 @@ export function UserTherapistAvailabilityPage() {
             service_address_id: selectedAddress.public_id,
             availability_slot_id: selectedWindow.availability_slot_id,
             requested_start_at: requestedStartAt,
-            date: requestedStartAt.slice(0, 10),
+            date: requestedDateValue(requestedStartAt) ?? selectedDate,
             start_type: 'scheduled',
         });
         const walkingTimeRange = selectedCalendarDate?.walking_time_range ?? availability?.walking_time_range;
@@ -757,7 +762,7 @@ export function UserTherapistAvailabilityPage() {
             availability_slot_id: window.availability_slot_id,
             requested_start_at: nextRequestedStartAt,
             menu_duration_minutes: String(minimumDuration),
-            date: nextRequestedStartAt.slice(0, 10),
+            date: requestedDateValue(nextRequestedStartAt) ?? selectedDate,
         });
     }
 
@@ -1280,7 +1285,10 @@ export function UserTherapistAvailabilityPage() {
                                                     );
                                                 })}
 
-                                                {selectedWindow && requestedStartAt && selectedDurationIsValid && requestedStartAt.slice(0, 10) === calendarDate.date ? (
+                                                {selectedWindow
+                                                    && requestedStartAt
+                                                    && selectedDurationIsValid
+                                                    && requestedDateValue(requestedStartAt) === calendarDate.date ? (
                                                     <div
                                                         className="absolute left-1 right-1 rounded-[14px] border-2 border-dashed border-[#cf8b9f] bg-[rgba(255,239,245,0.82)] px-1 py-2 shadow-[0_10px_20px_rgba(207,139,159,0.18)] sm:left-1.5 sm:right-1.5 sm:rounded-[18px] sm:px-2 md:left-2 md:right-2 md:rounded-[22px] md:px-3 md:py-3"
                                                         onClick={(event) => event.stopPropagation()}
@@ -1405,7 +1413,7 @@ export function UserTherapistAvailabilityPage() {
                                                     onChange={(event) => {
                                                         updateSearchParams({
                                                             requested_start_at: event.target.value,
-                                                            date: event.target.value.slice(0, 10),
+                                                            date: requestedDateValue(event.target.value) ?? null,
                                                         });
                                                     }}
                                                     className="min-h-12 w-full rounded-[20px] border border-[#e8dfd2] bg-white px-4 text-sm font-semibold text-[#17202b] outline-none"
@@ -1479,7 +1487,7 @@ export function UserTherapistAvailabilityPage() {
                                         <div className="rounded-[22px] bg-white/8 px-4 py-4">
                                             <p className="text-xs font-semibold text-[#d2b179]">選択中の枠</p>
                                             <p className="mt-2 text-lg font-semibold text-white">
-                                                {formatDateLabel(requestedStartAt.slice(0, 10))}
+                                                {formatDateLabel(requestedDateValue(requestedStartAt) ?? '')}
                                             </p>
                                             <p className="mt-1 text-sm text-[#d8d3ca]">
                                                 {formatTimeLabel(requestedStartAt)} - {getRangeEndLabel(requestedStartAt, displayedDuration)}

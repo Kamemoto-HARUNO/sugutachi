@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { formatJstDateTimeLocalValue, parseJstDateTimeLocalInput } from '../lib/datetime';
 import { formatDateTime, formatProfileStatus } from '../lib/therapist';
 import type {
     AdminAccountRecord,
@@ -138,7 +139,7 @@ function buildDetailPath(publicId: string, search: string): string {
 function defaultRestrictionUntil(): string {
     const target = new Date(Date.now() + (7 * 24 * 60 * 60 * 1000));
 
-    return target.toISOString().slice(0, 16);
+    return formatJstDateTimeLocalValue(target.toISOString());
 }
 
 export function AdminTravelRequestsPage() {
@@ -448,9 +449,9 @@ export function AdminTravelRequestsPage() {
             return;
         }
 
-        const restrictedUntil = new Date(restrictionUntilInput);
+        const restrictedUntil = parseJstDateTimeLocalInput(restrictionUntilInput);
 
-        if (Number.isNaN(restrictedUntil.getTime())) {
+        if (!restrictedUntil) {
             setActionError('送信制限の日時が不正です。');
             return;
         }

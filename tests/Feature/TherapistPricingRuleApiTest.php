@@ -7,10 +7,13 @@ use App\Models\Booking;
 use App\Models\BookingQuote;
 use App\Models\IdentityVerification;
 use App\Models\ServiceAddress;
+use App\Models\TherapistAvailabilitySlot;
+use App\Models\TherapistBookingSetting;
 use App\Models\TherapistMenu;
 use App\Models\TherapistPricingRule;
 use App\Models\TherapistProfile;
 use App\Models\UserProfile;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
 use Tests\TestCase;
@@ -257,7 +260,7 @@ class TherapistPricingRuleApiTest extends TestCase
 
     public function test_booking_quote_applies_time_walking_and_demand_pricing_rules(): void
     {
-        $this->travelTo(now()->setDate(2030, 1, 5)->setTime(22, 15));
+        $this->travelTo(CarbonImmutable::parse('2030-01-05 22:15:00', 'Asia/Tokyo')->utc());
 
         [$therapist, $profile, $menu] = $this->createTherapistFixture('context');
 
@@ -384,6 +387,86 @@ class TherapistPricingRuleApiTest extends TestCase
             TherapistPricingRule::DEMAND_LEVEL_BUSY,
             $quote->input_snapshot_json['pricing_rule_context']['demand_level'] ?? null
         );
+    }
+
+    public function test_scheduled_booking_quote_uses_service_timezone_for_time_band_rule(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2030-01-05 00:00:00'));
+
+        [$therapist, $profile, $menu] = $this->createTherapistFixture('scheduled_timezone');
+
+        TherapistBookingSetting::create([
+            'therapist_profile_id' => $profile->id,
+            'booking_request_lead_time_minutes' => 60,
+            'scheduled_base_label' => 'Tokyo Base',
+            'scheduled_base_lat' => '35.6812360',
+            'scheduled_base_lng' => '139.7671250',
+        ]);
+
+        $slot = TherapistAvailabilitySlot::create([
+            'public_id' => 'slot_pricing_scheduled_timezone',
+            'therapist_profile_id' => $profile->id,
+            'start_at' => CarbonImmutable::parse('2030-01-05T01:00:00Z'),
+            'end_at' => CarbonImmutable::parse('2030-01-05T04:00:00Z'),
+            'status' => TherapistAvailabilitySlot::STATUS_PUBLISHED,
+            'dispatch_base_type' => TherapistAvailabilitySlot::DISPATCH_BASE_TYPE_DEFAULT,
+            'dispatch_area_label' => '東京駅周辺',
+        ]);
+
+        TherapistPricingRule::create([
+            'therapist_profile_id' => $profile->id,
+            'rule_type' => TherapistPricingRule::RULE_TYPE_TIME_BAND,
+            'condition_json' => [
+                'start_hour' => 0,
+                'end_hour' => 5,
+            ],
+            'adjustment_type' => TherapistPricingRule::ADJUSTMENT_TYPE_FIXED_AMOUNT,
+            'adjustment_amount' => 1000,
+            'priority' => 10,
+            'is_active' => true,
+        ]);
+
+        $user = Account::factory()->create(['public_id' => 'acc_pricing_scheduled_timezone_user']);
+        IdentityVerification::create([
+            'account_id' => $user->id,
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'is_age_verified' => true,
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now(),
+        ]);
+        $serviceAddress = ServiceAddress::create([
+            'public_id' => 'addr_pricing_scheduled_timezone_user',
+            'account_id' => $user->id,
+            'label' => 'Hotel',
+            'place_type' => 'hotel',
+            'prefecture' => 'Tokyo',
+            'city' => 'Chiyoda',
+            'address_line_encrypted' => Crypt::encryptString('Tokyo Hotel'),
+            'lat' => '35.6820000',
+            'lng' => '139.7680000',
+            'is_default' => true,
+        ]);
+
+        $requestedStartAt = CarbonImmutable::parse('2030-01-05T01:00:00Z');
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson('/api/booking-quotes', [
+                'therapist_profile_id' => $profile->public_id,
+                'therapist_menu_id' => $menu->public_id,
+                'service_address_id' => $serviceAddress->public_id,
+                'availability_slot_id' => $slot->public_id,
+                'duration_minutes' => 60,
+                'is_on_demand' => false,
+                'requested_start_at' => $requestedStartAt->toIso8601String(),
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.amounts.demand_fee_amount', 0)
+            ->assertJsonPath('data.amounts.total_amount', 12300);
+
+        $quote = BookingQuote::query()->latest('id')->firstOrFail();
+
+        $this->assertSame(0, $quote->demand_fee_amount);
+        $this->assertSame([], $quote->applied_rules_json['pricing_rules'] ?? []);
     }
 
     private function createTherapistFixture(string $suffix): array

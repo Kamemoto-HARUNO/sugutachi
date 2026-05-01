@@ -30,6 +30,8 @@ use Illuminate\Validation\ValidationException;
 
 class TherapistDiscoveryController extends Controller
 {
+    private const INPUT_TIMEZONE = 'Asia/Tokyo';
+
     public function publicIndex(Request $request): AnonymousResourceCollection
     {
         $validated = $request->validate([
@@ -623,6 +625,8 @@ class TherapistDiscoveryController extends Controller
 
         if ($validated['start_type'] !== 'scheduled') {
             $validated['scheduled_start_at'] = null;
+        } elseif (filled($validated['scheduled_start_at'] ?? null)) {
+            $validated['scheduled_start_at'] = $this->parseInputDateTime($validated['scheduled_start_at'])->toIso8601String();
         }
 
         $serviceAddress = null;
@@ -646,6 +650,16 @@ class TherapistDiscoveryController extends Controller
     private function authenticatedViewer(Request $request): ?Account
     {
         return $request->user() ?? Auth::guard('sanctum')->user();
+    }
+
+    private function parseInputDateTime(string $value): CarbonImmutable
+    {
+        $hasTimezone = preg_match('/(?:Z|[+\-]\d{2}:\d{2})$/', $value) === 1;
+
+        return ($hasTimezone
+            ? CarbonImmutable::parse($value)
+            : CarbonImmutable::parse($value, self::INPUT_TIMEZONE))
+            ->utc();
     }
 
     private function pendingScheduledRequestSummary(?Account $viewer, TherapistProfile $profile): ?array

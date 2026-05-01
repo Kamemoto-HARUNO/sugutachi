@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { formatJstDateTimeLocalValue, parseJstDateTimeLocalInput } from '../lib/datetime';
 import { formatDateTime } from '../lib/therapist';
 import type {
     AdminLegalDocumentRecord,
@@ -40,9 +41,9 @@ function toIsoOrNull(value: string): string | null {
         return null;
     }
 
-    const date = new Date(value);
+    const date = parseJstDateTimeLocalInput(value);
 
-    return Number.isNaN(date.getTime()) ? null : date.toISOString();
+    return date ? date.toISOString() : null;
 }
 
 function toInputDateTime(value: string | null): string {
@@ -50,13 +51,7 @@ function toInputDateTime(value: string | null): string {
         return '';
     }
 
-    const date = new Date(value);
-
-    if (Number.isNaN(date.getTime())) {
-        return '';
-    }
-
-    return date.toISOString().slice(0, 16);
+    return formatJstDateTimeLocalValue(value);
 }
 
 function documentTypeLabel(value: string): string {

@@ -9,9 +9,13 @@ use App\Models\IdentityVerification;
 use App\Models\ProfilePhoto;
 use App\Models\Review;
 use App\Models\ServiceAddress;
+use App\Models\TherapistAvailabilitySlot;
+use App\Models\TherapistBookingSetting;
 use App\Models\TherapistLocation;
 use App\Models\TherapistMenu;
+use App\Models\TherapistPricingRule;
 use App\Models\TherapistProfile;
+use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
 use Tests\TestCase;
@@ -130,6 +134,49 @@ class TherapistDiscoveryApiTest extends TestCase
             ->assertJsonPath('data.walking_time_range', null)
             ->assertJsonPath('data.lowest_estimated_total_amount', null)
             ->assertJsonPath('data.menus.0.estimated_total_amount', null);
+    }
+
+    public function test_scheduled_discovery_treats_local_datetime_input_as_jst_for_time_band_rules(): void
+    {
+        [$user, $address, $nearbyProfile] = $this->createDiscoveryFixture();
+
+        TherapistBookingSetting::create([
+            'therapist_profile_id' => $nearbyProfile->id,
+            'booking_request_lead_time_minutes' => 60,
+            'scheduled_base_label' => 'Tokyo Base',
+            'scheduled_base_lat' => '35.6820000',
+            'scheduled_base_lng' => '139.7680000',
+        ]);
+        TherapistAvailabilitySlot::create([
+            'public_id' => 'slot_discovery_scheduled_near',
+            'therapist_profile_id' => $nearbyProfile->id,
+            'start_at' => CarbonImmutable::parse('2030-01-01T14:00:00Z'),
+            'end_at' => CarbonImmutable::parse('2030-01-02T02:00:00Z'),
+            'status' => TherapistAvailabilitySlot::STATUS_PUBLISHED,
+            'dispatch_base_type' => TherapistAvailabilitySlot::DISPATCH_BASE_TYPE_DEFAULT,
+            'dispatch_area_label' => '東京駅周辺',
+        ]);
+
+        TherapistPricingRule::create([
+            'therapist_profile_id' => $nearbyProfile->id,
+            'rule_type' => TherapistPricingRule::RULE_TYPE_TIME_BAND,
+            'condition_json' => [
+                'start_hour' => 22,
+                'end_hour' => 6,
+            ],
+            'adjustment_type' => TherapistPricingRule::ADJUSTMENT_TYPE_FIXED_AMOUNT,
+            'adjustment_amount' => 1000,
+            'priority' => 10,
+            'is_active' => true,
+        ]);
+
+        $scheduledStartAt = urlencode('2030-01-01 23:30:00');
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->getJson("/api/therapists?service_address_id={$address->public_id}&menu_duration_minutes=60&start_type=scheduled&scheduled_start_at={$scheduledStartAt}&sort=recommended")
+            ->assertOk()
+            ->assertJsonPath('data.0.public_id', $nearbyProfile->public_id)
+            ->assertJsonPath('data.0.estimated_total_amount', 13300);
     }
 
     public function test_guest_can_view_offline_public_therapist_detail_without_saved_address(): void
