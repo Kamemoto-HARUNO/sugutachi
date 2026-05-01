@@ -164,7 +164,7 @@ export function TherapistSettingsOverviewPanel() {
             description: hasBaseConfigured
                 ? `${bookingSetting?.scheduled_base_location?.label ?? '出動拠点'}を設定済みです。`
                 : '出動拠点を設定すると、予定予約の案内を出せます。',
-            to: '/therapist/availability',
+            to: '/therapist/bases',
             actionLabel: '拠点設定を開く',
         },
         {
