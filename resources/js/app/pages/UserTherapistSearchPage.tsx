@@ -175,6 +175,10 @@ export function UserTherapistSearchPage() {
                     sort: selectedSort,
                 });
 
+                if (selectedStartType === 'now') {
+                    params.set('include_offline', '1');
+                }
+
                 const payload = await apiRequest<ApiEnvelope<TherapistSearchResult[]>>(`/therapists?${params.toString()}`, {
                     token,
                 });
@@ -432,6 +436,7 @@ export function UserTherapistSearchPage() {
                                 durationMinutes={selectedDuration}
                                 footerHint="タップして詳細を見る"
                                 buildLink={(therapist) => `/therapists/${therapist.public_id}${queryString ? `?${queryString}` : ''}`}
+                                showOfflineStatus={selectedStartType === 'now'}
                             />
                         </div>
                     </div>
