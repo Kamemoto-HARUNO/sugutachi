@@ -10,7 +10,6 @@ export const publicNavItems: NavItem[] = [
 ];
 
 export const userNavItems: NavItem[] = [
-    { label: 'マイページ', to: '/user/dashboard', exact: true },
     { label: 'ダッシュボード', to: '/user/dashboard', exact: true },
     { label: 'オファー', to: '/user/offers' },
     { label: '予約', to: '/user/bookings' },
@@ -20,7 +19,6 @@ export const userNavItems: NavItem[] = [
 ];
 
 export const therapistNavItems: NavItem[] = [
-    { label: 'マイページ', to: '/therapist/dashboard', exact: true },
     { label: 'ダッシュボード', to: '/therapist/dashboard', exact: true },
     { label: '準備状況', to: '/therapist/onboarding' },
     { label: 'プロフィール', to: '/therapist/profile' },
@@ -34,7 +32,6 @@ export const therapistNavItems: NavItem[] = [
 ];
 
 export const adminNavItems: NavItem[] = [
-    { label: 'マイページ', to: '/admin', exact: true },
     { label: 'アカウント', to: '/admin/accounts' },
     { label: 'タチキャスト', to: '/admin/therapist-profiles' },
     { label: '予約', to: '/admin/bookings' },
