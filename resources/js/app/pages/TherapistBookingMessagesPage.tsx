@@ -5,7 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
-import { formatFileSize, validateBookingMessageImage } from '../lib/bookingMessageImages';
+import { formatFileSize, prepareBookingMessageImage } from '../lib/bookingMessageImages';
 import { formatJstDateTime } from '../lib/datetime';
 import { getServiceAddressLabel } from '../lib/discovery';
 import type {
@@ -190,7 +190,10 @@ export function TherapistBookingMessagesPage() {
     const [draft, setDraft] = useState('');
     const [selectedImage, setSelectedImage] = useState<File | null>(null);
     const [selectedImagePreviewUrl, setSelectedImagePreviewUrl] = useState<string | null>(null);
+    const [selectedImageOriginalSizeBytes, setSelectedImageOriginalSizeBytes] = useState<number | null>(null);
+    const [selectedImageWasOptimized, setSelectedImageWasOptimized] = useState(false);
     const [expandedImage, setExpandedImage] = useState<BookingMessageRecord | null>(null);
+    const [imageDeleteCandidate, setImageDeleteCandidate] = useState<BookingMessageRecord | null>(null);
     const [pageError, setPageError] = useState<string | null>(null);
     const [composeError, setComposeError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
@@ -198,9 +201,11 @@ export function TherapistBookingMessagesPage() {
     const [deletingImageMessageIds, setDeletingImageMessageIds] = useState<number[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isPreparingImage, setIsPreparingImage] = useState(false);
     const [isSending, setIsSending] = useState(false);
     const isTypingRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const imagePreparationRequestRef = useRef(0);
 
     usePageTitle(
         booking
@@ -343,6 +348,24 @@ export function TherapistBookingMessagesPage() {
     }, [expandedImage]);
 
     useEffect(() => {
+        if (!imageDeleteCandidate) {
+            return;
+        }
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setImageDeleteCandidate(null);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [imageDeleteCandidate]);
+
+    useEffect(() => {
         if (!selectedImage) {
             setSelectedImagePreviewUrl((current) => {
                 if (current) {
@@ -378,30 +401,53 @@ export function TherapistBookingMessagesPage() {
     );
 
     function clearSelectedImage() {
+        imagePreparationRequestRef.current += 1;
         setSelectedImage(null);
+        setSelectedImageOriginalSizeBytes(null);
+        setSelectedImageWasOptimized(false);
+        setIsPreparingImage(false);
 
         if (fileInputRef.current) {
             fileInputRef.current.value = '';
         }
     }
 
-    function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+    async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
         const file = event.target.files?.[0];
 
         if (!file) {
             return;
         }
-
-        const validationError = validateBookingMessageImage(file);
-
-        if (validationError) {
-            setComposeError(validationError);
-            event.target.value = '';
-            return;
-        }
-
+        const requestId = imagePreparationRequestRef.current + 1;
+        imagePreparationRequestRef.current = requestId;
         setComposeError(null);
-        setSelectedImage(file);
+        setSelectedImage(null);
+        setSelectedImageOriginalSizeBytes(null);
+        setSelectedImageWasOptimized(false);
+        setIsPreparingImage(true);
+
+        try {
+            const preparedImage = await prepareBookingMessageImage(file);
+
+            if (imagePreparationRequestRef.current !== requestId) {
+                return;
+            }
+
+            setSelectedImage(preparedImage.file);
+            setSelectedImageOriginalSizeBytes(preparedImage.originalSizeBytes);
+            setSelectedImageWasOptimized(preparedImage.wasOptimized);
+        } catch (error) {
+            if (imagePreparationRequestRef.current !== requestId) {
+                return;
+            }
+
+            setComposeError(error instanceof Error ? error.message : '画像の準備に失敗しました。');
+            event.target.value = '';
+        } finally {
+            if (imagePreparationRequestRef.current === requestId) {
+                setIsPreparingImage(false);
+            }
+        }
     }
 
     async function handleSendMessage(event: FormEvent<HTMLFormElement>) {
@@ -409,7 +455,7 @@ export function TherapistBookingMessagesPage() {
 
         const trimmedDraft = draft.trim();
 
-        if (!token || !publicId || (!trimmedDraft && !selectedImage)) {
+        if (!token || !publicId || isPreparingImage || (!trimmedDraft && !selectedImage)) {
             return;
         }
 
@@ -424,6 +470,7 @@ export function TherapistBookingMessagesPage() {
         setSuccessMessage(null);
 
         try {
+            const isImageUpload = Boolean(selectedImage);
             const requestBody = selectedImage
                 ? (() => {
                     const formData = new FormData();
@@ -447,7 +494,7 @@ export function TherapistBookingMessagesPage() {
             setDraft('');
             clearSelectedImage();
             isTypingRef.current = false;
-            setSuccessMessage(selectedImage ? '画像を送信しました。' : 'メッセージを送信しました。');
+            setSuccessMessage(isImageUpload ? '画像を送信しました。' : 'メッセージを送信しました。');
             await loadData({ refresh: true, silent: true, preserveSuccess: true });
         } catch (requestError) {
             const message =
@@ -498,6 +545,7 @@ export function TherapistBookingMessagesPage() {
         setComposeError(null);
         setPageError(null);
         setSuccessMessage(null);
+        setImageDeleteCandidate(null);
 
         try {
             const payload = await apiRequest<ApiEnvelope<BookingMessageRecord>>(`/bookings/${publicId}/messages/${messageId}/image`, {
@@ -706,7 +754,7 @@ export function TherapistBookingMessagesPage() {
                                                 <button
                                                     type="button"
                                                     onClick={() => {
-                                                        void handleDeleteImage(message.id);
+                                                        setImageDeleteCandidate(message);
                                                     }}
                                                     disabled={isDeletingImage}
                                                     className="inline-flex items-center gap-1 rounded-full border border-current/20 px-3 py-1 font-semibold transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-60"
@@ -768,12 +816,26 @@ export function TherapistBookingMessagesPage() {
                             onChange={handleImageChange}
                         />
 
+                        {isPreparingImage ? (
+                            <div className="flex items-center gap-3 rounded-[20px] bg-[#fff7ea] px-3 py-3 text-sm text-[#48505a]">
+                                <span className="h-10 w-10 animate-spin rounded-full border-2 border-[#d2b179]/35 border-t-[#b5894d]" />
+                                <div>
+                                    <p className="font-semibold text-[#17202b]">画像を送信向けに調整しています</p>
+                                    <p className="text-xs text-[#7a7066]">サイズが大きい画像は自動で縮小・圧縮します。</p>
+                                </div>
+                            </div>
+                        ) : null}
+
                         {selectedImage && selectedImagePreviewUrl ? (
                             <div className="flex items-center gap-3 rounded-[20px] bg-[#fff7ea] px-3 py-3 text-sm text-[#48505a]">
                                 <img src={selectedImagePreviewUrl} alt={selectedImage.name} className="h-14 w-14 rounded-[14px] object-cover" />
                                 <div className="min-w-0 flex-1">
                                     <p className="truncate font-semibold text-[#17202b]">{selectedImage.name}</p>
-                                    <p className="text-xs text-[#7a7066]">{formatFileSize(selectedImage.size)} / 画像は1枚ずつ送信</p>
+                                    <p className="text-xs text-[#7a7066]">
+                                        {selectedImageWasOptimized && selectedImageOriginalSizeBytes
+                                            ? `${formatFileSize(selectedImageOriginalSizeBytes)} → ${formatFileSize(selectedImage.size)} に自動圧縮`
+                                            : `${formatFileSize(selectedImage.size)} / 画像は1枚ずつ送信`}
+                                    </p>
                                 </div>
                                 <button
                                     type="button"
@@ -789,7 +851,7 @@ export function TherapistBookingMessagesPage() {
                             <button
                                 type="button"
                                 onClick={() => fileInputRef.current?.click()}
-                                disabled={isSending}
+                                disabled={isSending || isPreparingImage}
                                 className={[
                                     'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition',
                                     selectedImage
@@ -817,7 +879,7 @@ export function TherapistBookingMessagesPage() {
 
                             <button
                                 type="submit"
-                                disabled={isSending || (!draft.trim() && !selectedImage)}
+                                disabled={isSending || isPreparingImage || (!draft.trim() && !selectedImage)}
                                 className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#17202b] text-white transition hover:bg-[#243447] disabled:cursor-not-allowed disabled:opacity-60"
                                 aria-label="送信"
                             >
@@ -922,6 +984,56 @@ export function TherapistBookingMessagesPage() {
                             alt={expandedImage.attachment_original_name ?? '送信画像'}
                             className="max-h-[88vh] w-auto max-w-full rounded-[24px] object-contain shadow-[0_24px_60px_rgba(0,0,0,0.35)]"
                         />
+                    </div>
+                </div>
+            ) : null}
+
+            {imageDeleteCandidate ? (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(12,16,24,0.72)] px-4 py-6"
+                    onClick={() => {
+                        if (!deletingImageMessageIds.includes(imageDeleteCandidate.id)) {
+                            setImageDeleteCandidate(null);
+                        }
+                    }}
+                >
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="画像削除の確認"
+                        className="w-full max-w-md rounded-[28px] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)]"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                        }}
+                    >
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">画像削除</p>
+                        <h2 className="mt-2 text-xl font-semibold text-[#17202b]">この画像を削除しますか？</h2>
+                        <p className="mt-3 text-sm leading-7 text-[#68707a]">
+                            削除すると相手ユーザーの画面からも非表示になり、あとから元に戻せません。
+                        </p>
+
+                        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setImageDeleteCandidate(null);
+                                }}
+                                disabled={deletingImageMessageIds.includes(imageDeleteCandidate.id)}
+                                className="inline-flex items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                キャンセル
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    void handleDeleteImage(imageDeleteCandidate.id);
+                                }}
+                                disabled={deletingImageMessageIds.includes(imageDeleteCandidate.id)}
+                                className="inline-flex items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243447] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {deletingImageMessageIds.includes(imageDeleteCandidate.id) ? '削除中...' : '削除する'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             ) : null}
