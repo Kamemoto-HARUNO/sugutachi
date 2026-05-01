@@ -79,9 +79,12 @@ class BookingStatusController extends Controller
             ),
         );
 
-        $campaignService->grantTherapistBookingBonus($booking->refresh());
-        $campaignService->confirmBookingCampaignApplication($booking->refresh());
-        $bookingNotificationService->notifyAccepted($booking->refresh());
+        $booking = $booking->refresh()->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);
+
+        $campaignService->grantTherapistBookingBonus($booking);
+        $campaignService->confirmBookingCampaignApplication($booking);
+        $bookingNotificationService->notifyAccepted($booking);
+        $bookingNotificationService->notifyTherapistConfirmed($booking);
 
         return new BookingResource($booking->load('currentQuote'));
     }

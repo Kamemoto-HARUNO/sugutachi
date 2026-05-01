@@ -4,6 +4,7 @@ use App\Models\TherapistLedgerEntry;
 use App\Models\IdentityVerification;
 use App\Services\Bookings\BookingCompletionFollowupService;
 use App\Services\Bookings\BookingRequestExpirationService;
+use App\Services\Bookings\BookingStartReminderService;
 use App\Services\Legal\DefaultLegalDocumentService;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
@@ -45,6 +46,14 @@ Artisan::command('bookings:follow-up-completion-confirmations', function (Bookin
 
     return Command::SUCCESS;
 })->purpose('Send completion reminders and auto-complete due therapist-completed bookings');
+
+Artisan::command('bookings:send-start-reminders', function (BookingStartReminderService $service): int {
+    $result = $service->processDueReminders();
+
+    $this->info("Processed booking start reminders. prepare={$result['prepare']} departure={$result['departure']}");
+
+    return Command::SUCCESS;
+})->purpose('Send therapist reminders before accepted bookings start');
 
 Artisan::command('legal-documents:sync-default-drafts', function (DefaultLegalDocumentService $defaultLegalDocumentService): int {
     $result = $defaultLegalDocumentService->syncDraftTemplates();

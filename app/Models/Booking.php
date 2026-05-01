@@ -215,6 +215,8 @@ class Booking extends Model
             'therapist_adjustment_end_at' => 'datetime',
             'accepted_at' => 'datetime',
             'confirmed_at' => 'datetime',
+            'therapist_pre_departure_reminder_sent_at' => 'datetime',
+            'therapist_departure_reminder_sent_at' => 'datetime',
             'moving_at' => 'datetime',
             'arrived_at' => 'datetime',
             'arrival_confirmation_code_generated_at' => 'datetime',
