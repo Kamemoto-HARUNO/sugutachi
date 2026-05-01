@@ -5,6 +5,13 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import {
+    buildDemandFeeContextItems,
+    formatDemandFeeAdjustmentAmount,
+    formatDemandFeeRuleCondition,
+    formatDemandFeeRuleLabel,
+    getDemandFeeAppliedRules,
+} from '../lib/bookingPricing';
 import { canOpenBookingInterruptFlow, canOpenBookingNoShowFlow } from '../lib/bookingTrouble';
 import {
     formatJstDateTime,
@@ -705,6 +712,10 @@ export function TherapistBookingDetailPage() {
     const nextAction = booking ? nextStageAction(booking) : null;
     const canEditCompletionWindow = booking ? canManageCompletionWindow(booking.status) : false;
     const chargeLines = useMemo(() => (booking ? bookingChargeLines(booking) : []), [booking]);
+    const currentQuote = booking?.current_quote ?? null;
+    const demandFeeAmount = currentQuote?.amounts.demand_fee_amount ?? 0;
+    const demandFeeContextItems = buildDemandFeeContextItems(currentQuote);
+    const demandFeeRules = getDemandFeeAppliedRules(currentQuote);
     const completionWindowBounds = useMemo(() => {
         if (!booking || !canManageCompletionWindow(booking.status)) {
             return null;
@@ -1221,6 +1232,59 @@ export function TherapistBookingDetailPage() {
                                         ) : null}
                                     </div>
                                 </div>
+
+                                {currentQuote ? (
+                                    <div className="mt-4 rounded-[18px] border border-[#ebe2d3] bg-white px-4 py-4">
+                                        <div className="flex flex-wrap items-start justify-between gap-3">
+                                            <div>
+                                                <p className="text-sm font-semibold text-[#17202b]">需要加算の詳細</p>
+                                                <p className="mt-1 text-sm leading-7 text-[#68707a]">
+                                                    見積もり時点で、どの条件が需要加算に反映されたかを確認できます。
+                                                </p>
+                                            </div>
+                                            <div className="text-right">
+                                                <p className="text-xs font-semibold tracking-wide text-[#7d6852]">加算額</p>
+                                                <p className="mt-1 text-lg font-semibold text-[#17202b]">{formatCurrency(demandFeeAmount)}</p>
+                                            </div>
+                                        </div>
+
+                                        {demandFeeContextItems.length > 0 ? (
+                                            <div className="mt-4 flex flex-wrap gap-3">
+                                                {demandFeeContextItems.map((item) => (
+                                                    <div key={item.label} className="rounded-2xl bg-[#f8f4ed] px-4 py-3">
+                                                        <p className="text-[11px] font-semibold tracking-wide text-[#7d6852]">{item.label}</p>
+                                                        <p className="mt-1 text-sm font-semibold text-[#17202b]">{item.value}</p>
+                                                    </div>
+                                                ))}
+                                            </div>
+                                        ) : null}
+
+                                        <div className="mt-4 space-y-3">
+                                            {demandFeeRules.length > 0 ? demandFeeRules.map((rule, index) => (
+                                                <div
+                                                    key={`${rule.rule_type ?? 'demand-rule'}-${rule.priority ?? 'na'}-${index}`}
+                                                    className="rounded-2xl bg-[#f8f4ed] px-4 py-4"
+                                                >
+                                                    <div className="flex flex-wrap items-start justify-between gap-3">
+                                                        <div>
+                                                            <p className="text-sm font-semibold text-[#17202b]">{formatDemandFeeRuleLabel(rule)}</p>
+                                                            <p className="mt-1 text-sm text-[#68707a]">{formatDemandFeeRuleCondition(rule)}</p>
+                                                        </div>
+                                                        <p className={`text-sm font-semibold ${rule.applied_adjustment_amount < 0 ? 'text-[#9a4b35]' : 'text-[#8b5a16]'}`}>
+                                                            {formatDemandFeeAdjustmentAmount(rule.applied_adjustment_amount)}
+                                                        </p>
+                                                    </div>
+                                                </div>
+                                            )) : (
+                                                <p className="text-sm leading-7 text-[#68707a]">
+                                                    {demandFeeAmount > 0
+                                                        ? '加算額は反映されていますが、この見積もりには適用ルールの詳細が保存されていません。'
+                                                        : '今回は需要加算はかかっていません。'}
+                                                </p>
+                                            )}
+                                        </div>
+                                    </div>
+                                ) : null}
                             </div>
 
                             <div className="rounded-[22px] bg-[#f8f4ed] p-4">

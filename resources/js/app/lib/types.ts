@@ -967,6 +967,34 @@ export interface BookingQuoteDiscountRecord {
     discount_amount: number;
 }
 
+export interface BookingQuotePricingContext {
+    requested_hour: number | null;
+    walking_time_range: string | null;
+    demand_level: string | null;
+}
+
+export interface BookingQuoteAppliedRuleCondition {
+    field?: string | null;
+    operator?: string | null;
+    value?: string | number | null;
+    values?: Array<string | number>;
+    start_hour?: number | null;
+    end_hour?: number | null;
+}
+
+export interface BookingQuoteAppliedRuleRecord {
+    rule_type: string | null;
+    bucket: string | null;
+    condition: BookingQuoteAppliedRuleCondition;
+    adjustment_type: string | null;
+    adjustment_amount: number;
+    raw_adjustment_amount: number;
+    applied_adjustment_amount: number;
+    min_price_amount: number | null;
+    max_price_amount: number | null;
+    priority: number | null;
+}
+
 export interface CampaignOfferRecord {
     id: number;
     campaign_id: number;
@@ -998,6 +1026,8 @@ export interface BookingQuoteRecord {
     walking_time_range: string | null;
     amounts: BookingQuoteAmounts;
     discount: BookingQuoteDiscountRecord | null;
+    pricing_context: BookingQuotePricingContext;
+    applied_rules: BookingQuoteAppliedRuleRecord[];
 }
 
 export interface BookingCounterparty {

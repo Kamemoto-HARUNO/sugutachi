@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\Booking;
+use App\Models\BookingQuote;
 use App\Models\BookingMessage;
 use App\Models\PaymentIntent;
 use App\Models\Refund;
@@ -61,7 +62,11 @@ class BookingListApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.counterparty.role', 'user')
             ->assertJsonPath('data.service_address.public_id', 'addr_booking_list')
-            ->assertJsonPath('data.therapist_menu.public_id', 'menu_booking_list_90');
+            ->assertJsonPath('data.therapist_menu.public_id', 'menu_booking_list_90')
+            ->assertJsonPath('data.current_quote.pricing_context.demand_level', 'busy')
+            ->assertJsonPath('data.current_quote.pricing_context.walking_time_range', 'within_45_min')
+            ->assertJsonPath('data.current_quote.applied_rules.0.rule_type', 'demand_level')
+            ->assertJsonPath('data.current_quote.applied_rules.0.applied_adjustment_amount', 2400);
     }
 
     public function test_due_scheduled_request_is_expired_on_list_and_detail_fetch(): void
@@ -149,9 +154,9 @@ class BookingListApiTest extends TestCase
             'scheduled_end_at' => now()->addDay()->setTime(21, 30),
             'duration_minutes' => 90,
             'request_expires_at' => now()->addHours(6),
-            'total_amount' => 18300,
-            'therapist_net_amount' => 16200,
-            'platform_fee_amount' => 1800,
+            'total_amount' => 20700,
+            'therapist_net_amount' => 18360,
+            'platform_fee_amount' => 2040,
             'matching_fee_amount' => 300,
         ]);
         $onDemandBooking = Booking::create([
@@ -216,6 +221,57 @@ class BookingListApiTest extends TestCase
             'matching_fee_amount' => 300,
         ]);
 
+        $quote = BookingQuote::create([
+            'public_id' => 'quote_booking_list_scheduled',
+            'booking_id' => $scheduledBooking->id,
+            'therapist_profile_id' => $therapistProfile->id,
+            'therapist_menu_id' => $menu->id,
+            'duration_minutes' => 90,
+            'base_amount' => 18000,
+            'travel_fee_amount' => 0,
+            'night_fee_amount' => 0,
+            'demand_fee_amount' => 2400,
+            'profile_adjustment_amount' => 0,
+            'matching_fee_amount' => 300,
+            'platform_fee_amount' => 2040,
+            'total_amount' => 20700,
+            'therapist_gross_amount' => 20400,
+            'therapist_net_amount' => 18360,
+            'calculation_version' => 'test',
+            'input_snapshot_json' => [
+                'service_address_id' => $address->public_id,
+                'requested_start_at' => now()->addDay()->setTime(20, 0)->toISOString(),
+                'pricing_rule_context' => [
+                    'requested_hour' => 20,
+                    'walking_time_range' => 'within_45_min',
+                    'demand_level' => 'busy',
+                ],
+                'walking_time_range' => 'within_45_min',
+                'travel_mode' => 'transit',
+            ],
+            'applied_rules_json' => [
+                'pricing_rules' => [
+                    [
+                        'rule_type' => 'demand_level',
+                        'bucket' => 'demand_fee',
+                        'condition' => [
+                            'operator' => 'equals',
+                            'value' => 'busy',
+                        ],
+                        'adjustment_type' => 'fixed_amount',
+                        'adjustment_amount' => 2400,
+                        'raw_adjustment_amount' => 2400,
+                        'applied_adjustment_amount' => 2400,
+                        'min_price_amount' => null,
+                        'max_price_amount' => null,
+                        'priority' => 30,
+                    ],
+                ],
+            ],
+            'expires_at' => now()->addMinutes(30),
+        ]);
+        $scheduledBooking->forceFill(['current_quote_id' => $quote->id])->save();
+
         PaymentIntent::create([
             'booking_id' => $scheduledBooking->id,
             'payer_account_id' => $user->id,
@@ -223,9 +279,9 @@ class BookingListApiTest extends TestCase
             'status' => PaymentIntent::STRIPE_STATUS_REQUIRES_CAPTURE,
             'capture_method' => 'manual',
             'currency' => 'jpy',
-            'amount' => 18300,
-            'application_fee_amount' => 2100,
-            'transfer_amount' => 16200,
+            'amount' => 20700,
+            'application_fee_amount' => 2340,
+            'transfer_amount' => 18360,
             'is_current' => true,
         ]);
 

@@ -5,6 +5,13 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import {
+    buildDemandFeeContextItems,
+    formatDemandFeeAdjustmentAmount,
+    formatDemandFeeRuleCondition,
+    formatDemandFeeRuleLabel,
+    getDemandFeeAppliedRules,
+} from '../lib/bookingPricing';
 import { buildJstDateValue, formatJstDateTime, formatJstDateTimeLocalValue } from '../lib/datetime';
 import { formatCurrency, getServiceAddressLabel } from '../lib/discovery';
 import { formatDateTime } from '../lib/therapist';
@@ -549,6 +556,10 @@ export function TherapistRequestsPage() {
     const counterpartyUserProfile = selectedBooking?.counterparty?.user_profile ?? null;
     const basicUserProfileItems = buildUserProfileItems(counterpartyUserProfile);
     const sharedUserProfileItems = buildSharedProfileItems(counterpartyUserProfile);
+    const selectedQuote = selectedBooking?.current_quote ?? null;
+    const selectedDemandFeeAmount = selectedQuote?.amounts.demand_fee_amount ?? 0;
+    const selectedDemandFeeContextItems = buildDemandFeeContextItems(selectedQuote);
+    const selectedDemandFeeRules = getDemandFeeAppliedRules(selectedQuote);
 
     async function handleAccept() {
         if (!token || !selectedBooking || isAccepting) {
@@ -810,6 +821,63 @@ export function TherapistRequestsPage() {
                                     </p>
                                 </div>
                             </div>
+
+                            {selectedQuote ? (
+                                <section className="rounded-[24px] border border-[#f0d6a4] bg-[#fff7e8] px-5 py-5 text-[#17202b]">
+                                    <div className="flex flex-wrap items-start justify-between gap-4">
+                                        <div className="space-y-2">
+                                            <p className="text-xs font-semibold tracking-wide text-[#8b6b38]">需要加算</p>
+                                            <h3 className="text-lg font-semibold">今回の需要加算の詳細</h3>
+                                            <p className="text-sm leading-7 text-[#475569]">
+                                                利用者に表示された見積もりをもとに、どの条件が需要加算に反映されたかを確認できます。
+                                            </p>
+                                        </div>
+
+                                        <div className="rounded-2xl border border-[#e7cf9f] bg-white px-4 py-3 text-right">
+                                            <p className="text-xs font-semibold tracking-wide text-[#8b6b38]">加算額</p>
+                                            <p className="mt-2 text-2xl font-semibold text-[#17202b]">{formatCurrency(selectedDemandFeeAmount)}</p>
+                                        </div>
+                                    </div>
+
+                                    {selectedDemandFeeContextItems.length > 0 ? (
+                                        <div className="mt-4 flex flex-wrap gap-3">
+                                            {selectedDemandFeeContextItems.map((item) => (
+                                                <div key={item.label} className="rounded-2xl border border-[#e7cf9f] bg-white px-4 py-3">
+                                                    <p className="text-[11px] font-semibold tracking-wide text-[#8b6b38]">{item.label}</p>
+                                                    <p className="mt-1 text-sm font-semibold text-[#17202b]">{item.value}</p>
+                                                </div>
+                                            ))}
+                                        </div>
+                                    ) : null}
+
+                                    <div className="mt-4 space-y-3">
+                                        {selectedDemandFeeRules.length > 0 ? selectedDemandFeeRules.map((rule, index) => (
+                                            <div
+                                                key={`${rule.rule_type ?? 'demand-rule'}-${rule.priority ?? 'na'}-${index}`}
+                                                className="rounded-2xl border border-[#e7cf9f] bg-white px-4 py-4"
+                                            >
+                                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                                    <div>
+                                                        <p className="text-sm font-semibold text-[#17202b]">{formatDemandFeeRuleLabel(rule)}</p>
+                                                        <p className="mt-1 text-sm text-[#5b6b7f]">{formatDemandFeeRuleCondition(rule)}</p>
+                                                    </div>
+                                                    <p className={`text-sm font-semibold ${rule.applied_adjustment_amount < 0 ? 'text-[#9a4b35]' : 'text-[#8b5a16]'}`}>
+                                                        {formatDemandFeeAdjustmentAmount(rule.applied_adjustment_amount)}
+                                                    </p>
+                                                </div>
+                                            </div>
+                                        )) : (
+                                            <div className="rounded-2xl border border-dashed border-[#e7cf9f] bg-white/70 px-4 py-4">
+                                                <p className="text-sm leading-7 text-[#5b6b7f]">
+                                                    {selectedDemandFeeAmount > 0
+                                                        ? '加算額は反映されていますが、この見積もりには適用ルールの詳細が保存されていません。'
+                                                        : '今回は需要加算はかかっていません。'}
+                                                </p>
+                                            </div>
+                                        )}
+                                    </div>
+                                </section>
+                            ) : null}
 
                             <section className="rounded-[24px] border border-white/10 bg-[#17202b] px-5 py-5">
                                 <div className="space-y-2">
