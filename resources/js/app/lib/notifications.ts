@@ -50,6 +50,8 @@ export function formatNotificationTypeLabel(type: string | null | undefined): st
             return '返金結果';
         case 'booking_interrupted':
             return '対応中断';
+        case 'booking_message_received':
+            return 'メッセージ受信';
         case 'travel_request_received':
             return '出張リクエスト受信';
         case 'travel_request_warning':

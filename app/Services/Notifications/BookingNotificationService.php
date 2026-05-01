@@ -3,7 +3,9 @@
 namespace App\Services\Notifications;
 
 use App\Models\AppNotification;
+use App\Models\Account;
 use App\Models\Booking;
+use App\Models\BookingMessage;
 use App\Models\Refund;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Crypt;
@@ -525,6 +527,57 @@ class BookingNotificationService
         );
     }
 
+    public function notifyMessageReceived(Booking $booking, Account $sender, BookingMessage $message): void
+    {
+        $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);
+
+        [$recipientAccountId, $recipientEmail, $targetPath, $targetRole, $senderRole] = match ($sender->id) {
+            $booking->user_account_id => [
+                $booking->therapist_account_id,
+                $booking->therapistAccount?->email,
+                $this->therapistBookingMessagesPath($booking),
+                'therapist',
+                'user',
+            ],
+            $booking->therapist_account_id => [
+                $booking->user_account_id,
+                $booking->userAccount?->email,
+                $this->userBookingMessagesPath($booking),
+                'user',
+                'therapist',
+            ],
+            default => [null, null, null, null, null],
+        };
+
+        if ($recipientAccountId === null || $targetPath === null || $senderRole === null || $targetRole === null) {
+            return;
+        }
+
+        $title = '新しいメッセージが届きました';
+        $body = $this->messageReceivedBody($senderRole, $message->message_type);
+
+        $this->create(
+            accountId: $recipientAccountId,
+            type: 'booking_message_received',
+            title: $title,
+            body: $body,
+            data: [
+                'booking_public_id' => $booking->public_id,
+                'message_id' => $message->id,
+                'message_type' => $message->message_type,
+                'sender_role' => $senderRole,
+                'target_role' => $targetRole,
+                'target_path' => $targetPath,
+            ],
+        );
+
+        $this->sendEmail(
+            email: $recipientEmail,
+            subject: $title,
+            body: $body.' アプリでメッセージをご確認ください。'
+        );
+    }
+
     private function create(int $accountId, string $type, string $title, string $body, array $data): void
     {
         AppNotification::create([
@@ -549,9 +602,19 @@ class BookingNotificationService
         return "/therapist/bookings/{$booking->public_id}";
     }
 
+    private function therapistBookingMessagesPath(Booking $booking): string
+    {
+        return "/therapist/bookings/{$booking->public_id}/messages";
+    }
+
     private function userBookingPath(Booking $booking): string
     {
         return "/user/bookings/{$booking->public_id}";
+    }
+
+    private function userBookingMessagesPath(Booking $booking): string
+    {
+        return "/user/bookings/{$booking->public_id}/messages";
     }
 
     private function sendEmail(?string $email, string $subject, string $body): void
@@ -609,6 +672,14 @@ class BookingNotificationService
         };
 
         return $reasonNote ? "{$base} {$reasonNote}" : $base;
+    }
+
+    private function messageReceivedBody(string $senderRole, string $messageType): string
+    {
+        $senderLabel = $senderRole === 'therapist' ? 'タチキャスト' : '利用者';
+        $messageLabel = $messageType === BookingMessage::TYPE_IMAGE ? '画像' : 'メッセージ';
+
+        return "{$senderLabel}から{$messageLabel}が届きました。";
     }
 
     private function buildTherapistConfirmedBody(Booking $booking): string

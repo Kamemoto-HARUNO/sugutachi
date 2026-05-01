@@ -8,6 +8,7 @@ use App\Models\Account;
 use App\Models\Booking;
 use App\Models\BookingMessage;
 use App\Services\Bookings\BookingMessageTypingService;
+use App\Services\Notifications\BookingNotificationService;
 use App\Support\ContactExchangeDetector;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -72,6 +73,7 @@ class BookingMessageController extends Controller
         Booking $booking,
         ContactExchangeDetector $detector,
         BookingMessageTypingService $bookingMessageTypingService,
+        BookingNotificationService $bookingNotificationService,
     ): JsonResponse
     {
         $actor = $this->authenticatedActor($request);
@@ -122,6 +124,7 @@ class BookingMessageController extends Controller
 
         $message = $booking->messages()->create($messageAttributes);
 
+        $bookingNotificationService->notifyMessageReceived($booking, $actor, $message);
         $bookingMessageTypingService->clearTyping($booking, $actor);
         $message->setAttribute('viewer_account_id', $actor->id);
 

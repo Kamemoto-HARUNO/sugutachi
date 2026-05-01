@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\BookingMessage;
 use App\Models\ServiceAddress;
@@ -10,6 +11,7 @@ use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Storage;
 use Tests\TestCase;
 
@@ -104,6 +106,47 @@ class BookingMessageTest extends TestCase
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('meta.counterparty_typing', false)
             ->assertJsonPath('data.0.body', 'そろそろ到着します。');
+    }
+
+    public function test_sending_message_notifies_the_counterparty_for_both_roles(): void
+    {
+        Mail::shouldReceive('raw')->twice();
+
+        [$user, $therapist, $booking] = $this->createMessageFixture();
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/messages", [
+                'body' => '利用者からのメッセージです。',
+            ])
+            ->assertCreated();
+
+        $therapistNotification = AppNotification::query()
+            ->where('account_id', $therapist->id)
+            ->where('notification_type', 'booking_message_received')
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertSame('新しいメッセージが届きました', $therapistNotification->title);
+        $this->assertSame('利用者からメッセージが届きました。', $therapistNotification->body);
+        $this->assertSame("/therapist/bookings/{$booking->public_id}/messages", $therapistNotification->data_json['target_path'] ?? null);
+        $this->assertSame('user', $therapistNotification->data_json['sender_role'] ?? null);
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/messages", [
+                'body' => 'タチキャストからの返信です。',
+            ])
+            ->assertCreated();
+
+        $userNotification = AppNotification::query()
+            ->where('account_id', $user->id)
+            ->where('notification_type', 'booking_message_received')
+            ->latest('id')
+            ->firstOrFail();
+
+        $this->assertSame('新しいメッセージが届きました', $userNotification->title);
+        $this->assertSame('タチキャストからメッセージが届きました。', $userNotification->body);
+        $this->assertSame("/user/bookings/{$booking->public_id}/messages", $userNotification->data_json['target_path'] ?? null);
+        $this->assertSame('therapist', $userNotification->data_json['sender_role'] ?? null);
     }
 
     public function test_message_rejects_contact_exchange(): void
