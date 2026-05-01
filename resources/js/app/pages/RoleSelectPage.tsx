@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react';
-import { Link, useNavigate, useSearchParams } from 'react-router-dom';
+import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom';
 import { BrandMark } from '../components/brand/BrandMark';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -375,6 +375,15 @@ export function RoleSelectPage() {
 
     const requestedRoleLabel = requestedRole ? formatRoleLabel(requestedRole) : null;
     const highlightedRole = requestedRole ?? returnRole;
+    const onlyRole = roles.length === 1 ? roles[0] : null;
+
+    if (onlyRole && !requestedRole) {
+        const redirectPath = returnTo && (!returnRole || returnRole === onlyRole)
+            ? returnTo
+            : getRoleDashboardPath(onlyRole);
+
+        return <Navigate to={redirectPath} replace />;
+    }
 
     return (
         <div className="mx-auto w-full max-w-[1180px] space-y-14 px-4 py-8 sm:px-6 lg:px-8">

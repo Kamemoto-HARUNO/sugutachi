@@ -4,7 +4,7 @@ import { useAuth } from '../../hooks/useAuth';
 import {
     formatRoleLabel,
     getActiveRoles,
-    getRoleHomePath,
+    getRoleDashboardPath,
     type RoleName,
 } from '../../lib/account';
 
@@ -23,7 +23,7 @@ export function RoleModeSwitcher({ className = '' }: RoleModeSwitcherProps) {
 
     function handleSelect(role: RoleName) {
         selectRole(role);
-        navigate(getRoleHomePath(role));
+        navigate(getRoleDashboardPath(role));
     }
 
     return (

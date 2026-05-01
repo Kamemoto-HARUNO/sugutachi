@@ -21,7 +21,7 @@ import {
     userNavItems,
     userPlaceholderRoutes,
 } from './lib/navigation';
-import { getPostAuthPath, type RoleName } from './lib/account';
+import { getActiveRoles, getPostAuthPath, getRoleDashboardPath, type RoleName } from './lib/account';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { BookingFlowLayout } from './layouts/BookingFlowLayout';
 import { PublicLayout } from './layouts/PublicLayout';
@@ -152,7 +152,7 @@ function AppRoutes() {
                 >
                     <Route
                         index
-                        element={<Navigate to="/role-select?return_to=%2Fuser%2Fdashboard" replace />}
+                        element={<RoleEntryRedirect role="user" account={account} />}
                     />
                     <Route
                         path="dashboard"
@@ -238,7 +238,7 @@ function AppRoutes() {
                 >
                     <Route
                         index
-                        element={<Navigate to="/role-select?return_to=%2Ftherapist%2Fdashboard" replace />}
+                        element={<RoleEntryRedirect role="therapist" account={account} />}
                     />
                     <Route
                         path="dashboard"
@@ -423,6 +423,22 @@ function RoleRoute({
     }
 
     return <Outlet />;
+}
+
+function RoleEntryRedirect({
+    account,
+    role,
+}: {
+    account: ReturnType<typeof useAuth>['account'];
+    role: RoleName;
+}) {
+    const activeRoles = getActiveRoles(account);
+
+    if (activeRoles.length === 1 && activeRoles[0] === role) {
+        return <Navigate to={getRoleDashboardPath(role)} replace />;
+    }
+
+    return <Navigate to={`/role-select?return_to=${encodeURIComponent(getRoleDashboardPath(role))}`} replace />;
 }
 
 function LegacyUserTherapistDetailRedirect() {

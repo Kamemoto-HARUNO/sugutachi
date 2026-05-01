@@ -10,6 +10,7 @@ import { TherapistDiscoveryGrid } from '../components/discovery/TherapistDiscove
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { getMyPageEntryPath } from '../lib/account';
 import {
     buildDiscoverySearchParams,
     buildDefaultDiscoveryScheduledStartAt,
@@ -48,7 +49,8 @@ function normalizeSort(value: string | null): DiscoverySort {
 }
 
 export function UserTherapistSearchPage() {
-    const { token } = useAuth();
+    const { account, token } = useAuth();
+    const myPagePath = getMyPageEntryPath(account);
     const [searchParams, setSearchParams] = useSearchParams();
     const [serviceAddresses, setServiceAddresses] = useState<ServiceAddress[]>([]);
     const [therapists, setTherapists] = useState<TherapistSearchResult[]>([]);
@@ -285,7 +287,7 @@ export function UserTherapistSearchPage() {
                     description="デフォルトの待ち合わせ場所を基準に、移動時間目安レンジと概算料金で比較できます。予定予約は日時を入れると、その条件で見積もりを揃えます。"
                     topBadge={DISCOVERY_TOP_BADGE}
                     bullets={[...DISCOVERY_HERO_BULLETS]}
-                    primaryAction={{ label: 'マイページ', to: '/role-select' }}
+                    primaryAction={{ label: 'マイページ', to: myPagePath }}
                     secondaryAction={{ label: '予約一覧', to: '/user/bookings' }}
                 >
                     <DiscoverySearchPanel
@@ -398,7 +400,7 @@ export function UserTherapistSearchPage() {
                                         >
                                             待ち合わせ場所を追加
                                         </Link>
-                                        <Link to="/role-select" className="rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]">
+                                        <Link to={myPagePath} className="rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]">
                                             マイページへ
                                         </Link>
                                     </div>
@@ -464,7 +466,7 @@ export function UserTherapistSearchPage() {
             <DiscoveryFooter
                 domain={serviceMeta?.domain ?? 'sugutachi.com'}
                 description="待ち合わせ場所を登録しておけば、近さと料金の見え方をそろえた検索一覧からそのまま予約フローへ進めます。"
-                primaryAction={{ label: 'マイページ', to: '/role-select' }}
+                primaryAction={{ label: 'マイページ', to: myPagePath }}
                 secondaryAction={{ label: '予約一覧', to: '/user/bookings' }}
             />
         </div>

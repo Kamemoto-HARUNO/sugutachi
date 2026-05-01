@@ -55,6 +55,16 @@ export function getRoleDashboardPath(role: RoleName): string {
     return ROLE_DASHBOARD_PATHS[role];
 }
 
+export function getMyPageEntryPath(account: Account | null): string {
+    const activeRoles = getActiveRoles(account);
+
+    if (activeRoles.length === 1) {
+        return getRoleDashboardPath(activeRoles[0]);
+    }
+
+    return '/role-select';
+}
+
 export function sanitizeAppPath(value: string | null | undefined): string | null {
     if (!value || !value.startsWith('/') || value.startsWith('//')) {
         return null;
@@ -91,13 +101,13 @@ export function getPostAuthPath(account: Account | null, requestedRole?: RoleNam
     }
 
     if (requestedRole && hasActiveRole(account, requestedRole)) {
-        return getRoleHomePath(requestedRole);
+        return getRoleDashboardPath(requestedRole);
     }
 
     const activeRoles = getActiveRoles(account);
 
     if (activeRoles.length === 1) {
-        return getRoleHomePath(activeRoles[0]);
+        return getRoleDashboardPath(activeRoles[0]);
     }
 
     const preferredRole = getPreferredRole(account);
