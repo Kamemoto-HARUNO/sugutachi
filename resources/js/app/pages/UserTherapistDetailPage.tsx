@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
+import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
 import { DiscoveryFooter } from '../components/discovery/DiscoveryFooter';
 import { StickyHeroHeader } from '../components/discovery/StickyHeroHeader';
@@ -26,6 +26,7 @@ import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { addDaysToJstDateValue, buildCurrentJstDateValue, formatJstDate, formatJstDateTime } from '../lib/datetime';
 import type {
     ApiEnvelope,
+    PrivatePhotoSession,
     ReviewSummary,
     ServiceAddress,
     ServiceMeta,
@@ -166,10 +167,6 @@ function wrapPhotoIndex(index: number, count: number): number {
     return ((index % count) + count) % count;
 }
 
-function therapistPhotoVisibilityLabel(visibility: 'public' | 'private'): string {
-    return visibility === 'private' ? '非公開写真' : '公開写真';
-}
-
 interface PhotoDragState {
     element: HTMLDivElement;
     pointerId: number;
@@ -177,6 +174,37 @@ interface PhotoDragState {
     currentX: number;
     viewportWidth: number;
     moved: boolean;
+}
+
+interface PrivateViewerPhoto {
+    id: number;
+    sort_order: number;
+    url: string;
+}
+
+async function fetchPrivatePhotoBlob(
+    sessionToken: string,
+    photoId: number,
+    token: string,
+): Promise<{ url: string; lockedUntil: string | null }> {
+    const response = await fetch(`/api/private-photo-sessions/${sessionToken}/photos/${photoId}/file`, {
+        headers: {
+            Accept: 'image/*',
+            Authorization: `Bearer ${token}`,
+        },
+        credentials: 'same-origin',
+    });
+
+    if (!response.ok) {
+        throw new ApiError(response.status, '非公開写真の取得に失敗しました。');
+    }
+
+    const blob = await response.blob();
+
+    return {
+        url: URL.createObjectURL(blob),
+        lockedUntil: response.headers.get('X-Private-Photo-Locked-Until'),
+    };
 }
 
 export function UserTherapistDetailPage() {
@@ -193,6 +221,13 @@ export function UserTherapistDetailPage() {
     const [isLoadingDetail, setIsLoadingDetail] = useState(false);
     const [activePhotoIndex, setActivePhotoIndex] = useState(0);
     const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
+    const [isPrivatePhotoConfirmOpen, setIsPrivatePhotoConfirmOpen] = useState(false);
+    const [isPrivatePhotoLoading, setIsPrivatePhotoLoading] = useState(false);
+    const [isPrivatePhotoViewerOpen, setIsPrivatePhotoViewerOpen] = useState(false);
+    const [privatePhotoSessionToken, setPrivatePhotoSessionToken] = useState<string | null>(null);
+    const [privatePhotoSessionPhotos, setPrivatePhotoSessionPhotos] = useState<PrivateViewerPhoto[]>([]);
+    const [privatePhotoActiveIndex, setPrivatePhotoActiveIndex] = useState(0);
+    const [privatePhotoCloseAt, setPrivatePhotoCloseAt] = useState<number | null>(null);
     const [photoDragOffsetX, setPhotoDragOffsetX] = useState(0);
     const [isPhotoDragging, setIsPhotoDragging] = useState(false);
     const [photoSnapDirection, setPhotoSnapDirection] = useState<-1 | 0 | 1>(0);
@@ -237,6 +272,7 @@ export function UserTherapistDetailPage() {
         );
     }, [selectedMenu]);
     const queryString = searchParams.toString();
+    const detailReturnPath = publicId ? `/therapists/${publicId}${queryString ? `?${queryString}` : ''}` : '/';
     const listPath = isAuthenticated ? `/user/therapists${queryString ? `?${queryString}` : ''}` : '/';
     const intendedAvailabilityPath = useMemo(() => {
         if (!therapistDetail) {
@@ -293,12 +329,13 @@ export function UserTherapistDetailPage() {
     const loginAvailabilityPath = intendedPrimaryActionPath
         ? `/login?return_to=${encodeURIComponent(intendedPrimaryActionPath)}`
         : '/login';
+    const privatePhotoLoginPath = `/login?return_to=${encodeURIComponent(detailReturnPath)}`;
     const registerAvailabilityPath = intendedPrimaryActionPath
         ? `/register?return_to=${encodeURIComponent(intendedPrimaryActionPath)}`
         : '/register';
     const enableUserRolePath = intendedPrimaryActionPath
         ? `/role-select?add_role=user&return_to=${encodeURIComponent(intendedPrimaryActionPath)}`
-        : '/role-select?add_role=user&return_to=%2Fuser%2Fdashboard';
+        : '/role-select?add_role=user&return_to=%2Fuser';
     const availabilityPath = canUseUserFlows ? intendedPrimaryActionPath ?? '/user/therapists' : loginAvailabilityPath;
     const travelRequestLoginPath = intendedTravelRequestPath
         ? `/login?return_to=${encodeURIComponent(intendedTravelRequestPath)}`
@@ -308,7 +345,7 @@ export function UserTherapistDetailPage() {
         : '/register';
     const travelRequestEnableRolePath = intendedTravelRequestPath
         ? `/role-select?add_role=user&return_to=${encodeURIComponent(intendedTravelRequestPath)}`
-        : '/role-select?add_role=user&return_to=%2Fuser%2Fdashboard';
+        : '/role-select?add_role=user&return_to=%2Fuser';
     const travelRequestAction = canUseUserFlows
         ? { label: '出張リクエストを送る', to: intendedTravelRequestPath ?? '/user/therapists' }
         : isAuthenticated
@@ -524,6 +561,146 @@ export function UserTherapistDetailPage() {
         photoDragRef.current = null;
     }, [activePhotoIndex, isPhotoModalOpen, therapistDetail?.public_id]);
 
+    const applyPrivatePhotoCooldown = useCallback((nextAvailableAt: string | null) => {
+        if (!nextAvailableAt) {
+            return;
+        }
+
+        setTherapistDetail((current) => {
+            if (!current?.private_photo_summary) {
+                return current;
+            }
+
+            return {
+                ...current,
+                private_photo_summary: {
+                    ...current.private_photo_summary,
+                    can_view: false,
+                    next_available_at: nextAvailableAt,
+                },
+            };
+        });
+    }, []);
+
+    const revokePrivatePhotoUrls = useCallback((photos: PrivateViewerPhoto[]) => {
+        photos.forEach((photo) => {
+            URL.revokeObjectURL(photo.url);
+        });
+    }, []);
+
+    const closePrivatePhotoViewer = useCallback(async (
+        closeReason: 'auto_hidden' | 'fetch_failed' | 'manual' | 'navigated' | 'tab_hidden' = 'manual',
+    ) => {
+        const currentPhotos = privatePhotoSessionPhotos;
+        const sessionToken = privatePhotoSessionToken;
+
+        setIsPrivatePhotoViewerOpen(false);
+        setIsPrivatePhotoConfirmOpen(false);
+        setPrivatePhotoSessionToken(null);
+        setPrivatePhotoSessionPhotos([]);
+        setPrivatePhotoActiveIndex(0);
+        setPrivatePhotoCloseAt(null);
+        revokePrivatePhotoUrls(currentPhotos);
+
+        if (!token || !sessionToken) {
+            return;
+        }
+
+        try {
+            const payload = await apiRequest<ApiEnvelope<{ closed_at: string | null; next_available_at: string | null }>>(
+                `/private-photo-sessions/${sessionToken}/close`,
+                {
+                    method: 'POST',
+                    token,
+                    body: {
+                        close_reason: closeReason,
+                    },
+                },
+            );
+
+            applyPrivatePhotoCooldown(unwrapData(payload).next_available_at);
+        } catch {
+            // The session may already be closed or expired; the local UI is already reset.
+        }
+    }, [applyPrivatePhotoCooldown, privatePhotoSessionPhotos, privatePhotoSessionToken, revokePrivatePhotoUrls, token]);
+
+    useEffect(() => {
+        return () => {
+            revokePrivatePhotoUrls(privatePhotoSessionPhotos);
+        };
+    }, [privatePhotoSessionPhotos, revokePrivatePhotoUrls]);
+
+    useEffect(() => {
+        if (!isPrivatePhotoViewerOpen && !isPrivatePhotoConfirmOpen) {
+            return;
+        }
+
+        const previousOverflow = document.body.style.overflow;
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key !== 'Escape') {
+                return;
+            }
+
+            if (isPrivatePhotoViewerOpen) {
+                void closePrivatePhotoViewer('manual');
+                return;
+            }
+
+            setIsPrivatePhotoConfirmOpen(false);
+        };
+        const handleVisibilityChange = () => {
+            if (document.visibilityState !== 'visible' && isPrivatePhotoViewerOpen) {
+                void closePrivatePhotoViewer('tab_hidden');
+            }
+        };
+        const handlePageHide = () => {
+            if (isPrivatePhotoViewerOpen) {
+                void closePrivatePhotoViewer('navigated');
+            }
+        };
+
+        document.body.style.overflow = 'hidden';
+        window.addEventListener('keydown', handleKeyDown);
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+        window.addEventListener('pagehide', handlePageHide);
+
+        return () => {
+            document.body.style.overflow = previousOverflow;
+            window.removeEventListener('keydown', handleKeyDown);
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            window.removeEventListener('pagehide', handlePageHide);
+        };
+    }, [closePrivatePhotoViewer, isPrivatePhotoConfirmOpen, isPrivatePhotoViewerOpen]);
+
+    useEffect(() => {
+        if (!isPrivatePhotoViewerOpen || privatePhotoCloseAt === null) {
+            return;
+        }
+
+        const remainingMs = privatePhotoCloseAt - Date.now();
+
+        if (remainingMs <= 0) {
+            void closePrivatePhotoViewer('auto_hidden');
+            return;
+        }
+
+        const timer = window.setTimeout(() => {
+            void closePrivatePhotoViewer('auto_hidden');
+        }, remainingMs);
+
+        return () => {
+            window.clearTimeout(timer);
+        };
+    }, [closePrivatePhotoViewer, isPrivatePhotoViewerOpen, privatePhotoCloseAt]);
+
+    useEffect(() => {
+        setIsPrivatePhotoConfirmOpen(false);
+
+        if (isPrivatePhotoViewerOpen) {
+            void closePrivatePhotoViewer('navigated');
+        }
+    }, [closePrivatePhotoViewer, isPrivatePhotoViewerOpen, therapistDetail?.public_id]);
+
     if (isBootstrapping) {
         return <LoadingScreen title="プロフィール準備中" message="待ち合わせ場所と公開情報を確認しています。" />;
     }
@@ -539,6 +716,7 @@ export function UserTherapistDetailPage() {
         therapistDetail.p_size_cm != null ? `P${therapistDetail.p_size_cm}` : null,
     ].filter((value): value is string => value !== null).join(' / ') : '';
     const isSelfPreview = therapistDetail?.is_self_view ?? false;
+    const privatePhotoSummary = therapistDetail?.private_photo_summary ?? null;
     const photoCount = therapistDetail?.photos.length ?? 0;
     const wrappedActivePhotoIndex = wrapPhotoIndex(activePhotoIndex, photoCount);
     const mainPhoto = therapistDetail?.photos[wrappedActivePhotoIndex] ?? null;
@@ -559,6 +737,9 @@ export function UserTherapistDetailPage() {
     const pendingScheduledRequestLabel = formatPendingScheduledRequestLabel(
         pendingScheduledRequest?.scheduled_start_at ?? pendingScheduledRequest?.requested_start_at ?? null,
     );
+    const privatePhotoCount = privatePhotoSessionPhotos.length;
+    const wrappedPrivatePhotoIndex = wrapPhotoIndex(privatePhotoActiveIndex, privatePhotoCount);
+    const activePrivatePhoto = privatePhotoSessionPhotos[wrappedPrivatePhotoIndex] ?? null;
 
     const animatePhotoSlide = (direction: 1 | -1) => {
         if (!therapistDetail || therapistDetail.photos.length <= 1 || isPhotoTrackAnimating) {
@@ -713,6 +894,84 @@ export function UserTherapistDetailPage() {
         }
     };
 
+    const handlePrivatePhotoOpen = async () => {
+        if (!token || !therapistDetail?.private_photo_summary?.can_view) {
+            return;
+        }
+
+        let sessionToken: string | null = null;
+        let nextAvailableAt: string | null = null;
+        const loadedPhotos: PrivateViewerPhoto[] = [];
+
+        setIsPrivatePhotoLoading(true);
+
+        try {
+            const payload = await apiRequest<ApiEnvelope<PrivatePhotoSession>>(
+                `/therapists/${therapistDetail.public_id}/private-photo-sessions`,
+                {
+                    method: 'POST',
+                    token,
+                },
+            );
+            const session = unwrapData(payload);
+            sessionToken = session.session_token;
+
+            const fetchedPhotos = await Promise.all(
+                session.photos.map(async (photo) => {
+                    const result = await fetchPrivatePhotoBlob(session.session_token, photo.id, token);
+                    nextAvailableAt ??= result.lockedUntil;
+
+                    return {
+                        id: photo.id,
+                        sort_order: photo.sort_order,
+                        url: result.url,
+                    };
+                }),
+            );
+
+            loadedPhotos.push(...fetchedPhotos);
+            setPrivatePhotoSessionToken(session.session_token);
+            setPrivatePhotoSessionPhotos(fetchedPhotos);
+            setPrivatePhotoActiveIndex(0);
+            setPrivatePhotoCloseAt(null);
+            setIsPrivatePhotoConfirmOpen(false);
+            setIsPrivatePhotoViewerOpen(true);
+            applyPrivatePhotoCooldown(nextAvailableAt);
+        } catch (requestError) {
+            revokePrivatePhotoUrls(loadedPhotos);
+
+            if (sessionToken) {
+                try {
+                    await apiRequest<null>(`/private-photo-sessions/${sessionToken}/close`, {
+                        method: 'POST',
+                        token,
+                        body: {
+                            close_reason: 'fetch_failed',
+                        },
+                    });
+                } catch {
+                    // Best-effort cleanup only.
+                }
+            }
+
+            const message = requestError instanceof ApiError
+                ? requestError.message
+                : '非公開写真の表示に失敗しました。';
+
+            showError(message);
+        } finally {
+            setIsPrivatePhotoLoading(false);
+        }
+    };
+
+    const handlePrivatePhotoImageLoad = () => {
+        if (privatePhotoCloseAt !== null) {
+            return;
+        }
+
+        setPrivatePhotoCloseAt(Date.now() + 5000);
+    };
+
     return (
         <div className="min-h-screen bg-[#f6f1e7] text-[#17202b]">
             <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-16 px-6 py-10 md:px-10 md:py-14 xl:gap-[60px] xl:px-0">
@@ -800,11 +1059,6 @@ export function UserTherapistDetailPage() {
                                                             ))}
                                                         </div>
                                                     </div>
-                                                    {isSelfPreview ? (
-                                                        <span className="absolute left-4 top-4 rounded-full bg-[rgba(23,32,43,0.72)] px-3 py-1 text-xs font-semibold text-white">
-                                                            {therapistPhotoVisibilityLabel(mainPhoto.visibility)}
-                                                        </span>
-                                                    ) : null}
                                                     {photoCount > 1 ? (
                                                         <>
                                                             <button
@@ -863,6 +1117,78 @@ export function UserTherapistDetailPage() {
                                                 {therapistDetail.public_name.slice(0, 1).toUpperCase()}
                                             </div>
                                         )}
+
+                                        {privatePhotoSummary ? (
+                                            <article className="rounded-[28px] border border-[#e6dbc9] bg-[#fbf7f0] p-5">
+                                                <div className="flex flex-wrap items-start justify-between gap-3">
+                                                    <div>
+                                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">PRIVATE PHOTO</p>
+                                                        <h2 className="mt-1 text-xl font-semibold text-[#17202b]">非公開写真</h2>
+                                                    </div>
+                                                    <span className="rounded-full bg-[#efe3cf] px-3 py-1 text-xs font-semibold text-[#6c5431]">
+                                                        {privatePhotoSummary.count}枚
+                                                    </span>
+                                                </div>
+
+                                                <div className="mt-4 overflow-hidden rounded-[24px] border border-[#eadfce] bg-[#d8c3a0]">
+                                                    <div className="relative aspect-[4/3] bg-[radial-gradient(circle_at_top,#ead8bc_0%,#cfb18a_45%,#b58a56_100%)]">
+                                                        <div className="absolute inset-0 bg-[linear-gradient(135deg,rgba(255,255,255,0.22),rgba(23,32,43,0.18))]" />
+                                                        <div className="absolute inset-0 backdrop-blur-[3px]" />
+                                                        <div className="relative z-10 flex h-full flex-col items-center justify-center gap-3 px-6 text-center">
+                                                            <span className="rounded-full bg-[rgba(23,32,43,0.72)] px-4 py-2 text-xs font-semibold tracking-wide text-white">
+                                                                本人確認済み会員限定
+                                                            </span>
+                                                            <p className="max-w-[24rem] text-sm leading-7 text-[#fffaf2]">
+                                                                保存・共有・スクリーンショットは禁止です。表示時には透かしが入り、閲覧履歴が記録されます。
+                                                            </p>
+                                                        </div>
+                                                    </div>
+                                                </div>
+
+                                                <div className="mt-4 space-y-3">
+                                                    {privatePhotoSummary.can_view ? (
+                                                        <button
+                                                            type="button"
+                                                            onClick={() => setIsPrivatePhotoConfirmOpen(true)}
+                                                            disabled={isPrivatePhotoLoading}
+                                                            className="inline-flex w-full items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#223142] disabled:cursor-not-allowed disabled:opacity-60"
+                                                        >
+                                                            {isPrivatePhotoLoading ? '準備中...' : '表示する'}
+                                                        </button>
+                                                    ) : privatePhotoSummary.requires_login ? (
+                                                        <Link
+                                                            to={privatePhotoLoginPath}
+                                                            className="inline-flex w-full items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#223142]"
+                                                        >
+                                                            ログインして表示条件を確認
+                                                        </Link>
+                                                    ) : privatePhotoSummary.requires_identity_verification ? (
+                                                        <Link
+                                                            to="/identity-verification"
+                                                            className="inline-flex w-full items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#223142]"
+                                                        >
+                                                            本人確認を完了する
+                                                        </Link>
+                                                    ) : privatePhotoSummary.next_available_at ? (
+                                                        <div className="rounded-[20px] border border-[#eadfce] bg-white px-4 py-4 text-sm leading-7 text-[#5f564a]">
+                                                            <p className="font-semibold text-[#17202b]">表示は終了しました</p>
+                                                            <p className="mt-2">
+                                                                次回表示可能: {formatJstDateTime(privatePhotoSummary.next_available_at, {
+                                                                    month: 'numeric',
+                                                                    day: 'numeric',
+                                                                    hour: '2-digit',
+                                                                    minute: '2-digit',
+                                                                }) ?? '確認中'}
+                                                            </p>
+                                                        </div>
+                                                    ) : (
+                                                        <div className="rounded-[20px] border border-[#eadfce] bg-white px-4 py-4 text-sm leading-7 text-[#5f564a]">
+                                                            本人確認済み会員のみ、一定時間ごとに表示できます。
+                                                        </div>
+                                                    )}
+                                                </div>
+                                            </article>
+                                        ) : null}
 
                                         <div className="space-y-4">
                                             <article className="rounded-[24px] bg-[#f6f1e7] p-5">
@@ -1178,7 +1504,7 @@ export function UserTherapistDetailPage() {
                                                     自分のページのため予約は行えません。
                                                 </p>
                                                 <p className="mt-2 text-xs text-[#68707a]">
-                                                    公開プロフィールの見え方に加えて、登録済みの非公開写真もこのプレビューで確認できます。予約や出張リクエストは利用者側の画面からのみ行えます。
+                                                    公開プロフィールの見え方を確認できます。予約や出張リクエストは利用者側の画面からのみ行えます。
                                                 </p>
                                             </div>
                                         ) : null}
@@ -1261,6 +1587,122 @@ export function UserTherapistDetailPage() {
                 ) : null}
             </div>
 
+            {therapistDetail && isPrivatePhotoConfirmOpen ? (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(12,16,24,0.72)] px-4"
+                    onClick={() => {
+                        if (!isPrivatePhotoLoading) {
+                            setIsPrivatePhotoConfirmOpen(false);
+                        }
+                    }}
+                >
+                    <div
+                        className="w-full max-w-[520px] rounded-[28px] bg-[#fffdf8] p-6 shadow-[0_24px_60px_rgba(23,32,43,0.22)]"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">PRIVATE PHOTO</p>
+                        <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">非公開写真を表示します。</h2>
+                        <div className="mt-5 space-y-4 rounded-[24px] bg-[#f6f1e7] p-5 text-sm leading-7 text-[#48505a]">
+                            <p>この写真は本人確認済み会員限定です。</p>
+                            <p>
+                                保存・共有・スクリーンショットは禁止です。
+                                <br />
+                                写真には透かしが表示され、閲覧履歴は記録されます。
+                            </p>
+                        </div>
+                        <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+                            <button
+                                type="button"
+                                onClick={() => setIsPrivatePhotoConfirmOpen(false)}
+                                disabled={isPrivatePhotoLoading}
+                                className="inline-flex w-full items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#f6f1e7] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                キャンセル
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    void handlePrivatePhotoOpen();
+                                }}
+                                disabled={isPrivatePhotoLoading}
+                                className="inline-flex w-full items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#223142] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {isPrivatePhotoLoading ? '準備中...' : '表示する'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
+            {isPrivatePhotoViewerOpen && activePrivatePhoto ? (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(12,16,24,0.92)] px-4 py-6"
+                    onClick={() => {
+                        void closePrivatePhotoViewer('manual');
+                    }}
+                >
+                    <div
+                        className="relative w-full max-w-[960px]"
+                        onClick={(event) => event.stopPropagation()}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => {
+                                void closePrivatePhotoViewer('manual');
+                            }}
+                            className="absolute right-3 top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-[rgba(23,32,43,0.76)] text-xl font-semibold text-white transition hover:bg-[rgba(23,32,43,0.92)]"
+                            aria-label="非公開写真を閉じる"
+                        >
+                            ×
+                        </button>
+                        <div className="overflow-hidden rounded-[28px] bg-[#111822] shadow-[0_24px_60px_rgba(0,0,0,0.36)]">
+                            <div className="flex items-center justify-between border-b border-white/10 px-5 py-4 text-white">
+                                <div>
+                                    <p className="text-xs font-semibold tracking-wide text-[#d2b179]">PRIVATE PHOTO</p>
+                                    <p className="mt-1 text-sm text-white/80">透かし入りの時限表示です</p>
+                                </div>
+                                {privatePhotoCount > 1 ? (
+                                    <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold">
+                                        {wrappedPrivatePhotoIndex + 1} / {privatePhotoCount}
+                                    </span>
+                                ) : null}
+                            </div>
+                            <div className="relative bg-[#0f1620]">
+                                <div className="flex max-h-[80vh] min-h-[320px] items-center justify-center">
+                                    <img
+                                        src={activePrivatePhoto.url}
+                                        alt={`${therapistDetail?.public_name ?? 'タチキャスト'}の非公開写真 ${wrappedPrivatePhotoIndex + 1}`}
+                                        className="max-h-[80vh] w-full object-contain"
+                                        draggable={false}
+                                        onLoad={handlePrivatePhotoImageLoad}
+                                    />
+                                </div>
+                                {privatePhotoCount > 1 ? (
+                                    <>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPrivatePhotoActiveIndex((current) => wrapPhotoIndex(current - 1, privatePhotoCount))}
+                                            className="absolute left-4 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[rgba(23,32,43,0.76)] text-xl font-semibold text-white transition hover:bg-[rgba(23,32,43,0.92)]"
+                                            aria-label="前の非公開写真へ"
+                                        >
+                                            ‹
+                                        </button>
+                                        <button
+                                            type="button"
+                                            onClick={() => setPrivatePhotoActiveIndex((current) => wrapPhotoIndex(current + 1, privatePhotoCount))}
+                                            className="absolute right-4 top-1/2 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[rgba(23,32,43,0.76)] text-xl font-semibold text-white transition hover:bg-[rgba(23,32,43,0.92)]"
+                                            aria-label="次の非公開写真へ"
+                                        >
+                                            ›
+                                        </button>
+                                    </>
+                                ) : null}
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
+
             {therapistDetail && mainPhoto && isPhotoModalOpen ? (
                 <div
                     className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(12,16,24,0.84)] px-4 py-6"
@@ -1308,11 +1750,6 @@ export function UserTherapistDetailPage() {
                                     ))}
                                 </div>
                             </div>
-                            {isSelfPreview ? (
-                                <span className="absolute left-4 top-4 rounded-full bg-[rgba(23,32,43,0.72)] px-3 py-1 text-xs font-semibold text-white">
-                                    {therapistPhotoVisibilityLabel(mainPhoto.visibility)}
-                                </span>
-                            ) : null}
                             {photoCount > 1 ? (
                                 <>
                                     <button

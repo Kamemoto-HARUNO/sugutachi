@@ -36,6 +36,7 @@ use App\Http\Controllers\Api\MeProfileController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PaymentIntentController;
 use App\Http\Controllers\Api\PaymentSyncController;
+use App\Http\Controllers\Api\PrivatePhotoViewSessionController;
 use App\Http\Controllers\Api\ProfilePhotoController;
 use App\Http\Controllers\Api\ProfilePhotoFileController;
 use App\Http\Controllers\Api\PushSubscriptionController;
@@ -96,6 +97,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/me/profile/photos', [ProfilePhotoController::class, 'store']);
     Route::delete('/me/profile/photos/{profilePhoto}', [ProfilePhotoController::class, 'destroy']);
     Route::get('/me/profile/photos/{profilePhoto}/file', [ProfilePhotoFileController::class, 'showOwned']);
+    Route::post('/therapists/{therapistProfile:public_id}/private-photo-sessions', [PrivatePhotoViewSessionController::class, 'store']);
+    Route::get('/private-photo-sessions/{sessionToken}/photos/{profilePhoto}/file', [PrivatePhotoViewSessionController::class, 'show']);
+    Route::post('/private-photo-sessions/{sessionToken}/close', [PrivatePhotoViewSessionController::class, 'close']);
     Route::get('/me/user-profile', [UserProfileController::class, 'show']);
     Route::put('/me/user-profile', [UserProfileController::class, 'upsert']);
     Route::patch('/me/user-profile/sensitive-disclosure', [UserProfileController::class, 'updateSensitiveDisclosure']);

@@ -223,7 +223,7 @@ class TherapistDiscoveryApiTest extends TestCase
                 ->etc());
     }
 
-    public function test_therapist_self_preview_includes_private_photos(): void
+    public function test_therapist_self_preview_exposes_private_photo_summary(): void
     {
         [, , $nearbyProfile, , $nearbyTherapist] = $this->createDiscoveryFixture();
 
@@ -241,16 +241,16 @@ class TherapistDiscoveryApiTest extends TestCase
             ->getJson("/api/therapists/{$nearbyProfile->public_id}")
             ->assertOk()
             ->assertJsonPath('data.is_self_view', true)
-            ->assertJsonCount(2, 'data.photos')
-            ->assertJsonPath('data.photos.0.visibility', ProfilePhoto::VISIBILITY_PUBLIC)
-            ->assertJsonPath('data.photos.1.visibility', ProfilePhoto::VISIBILITY_PRIVATE)
+            ->assertJsonCount(1, 'data.photos')
             ->assertJson(fn ($json) => $json
                 ->where('data.photos.0.url', fn (string $url) => str_contains($url, '/api/profile-photos/')
                     && str_contains($url, '/signed-file')
                     && str_contains($url, 'signature='))
-                ->where('data.photos.1.url', fn (string $url) => str_contains($url, '/api/profile-photos/')
-                    && str_contains($url, '/signed-file')
-                    && str_contains($url, 'signature='))
+                ->where('data.private_photo_summary.count', 1)
+                ->where('data.private_photo_summary.can_view', true)
+                ->where('data.private_photo_summary.requires_login', false)
+                ->where('data.private_photo_summary.requires_identity_verification', false)
+                ->where('data.private_photo_summary.next_available_at', null)
                 ->etc());
     }
 

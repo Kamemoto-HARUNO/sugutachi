@@ -34,6 +34,7 @@ class PublicTherapistDetailResource extends JsonResource
             'photos' => PublicProfilePhotoResource::collection(
                 Collection::make(data_get($this->resource, 'photos', []))
             ),
+            'private_photo_summary' => $this->privatePhotoSummary(),
         ];
     }
 
@@ -51,6 +52,23 @@ class PublicTherapistDetailResource extends JsonResource
             'requested_start_at' => data_get($pendingRequest, 'requested_start_at'),
             'scheduled_start_at' => data_get($pendingRequest, 'scheduled_start_at'),
             'request_expires_at' => data_get($pendingRequest, 'request_expires_at'),
+        ];
+    }
+
+    private function privatePhotoSummary(): ?array
+    {
+        $summary = data_get($this->resource, 'private_photo_summary');
+
+        if (! is_array($summary)) {
+            return null;
+        }
+
+        return [
+            'count' => (int) data_get($summary, 'count', 0),
+            'can_view' => (bool) data_get($summary, 'can_view', false),
+            'requires_login' => (bool) data_get($summary, 'requires_login', false),
+            'requires_identity_verification' => (bool) data_get($summary, 'requires_identity_verification', false),
+            'next_available_at' => data_get($summary, 'next_available_at'),
         ];
     }
 }

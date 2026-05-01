@@ -475,8 +475,15 @@ export interface ReportListMeta {
 
 export interface PublicProfilePhoto {
     sort_order: number;
-    visibility: 'public' | 'private';
     url: string;
+}
+
+export interface PrivatePhotoSummary {
+    count: number;
+    can_view: boolean;
+    requires_login: boolean;
+    requires_identity_verification: boolean;
+    next_available_at: string | null;
 }
 
 export interface TherapistSearchResult {
@@ -539,6 +546,17 @@ export interface TherapistDetail {
     pending_scheduled_request: PendingScheduledRequestSummary | null;
     menus: TherapistMenu[];
     photos: PublicProfilePhoto[];
+    private_photo_summary: PrivatePhotoSummary | null;
+}
+
+export interface PrivatePhotoSessionPhoto {
+    id: number;
+    sort_order: number;
+}
+
+export interface PrivatePhotoSession {
+    session_token: string;
+    photos: PrivatePhotoSessionPhoto[];
 }
 
 export interface TherapistProfileRecord {

@@ -8,7 +8,9 @@ use App\Http\Resources\PublicTherapistDetailResource;
 use App\Http\Resources\PublicTherapistSearchResultResource;
 use App\Models\Account;
 use App\Models\Booking;
+use App\Models\IdentityVerification;
 use App\Models\LocationSearchLog;
+use App\Models\PrivatePhotoViewSession;
 use App\Models\ProfilePhoto;
 use App\Models\ServiceAddress;
 use App\Models\TherapistMenu;
@@ -47,6 +49,11 @@ class TherapistDiscoveryController extends Controller
                     ->where('visibility', ProfilePhoto::VISIBILITY_PUBLIC)
                     ->orderBy('sort_order')
                     ->orderBy('id'),
+            ])
+            ->withCount([
+                'photos as private_photo_count' => fn ($query) => $query
+                    ->where('status', ProfilePhoto::STATUS_APPROVED)
+                    ->where('visibility', ProfilePhoto::VISIBILITY_PRIVATE),
             ])
             ->orderByDesc('is_online')
             ->orderByDesc('rating_average')
@@ -249,6 +256,11 @@ class TherapistDiscoveryController extends Controller
                     ->where('visibility', ProfilePhoto::VISIBILITY_PUBLIC)
                     ->orderBy('sort_order')
                     ->orderBy('id'),
+            ])
+            ->withCount([
+                'photos as private_photo_count' => fn ($query) => $query
+                    ->where('status', ProfilePhoto::STATUS_APPROVED)
+                    ->where('visibility', ProfilePhoto::VISIBILITY_PRIVATE),
             ]);
     }
 
@@ -266,9 +278,14 @@ class TherapistDiscoveryController extends Controller
                 'pricingRules',
                 'photos' => fn ($query) => $query
                     ->where('status', ProfilePhoto::STATUS_APPROVED)
-                    ->orderByRaw("case when visibility = ? then 0 else 1 end", [ProfilePhoto::VISIBILITY_PUBLIC])
+                    ->where('visibility', ProfilePhoto::VISIBILITY_PUBLIC)
                     ->orderBy('sort_order')
                     ->orderBy('id'),
+            ])
+            ->withCount([
+                'photos as private_photo_count' => fn ($query) => $query
+                    ->where('status', ProfilePhoto::STATUS_APPROVED)
+                    ->where('visibility', ProfilePhoto::VISIBILITY_PRIVATE),
             ]);
     }
 
@@ -446,6 +463,7 @@ class TherapistDiscoveryController extends Controller
                 $profile->photos,
                 signed: $viewer?->id === $profile->account_id,
             ),
+            'private_photo_summary' => $this->privatePhotoSummary($profile, $viewer),
         ];
     }
 
@@ -511,7 +529,6 @@ class TherapistDiscoveryController extends Controller
         return $photos
             ->map(fn (ProfilePhoto $photo): array => [
                 'sort_order' => $photo->sort_order,
-                'visibility' => $photo->visibility,
                 'url' => $signed
                     ? URL::temporarySignedRoute('profile-photos.signed-file', now()->addMinutes(30), [
                         'profilePhoto' => $photo->id,
@@ -520,6 +537,56 @@ class TherapistDiscoveryController extends Controller
             ])
             ->values()
             ->all();
+    }
+
+    private function privatePhotoSummary(TherapistProfile $profile, ?Account $viewer): ?array
+    {
+        $count = (int) ($profile->private_photo_count ?? 0);
+
+        if ($count < 1) {
+            return null;
+        }
+
+        if (! $viewer) {
+            return [
+                'count' => $count,
+                'can_view' => false,
+                'requires_login' => true,
+                'requires_identity_verification' => false,
+                'next_available_at' => null,
+            ];
+        }
+
+        if ($viewer->id === $profile->account_id) {
+            return [
+                'count' => $count,
+                'can_view' => true,
+                'requires_login' => false,
+                'requires_identity_verification' => false,
+                'next_available_at' => null,
+            ];
+        }
+
+        $requiresIdentityVerification = $viewer->status !== Account::STATUS_ACTIVE
+            || $viewer->latestIdentityVerification?->status !== IdentityVerification::STATUS_APPROVED;
+
+        $latestLock = $requiresIdentityVerification
+            ? null
+            : PrivatePhotoViewSession::query()
+                ->where('viewer_account_id', $viewer->id)
+                ->where('therapist_profile_id', $profile->id)
+                ->whereNotNull('locked_until')
+                ->where('locked_until', '>', now())
+                ->latest('locked_until')
+                ->first();
+
+        return [
+            'count' => $count,
+            'can_view' => ! $requiresIdentityVerification && $latestLock === null,
+            'requires_login' => false,
+            'requires_identity_verification' => $requiresIdentityVerification,
+            'next_available_at' => $latestLock?->locked_until?->toIso8601String(),
+        ];
     }
 
     private function validatedDiscoveryContext(Request $request, bool $requireServiceAddress, ?Account $viewer = null): array
