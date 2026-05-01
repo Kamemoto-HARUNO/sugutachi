@@ -47,7 +47,7 @@ export function PublicLayout() {
 
     return (
         <div className="min-h-screen">
-            <header className="border-b border-white/10">
+            <header className="border-0">
                 <div className="mx-auto w-full max-w-7xl px-6 py-5">
                     <PublicHeaderBar actions={headerActions} />
                     <div className="mt-4 border-0 pt-0">
