@@ -10,6 +10,12 @@ const ROLE_HOME_PATHS: Record<RoleName, string> = {
     admin: '/admin',
 };
 
+const ROLE_DASHBOARD_PATHS: Record<RoleName, string> = {
+    user: '/user/dashboard',
+    therapist: '/therapist/dashboard',
+    admin: '/admin',
+};
+
 export function isRoleName(value: string | null | undefined): value is RoleName {
     return value === 'user' || value === 'therapist' || value === 'admin';
 }
@@ -43,6 +49,10 @@ export function getPreferredRole(account: Account | null): RoleName | null {
 
 export function getRoleHomePath(role: RoleName): string {
     return ROLE_HOME_PATHS[role];
+}
+
+export function getRoleDashboardPath(role: RoleName): string {
+    return ROLE_DASHBOARD_PATHS[role];
 }
 
 export function sanitizeAppPath(value: string | null | undefined): string | null {

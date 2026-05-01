@@ -152,6 +152,10 @@ function AppRoutes() {
                 >
                     <Route
                         index
+                        element={<Navigate to="/role-select?return_to=%2Fuser%2Fdashboard" replace />}
+                    />
+                    <Route
+                        path="dashboard"
                         element={
                             <SectionHomePage
                                 eyebrow="利用者マイページ"
@@ -234,6 +238,10 @@ function AppRoutes() {
                 >
                     <Route
                         index
+                        element={<Navigate to="/role-select?return_to=%2Ftherapist%2Fdashboard" replace />}
+                    />
+                    <Route
+                        path="dashboard"
                         element={
                             <SectionHomePage
                                 eyebrow="タチキャストマイページ"

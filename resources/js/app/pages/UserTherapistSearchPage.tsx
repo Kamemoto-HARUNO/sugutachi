@@ -285,7 +285,7 @@ export function UserTherapistSearchPage() {
                     description="デフォルトの待ち合わせ場所を基準に、移動時間目安レンジと概算料金で比較できます。予定予約は日時を入れると、その条件で見積もりを揃えます。"
                     topBadge={DISCOVERY_TOP_BADGE}
                     bullets={[...DISCOVERY_HERO_BULLETS]}
-                    primaryAction={{ label: 'マイページ', to: '/user' }}
+                    primaryAction={{ label: 'マイページ', to: '/role-select' }}
                     secondaryAction={{ label: '予約一覧', to: '/user/bookings' }}
                 >
                     <DiscoverySearchPanel
@@ -398,7 +398,7 @@ export function UserTherapistSearchPage() {
                                         >
                                             待ち合わせ場所を追加
                                         </Link>
-                                        <Link to="/user" className="rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]">
+                                        <Link to="/role-select" className="rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]">
                                             マイページへ
                                         </Link>
                                     </div>
@@ -464,7 +464,7 @@ export function UserTherapistSearchPage() {
             <DiscoveryFooter
                 domain={serviceMeta?.domain ?? 'sugutachi.com'}
                 description="待ち合わせ場所を登録しておけば、近さと料金の見え方をそろえた検索一覧からそのまま予約フローへ進めます。"
-                primaryAction={{ label: 'マイページ', to: '/user' }}
+                primaryAction={{ label: 'マイページ', to: '/role-select' }}
                 secondaryAction={{ label: '予約一覧', to: '/user/bookings' }}
             />
         </div>

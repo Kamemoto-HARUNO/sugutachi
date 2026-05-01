@@ -11,7 +11,6 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
-import { getRoleHomePath } from '../lib/account';
 import {
     DISCOVERY_HERO_BULLETS,
     DISCOVERY_LOCATION_LABEL,
@@ -33,7 +32,7 @@ import {
 import type { ApiEnvelope, ServiceAddress, ServiceMeta, TherapistSearchResult } from '../lib/types';
 
 export function PublicHomePage() {
-    const { activeRole, hasRole, isAuthenticated, token } = useAuth();
+    const { hasRole, isAuthenticated, token } = useAuth();
     const [serviceMeta, setServiceMeta] = useState<ServiceMeta | null>(null);
     const [serviceAddresses, setServiceAddresses] = useState<ServiceAddress[]>([]);
     const [previewTherapists, setPreviewTherapists] = useState<TherapistSearchResult[]>([]);
@@ -94,21 +93,7 @@ export function PublicHomePage() {
 
         return sortTherapistSearchResults(filtered, selectedSort);
     }, [previewTherapists, priceRange, ratingOnly, selectedSort, trainingOnly, walkingOnly]);
-    const heroMyPagePath = useMemo(() => {
-        if (hasRole('user')) {
-            return '/user';
-        }
-
-        if (activeRole) {
-            return getRoleHomePath(activeRole);
-        }
-
-        if (canUseTherapistMode) {
-            return '/therapist';
-        }
-
-        return '/role-select';
-    }, [activeRole, canUseTherapistMode, hasRole]);
+    const heroMyPagePath = '/role-select';
 
     useEffect(() => {
         let isMounted = true;
@@ -310,15 +295,15 @@ export function PublicHomePage() {
     }, [isAuthenticated]);
 
     const footerPrimaryAction = canUseUserMode
-        ? { label: 'マイページ', to: '/user' }
+        ? { label: 'マイページ', to: '/role-select' }
         : isAuthenticated
-            ? { label: '利用者モードを追加', to: '/role-select?add_role=user&return_to=%2Fuser' }
+            ? { label: '利用者モードを追加', to: '/role-select?add_role=user&return_to=%2Fuser%2Fdashboard' }
             : { label: 'ログイン・無料登録', to: '/register' };
 
     const footerSecondaryAction = canUseUserMode
         ? { label: '予約一覧', to: '/user/bookings' }
         : canUseTherapistMode
-            ? { label: 'マイページ', to: '/therapist' }
+            ? { label: 'マイページ', to: '/role-select' }
         : isAuthenticated
             ? { label: 'タチキャストモードを追加', to: '/role-select?add_role=therapist&return_to=%2Ftherapist%2Fonboarding' }
             : { label: 'タチキャストとして登録', to: '/register' };

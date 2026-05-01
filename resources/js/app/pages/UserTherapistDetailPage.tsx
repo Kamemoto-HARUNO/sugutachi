@@ -294,7 +294,7 @@ export function UserTherapistDetailPage() {
         : '/register';
     const enableUserRolePath = intendedPrimaryActionPath
         ? `/role-select?add_role=user&return_to=${encodeURIComponent(intendedPrimaryActionPath)}`
-        : '/role-select?add_role=user&return_to=%2Fuser';
+        : '/role-select?add_role=user&return_to=%2Fuser%2Fdashboard';
     const availabilityPath = canUseUserFlows ? intendedPrimaryActionPath ?? '/user/therapists' : loginAvailabilityPath;
     const travelRequestLoginPath = intendedTravelRequestPath
         ? `/login?return_to=${encodeURIComponent(intendedTravelRequestPath)}`
@@ -304,7 +304,7 @@ export function UserTherapistDetailPage() {
         : '/register';
     const travelRequestEnableRolePath = intendedTravelRequestPath
         ? `/role-select?add_role=user&return_to=${encodeURIComponent(intendedTravelRequestPath)}`
-        : '/role-select?add_role=user&return_to=%2Fuser';
+        : '/role-select?add_role=user&return_to=%2Fuser%2Fdashboard';
     const travelRequestAction = canUseUserFlows
         ? { label: '出張リクエストを送る', to: intendedTravelRequestPath ?? '/user/therapists' }
         : isAuthenticated

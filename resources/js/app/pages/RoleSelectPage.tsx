@@ -8,7 +8,7 @@ import {
     formatRoleLabel,
     getAccountDisplayName,
     getActiveRoles,
-    getRoleHomePath,
+    getRoleDashboardPath,
     inferRoleFromPath,
     sanitizeAppPath,
     type RoleName,
@@ -17,7 +17,9 @@ import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatIdentityVerificationStatus, formatProfileStatus, formatStripeStatus } from '../lib/therapist';
 import type {
     ApiEnvelope,
+    PublicCampaignRecord,
     ServiceAddress,
+    ServiceMeta,
     StripeConnectedAccountStatus,
     TherapistReviewStatus,
     UserProfileRecord,
@@ -35,6 +37,12 @@ interface TherapistModeSnapshot {
     reviewStatus: TherapistReviewStatus | null;
     stripeStatus: StripeConnectedAccountStatus | null;
 }
+
+const emptyRoleCampaigns: Record<RoleName, PublicCampaignRecord[]> = {
+    user: [],
+    therapist: [],
+    admin: [],
+};
 
 interface RoleGuide {
     label: string;
@@ -68,20 +76,20 @@ function statusTone(kind: 'ready' | 'pending' | 'neutral'): string {
 function rolePageLabel(role: RoleName): string {
     switch (role) {
         case 'user':
-            return '利用者マイページ';
+            return '利用者ダッシュボード';
         case 'therapist':
-            return 'タチキャストマイページ';
+            return 'タチキャストダッシュボード';
         case 'admin':
-            return '運営マイページ';
+            return '運営ダッシュボード';
     }
 }
 
 function roleSwitchHint(role: RoleName): string {
     switch (role) {
         case 'user':
-            return '検索・予約・住所管理を開きます。';
+            return '検索、予約、オファー確認の入口を開きます。';
         case 'therapist':
-            return '依頼対応・準備状況・売上管理を開きます。';
+            return '準備状況、依頼対応、売上確認の入口を開きます。';
         case 'admin':
             return '審査・監視・運用管理を開きます。';
     }
@@ -90,13 +98,24 @@ function roleSwitchHint(role: RoleName): string {
 function rolePageHint(role: RoleName, isReady: boolean): string {
     switch (role) {
         case 'user':
-            return '検索、予約、住所管理は利用者マイページから確認できます。';
+            return '検索、予約、住所管理は利用者ダッシュボードから確認できます。';
         case 'therapist':
             return isReady
-                ? '依頼対応、レビュー確認、売上管理はタチキャストマイページから確認できます。'
-                : '公開準備が残っている場合は、タチキャストマイページ内の「準備状況」から確認できます。';
+                ? '依頼対応、レビュー確認、売上管理はタチキャストダッシュボードから確認できます。'
+                : '公開準備が残っている場合は、タチキャストダッシュボード内の「準備状況」から確認できます。';
         case 'admin':
-            return '審査、監視、法務運用は運営マイページから確認できます。';
+            return '審査、監視、法務運用は運営ダッシュボードから確認できます。';
+    }
+}
+
+function roleAccessLabel(role: RoleName): string {
+    switch (role) {
+        case 'user':
+            return '利用者ダッシュボードにアクセス';
+        case 'therapist':
+            return 'タチキャストダッシュボードにアクセス';
+        case 'admin':
+            return '運営ダッシュボードにアクセス';
     }
 }
 
@@ -123,8 +142,8 @@ function roleGuides(): Record<RoleName, RoleGuide> {
                 '待ち合わせ場所の管理と予約前の料金確認',
                 '予約一覧、メッセージ、レビュー、報告履歴の確認',
             ],
-            addTitle: '利用者マイページを追加',
-            addDescription: 'タチキャスト探しや予約を始めるためのページです。見ていた公開プロフィールからそのまま続けられます。',
+            addTitle: '利用者モードを追加',
+            addDescription: 'タチキャスト探しや予約を始めるためのモードです。見ていた公開プロフィールからそのまま続けられます。',
             accent: {
                 badge: 'border-amber-300/30 bg-amber-300/10 text-amber-100',
                 subtle: 'text-amber-100/90',
@@ -144,8 +163,8 @@ function roleGuides(): Record<RoleName, RoleGuide> {
                 '依頼対応、予約の進行、メッセージ対応',
                 'レビュー確認、売上確認、出金申請、受取設定',
             ],
-            addTitle: 'タチキャストマイページを追加',
-            addDescription: 'タチキャストとして活動を始めるためのページです。本人確認、プロフィール入力、受取設定へそのまま進めます。',
+            addTitle: 'タチキャストモードを追加',
+            addDescription: 'タチキャストとして活動を始めるためのモードです。本人確認、プロフィール入力、受取設定へそのまま進めます。',
             accent: {
                 badge: 'border-emerald-300/30 bg-emerald-300/10 text-emerald-100',
                 subtle: 'text-emerald-100/90',
@@ -189,6 +208,7 @@ export function RoleSelectPage() {
     const [isLoadingSnapshots, setIsLoadingSnapshots] = useState(true);
     const [userSnapshot, setUserSnapshot] = useState<UserModeSnapshot | null>(null);
     const [therapistSnapshot, setTherapistSnapshot] = useState<TherapistModeSnapshot | null>(null);
+    const [roleCampaigns, setRoleCampaigns] = useState<Record<RoleName, PublicCampaignRecord[]>>(emptyRoleCampaigns);
 
     const roles = useMemo(() => getActiveRoles(account), [account]);
     const addRoleHint = searchParams.get('add_role');
@@ -198,7 +218,7 @@ export function RoleSelectPage() {
     const guides = roleGuides();
     const identityStatus = account?.latest_identity_verification?.status ?? null;
 
-    usePageTitle('マイページの切り替え');
+    usePageTitle('モード選択');
     useToastOnMessage(error, 'error');
 
     const addableRoles = useMemo(
@@ -208,6 +228,7 @@ export function RoleSelectPage() {
 
     const loadSnapshots = useCallback(async () => {
         if (!token || !account) {
+            setRoleCampaigns(emptyRoleCampaigns);
             setIsLoadingSnapshots(false);
             return;
         }
@@ -216,6 +237,17 @@ export function RoleSelectPage() {
         setIsLoadingSnapshots(true);
 
         const requests: Promise<void>[] = [];
+
+        requests.push((async () => {
+            const metaPayload = await apiRequest<ApiEnvelope<ServiceMeta>>('/service-meta');
+            const campaigns = unwrapData(metaPayload).campaigns;
+
+            setRoleCampaigns({
+                user: campaigns.filter((campaign) => campaign.target_role === 'user'),
+                therapist: campaigns.filter((campaign) => campaign.target_role === 'therapist'),
+                admin: [],
+            });
+        })());
 
         if (roles.includes('user')) {
             requests.push((async () => {
@@ -350,6 +382,35 @@ export function RoleSelectPage() {
         }
     }
 
+    function renderRoleCampaigns(role: RoleName) {
+        const campaigns = roleCampaigns[role].slice(0, 2);
+
+        if (campaigns.length === 0) {
+            return null;
+        }
+
+        return (
+            <div className="grid gap-3">
+                {campaigns.map((campaign, index) => (
+                    <article
+                        key={`${role}-campaign-${campaign.id}`}
+                        className="campaign-offer-float campaign-offer-banner-dark rounded-[24px] px-5 py-4"
+                        style={{ animationDelay: `${index * 0.7}s` }}
+                    >
+                        <p className="text-xs font-semibold tracking-wide text-[#7f5414]">期間限定キャンペーン適用中</p>
+                        <p className="mt-2 text-sm font-semibold text-[#17202b]">{campaign.offer_text}</p>
+                        <p className="mt-2 text-xs leading-6 text-[#5d4724]">
+                            {campaign.trigger_label}として {campaign.benefit_summary} が適用されます。
+                            {campaign.offer_valid_days
+                                ? ` 付与後 ${campaign.offer_valid_days} 日以内に使えます。`
+                                : ''}
+                        </p>
+                    </article>
+                ))}
+            </div>
+        );
+    }
+
     function continuePath(role: RoleName, isNewRole = false): string {
         if (returnTo && (!returnRole || returnRole === role)) {
             return returnTo;
@@ -359,12 +420,12 @@ export function RoleSelectPage() {
             return '/therapist/onboarding';
         }
 
-        return getRoleHomePath(role);
+        return getRoleDashboardPath(role);
     }
 
-    function openRole(role: RoleName, destination: 'home' | 'continue' = 'home') {
+    function openRole(role: RoleName, destination: 'dashboard' | 'continue' = 'dashboard') {
         selectRole(role);
-        navigate(destination === 'continue' ? continuePath(role) : getRoleHomePath(role), { replace: true });
+        navigate(destination === 'continue' ? continuePath(role) : getRoleDashboardPath(role), { replace: true });
     }
 
     async function handleAddRole(role: 'user' | 'therapist') {
@@ -389,6 +450,7 @@ export function RoleSelectPage() {
     }
 
     const requestedRoleLabel = requestedRole ? formatRoleLabel(requestedRole) : null;
+    const highlightedRole = requestedRole ?? returnRole;
     const currentAccountName = getAccountDisplayName(account);
     const activeRoleLabel = activeRole ? rolePageLabel(activeRole) : '未選択';
 
@@ -399,22 +461,22 @@ export function RoleSelectPage() {
                     <div className="flex flex-wrap items-center gap-3 text-sm text-slate-300">
                         <BrandMark inverse compact />
                         <span className="text-slate-500">/</span>
-                        <span>マイページの切り替え</span>
+                        <span>モード選択</span>
                     </div>
 
                     <div className="space-y-4">
                         <span className="inline-flex items-center rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold tracking-wide text-slate-200">
-                            マイページ切り替え
+                            モード選択
                         </span>
                         <div className="space-y-3">
-                            <h1 className="max-w-[11ch] text-[2.4rem] font-semibold leading-[1.4] text-white sm:max-w-none sm:text-[3.2rem]">
-                                1つのアカウントで
+                            <h1 className="max-w-[13ch] text-[2.4rem] font-semibold leading-[1.4] text-white sm:max-w-none sm:text-[3.2rem]">
+                                どのモードで
                                 <br />
-                                利用者にもタチキャストにもなれます
+                                ダッシュボードへ入るか選ぶ
                             </h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300 sm:text-[0.95rem]">
-                                1つのアカウントで「探す側」と「提供する側」の両方を使えます。最初に選んだ使い方とは別のことを始めたいときも、
-                                この画面から必要なマイページを追加して、そのまま続きへ進めます。
+                                マイページを開くと、まずこの画面で利用者モードかタチキャストモードかを選べます。
+                                片方しか使っていないアカウントでも、ここからそのまま別モードを追加できます。
                             </p>
                         </div>
                     </div>
@@ -483,9 +545,9 @@ export function RoleSelectPage() {
 
                         <div className="rounded-[20px] border border-white/10 bg-[#111923] px-4 py-4">
                             <div>
-                                <p className="text-xs font-semibold tracking-wide text-slate-400">いま開いているマイページ</p>
+                                <p className="text-xs font-semibold tracking-wide text-slate-400">いま選ばれているモード</p>
                                 <p className="mt-2 text-lg font-semibold text-white">{activeRoleLabel}</p>
-                                <p className="mt-1 text-xs text-slate-400">下のボタンからすぐ切り替えられます。</p>
+                                <p className="mt-1 text-xs text-slate-400">下のボタンからそのまま入口を切り替えられます。</p>
                             </div>
 
                             <div className="mt-4 grid gap-3">
@@ -519,7 +581,7 @@ export function RoleSelectPage() {
                                                         : 'border border-white/10 bg-white/5 text-slate-200',
                                                 ].join(' ')}
                                             >
-                                                {isCurrent ? '表示中' : '切り替える'}
+                                                {isCurrent ? '選択中' : '開く'}
                                             </span>
                                         </button>
                                     );
@@ -542,10 +604,10 @@ export function RoleSelectPage() {
 
             <section className="space-y-5">
                 <div className="space-y-2">
-                    <p className="text-xs font-semibold tracking-wide text-slate-400">利用できるマイページ</p>
-                    <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">今すぐ開けるマイページ</h2>
+                    <p className="text-xs font-semibold tracking-wide text-slate-400">利用できるモード</p>
+                    <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">今すぐ入れるダッシュボード</h2>
                     <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                        このアカウントで使える各マイページの準備状況と、ここからできることをまとめています。
+                        このアカウントで使える各モードの準備状況と、ここから入れるダッシュボードをまとめています。
                     </p>
                 </div>
 
@@ -561,7 +623,7 @@ export function RoleSelectPage() {
                                     'flex h-full flex-col gap-6 rounded-[28px] border bg-white/[0.04] p-6 shadow-[0_24px_60px_rgba(2,6,23,0.2)]',
                                     guide.accent.border,
                                     activeRole === role ? 'bg-white/[0.08] ring-2 ring-white/60' : '',
-                                    requestedRole === role ? guide.accent.highlight : '',
+                                    highlightedRole === role ? guide.accent.highlight : '',
                                 ].join(' ')}
                             >
                                 <div className="flex flex-wrap items-start justify-between gap-3">
@@ -580,13 +642,15 @@ export function RoleSelectPage() {
                                         </span>
                                         {activeRole === role ? (
                                             <span className="inline-flex items-center rounded-full bg-[#f3dec0] px-3 py-1 text-xs font-bold text-[#17202b] shadow-[0_10px_24px_rgba(243,222,192,0.18)]">
-                                                現在表示中
+                                                現在のモード
                                             </span>
                                         ) : null}
                                     </div>
                                 </div>
 
                                 <p className="text-sm leading-7 text-slate-300">{guide.description}</p>
+
+                                {renderRoleCampaigns(role)}
 
                                 <div className="grid gap-3 sm:grid-cols-3">
                                     {roleMetrics(role).map((metric) => (
@@ -630,7 +694,7 @@ export function RoleSelectPage() {
                                         }}
                                         className={`inline-flex min-h-11 items-center rounded-full px-5 py-3 text-sm font-semibold transition ${guide.accent.primaryButton}`}
                                     >
-                                        {rolePageLabel(role)}
+                                        {roleAccessLabel(role)}
                                     </button>
                                 </div>
                             </article>
@@ -643,9 +707,9 @@ export function RoleSelectPage() {
                 <section className="space-y-5">
                     <div className="space-y-2">
                         <p className="text-xs font-semibold tracking-wide text-slate-400">追加できる使い方</p>
-                        <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">今のアカウントに追加できるもの</h2>
+                        <h2 className="text-2xl font-semibold text-white sm:text-[2rem]">今のアカウントに追加できるモード</h2>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                            まだ使っていないマイページは、ここから今のアカウントに追加できます。別のアカウントを作る必要はありません。
+                            まだ使っていないモードは、ここから今のアカウントに追加できます。別のアカウントを作る必要はありません。
                         </p>
                     </div>
 
@@ -659,7 +723,7 @@ export function RoleSelectPage() {
                                     className={[
                                         'flex h-full flex-col gap-5 rounded-[28px] border bg-white/[0.04] p-6 shadow-[0_24px_60px_rgba(2,6,23,0.16)]',
                                         guide.accent.border,
-                                        requestedRole === role ? guide.accent.highlight : '',
+                                        highlightedRole === role ? guide.accent.highlight : '',
                                     ].join(' ')}
                                 >
                                     <div className="space-y-3">
@@ -671,6 +735,8 @@ export function RoleSelectPage() {
                                             <p className="text-sm leading-7 text-slate-300">{guide.addDescription}</p>
                                         </div>
                                     </div>
+
+                                    {renderRoleCampaigns(role)}
 
                                     <ul className="space-y-2 text-sm leading-7 text-slate-300">
                                         {guide.bullets.map((bullet) => (
@@ -690,7 +756,7 @@ export function RoleSelectPage() {
                                             disabled={pendingRole === role}
                                             className={`inline-flex min-h-11 items-center rounded-full px-5 py-3 text-sm font-semibold transition disabled:cursor-not-allowed disabled:opacity-60 ${guide.accent.primaryButton}`}
                                         >
-                                            {pendingRole === role ? '追加中...' : 'この使い方を追加する'}
+                                            {pendingRole === role ? '追加中...' : guide.addTitle}
                                         </button>
                                     </div>
                                 </article>
@@ -702,7 +768,7 @@ export function RoleSelectPage() {
 
             <section className="space-y-4 rounded-[28px] border border-white/10 bg-white/[0.04] p-6">
                 <p className="text-xs font-semibold tracking-wide text-slate-400">共通で使う情報</p>
-                <h2 className="text-2xl font-semibold text-white">どのマイページでも共通の情報</h2>
+                <h2 className="text-2xl font-semibold text-white">どのモードでも共通の情報</h2>
                 <ul className="space-y-3 text-sm leading-7 text-slate-300">
                     <li className="flex gap-3">
                         <span className="mt-[0.7rem] h-1.5 w-1.5 shrink-0 rounded-full bg-white/55" />
@@ -714,7 +780,7 @@ export function RoleSelectPage() {
                     </li>
                     <li className="flex gap-3">
                         <span className="mt-[0.7rem] h-1.5 w-1.5 shrink-0 rounded-full bg-white/55" />
-                        <span>公開プロフィール閲覧はゲストでも可能ですが、予約、メッセージ、住所保存などの操作はログイン後の各マイページで行います。</span>
+                        <span>公開プロフィール閲覧はゲストでも可能ですが、予約、メッセージ、住所保存などの操作はログイン後の各モードで行います。</span>
                     </li>
                 </ul>
             </section>

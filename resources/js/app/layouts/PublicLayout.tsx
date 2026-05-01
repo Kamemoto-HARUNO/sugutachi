@@ -2,7 +2,6 @@ import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { RoleModeSwitcher } from '../components/account/RoleModeSwitcher';
 import { BrandMark } from '../components/brand/BrandMark';
 import { NotificationBellLink } from '../components/notifications/NotificationBellLink';
-import { getRoleHomePath } from '../lib/account';
 import { publicNavItems } from '../lib/navigation';
 import { useAuth } from '../hooks/useAuth';
 
@@ -14,12 +13,12 @@ function navLinkClass(isActive: boolean): string {
 }
 
 export function PublicLayout() {
-    const { activeRole, hasRole, isAuthenticated, logout } = useAuth();
+    const { isAuthenticated, logout } = useAuth();
     const location = useLocation();
     const returnTo = `${location.pathname}${location.search}`;
     const loginPath = location.pathname === '/login' ? '/login' : `/login?return_to=${encodeURIComponent(returnTo)}`;
     const registerPath = location.pathname === '/register' ? '/register' : `/register?return_to=${encodeURIComponent(returnTo)}`;
-    const myPagePath = hasRole('user') ? '/user' : activeRole ? getRoleHomePath(activeRole) : '/role-select';
+    const myPagePath = '/role-select';
 
     return (
         <div className="min-h-screen">
