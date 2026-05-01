@@ -89,12 +89,48 @@ class AdminAccountTest extends TestCase
         ]);
     }
 
+    public function test_admin_can_grant_admin_role_to_account(): void
+    {
+        [$admin, $user] = $this->createAdminAccountFixture();
+
+        $this->assertDatabaseMissing('account_roles', [
+            'account_id' => $user->id,
+            'role' => 'admin',
+        ]);
+
+        $this->withToken($admin->createToken('api')->plainTextToken)
+            ->postJson("/api/admin/accounts/{$user->public_id}/grant-admin")
+            ->assertOk()
+            ->assertJsonPath('data.public_id', $user->public_id)
+            ->assertJsonFragment([
+                'role' => 'admin',
+                'status' => 'active',
+            ]);
+
+        $this->assertDatabaseHas('account_roles', [
+            'account_id' => $user->id,
+            'role' => 'admin',
+            'status' => 'active',
+            'revoked_at' => null,
+        ]);
+        $this->assertDatabaseHas('admin_audit_logs', [
+            'actor_account_id' => $admin->id,
+            'action' => 'account.grant_admin',
+            'target_type' => Account::class,
+            'target_id' => $user->id,
+        ]);
+    }
+
     public function test_non_admin_cannot_access_account_admin_api(): void
     {
         [, $user] = $this->createAdminAccountFixture();
 
         $this->withToken($user->createToken('api')->plainTextToken)
             ->getJson('/api/admin/accounts')
+            ->assertForbidden();
+
+        $this->withToken($user->createToken('api-grant')->plainTextToken)
+            ->postJson("/api/admin/accounts/{$user->public_id}/grant-admin")
             ->assertForbidden();
     }
 

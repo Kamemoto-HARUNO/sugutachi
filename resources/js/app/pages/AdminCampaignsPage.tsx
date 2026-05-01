@@ -97,8 +97,10 @@ function buildEmptyForm(targetRole: CampaignTargetRole = 'therapist'): CampaignF
 }
 
 function buildFormFromCampaign(campaign: AdminCampaignRecord): CampaignFormState {
+    const targetRole: CampaignTargetRole = campaign.target_role === 'user' ? 'user' : 'therapist';
+
     return {
-        target_role: campaign.target_role,
+        target_role: targetRole,
         trigger_type: campaign.trigger_type as CampaignTriggerType,
         benefit_type: campaign.benefit_type as CampaignBenefitType,
         benefit_value: String(campaign.benefit_value),

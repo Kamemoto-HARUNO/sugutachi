@@ -155,6 +155,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/admin/accounts/{account:public_id}', [AdminAccountController::class, 'show']);
     Route::post('/admin/accounts/{account:public_id}/suspend', [AdminAccountController::class, 'suspend']);
     Route::post('/admin/accounts/{account:public_id}/restore', [AdminAccountController::class, 'restore']);
+    Route::post('/admin/accounts/{account:public_id}/grant-admin', [AdminAccountController::class, 'grantAdmin']);
     Route::get('/admin/audit-logs', [AdminAuditLogController::class, 'index']);
     Route::get('/admin/platform-fee-settings', [AdminPlatformFeeSettingController::class, 'index']);
     Route::post('/admin/platform-fee-settings', [AdminPlatformFeeSettingController::class, 'store']);
