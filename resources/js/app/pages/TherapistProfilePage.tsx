@@ -1037,9 +1037,6 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
                                                         ].join(' ')}>
                                                             {draft.is_active ? '公開中' : '非公開'}
                                                         </span>
-                                                        <span className="rounded-full border border-white/10 bg-white/5 px-3 py-1 text-xs font-semibold text-slate-300">
-                                                            {index + 1}番目
-                                                        </span>
                                                     </div>
                                                     <div className="flex flex-wrap gap-3 text-sm text-slate-300">
                                                         <span>最短 {draft.minimum_duration_minutes}分</span>
