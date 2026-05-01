@@ -13,8 +13,11 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 use Laravel\Sanctum\PersonalAccessToken;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BookingMessageController extends Controller
 {
@@ -75,23 +78,49 @@ class BookingMessageController extends Controller
         $this->authorizeParticipant($booking, $actor);
 
         $validated = $request->validate([
-            'body' => ['required', 'string', 'min:1', 'max:1000'],
+            'body' => ['nullable', 'string', 'max:1000'],
+            'image' => ['nullable', 'file', 'max:10240', 'mimes:jpg,jpeg,png,webp'],
         ]);
+        $body = trim((string) ($validated['body'] ?? ''));
+        $uploadedImage = $validated['image'] ?? null;
 
-        if ($detector->detects($validated['body'])) {
+        if ($body === '' && ! $uploadedImage) {
+            throw ValidationException::withMessages([
+                'body' => 'メッセージまたは画像を選択してください。',
+            ]);
+        }
+
+        if ($body !== '' && $uploadedImage) {
+            throw ValidationException::withMessages([
+                'image' => '画像とテキストは別々に送信してください。',
+            ]);
+        }
+
+        if ($body !== '' && $detector->detects($body)) {
             return response()->json([
                 'message' => 'Contact exchange is not allowed in booking messages.',
             ], 422);
         }
 
-        $message = $booking->messages()->create([
+        $messageAttributes = [
             'sender_account_id' => $actor->id,
-            'message_type' => 'text',
-            'body_encrypted' => Crypt::encryptString($validated['body']),
+            'message_type' => $uploadedImage ? BookingMessage::TYPE_IMAGE : BookingMessage::TYPE_TEXT,
+            'body_encrypted' => Crypt::encryptString($body),
             'detected_contact_exchange' => false,
             'moderation_status' => BookingMessage::MODERATION_STATUS_OK,
             'sent_at' => now(),
-        ]);
+        ];
+
+        if ($uploadedImage) {
+            $path = $uploadedImage->store('booking-messages/'.$booking->public_id.'/'.$actor->public_id, 'local');
+
+            $messageAttributes['attachment_storage_key_encrypted'] = Crypt::encryptString($path);
+            $messageAttributes['attachment_original_name'] = $uploadedImage->getClientOriginalName();
+            $messageAttributes['attachment_mime_type'] = $uploadedImage->getClientMimeType();
+            $messageAttributes['attachment_size_bytes'] = $uploadedImage->getSize();
+        }
+
+        $message = $booking->messages()->create($messageAttributes);
 
         $bookingMessageTypingService->clearTyping($booking, $actor);
         $message->setAttribute('viewer_account_id', $actor->id);
@@ -99,6 +128,49 @@ class BookingMessageController extends Controller
         return (new BookingMessageResource($message->load(['booking', 'sender'])))
             ->response()
             ->setStatusCode(201);
+    }
+
+    public function showSigned(Request $request, Booking $booking, BookingMessage $message): StreamedResponse
+    {
+        abort_unless($request->hasValidSignature(), 403);
+        abort_unless($message->booking_id === $booking->id, 404);
+        abort_unless($message->attachment_storage_key_encrypted, 404);
+
+        return $this->attachmentResponse($message, 'private, max-age=300');
+    }
+
+    public function destroyImage(Request $request, Booking $booking, BookingMessage $message): BookingMessageResource
+    {
+        $actor = $this->authenticatedActor($request);
+        $this->authorizeParticipant($booking, $actor);
+        abort_unless($message->booking_id === $booking->id, 404);
+        abort_unless($message->sender_account_id === $actor->id, 403);
+
+        if ($message->message_type !== BookingMessage::TYPE_IMAGE) {
+            throw ValidationException::withMessages([
+                'message' => '画像メッセージのみ削除できます。',
+            ]);
+        }
+
+        if ($message->attachment_storage_key_encrypted) {
+            $path = Crypt::decryptString($message->attachment_storage_key_encrypted);
+
+            if (Storage::disk('local')->exists($path)) {
+                Storage::disk('local')->delete($path);
+            }
+
+            $message->forceFill([
+                'attachment_storage_key_encrypted' => null,
+                'attachment_original_name' => null,
+                'attachment_mime_type' => null,
+                'attachment_size_bytes' => null,
+            ])->save();
+        }
+
+        $message = $message->refresh()->load(['booking', 'sender']);
+        $message->setAttribute('viewer_account_id', $actor->id);
+
+        return new BookingMessageResource($message);
     }
 
     public function typing(
@@ -196,5 +268,16 @@ class BookingMessageController extends Controller
         }
 
         return null;
+    }
+
+    private function attachmentResponse(BookingMessage $message, string $cacheControl): StreamedResponse
+    {
+        $path = Crypt::decryptString($message->attachment_storage_key_encrypted);
+
+        abort_unless(Storage::disk('local')->exists($path), 404);
+
+        return Storage::disk('local')->response($path, headers: [
+            'Cache-Control' => $cacheControl,
+        ]);
     }
 }

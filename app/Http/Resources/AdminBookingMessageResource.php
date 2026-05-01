@@ -5,11 +5,14 @@ namespace App\Http\Resources;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\URL;
 
 class AdminBookingMessageResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $isDeleted = $this->message_type === 'image' && ! $this->attachment_storage_key_encrypted;
+
         return [
             'id' => $this->id,
             'booking_public_id' => $this->whenLoaded('booking', fn () => $this->booking?->public_id),
@@ -23,6 +26,17 @@ class AdminBookingMessageResource extends JsonResource
             ] : null),
             'message_type' => $this->message_type,
             'body' => Crypt::decryptString($this->body_encrypted),
+            'attachment_url' => $this->when(
+                $this->attachment_storage_key_encrypted && $this->relationLoaded('booking') && $this->booking,
+                fn () => URL::temporarySignedRoute('booking-messages.signed-file', now()->addMinutes(30), [
+                    'booking' => $this->booking->public_id,
+                    'message' => $this->id,
+                ]),
+            ),
+            'attachment_original_name' => $this->attachment_original_name,
+            'attachment_mime_type' => $this->attachment_mime_type,
+            'attachment_size_bytes' => $this->attachment_size_bytes,
+            'is_deleted' => $isDeleted,
             'detected_contact_exchange' => $this->detected_contact_exchange,
             'moderation_status' => $this->moderation_status,
             'moderated_by_admin' => $this->whenLoaded('moderatedByAdmin', fn () => $this->moderatedByAdmin ? [

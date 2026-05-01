@@ -34,10 +34,12 @@ class TherapistDiscoveryApiTest extends TestCase
             ->assertJsonPath('data.0.weight_kg', 68)
             ->assertJsonPath('data.0.p_size_cm', 14)
             ->assertJsonPath('data.0.therapist_cancellation_count', 1)
+            ->assertJsonPath('data.0.is_online', true)
             ->assertJsonPath('data.0.walking_time_range', 'within_15_min')
             ->assertJsonPath('data.0.estimated_total_amount', 12300)
             ->assertJsonPath('data.1.public_id', $farProfile->public_id)
             ->assertJsonPath('data.1.therapist_cancellation_count', 3)
+            ->assertJsonPath('data.1.is_online', true)
             ->assertJsonPath('data.1.walking_time_range', 'within_45_min')
             ->assertJsonPath('data.1.estimated_total_amount', 12300)
             ->assertJsonStructure([
@@ -54,6 +56,7 @@ class TherapistDiscoveryApiTest extends TestCase
                         'rating_average',
                         'review_count',
                         'therapist_cancellation_count',
+                        'is_online',
                         'walking_time_range',
                         'estimated_total_amount',
                         'photos' => [
@@ -78,6 +81,20 @@ class TherapistDiscoveryApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.0.public_id', $farProfile->public_id)
             ->assertJsonPath('data.1.public_id', $nearbyProfile->public_id);
+    }
+
+    public function test_user_can_include_offline_therapists_in_on_demand_search(): void
+    {
+        [$user, $address] = $this->createDiscoveryFixture();
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->getJson("/api/therapists?service_address_id={$address->public_id}&menu_duration_minutes=60&start_type=now&include_offline=1&sort=recommended")
+            ->assertOk()
+            ->assertJsonCount(3, 'data')
+            ->assertJsonFragment([
+                'public_id' => 'thp_offline',
+                'is_online' => false,
+            ]);
     }
 
     public function test_user_can_view_therapist_detail_with_menu_estimates(): void
@@ -125,6 +142,26 @@ class TherapistDiscoveryApiTest extends TestCase
             ->assertJsonPath('data.is_online', false)
             ->assertJsonPath('data.walking_time_range', null)
             ->assertJsonPath('data.lowest_estimated_total_amount', null);
+    }
+
+    public function test_private_therapist_photos_are_excluded_from_public_detail(): void
+    {
+        [$user, $address, $nearbyProfile, , $nearbyTherapist] = $this->createDiscoveryFixture();
+
+        ProfilePhoto::create([
+            'account_id' => $nearbyTherapist->id,
+            'therapist_profile_id' => $nearbyProfile->id,
+            'usage_type' => 'therapist_profile',
+            'visibility' => ProfilePhoto::VISIBILITY_PRIVATE,
+            'storage_key_encrypted' => Crypt::encryptString('profiles/private-near.jpg'),
+            'status' => ProfilePhoto::STATUS_APPROVED,
+            'sort_order' => 99,
+        ]);
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->getJson("/api/therapists/{$nearbyProfile->public_id}?service_address_id={$address->public_id}")
+            ->assertOk()
+            ->assertJsonCount(1, 'data.photos');
     }
 
     public function test_user_can_view_pending_scheduled_request_summary_on_therapist_detail(): void
@@ -200,6 +237,37 @@ class TherapistDiscoveryApiTest extends TestCase
                 ->where('data.photos.0.url', fn (string $url) => str_contains($url, '/api/profile-photos/')
                     && str_contains($url, '/signed-file')
                     && str_contains($url, 'signature='))
+                ->etc());
+    }
+
+    public function test_therapist_self_preview_exposes_private_photo_summary(): void
+    {
+        [, , $nearbyProfile, , $nearbyTherapist] = $this->createDiscoveryFixture();
+
+        ProfilePhoto::create([
+            'account_id' => $nearbyTherapist->id,
+            'therapist_profile_id' => $nearbyProfile->id,
+            'usage_type' => 'therapist_profile',
+            'visibility' => ProfilePhoto::VISIBILITY_PRIVATE,
+            'storage_key_encrypted' => Crypt::encryptString('profiles/self-preview-private.jpg'),
+            'status' => ProfilePhoto::STATUS_APPROVED,
+            'sort_order' => 0,
+        ]);
+
+        $this->withToken($nearbyTherapist->createToken('api')->plainTextToken)
+            ->getJson("/api/therapists/{$nearbyProfile->public_id}")
+            ->assertOk()
+            ->assertJsonPath('data.is_self_view', true)
+            ->assertJsonCount(1, 'data.photos')
+            ->assertJson(fn ($json) => $json
+                ->where('data.photos.0.url', fn (string $url) => str_contains($url, '/api/profile-photos/')
+                    && str_contains($url, '/signed-file')
+                    && str_contains($url, 'signature='))
+                ->where('data.private_photo_summary.count', 1)
+                ->where('data.private_photo_summary.can_view', true)
+                ->where('data.private_photo_summary.requires_login', false)
+                ->where('data.private_photo_summary.requires_identity_verification', false)
+                ->where('data.private_photo_summary.next_available_at', null)
                 ->etc());
     }
 

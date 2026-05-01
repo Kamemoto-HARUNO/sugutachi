@@ -21,7 +21,7 @@ import {
     userNavItems,
     userPlaceholderRoutes,
 } from './lib/navigation';
-import { getPostAuthPath, type RoleName } from './lib/account';
+import { getActiveRoles, getPostAuthPath, getRoleDashboardPath, type RoleName } from './lib/account';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { BookingFlowLayout } from './layouts/BookingFlowLayout';
 import { PublicLayout } from './layouts/PublicLayout';
@@ -49,6 +49,8 @@ import { AdminTherapistProfilesPage } from './pages/AdminTherapistProfilesPage';
 import { AdminTravelRequestsPage } from './pages/AdminTravelRequestsPage';
 import { AccountIdentityVerificationPage } from './pages/AccountIdentityVerificationPage';
 import { AccountProfilePage } from './pages/AccountProfilePage';
+import { AccountWithdrawalCompletePage } from './pages/AccountWithdrawalCompletePage';
+import { AccountWithdrawalPage } from './pages/AccountWithdrawalPage';
 import { TherapistBookingInterruptPage, UserBookingInterruptPage } from './pages/BookingInterruptPage';
 import { TherapistBookingNoShowPage, UserBookingNoShowPage } from './pages/BookingNoShowPage';
 import { ContactPage } from './pages/ContactPage';
@@ -110,6 +112,7 @@ function AppRoutes() {
         <>
             <Routes>
                 <Route path="/" element={<PublicHomePage />} />
+                <Route path="/withdrawal/completed" element={<AccountWithdrawalCompletePage />} />
                 <Route path="/therapists/:publicId" element={<UserTherapistDetailPage />} />
                 <Route path="/user/therapists/:publicId" element={<LegacyUserTherapistDetailRedirect />} />
 
@@ -135,6 +138,7 @@ function AppRoutes() {
                     <Route path="/role-select" element={<RoleSelectPage />} />
                     <Route path="/identity-verification" element={<AccountIdentityVerificationPage />} />
                     <Route path="/profile" element={<AccountProfilePage />} />
+                    <Route path="/profile/withdrawal" element={<AccountWithdrawalPage />} />
                 </Route>
 
             <Route element={<RoleRoute role="user" hasRole={hasRole} isAuthenticated={isAuthenticated} activeRole={activeRole} selectRole={selectRole} />}>
@@ -148,10 +152,14 @@ function AppRoutes() {
                 </Route>
                 <Route
                     path="/user"
-                    element={<DashboardLayout role="user" title="利用者ダッシュボード" description="検索、予約、メッセージ、安全導線の入口です。" navItems={userNavItems} />}
+                    element={<DashboardLayout role="user" description="検索、予約、メッセージ、安全導線の入口です。" navItems={userNavItems} />}
                 >
                     <Route
                         index
+                        element={<RoleEntryRedirect role="user" account={account} />}
+                    />
+                    <Route
+                        path="dashboard"
                         element={
                             <SectionHomePage
                                 eyebrow="利用者マイページ"
@@ -226,7 +234,6 @@ function AppRoutes() {
                     element={
                         <DashboardLayout
                             role="therapist"
-                            title="タチキャストダッシュボード"
                             description="公開準備、空き枠、予約依頼、売上確認の入口です。"
                             navItems={therapistNavItems}
                         />
@@ -234,6 +241,10 @@ function AppRoutes() {
                 >
                     <Route
                         index
+                        element={<RoleEntryRedirect role="therapist" account={account} />}
+                    />
+                    <Route
+                        path="dashboard"
                         element={
                             <SectionHomePage
                                 eyebrow="タチキャストマイページ"
@@ -241,13 +252,7 @@ function AppRoutes() {
                                 description="プロフィール審査から空き枠、料金ルール、売上管理までをここからつないでいきます。"
                                 hideHero
                                 compactActions
-                                actions={[
-                                    { label: '準備状況', to: '/therapist/onboarding', description: '本人確認と公開条件の進み具合を確認します。' },
-                                    { label: 'プロフィール編集', to: '/therapist/profile', description: '公開プロフィールと写真を整えます。' },
-                                    { label: '空き枠管理', to: '/therapist/availability', description: '公開枠と出動拠点を管理します。' },
-                                    { label: '予約管理', to: '/therapist/bookings', description: '承諾待ちから完了までを確認します。' },
-                                    { label: '公開・受付設定', to: '/therapist#settings-overview', description: 'プロフィール公開、オンライン受付、現在地更新を切り替えます。' },
-                                ]}
+                                actions={[]}
                             >
                                 <TherapistSettingsOverviewPanel />
                             </SectionHomePage>
@@ -258,8 +263,10 @@ function AppRoutes() {
                     <Route path="stripe-connect" element={<TherapistStripeConnectPage />} />
                     <Route path="photos" element={<Navigate to="/therapist/profile#profile-photos" replace />} />
                     <Route path="profile" element={<TherapistProfilePage />} />
+                    <Route path="menus" element={<TherapistProfilePage tab="menus" />} />
                     <Route path="pricing" element={<TherapistPricingPage />} />
                     <Route path="availability" element={<TherapistAvailabilityPage />} />
+                    <Route path="bases" element={<TherapistAvailabilityPage tab="bases" />} />
                     <Route path="requests" element={<Navigate to="/therapist/bookings?group=requested" replace />} />
                     <Route path="requests/:publicId" element={<TherapistRequestsPage />} />
                     <Route path="reviews" element={<TherapistReviewsPage />} />
@@ -276,7 +283,7 @@ function AppRoutes() {
                     <Route path="payouts" element={<Navigate to="/therapist/balance" replace />} />
                     <Route path="settings" element={<TherapistSettingsHubPage />} />
                     {therapistPlaceholderRoutes
-                        .filter((route) => !['onboarding', 'identity-verification', 'stripe-connect', 'photos', 'profile', 'pricing', 'availability', 'requests', 'requests/:publicId', 'reviews', 'bookings', 'bookings/:publicId', 'bookings/:publicId/review', 'bookings/:publicId/interrupt', 'bookings/:publicId/no-show', 'bookings/:publicId/messages', 'bookings/:publicId/report', 'travel-requests', 'travel-requests/:publicId', 'balance', 'payouts', 'settings'].includes(route.path))
+                        .filter((route) => !['onboarding', 'identity-verification', 'stripe-connect', 'photos', 'profile', 'menus', 'pricing', 'availability', 'bases', 'requests', 'requests/:publicId', 'reviews', 'bookings', 'bookings/:publicId', 'bookings/:publicId/review', 'bookings/:publicId/interrupt', 'bookings/:publicId/no-show', 'bookings/:publicId/messages', 'bookings/:publicId/report', 'travel-requests', 'travel-requests/:publicId', 'balance', 'payouts', 'settings'].includes(route.path))
                         .map((route) => (
                         <Route
                             key={route.path}
@@ -290,7 +297,7 @@ function AppRoutes() {
             <Route element={<RoleRoute role="admin" hasRole={hasRole} isAuthenticated={isAuthenticated} activeRole={activeRole} selectRole={selectRole} />}>
                 <Route
                     path="/admin"
-                    element={<DashboardLayout role="admin" title="運営ダッシュボード" description="監視、審査、法務、料金運用の入口です。" navItems={adminNavItems} />}
+                    element={<DashboardLayout role="admin" description="監視、審査、法務、料金運用の入口です。" navItems={adminNavItems} />}
                 >
                     <Route index element={<AdminDashboardPage />} />
                     <Route path="accounts" element={<AdminAccountsPage />} />
@@ -415,6 +422,22 @@ function RoleRoute({
     }
 
     return <Outlet />;
+}
+
+function RoleEntryRedirect({
+    account,
+    role,
+}: {
+    account: ReturnType<typeof useAuth>['account'];
+    role: RoleName;
+}) {
+    const activeRoles = getActiveRoles(account);
+
+    if (activeRoles.length === 1 && activeRoles[0] === role) {
+        return <Navigate to={getRoleDashboardPath(role)} replace />;
+    }
+
+    return <Navigate to={`/role-select?return_to=${encodeURIComponent(getRoleDashboardPath(role))}`} replace />;
 }
 
 function LegacyUserTherapistDetailRedirect() {

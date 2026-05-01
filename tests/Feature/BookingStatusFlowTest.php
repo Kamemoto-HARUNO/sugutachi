@@ -19,6 +19,7 @@ use App\Models\TherapistProfile;
 use Carbon\CarbonInterface;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -117,6 +118,33 @@ class BookingStatusFlowTest extends TestCase
         ]);
 
         $this->assertDatabaseCount('booking_status_logs', 5);
+    }
+
+    public function test_therapist_receives_confirmation_notification_when_booking_is_accepted(): void
+    {
+        Mail::shouldReceive('raw')->twice();
+
+        [, $therapist, $booking] = $this->createRequestedBooking();
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/accept")
+            ->assertOk()
+            ->assertJsonPath('data.status', Booking::STATUS_ACCEPTED);
+
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $therapist->id,
+            'notification_type' => 'booking_confirmed',
+            'channel' => 'in_app',
+            'status' => 'sent',
+        ]);
+
+        $therapistNotification = AppNotification::query()
+            ->where('account_id', $therapist->id)
+            ->where('notification_type', 'booking_confirmed')
+            ->firstOrFail();
+
+        $this->assertSame($booking->public_id, data_get($therapistNotification->data_json, 'booking_public_id'));
+        $this->assertSame("/therapist/bookings/{$booking->public_id}", data_get($therapistNotification->data_json, 'target_path'));
     }
 
     public function test_therapist_cannot_mark_arrived_with_wrong_confirmation_code(): void

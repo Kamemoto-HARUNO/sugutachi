@@ -53,6 +53,8 @@ class AppNotificationResource extends JsonResource
 
         return match ($this->notification_type) {
             'booking_requested',
+            'booking_confirmed',
+            'booking_start_reminder',
             'booking_adjustment_accepted',
             'booking_no_show_confirmed',
             'booking_no_show_disputed',

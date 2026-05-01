@@ -23,6 +23,7 @@ class ProfilePhotoController extends Controller
         $validated = $request->validate([
             'temp_file_id' => ['required', 'string', 'max:64'],
             'usage_type' => ['nullable', Rule::in(['account_profile', 'therapist_profile'])],
+            'visibility' => ['nullable', Rule::in([ProfilePhoto::VISIBILITY_PUBLIC, ProfilePhoto::VISIBILITY_PRIVATE])],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:99'],
         ]);
 
@@ -30,10 +31,27 @@ class ProfilePhotoController extends Controller
         $therapistProfile = $account->therapistProfile()->first();
         $usageType = $validated['usage_type']
             ?? ($therapistProfile ? 'therapist_profile' : 'account_profile');
+        $visibility = $validated['visibility'] ?? ProfilePhoto::VISIBILITY_PUBLIC;
 
         if ($usageType === 'therapist_profile' && ! $therapistProfile) {
             throw ValidationException::withMessages([
                 'usage_type' => 'Therapist profile photos require a therapist profile.',
+            ]);
+        }
+
+        if ($visibility === ProfilePhoto::VISIBILITY_PRIVATE && $usageType !== 'therapist_profile') {
+            throw ValidationException::withMessages([
+                'visibility' => 'Private profile photos are only available for therapist profiles.',
+            ]);
+        }
+
+        if (
+            $visibility === ProfilePhoto::VISIBILITY_PRIVATE
+            && $therapistProfile
+            && $this->activePrivateTherapistPhotoCount($therapistProfile->id) >= ProfilePhoto::MAX_PRIVATE_THERAPIST_PHOTOS
+        ) {
+            throw ValidationException::withMessages([
+                'visibility' => 'Private profile photos are limited to three images.',
             ]);
         }
 
@@ -47,6 +65,7 @@ class ProfilePhotoController extends Controller
             $account,
             $therapistProfile,
             $usageType,
+            $visibility,
             $validated,
             $tempFile,
             $targetPath,
@@ -55,11 +74,12 @@ class ProfilePhotoController extends Controller
                 'account_id' => $account->id,
                 'therapist_profile_id' => $usageType === 'therapist_profile' ? $therapistProfile?->id : null,
                 'usage_type' => $usageType,
+                'visibility' => $visibility,
                 'storage_key_encrypted' => Crypt::encryptString($targetPath),
                 'content_hash' => hash('sha256', (string) Storage::disk('local')->get($targetPath)),
                 'status' => ProfilePhoto::STATUS_APPROVED,
                 'sort_order' => $validated['sort_order']
-                    ?? $this->nextSortOrder($account->id, $therapistProfile?->id, $usageType),
+                    ?? $this->nextSortOrder($account->id, $therapistProfile?->id, $usageType, $visibility),
             ]);
 
             $tempFile->forceFill([
@@ -120,17 +140,28 @@ class ProfilePhotoController extends Controller
         return $tempFile;
     }
 
-    private function nextSortOrder(int $accountId, ?int $therapistProfileId, string $usageType): int
+    private function nextSortOrder(int $accountId, ?int $therapistProfileId, string $usageType, string $visibility): int
     {
         return (int) ProfilePhoto::query()
             ->where('account_id', $accountId)
             ->where('usage_type', $usageType)
+            ->where('visibility', $visibility)
             ->when(
                 $therapistProfileId,
                 fn ($query) => $query->where('therapist_profile_id', $therapistProfileId),
                 fn ($query) => $query->whereNull('therapist_profile_id'),
             )
             ->max('sort_order') + 1;
+    }
+
+    private function activePrivateTherapistPhotoCount(int $therapistProfileId): int
+    {
+        return ProfilePhoto::query()
+            ->where('therapist_profile_id', $therapistProfileId)
+            ->where('usage_type', 'therapist_profile')
+            ->where('visibility', ProfilePhoto::VISIBILITY_PRIVATE)
+            ->whereIn('status', [ProfilePhoto::STATUS_APPROVED, ProfilePhoto::STATUS_PENDING])
+            ->count();
     }
 
     private function profilePhotoPath(string $accountPublicId, ?string $originalName): string

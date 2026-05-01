@@ -142,6 +142,7 @@ export interface ServiceAddress {
 export interface SelfProfilePhotoSummary {
     id: number;
     usage_type: string;
+    visibility: 'public' | 'private';
     status: string;
     rejection_reason_code: string | null;
     sort_order: number;
@@ -172,6 +173,33 @@ export interface MeProfileRecord {
     photos: SelfProfilePhotoSummary[];
     created_at: string;
     updated_at: string;
+}
+
+export interface AccountWithdrawalReasonOption {
+    code: string;
+    label: string;
+}
+
+export interface AccountWithdrawalBookingBlocker {
+    public_id: string;
+    role: 'user' | 'therapist';
+    status: string;
+    scheduled_start_at: string | null;
+}
+
+export interface AccountWithdrawalStatusRecord {
+    can_withdraw: boolean;
+    reason_options: AccountWithdrawalReasonOption[];
+    blocking_booking_count: number;
+    next_blocking_booking: AccountWithdrawalBookingBlocker | null;
+    has_processing_payout_request: boolean;
+    remaining_balance_amount: number;
+    balance: {
+        pending_amount: number;
+        available_amount: number;
+        payout_requested_amount: number;
+        held_amount: number;
+    };
 }
 
 export interface ContactInquirySubmissionRecord {
@@ -443,6 +471,11 @@ export interface AdminBookingMessageRecord {
     sender: AdminBookingMessageSenderSummary | null;
     message_type: string;
     body: string;
+    attachment_url: string | null;
+    attachment_original_name: string | null;
+    attachment_mime_type: string | null;
+    attachment_size_bytes: number | null;
+    is_deleted: boolean;
     detected_contact_exchange: boolean;
     moderation_status: string;
     moderated_by_admin: {
@@ -477,6 +510,14 @@ export interface PublicProfilePhoto {
     url: string;
 }
 
+export interface PrivatePhotoSummary {
+    count: number;
+    can_view: boolean;
+    requires_login: boolean;
+    requires_identity_verification: boolean;
+    next_available_at: string | null;
+}
+
 export interface TherapistSearchResult {
     public_id: string;
     public_name: string;
@@ -489,6 +530,7 @@ export interface TherapistSearchResult {
     rating_average: number;
     review_count: number;
     therapist_cancellation_count: number;
+    is_online: boolean;
     travel_mode: 'walking' | 'bicycle' | 'transit' | 'car' | null;
     walking_time_range: string | null;
     estimated_total_amount: number | null;
@@ -537,6 +579,17 @@ export interface TherapistDetail {
     pending_scheduled_request: PendingScheduledRequestSummary | null;
     menus: TherapistMenu[];
     photos: PublicProfilePhoto[];
+    private_photo_summary: PrivatePhotoSummary | null;
+}
+
+export interface PrivatePhotoSessionPhoto {
+    id: number;
+    sort_order: number;
+}
+
+export interface PrivatePhotoSession {
+    session_token: string;
+    photos: PrivatePhotoSessionPhoto[];
 }
 
 export interface TherapistProfileRecord {
@@ -554,6 +607,14 @@ export interface TherapistProfileRecord {
     is_listed: boolean;
     online_since: string | null;
     last_location_updated_at: string | null;
+    location?: {
+        lat: number;
+        lng: number;
+        accuracy_m: number | null;
+        source: string | null;
+        is_searchable: boolean;
+        updated_at: string | null;
+    } | null;
     rating_average: number;
     review_count: number;
     approved_at: string | null;
@@ -1161,6 +1222,12 @@ export interface BookingMessageRecord {
     sender_role: string | null;
     message_type: string;
     body: string;
+    attachment_url: string | null;
+    attachment_original_name: string | null;
+    attachment_mime_type: string | null;
+    attachment_size_bytes: number | null;
+    is_deleted: boolean;
+    can_delete_image: boolean;
     detected_contact_exchange: boolean;
     moderation_status: string;
     is_own: boolean | null;
@@ -1383,6 +1450,7 @@ export interface AdminTherapistMenuRecord {
 export interface AdminProfilePhotoRecord {
     id: number;
     usage_type: string;
+    visibility: 'public' | 'private';
     content_hash: string | null;
     status: string;
     rejection_reason_code: string | null;

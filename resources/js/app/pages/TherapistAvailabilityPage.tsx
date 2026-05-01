@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { Link } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
@@ -1077,17 +1076,14 @@ function buildTimelinePlacements(slots: TherapistAvailabilitySlotRecord[], ancho
         .filter((placement): placement is TimelinePlacement => placement !== null);
 }
 
-function slotSummary(slot: TherapistAvailabilitySlotRecord | null): string {
-    if (!slot) {
-        return 'まだ枠はありません';
-    }
-
-    return `${formatTime(slot.start_at)} - ${formatTime(slot.end_at)}`;
+interface TherapistAvailabilityPageProps {
+    tab?: 'availability' | 'bases';
 }
 
-export function TherapistAvailabilityPage() {
+export function TherapistAvailabilityPage({ tab = 'availability' }: TherapistAvailabilityPageProps) {
     const { token } = useAuth();
     const { showError, showSuccess } = useToast();
+    const isBaseTab = tab === 'bases';
     const [bookingSetting, setBookingSetting] = useState<TherapistBookingSettingRecord | null>(null);
     const [availabilitySlots, setAvailabilitySlots] = useState<TherapistAvailabilitySlotRecord[]>([]);
     const [leadTimeMinutes, setLeadTimeMinutes] = useState('60');
@@ -1112,7 +1108,7 @@ export function TherapistAvailabilityPage() {
     const [isStatusHelpOpen, setIsStatusHelpOpen] = useState(false);
     const [pendingDeleteSlotId, setPendingDeleteSlotId] = useState<string | null>(null);
 
-    usePageTitle('空き枠管理');
+    usePageTitle(isBaseTab ? '拠点設定' : '空き枠管理');
 
     const loadData = useCallback(async () => {
         if (!token) {
@@ -1161,7 +1157,7 @@ export function TherapistAvailabilityPage() {
                 const message =
                     requestError instanceof ApiError
                         ? requestError.message
-                        : '空き枠設定の取得に失敗しました。';
+                        : (isBaseTab ? '拠点設定の取得に失敗しました。' : '空き枠設定の取得に失敗しました。');
 
                 showError(message);
             })
@@ -1174,20 +1170,8 @@ export function TherapistAvailabilityPage() {
         return () => {
             isMounted = false;
         };
-    }, [loadData, showError]);
+    }, [isBaseTab, loadData, showError]);
 
-    const publishedSlots = useMemo(
-        () => availabilitySlots.filter((slot) => slot.status === 'published'),
-        [availabilitySlots],
-    );
-    const hiddenSlots = useMemo(
-        () => availabilitySlots.filter((slot) => slot.status === 'hidden'),
-        [availabilitySlots],
-    );
-    const nextPublishedSlot = useMemo(
-        () => publishedSlots.find((slot) => new Date(slot.end_at).getTime() > Date.now()) ?? null,
-        [publishedSlots],
-    );
     const selectedSlot = useMemo(
         () => availabilitySlots.find((slot) => slot.public_id === slotDraft.public_id) ?? null,
         [availabilitySlots, slotDraft.public_id],
@@ -1793,83 +1777,26 @@ export function TherapistAvailabilityPage() {
     }
 
     if (isLoading) {
-        return <LoadingScreen title="空き枠設定を読み込み中" message="予定予約の基本設定と公開中の枠をまとめています。" />;
+        return (
+            <LoadingScreen
+                title={isBaseTab ? '拠点設定を読み込み中' : '空き枠設定を読み込み中'}
+                message={isBaseTab ? '予定予約の基本拠点と受付条件を読み込んでいます。' : '公開中の空き枠を読み込んでいます。'}
+            />
+        );
     }
 
     return (
         <div className="min-w-0 space-y-8 overflow-x-hidden">
-            <section className="space-y-4 rounded-[28px] border border-white/10 bg-white/5 p-6 md:p-8">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="space-y-3">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">空き枠管理</p>
-                        <h1 className="text-3xl font-semibold text-white">カレンダーで空き枠を作る</h1>
-                        <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                            日付を選んで、タイムラインを押すと開始時刻が入ります。出てきた枠の下中央ハンドルをドラッグして長さを決め、右側で公開状態と拠点を整えます。
-                        </p>
-                    </div>
-
-                    <div className="grid gap-3 sm:grid-cols-3">
-                        <div className="rounded-2xl border border-white/10 bg-[#111923] px-5 py-4 text-sm text-slate-200">
-                            <p className="text-xs font-semibold tracking-wide text-rose-200">公開中</p>
-                            <p className="mt-2 text-3xl font-semibold text-white">{publishedSlots.length}</p>
-                            <p className="mt-2 text-xs text-slate-400">予定予約で見える枠</p>
+            {isBaseTab ? (
+                <section className="min-w-0">
+                    <form onSubmit={handleSettingsSave} className="min-w-0 space-y-5 rounded-[24px] border border-white/10 bg-white/5 p-6">
+                        <div className="space-y-2">
+                            <p className="text-xs font-semibold tracking-wide text-rose-200">予定予約設定</p>
+                            <h2 className="text-xl font-semibold text-white">予定予約の基本設定</h2>
+                            <p className="text-sm leading-7 text-slate-300">
+                                基本の出動拠点と受付締切を先に整えると、デフォルト拠点の枠をすぐ増やせます。
+                            </p>
                         </div>
-                        <div className="rounded-2xl border border-white/10 bg-[#111923] px-5 py-4 text-sm text-slate-200">
-                            <p className="text-xs font-semibold tracking-wide text-rose-200">非公開</p>
-                            <p className="mt-2 text-3xl font-semibold text-white">{hiddenSlots.length}</p>
-                            <p className="mt-2 text-xs text-slate-400">あとで出せる下書き</p>
-                        </div>
-                        <div className="rounded-2xl border border-white/10 bg-[#111923] px-5 py-4 text-sm text-slate-200">
-                            <p className="text-xs font-semibold tracking-wide text-rose-200">次の公開枠</p>
-                            <p className="mt-2 text-lg font-semibold text-white">{slotSummary(nextPublishedSlot)}</p>
-                            <p className="mt-2 text-xs text-slate-400">{nextPublishedSlot ? formatCalendarLabel(dateKeyFromLocalValue(toDateTimeLocalValue(nextPublishedSlot.start_at)) ?? todayDateValue()) : 'まだ未設定'}</p>
-                        </div>
-                    </div>
-                </div>
-
-                <div className="flex flex-wrap gap-2">
-                    <span className="rounded-full border border-white/10 px-3 py-1 text-sm text-slate-200">
-                        受付締切: {leadTimeLabel(Number(leadTimeMinutes))}
-                    </span>
-                    <span className="rounded-full border border-white/10 px-3 py-1 text-sm text-slate-200">
-                        基本移動手段: {TRAVEL_MODE_OPTIONS.find((option) => option.value === travelMode)?.label ?? '徒歩'}
-                    </span>
-                    <span className="rounded-full border border-white/10 px-3 py-1 text-sm text-slate-200">
-                        対応可能範囲: {Number(maxTravelMinutes)}分以内
-                    </span>
-                    <span className="rounded-full border border-white/10 px-3 py-1 text-sm text-slate-200">
-                        基本拠点: {bookingSetting?.has_scheduled_base_location ? '設定済み' : '未設定'}
-                    </span>
-                    <span className="rounded-full border border-white/10 px-3 py-1 text-sm text-slate-200">
-                        予約付きで編集不可: {availabilitySlots.filter((slot) => slot.has_blocking_booking).length}件
-                    </span>
-                </div>
-
-                <div className="flex flex-wrap gap-3">
-                    <Link
-                        to="/therapist/onboarding"
-                        className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
-                    >
-                        準備状況へ戻る
-                    </Link>
-                    <Link
-                        to="/therapist/profile"
-                        className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
-                    >
-                        プロフィールへ
-                    </Link>
-                </div>
-            </section>
-
-            <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_360px]">
-                <form onSubmit={handleSettingsSave} className="min-w-0 space-y-5 rounded-[24px] border border-white/10 bg-white/5 p-6">
-                    <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">予定予約設定</p>
-                        <h2 className="text-xl font-semibold text-white">予定予約の基本設定</h2>
-                        <p className="text-sm leading-7 text-slate-300">
-                            基本の出動拠点と受付締切を先に整えると、デフォルト拠点の枠をすぐ増やせます。
-                        </p>
-                    </div>
 
                     <div className="max-w-[240px] space-y-2">
                         <label className="space-y-2">
@@ -1987,68 +1914,14 @@ export function TherapistAvailabilityPage() {
                     >
                         {isSavingSetting ? '保存中...' : '基本設定を保存する'}
                     </button>
-                </form>
+                    </form>
+                </section>
+            ) : null}
 
-                <article className="min-w-0 space-y-4 rounded-[24px] border border-white/10 bg-white/5 p-6">
-                    <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-rose-200">要点</p>
-                        <h2 className="text-xl font-semibold text-white">公開状況</h2>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
-                        <p className="text-sm font-semibold text-white">基本移動手段</p>
-                        <p className="mt-2 text-sm text-slate-300">
-                            {TRAVEL_MODE_OPTIONS.find((option) => option.value === bookingSetting?.travel_mode)?.label ?? '徒歩'}
-                        </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
-                        <p className="text-sm font-semibold text-white">対応可能範囲</p>
-                        <p className="mt-2 text-sm text-slate-300">
-                            {bookingSetting?.max_travel_minutes ? `${bookingSetting.max_travel_minutes}分以内` : '120分以内'}
-                        </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
-                        <p className="text-sm font-semibold text-white">基本拠点</p>
-                        <p className="mt-2 text-sm text-slate-300">
-                            {bookingSetting?.has_scheduled_base_location
-                                ? (bookingSetting.scheduled_base_location?.label ?? 'ラベル未設定')
-                                : '未設定'}
-                        </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
-                        <p className="text-sm font-semibold text-white">今週の公開数</p>
-                        <p className="mt-2 text-sm text-slate-300">
-                            {calendarDays.reduce((total, day) => total + day.published_count, 0)}件
-                        </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
-                        <p className="text-sm font-semibold text-white">次の公開枠</p>
-                        <p className="mt-2 text-sm text-slate-300">
-                            {nextPublishedSlot
-                                ? `${formatDateTime(nextPublishedSlot.start_at)} - ${formatDateTime(nextPublishedSlot.end_at)}`
-                                : '未公開'}
-                        </p>
-                    </div>
-
-                    <div className="rounded-2xl border border-white/10 bg-[#111923] px-4 py-3">
-                        <p className="text-sm font-semibold text-white">編集できない枠</p>
-                        <p className="mt-2 text-sm text-slate-300">
-                            {availabilitySlots.filter((slot) => slot.has_blocking_booking).length}件
-                        </p>
-                        <p className="mt-2 text-xs text-slate-400">
-                            予約が紐づいた枠は時間変更と削除ができません。
-                        </p>
-                    </div>
-                </article>
-            </section>
-
-            <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
-                <section className="min-w-0 space-y-5 rounded-[24px] border border-white/10 bg-white/5 p-6">
-                    <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-end md:justify-between">
+            {isBaseTab ? null : (
+                <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
+                    <section className="min-w-0 space-y-5 rounded-[24px] border border-white/10 bg-white/5 p-6">
+                        <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-end md:justify-between">
                         <div className="space-y-2">
                             <p className="text-xs font-semibold tracking-wide text-rose-200">公開カレンダー</p>
                             <h2 className="text-xl font-semibold text-white">今週の空き枠をカレンダーで確認</h2>
@@ -2464,7 +2337,8 @@ export function TherapistAvailabilityPage() {
                         ) : null}
                     </div>
                 </form>
-            </section>
+                </section>
+            )}
         </div>
     );
 }

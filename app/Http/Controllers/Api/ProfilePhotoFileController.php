@@ -34,6 +34,7 @@ class ProfilePhotoFileController extends Controller
 
         abort_unless($profilePhoto->usage_type === 'therapist_profile', 404);
         abort_unless($profilePhoto->status === ProfilePhoto::STATUS_APPROVED, 404);
+        abort_unless($profilePhoto->visibility === ProfilePhoto::VISIBILITY_PUBLIC, 404);
 
         $therapistProfile = $profilePhoto->therapistProfile;
         $account = $therapistProfile?->account;

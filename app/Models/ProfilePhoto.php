@@ -9,11 +9,17 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Guarded(['id'])]
 class ProfilePhoto extends Model
 {
+    public const MAX_PRIVATE_THERAPIST_PHOTOS = 3;
+
     public const STATUS_APPROVED = 'approved';
 
     public const STATUS_PENDING = 'pending';
 
     public const STATUS_REJECTED = 'rejected';
+
+    public const VISIBILITY_PRIVATE = 'private';
+
+    public const VISIBILITY_PUBLIC = 'public';
 
     public function account(): BelongsTo
     {

@@ -11,7 +11,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
-import { getRoleHomePath } from '../lib/account';
+import { getMyPageEntryPath } from '../lib/account';
 import {
     DISCOVERY_HERO_BULLETS,
     DISCOVERY_LOCATION_LABEL,
@@ -33,7 +33,7 @@ import {
 import type { ApiEnvelope, ServiceAddress, ServiceMeta, TherapistSearchResult } from '../lib/types';
 
 export function PublicHomePage() {
-    const { activeRole, hasRole, isAuthenticated, token } = useAuth();
+    const { account, hasRole, isAuthenticated, token } = useAuth();
     const [serviceMeta, setServiceMeta] = useState<ServiceMeta | null>(null);
     const [serviceAddresses, setServiceAddresses] = useState<ServiceAddress[]>([]);
     const [previewTherapists, setPreviewTherapists] = useState<TherapistSearchResult[]>([]);
@@ -46,7 +46,6 @@ export function PublicHomePage() {
     const [selectedDuration, setSelectedDuration] = useState<number>(DEFAULT_DISCOVERY_DURATION);
     const [selectedStartType, setSelectedStartType] = useState<BookingStartType>('now');
     const [scheduledStartAt, setScheduledStartAt] = useState('');
-    const [trainingOnly, setTrainingOnly] = useState(false);
     const [ratingOnly, setRatingOnly] = useState(false);
     const [walkingOnly, setWalkingOnly] = useState(false);
     const [priceRange, setPriceRange] = useState<DiscoveryPriceRange>('all');
@@ -73,10 +72,6 @@ export function PublicHomePage() {
     const previewDetailQueryString = canUseUserMode ? previewQueryString : '';
     const filteredPreviewTherapists = useMemo(() => {
         const filtered = previewTherapists.filter((therapist) => {
-            if (trainingOnly && therapist.training_status !== 'completed') {
-                return false;
-            }
-
             if (ratingOnly && therapist.rating_average < 4.5) {
                 return false;
             }
@@ -93,22 +88,8 @@ export function PublicHomePage() {
         });
 
         return sortTherapistSearchResults(filtered, selectedSort);
-    }, [previewTherapists, priceRange, ratingOnly, selectedSort, trainingOnly, walkingOnly]);
-    const heroMyPagePath = useMemo(() => {
-        if (hasRole('user')) {
-            return '/user';
-        }
-
-        if (activeRole) {
-            return getRoleHomePath(activeRole);
-        }
-
-        if (canUseTherapistMode) {
-            return '/therapist';
-        }
-
-        return '/role-select';
-    }, [activeRole, canUseTherapistMode, hasRole]);
+    }, [previewTherapists, priceRange, ratingOnly, selectedSort, walkingOnly]);
+    const heroMyPagePath = getMyPageEntryPath(account);
 
     useEffect(() => {
         let isMounted = true;
@@ -249,6 +230,11 @@ export function PublicHomePage() {
                         : null,
                     sort: selectedSort,
                 });
+
+                if (selectedStartType === 'now') {
+                    params.set('include_offline', '1');
+                }
+
                 const therapistPayload = await apiRequest<ApiEnvelope<TherapistSearchResult[]>>(`/therapists?${params.toString()}`, { token });
 
                 if (!isMounted) {
@@ -310,15 +296,15 @@ export function PublicHomePage() {
     }, [isAuthenticated]);
 
     const footerPrimaryAction = canUseUserMode
-        ? { label: 'マイページ', to: '/user' }
+        ? { label: 'マイページ', to: getMyPageEntryPath(account) }
         : isAuthenticated
-            ? { label: '利用者モードを追加', to: '/role-select?add_role=user&return_to=%2Fuser' }
+            ? { label: '利用者モードを追加', to: '/role-select?add_role=user&return_to=%2Fuser%2Fdashboard' }
             : { label: 'ログイン・無料登録', to: '/register' };
 
     const footerSecondaryAction = canUseUserMode
         ? { label: '予約一覧', to: '/user/bookings' }
         : canUseTherapistMode
-            ? { label: 'マイページ', to: '/therapist' }
+            ? { label: 'マイページ', to: getMyPageEntryPath(account) }
         : isAuthenticated
             ? { label: 'タチキャストモードを追加', to: '/role-select?add_role=therapist&return_to=%2Ftherapist%2Fonboarding' }
             : { label: 'タチキャストとして登録', to: '/register' };
@@ -397,14 +383,33 @@ export function PublicHomePage() {
             onSelectStartType={handleSelectStartType}
             scheduledStartAt={scheduledStartAt}
             onScheduledStartAtChange={setScheduledStartAt}
-            trainingOnly={trainingOnly}
-            onToggleTraining={() => setTrainingOnly((value) => !value)}
             ratingOnly={ratingOnly}
             onToggleRating={() => setRatingOnly((value) => !value)}
             walkingOnly={walkingOnly}
             onToggleWalking={() => setWalkingOnly((value) => !value)}
             priceRange={priceRange}
             onSelectPriceRange={setPriceRange}
+        />
+    );
+    const discoveryInfoCards = (
+        <DiscoveryInfoCards
+            cards={[
+                {
+                    label: '掲載条件',
+                    title: '掲載条件',
+                    body: '本人確認が完了し、公開条件を満たしたタチキャストのみ表示。安心感を損なうアカウントは掲載対象外です。',
+                },
+                {
+                    label: '距離表示',
+                    title: '表示ロジック',
+                    body: '位置情報は移動時間目安レンジで表示し、正確な地点は非公開。比較しやすさと安全性を両立します。',
+                },
+                {
+                    label: 'ご利用上の注意',
+                    title: '禁止事項',
+                    body: '医療・治療・性的サービスを想起させる表現は使わず、リラクゼーション目的としてご利用ください。',
+                },
+            ]}
         />
     );
 
@@ -463,25 +468,7 @@ export function PublicHomePage() {
                     />
                 </DiscoveryHeroShell>
 
-                <DiscoveryInfoCards
-                    cards={[
-                        {
-                            label: '掲載条件',
-                            title: '掲載条件',
-                            body: '本人確認が完了し、公開条件を満たしたタチキャストのみ表示。安心感を損なうアカウントは掲載対象外です。',
-                        },
-                        {
-                            label: '距離表示',
-                            title: '表示ロジック',
-                            body: '位置情報は移動時間目安レンジで表示し、正確な地点は非公開。比較しやすさと安全性を両立します。',
-                        },
-                        {
-                            label: 'ご利用上の注意',
-                            title: '禁止事項',
-                            body: '医療・治療・性的サービスを想起させる表現は使わず、リラクゼーション目的としてご利用ください。',
-                        },
-                    ]}
-                />
+                {!isAuthenticated ? discoveryInfoCards : null}
 
                 <section className="rounded-[32px] bg-[#fff9f0] p-6 text-[#17202b] shadow-[0_10px_24px_rgba(23,32,43,0.08)] md:p-8">
                     <div className="flex flex-col gap-6 lg:flex-row lg:items-center lg:justify-between">
@@ -599,6 +586,9 @@ export function PublicHomePage() {
                                     durationMinutes={selectedDuration}
                                     footerHint="公開プロフィールを見る"
                                     buildLink={(therapist) => `/therapists/${therapist.public_id}${previewDetailQueryString ? `?${previewDetailQueryString}` : ''}`}
+                                    hideTravelTimePlaceholder={!isAuthenticated}
+                                    hideEstimatedPricePlaceholder={!isAuthenticated}
+                                    showOfflineStatus={canUseUserMode && selectedStartType === 'now'}
                                     emptyState={(
                                         <article className="rounded-[28px] bg-[#fffcf7] p-8 text-sm leading-7 text-[#5b6470] shadow-[0_10px_24px_rgba(23,32,43,0.08)] xl:col-span-2">
                                             {canUseUserMode
@@ -611,6 +601,8 @@ export function PublicHomePage() {
                         </div>
                     </div>
                 </section>
+
+                {isAuthenticated ? discoveryInfoCards : null}
             </div>
 
             {isFilterSheetOpen ? (

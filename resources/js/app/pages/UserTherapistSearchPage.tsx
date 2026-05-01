@@ -10,6 +10,7 @@ import { TherapistDiscoveryGrid } from '../components/discovery/TherapistDiscove
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { getMyPageEntryPath } from '../lib/account';
 import {
     buildDiscoverySearchParams,
     buildDefaultDiscoveryScheduledStartAt,
@@ -48,7 +49,8 @@ function normalizeSort(value: string | null): DiscoverySort {
 }
 
 export function UserTherapistSearchPage() {
-    const { token } = useAuth();
+    const { account, token } = useAuth();
+    const myPagePath = getMyPageEntryPath(account);
     const [searchParams, setSearchParams] = useSearchParams();
     const [serviceAddresses, setServiceAddresses] = useState<ServiceAddress[]>([]);
     const [therapists, setTherapists] = useState<TherapistSearchResult[]>([]);
@@ -60,7 +62,6 @@ export function UserTherapistSearchPage() {
     const [lastUpdatedAt, setLastUpdatedAt] = useState<Date | null>(null);
     const [refreshKey, setRefreshKey] = useState(0);
     const [isFilterSheetOpen, setIsFilterSheetOpen] = useState(false);
-    const [trainingOnly, setTrainingOnly] = useState(false);
     const [ratingOnly, setRatingOnly] = useState(false);
     const [walkingOnly, setWalkingOnly] = useState(false);
     const [priceRange, setPriceRange] = useState<DiscoveryPriceRange>('all');
@@ -210,10 +211,6 @@ export function UserTherapistSearchPage() {
 
     const filteredTherapists = useMemo(() => {
         return therapists.filter((therapist) => {
-            if (trainingOnly && therapist.training_status !== 'completed') {
-                return false;
-            }
-
             if (ratingOnly && therapist.rating_average < 4.5) {
                 return false;
             }
@@ -228,7 +225,7 @@ export function UserTherapistSearchPage() {
 
             return true;
         });
-    }, [priceRange, ratingOnly, therapists, trainingOnly, walkingOnly]);
+    }, [priceRange, ratingOnly, therapists, walkingOnly]);
 
     const updateSearchParam = (updates: Record<string, string | null>) => {
         setSearchParams((previous) => {
@@ -261,8 +258,6 @@ export function UserTherapistSearchPage() {
             onSelectStartType={handleSelectStartType}
             scheduledStartAt={scheduledStartAt}
             onScheduledStartAtChange={(value) => updateSearchParam({ scheduled_start_at: value || null })}
-            trainingOnly={trainingOnly}
-            onToggleTraining={() => setTrainingOnly((value) => !value)}
             ratingOnly={ratingOnly}
             onToggleRating={() => setRatingOnly((value) => !value)}
             walkingOnly={walkingOnly}
@@ -285,7 +280,7 @@ export function UserTherapistSearchPage() {
                     description="デフォルトの待ち合わせ場所を基準に、移動時間目安レンジと概算料金で比較できます。予定予約は日時を入れると、その条件で見積もりを揃えます。"
                     topBadge={DISCOVERY_TOP_BADGE}
                     bullets={[...DISCOVERY_HERO_BULLETS]}
-                    primaryAction={{ label: 'マイページ', to: '/user' }}
+                    primaryAction={{ label: 'マイページ', to: myPagePath }}
                     secondaryAction={{ label: '予約一覧', to: '/user/bookings' }}
                 >
                     <DiscoverySearchPanel
@@ -398,7 +393,7 @@ export function UserTherapistSearchPage() {
                                         >
                                             待ち合わせ場所を追加
                                         </Link>
-                                        <Link to="/user" className="rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]">
+                                        <Link to={myPagePath} className="rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]">
                                             マイページへ
                                         </Link>
                                     </div>
@@ -464,7 +459,7 @@ export function UserTherapistSearchPage() {
             <DiscoveryFooter
                 domain={serviceMeta?.domain ?? 'sugutachi.com'}
                 description="待ち合わせ場所を登録しておけば、近さと料金の見え方をそろえた検索一覧からそのまま予約フローへ進めます。"
-                primaryAction={{ label: 'マイページ', to: '/user' }}
+                primaryAction={{ label: 'マイページ', to: myPagePath }}
                 secondaryAction={{ label: '予約一覧', to: '/user/bookings' }}
             />
         </div>

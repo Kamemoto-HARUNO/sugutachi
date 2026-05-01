@@ -8,7 +8,9 @@ use App\Http\Resources\PublicTherapistDetailResource;
 use App\Http\Resources\PublicTherapistSearchResultResource;
 use App\Models\Account;
 use App\Models\Booking;
+use App\Models\IdentityVerification;
 use App\Models\LocationSearchLog;
+use App\Models\PrivatePhotoViewSession;
 use App\Models\ProfilePhoto;
 use App\Models\ServiceAddress;
 use App\Models\TherapistMenu;
@@ -44,8 +46,14 @@ class TherapistDiscoveryController extends Controller
                 'bookingSetting',
                 'photos' => fn ($query) => $query
                     ->where('status', ProfilePhoto::STATUS_APPROVED)
+                    ->where('visibility', ProfilePhoto::VISIBILITY_PUBLIC)
                     ->orderBy('sort_order')
                     ->orderBy('id'),
+            ])
+            ->withCount([
+                'photos as private_photo_count' => fn ($query) => $query
+                    ->where('status', ProfilePhoto::STATUS_APPROVED)
+                    ->where('visibility', ProfilePhoto::VISIBILITY_PRIVATE),
             ])
             ->orderByDesc('is_online')
             ->orderByDesc('rating_average')
@@ -71,6 +79,7 @@ class TherapistDiscoveryController extends Controller
                 'rating_average' => (float) $profile->rating_average,
                 'review_count' => $profile->review_count,
                 'therapist_cancellation_count' => (int) $profile->therapist_cancellation_count,
+                'is_online' => (bool) $profile->is_online,
                 'travel_mode' => $profile->bookingSetting?->travel_mode,
                 'walking_time_range' => null,
                 'estimated_total_amount' => null,
@@ -142,6 +151,8 @@ class TherapistDiscoveryController extends Controller
     {
         [$validated, $serviceAddress] = $this->validatedDiscoveryContext($request, requireServiceAddress: true);
         $viewer = $request->user();
+        $includeOffline = ($validated['start_type'] ?? 'now') !== 'scheduled'
+            && (bool) ($validated['include_offline'] ?? false);
         $profiles = ($validated['start_type'] ?? 'now') === 'scheduled'
             ? TherapistProfile::query()
                 ->scheduledDiscoverableTo($viewer)
@@ -156,11 +167,12 @@ class TherapistDiscoveryController extends Controller
                     'pricingRules',
                     'photos' => fn ($query) => $query
                         ->where('status', ProfilePhoto::STATUS_APPROVED)
+                        ->where('visibility', ProfilePhoto::VISIBILITY_PUBLIC)
                         ->orderBy('sort_order')
                         ->orderBy('id'),
                 ])
                 ->get()
-            : $this->discoverableProfilesQuery($viewer)->get();
+            : $this->discoverableProfilesQuery($viewer, $includeOffline)->get();
 
         $results = $this->buildSearchResults(
             profiles: $profiles,
@@ -208,10 +220,13 @@ class TherapistDiscoveryController extends Controller
         );
     }
 
-    private function discoverableProfilesQuery(Account $viewer): Builder
+    private function discoverableProfilesQuery(Account $viewer, bool $includeOffline = false): Builder
     {
         return TherapistProfile::query()
-            ->discoverableTo($viewer)
+            ->visibleTo($viewer)
+            ->when(! $includeOffline, fn (Builder $query) => $query->where('is_online', true))
+            ->whereHas('location', fn (Builder $query) => $query->where('is_searchable', true))
+            ->whereHas('menus', fn (Builder $query) => $query->where('is_active', true))
             ->with([
                 'account.latestIdentityVerification',
                 'bookingSetting',
@@ -223,6 +238,7 @@ class TherapistDiscoveryController extends Controller
                 'pricingRules',
                 'photos' => fn ($query) => $query
                     ->where('status', ProfilePhoto::STATUS_APPROVED)
+                    ->where('visibility', ProfilePhoto::VISIBILITY_PUBLIC)
                     ->orderBy('sort_order')
                     ->orderBy('id'),
             ]);
@@ -243,8 +259,14 @@ class TherapistDiscoveryController extends Controller
                 'pricingRules',
                 'photos' => fn ($query) => $query
                     ->where('status', ProfilePhoto::STATUS_APPROVED)
+                    ->where('visibility', ProfilePhoto::VISIBILITY_PUBLIC)
                     ->orderBy('sort_order')
                     ->orderBy('id'),
+            ])
+            ->withCount([
+                'photos as private_photo_count' => fn ($query) => $query
+                    ->where('status', ProfilePhoto::STATUS_APPROVED)
+                    ->where('visibility', ProfilePhoto::VISIBILITY_PRIVATE),
             ]);
     }
 
@@ -262,8 +284,14 @@ class TherapistDiscoveryController extends Controller
                 'pricingRules',
                 'photos' => fn ($query) => $query
                     ->where('status', ProfilePhoto::STATUS_APPROVED)
+                    ->where('visibility', ProfilePhoto::VISIBILITY_PUBLIC)
                     ->orderBy('sort_order')
                     ->orderBy('id'),
+            ])
+            ->withCount([
+                'photos as private_photo_count' => fn ($query) => $query
+                    ->where('status', ProfilePhoto::STATUS_APPROVED)
+                    ->where('visibility', ProfilePhoto::VISIBILITY_PRIVATE),
             ]);
     }
 
@@ -324,6 +352,7 @@ class TherapistDiscoveryController extends Controller
                     'rating_average' => (float) $profile->rating_average,
                     'review_count' => $profile->review_count,
                     'therapist_cancellation_count' => (int) $profile->therapist_cancellation_count,
+                    'is_online' => (bool) $profile->is_online,
                     'travel_mode' => $profile->bookingSetting?->travel_mode,
                     'walking_time_range' => $estimate['walking_time_range'],
                     'estimated_total_amount' => $estimate['total_amount'],
@@ -441,6 +470,7 @@ class TherapistDiscoveryController extends Controller
                 $profile->photos,
                 signed: $viewer?->id === $profile->account_id,
             ),
+            'private_photo_summary' => $this->privatePhotoSummary($profile, $viewer),
         ];
     }
 
@@ -516,6 +546,56 @@ class TherapistDiscoveryController extends Controller
             ->all();
     }
 
+    private function privatePhotoSummary(TherapistProfile $profile, ?Account $viewer): ?array
+    {
+        $count = (int) ($profile->private_photo_count ?? 0);
+
+        if ($count < 1) {
+            return null;
+        }
+
+        if (! $viewer) {
+            return [
+                'count' => $count,
+                'can_view' => false,
+                'requires_login' => true,
+                'requires_identity_verification' => false,
+                'next_available_at' => null,
+            ];
+        }
+
+        if ($viewer->id === $profile->account_id) {
+            return [
+                'count' => $count,
+                'can_view' => true,
+                'requires_login' => false,
+                'requires_identity_verification' => false,
+                'next_available_at' => null,
+            ];
+        }
+
+        $requiresIdentityVerification = $viewer->status !== Account::STATUS_ACTIVE
+            || $viewer->latestIdentityVerification?->status !== IdentityVerification::STATUS_APPROVED;
+
+        $latestLock = $requiresIdentityVerification
+            ? null
+            : PrivatePhotoViewSession::query()
+                ->where('viewer_account_id', $viewer->id)
+                ->where('therapist_profile_id', $profile->id)
+                ->whereNotNull('locked_until')
+                ->where('locked_until', '>', now())
+                ->latest('locked_until')
+                ->first();
+
+        return [
+            'count' => $count,
+            'can_view' => ! $requiresIdentityVerification && $latestLock === null,
+            'requires_login' => false,
+            'requires_identity_verification' => $requiresIdentityVerification,
+            'next_available_at' => $latestLock?->locked_until?->toIso8601String(),
+        ];
+    }
+
     private function validatedDiscoveryContext(Request $request, bool $requireServiceAddress, ?Account $viewer = null): array
     {
         $viewer ??= $this->authenticatedViewer($request);
@@ -529,9 +609,11 @@ class TherapistDiscoveryController extends Controller
             'start_type' => ['nullable', Rule::in(['now', 'scheduled'])],
             'scheduled_start_at' => ['nullable', 'date', 'after_or_equal:now'],
             'sort' => ['nullable', Rule::in(['recommended', 'soonest', 'rating'])],
+            'include_offline' => ['nullable', 'boolean'],
         ]);
 
         $validated['start_type'] = $validated['start_type'] ?? 'now';
+        $validated['include_offline'] = $request->boolean('include_offline');
 
         if ($validated['start_type'] === 'scheduled' && blank($validated['scheduled_start_at'] ?? null)) {
             throw ValidationException::withMessages([

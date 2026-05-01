@@ -21,11 +21,11 @@ class TherapistProfileController extends Controller
     public function show(Request $request): JsonResponse
     {
         $profile = $this->publicationService->refreshPublicationState(
-            $request->user()->ensureTherapistProfile()->load(['menus', 'account.latestIdentityVerification'])
+            $request->user()->ensureTherapistProfile()->load(['menus', 'account.latestIdentityVerification', 'location'])
         );
 
         return (new TherapistProfileResource(
-            $profile->load(['menus', 'account.latestIdentityVerification'])
+            $profile->load(['menus', 'account.latestIdentityVerification', 'location'])
         ))
             ->response()
             ->setStatusCode(200);
@@ -79,7 +79,7 @@ class TherapistProfileController extends Controller
             return $this->publicationService->refreshPublicationState($profile);
         });
 
-        return (new TherapistProfileResource($profile->load(['menus', 'account.latestIdentityVerification'])))
+        return (new TherapistProfileResource($profile->load(['menus', 'account.latestIdentityVerification', 'location'])))
             ->response()
             ->setStatusCode(200);
     }
@@ -111,7 +111,7 @@ class TherapistProfileController extends Controller
 
         $profile = $this->publicationService->refreshPublicationState($profile);
 
-        return new TherapistProfileResource($profile->load(['menus', 'account.latestIdentityVerification']));
+        return new TherapistProfileResource($profile->load(['menus', 'account.latestIdentityVerification', 'location']));
     }
 
     public function reviewStatus(Request $request): JsonResponse
@@ -167,7 +167,7 @@ class TherapistProfileController extends Controller
             'online_since' => $profile->online_since ?? now(),
         ])->save();
 
-        return new TherapistProfileResource($profile->refresh()->load(['menus', 'account.latestIdentityVerification']));
+        return new TherapistProfileResource($profile->refresh()->load(['menus', 'account.latestIdentityVerification', 'location']));
     }
 
     public function goOffline(Request $request): TherapistProfileResource
@@ -179,7 +179,7 @@ class TherapistProfileController extends Controller
             'online_since' => null,
         ])->save();
 
-        return new TherapistProfileResource($profile->refresh()->load(['menus', 'account.latestIdentityVerification']));
+        return new TherapistProfileResource($profile->refresh()->load(['menus', 'account.latestIdentityVerification', 'location']));
     }
 
     public function updateListing(Request $request): TherapistProfileResource
@@ -197,7 +197,7 @@ class TherapistProfileController extends Controller
             'online_since' => $isListed ? $profile->online_since : null,
         ])->save();
 
-        return new TherapistProfileResource($profile->refresh()->load(['menus', 'account.latestIdentityVerification']));
+        return new TherapistProfileResource($profile->refresh()->load(['menus', 'account.latestIdentityVerification', 'location']));
     }
 
     public function updateLocation(Request $request): TherapistProfileResource
@@ -232,6 +232,6 @@ class TherapistProfileController extends Controller
             'last_location_updated_at' => now(),
         ])->save();
 
-        return new TherapistProfileResource($profile->refresh()->load(['menus', 'account.latestIdentityVerification']));
+        return new TherapistProfileResource($profile->refresh()->load(['menus', 'account.latestIdentityVerification', 'location']));
     }
 }

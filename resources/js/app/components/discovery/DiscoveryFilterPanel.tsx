@@ -12,8 +12,6 @@ interface DiscoveryFilterPanelProps {
     onSelectStartType: (startType: BookingStartType) => void;
     scheduledStartAt?: string;
     onScheduledStartAtChange: (value: string) => void;
-    trainingOnly: boolean;
-    onToggleTraining: () => void;
     ratingOnly: boolean;
     onToggleRating: () => void;
     walkingOnly: boolean;
@@ -27,8 +25,6 @@ export function DiscoveryFilterPanel({
     onSelectStartType,
     scheduledStartAt = '',
     onScheduledStartAtChange,
-    trainingOnly,
-    onToggleTraining,
     ratingOnly,
     onToggleRating,
     walkingOnly,
@@ -74,7 +70,6 @@ export function DiscoveryFilterPanel({
                 <p className="text-xs font-semibold tracking-wide text-[#8a8f97]">認証・条件</p>
                 <div className="flex flex-wrap gap-2">
                     {[
-                        { active: trainingOnly, label: DISCOVERY_FILTER_LABELS.training, onClick: onToggleTraining },
                         { active: ratingOnly, label: DISCOVERY_FILTER_LABELS.rating, onClick: onToggleRating },
                         { active: walkingOnly, label: DISCOVERY_FILTER_LABELS.walking, onClick: onToggleWalking },
                     ].map((chip) => (

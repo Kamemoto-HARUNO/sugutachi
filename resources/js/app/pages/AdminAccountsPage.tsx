@@ -15,13 +15,13 @@ import type {
     ApiEnvelope,
 } from '../lib/types';
 
-type AccountStatusFilter = 'all' | 'active' | 'suspended';
+type AccountStatusFilter = 'all' | 'active' | 'suspended' | 'withdrawn';
 type AccountRoleFilter = 'all' | 'user' | 'therapist' | 'admin';
 type AccountSortField = 'created_at' | 'display_name' | 'email';
 type AccountSortDirection = 'asc' | 'desc';
 
 function normalizeStatusFilter(value: string | null): AccountStatusFilter {
-    if (value === 'active' || value === 'suspended') {
+    if (value === 'active' || value === 'suspended' || value === 'withdrawn') {
         return value;
     }
 
@@ -49,13 +49,25 @@ function normalizeSortDirection(value: string | null): AccountSortDirection {
 }
 
 function accountStatusLabel(status: string): string {
-    return status === 'suspended' ? '停止中' : '稼働中';
+    switch (status) {
+        case 'suspended':
+            return '停止中';
+        case 'withdrawn':
+            return '退会済み';
+        default:
+            return '稼働中';
+    }
 }
 
 function accountStatusTone(status: string): string {
-    return status === 'suspended'
-        ? 'bg-[#f7e7e3] text-[#8c4738]'
-        : 'bg-[#e9f4ea] text-[#24553a]';
+    switch (status) {
+        case 'suspended':
+            return 'bg-[#f7e7e3] text-[#8c4738]';
+        case 'withdrawn':
+            return 'bg-[#eef1f4] text-[#52606d]';
+        default:
+            return 'bg-[#e9f4ea] text-[#24553a]';
+    }
 }
 
 function roleLabel(role: string): string {
@@ -131,7 +143,7 @@ export function AdminAccountsPage() {
         total: accounts.length,
         active: accounts.filter((account) => account.status === 'active').length,
         suspended: accounts.filter((account) => account.status === 'suspended').length,
-        therapists: accounts.filter((account) => account.roles?.some((role) => role.role === 'therapist' && role.status === 'active')).length,
+        therapists: accounts.filter((account) => account.status !== 'withdrawn' && account.roles?.some((role) => role.role === 'therapist' && role.status === 'active')).length,
     }), [accounts]);
 
     const loadAccounts = useCallback(async (refresh = false) => {
@@ -400,6 +412,7 @@ export function AdminAccountsPage() {
                                 <option value="all">すべて</option>
                                 <option value="active">稼働中</option>
                                 <option value="suspended">停止中</option>
+                                <option value="withdrawn">退会済み</option>
                             </select>
                         </label>
 

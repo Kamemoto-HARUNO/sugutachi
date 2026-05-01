@@ -44,6 +44,7 @@ interface AuthContextValue {
     register: (payload: RegisterPayload) => Promise<Account>;
     addRole: (role: 'user' | 'therapist') => Promise<Account>;
     logout: () => Promise<void>;
+    clearSession: () => void;
     refreshAccount: () => Promise<void>;
     selectRole: (role: RoleName) => void;
     hasRole: (role: RoleName) => boolean;
@@ -236,11 +237,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
             register,
             addRole,
             logout,
+            clearSession,
             refreshAccount,
             selectRole,
             hasRole,
         }),
-        [account, token, activeRole, isBootstrapping, login, register, addRole, logout, refreshAccount, selectRole, hasRole],
+        [account, token, activeRole, isBootstrapping, login, register, addRole, logout, clearSession, refreshAccount, selectRole, hasRole],
     );
 
     return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>;

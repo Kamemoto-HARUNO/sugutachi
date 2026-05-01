@@ -12,6 +12,10 @@ use Illuminate\Database\Eloquent\Relations\MorphMany;
 #[Guarded(['id'])]
 class BookingMessage extends Model
 {
+    public const TYPE_TEXT = 'text';
+
+    public const TYPE_IMAGE = 'image';
+
     public const MODERATION_STATUS_OK = 'ok';
 
     public const MODERATION_STATUS_BLOCKED = 'blocked';
@@ -78,6 +82,7 @@ class BookingMessage extends Model
     {
         return [
             'detected_contact_exchange' => 'boolean',
+            'attachment_size_bytes' => 'integer',
             'sent_at' => 'datetime',
             'read_at' => 'datetime',
             'moderated_at' => 'datetime',

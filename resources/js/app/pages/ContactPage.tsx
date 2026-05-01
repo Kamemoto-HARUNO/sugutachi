@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
@@ -34,6 +34,7 @@ function replyChannelLabel(value: string | null | undefined): string {
 
 export function ContactPage() {
     const { account, isAuthenticated, token } = useAuth();
+    const [searchParams] = useSearchParams();
     const [serviceMeta, setServiceMeta] = useState<ServiceMeta | null>(null);
     const [name, setName] = useState('');
     const [email, setEmail] = useState('');
@@ -82,6 +83,14 @@ export function ContactPage() {
         setName((current) => current || account.display_name || '');
         setEmail((current) => current || account.email || '');
     }, [account]);
+
+    useEffect(() => {
+        const nextCategory = searchParams.get('category');
+
+        if (nextCategory && inquiryCategories.some((option) => option.value === nextCategory)) {
+            setCategory(nextCategory as (typeof inquiryCategories)[number]['value']);
+        }
+    }, [searchParams]);
 
     const replyChannel = useMemo(
         () => replyChannelLabel(serviceMeta?.contact.reply_channel),

@@ -1,10 +1,11 @@
-import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
+import { Link, useParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { formatFileSize, prepareBookingMessageImage } from '../lib/bookingMessageImages';
 import { formatJstDateTime } from '../lib/datetime';
 import { getServiceAddressLabel } from '../lib/discovery';
 import type {
@@ -14,19 +15,9 @@ import type {
     BookingMessagesMeta,
 } from '../lib/types';
 
-type ReadFilter = 'all' | 'unread' | 'read';
-
 type BookingMessagesResponse = ApiEnvelope<BookingMessageRecord[]> & {
     meta?: BookingMessagesMeta;
 };
-
-function normalizeReadFilter(value: string | null): ReadFilter {
-    if (value === 'read' || value === 'unread') {
-        return value;
-    }
-
-    return 'all';
-}
 
 function statusLabel(status: string): string {
     switch (status) {
@@ -108,17 +99,6 @@ function buildPrimaryTime(booking: BookingDetailRecord): string {
     return `${formatDateTime(booking.scheduled_start_at)} - ${formatDateTime(booking.scheduled_end_at)}`;
 }
 
-function readFilterLabel(filter: ReadFilter): string {
-    switch (filter) {
-        case 'unread':
-            return '未読のみ';
-        case 'read':
-            return '既読のみ';
-        default:
-            return 'すべて';
-    }
-}
-
 function stageHint(status: string): string {
     switch (status) {
         case 'accepted':
@@ -138,24 +118,71 @@ function stageHint(status: string): string {
     }
 }
 
+function PhotoIcon() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+            <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h2.2l1.1 1.4c.28.36.71.56 1.16.56h6.6A2.5 2.5 0 0 1 20 9.5v8A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5v-10Z" />
+            <path d="M9.5 13a2.5 2.5 0 1 0 5 0a2.5 2.5 0 0 0-5 0Z" />
+        </svg>
+    );
+}
+
+function SendIcon() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+            <path d="m4 20 16-8L4 4l3.4 8L20 12" />
+            <path d="M7.4 12H20" />
+        </svg>
+    );
+}
+
+function CloseIcon() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+            <path d="M6 6l12 12" />
+            <path d="M18 6 6 18" />
+        </svg>
+    );
+}
+
+function TrashIcon() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+            <path d="M4 7h16" />
+            <path d="M9 7V5.8c0-.44.36-.8.8-.8h4.4c.44 0 .8.36.8.8V7" />
+            <path d="M7.5 7.5v9.7c0 .99.81 1.8 1.8 1.8h5.4c.99 0 1.8-.81 1.8-1.8V7.5" />
+            <path d="M10 11v4.5" />
+            <path d="M14 11v4.5" />
+        </svg>
+    );
+}
+
 export function TherapistBookingMessagesPage() {
     const { publicId } = useParams();
     const { token } = useAuth();
-    const [searchParams, setSearchParams] = useSearchParams();
-    const readFilter = normalizeReadFilter(searchParams.get('read_status'));
 
     const [booking, setBooking] = useState<BookingDetailRecord | null>(null);
     const [messages, setMessages] = useState<BookingMessageRecord[]>([]);
     const [meta, setMeta] = useState<BookingMessagesMeta | null>(null);
     const [draft, setDraft] = useState('');
+    const [selectedImage, setSelectedImage] = useState<File | null>(null);
+    const [selectedImagePreviewUrl, setSelectedImagePreviewUrl] = useState<string | null>(null);
+    const [selectedImageOriginalSizeBytes, setSelectedImageOriginalSizeBytes] = useState<number | null>(null);
+    const [selectedImageWasOptimized, setSelectedImageWasOptimized] = useState(false);
+    const [expandedImage, setExpandedImage] = useState<BookingMessageRecord | null>(null);
+    const [imageDeleteCandidate, setImageDeleteCandidate] = useState<BookingMessageRecord | null>(null);
     const [pageError, setPageError] = useState<string | null>(null);
     const [composeError, setComposeError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [pendingReadIds, setPendingReadIds] = useState<number[]>([]);
+    const [deletingImageMessageIds, setDeletingImageMessageIds] = useState<number[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
+    const [isPreparingImage, setIsPreparingImage] = useState(false);
     const [isSending, setIsSending] = useState(false);
     const isTypingRef = useRef(false);
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const imagePreparationRequestRef = useRef(0);
 
     usePageTitle(
         booking
@@ -181,12 +208,11 @@ export function TherapistBookingMessagesPage() {
         }
 
         try {
-            const query = readFilter === 'all' ? '' : `?read_status=${readFilter}`;
             const [bookingPayload, messagesPayload] = await Promise.all([
                 apiRequest<ApiEnvelope<BookingDetailRecord>>(`/bookings/${publicId}`, {
                     token,
                 }),
-                apiRequest<BookingMessagesResponse>(`/bookings/${publicId}/messages${query}`, {
+                apiRequest<BookingMessagesResponse>(`/bookings/${publicId}/messages`, {
                     token,
                 }),
             ]);
@@ -206,7 +232,7 @@ export function TherapistBookingMessagesPage() {
             setIsLoading(false);
             setIsRefreshing(false);
         }
-    }, [publicId, readFilter, token]);
+    }, [publicId, token]);
 
     useEffect(() => {
         void loadData();
@@ -279,19 +305,133 @@ export function TherapistBookingMessagesPage() {
         }
     }, [syncTypingState]);
 
+    useEffect(() => {
+        if (!expandedImage) {
+            return;
+        }
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setExpandedImage(null);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [expandedImage]);
+
+    useEffect(() => {
+        if (!imageDeleteCandidate) {
+            return;
+        }
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setImageDeleteCandidate(null);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [imageDeleteCandidate]);
+
+    useEffect(() => {
+        if (!selectedImage) {
+            setSelectedImagePreviewUrl((current) => {
+                if (current) {
+                    URL.revokeObjectURL(current);
+                }
+
+                return null;
+            });
+            return;
+        }
+
+        const nextPreviewUrl = URL.createObjectURL(selectedImage);
+        setSelectedImagePreviewUrl((current) => {
+            if (current) {
+                URL.revokeObjectURL(current);
+            }
+
+            return nextPreviewUrl;
+        });
+
+        return () => {
+            URL.revokeObjectURL(nextPreviewUrl);
+        };
+    }, [selectedImage]);
+
     const counterpartyName = booking?.counterparty?.display_name
         ?? meta?.counterparty?.display_name
         ?? '利用者を確認中';
 
-    const unreadIncomingCount = useMemo(
-        () => messages.filter((message) => !message.is_own && !message.is_read).length,
-        [messages],
-    );
+    function clearSelectedImage() {
+        imagePreparationRequestRef.current += 1;
+        setSelectedImage(null);
+        setSelectedImageOriginalSizeBytes(null);
+        setSelectedImageWasOptimized(false);
+        setIsPreparingImage(false);
+
+        if (fileInputRef.current) {
+            fileInputRef.current.value = '';
+        }
+    }
+
+    async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+        const file = event.target.files?.[0];
+
+        if (!file) {
+            return;
+        }
+        const requestId = imagePreparationRequestRef.current + 1;
+        imagePreparationRequestRef.current = requestId;
+        setComposeError(null);
+        setSelectedImage(null);
+        setSelectedImageOriginalSizeBytes(null);
+        setSelectedImageWasOptimized(false);
+        setIsPreparingImage(true);
+
+        try {
+            const preparedImage = await prepareBookingMessageImage(file);
+
+            if (imagePreparationRequestRef.current !== requestId) {
+                return;
+            }
+
+            setSelectedImage(preparedImage.file);
+            setSelectedImageOriginalSizeBytes(preparedImage.originalSizeBytes);
+            setSelectedImageWasOptimized(preparedImage.wasOptimized);
+        } catch (error) {
+            if (imagePreparationRequestRef.current !== requestId) {
+                return;
+            }
+
+            setComposeError(error instanceof Error ? error.message : '画像の準備に失敗しました。');
+            event.target.value = '';
+        } finally {
+            if (imagePreparationRequestRef.current === requestId) {
+                setIsPreparingImage(false);
+            }
+        }
+    }
 
     async function handleSendMessage(event: FormEvent<HTMLFormElement>) {
         event.preventDefault();
 
-        if (!token || !publicId || !draft.trim()) {
+        const trimmedDraft = draft.trim();
+
+        if (!token || !publicId || isPreparingImage || (!trimmedDraft && !selectedImage)) {
+            return;
+        }
+
+        if (trimmedDraft && selectedImage) {
+            setComposeError('画像とテキストは別々に送信してください。');
             return;
         }
 
@@ -301,12 +441,21 @@ export function TherapistBookingMessagesPage() {
         setSuccessMessage(null);
 
         try {
+            const isImageUpload = Boolean(selectedImage);
+            const requestBody = selectedImage
+                ? (() => {
+                    const formData = new FormData();
+                    formData.append('image', selectedImage);
+                    return formData;
+                })()
+                : {
+                    body: trimmedDraft,
+                };
+
             const payload = await apiRequest<ApiEnvelope<BookingMessageRecord>>(`/bookings/${publicId}/messages`, {
                 method: 'POST',
                 token,
-                body: {
-                    body: draft.trim(),
-                },
+                body: requestBody,
             });
 
             const createdMessage = unwrapData(payload);
@@ -314,8 +463,9 @@ export function TherapistBookingMessagesPage() {
                 ? current
                 : [...current, createdMessage]);
             setDraft('');
+            clearSelectedImage();
             isTypingRef.current = false;
-            setSuccessMessage('メッセージを送信しました。');
+            setSuccessMessage(isImageUpload ? '画像を送信しました。' : 'メッセージを送信しました。');
             await loadData({ refresh: true, silent: true, preserveSuccess: true });
         } catch (requestError) {
             const message =
@@ -357,6 +507,42 @@ export function TherapistBookingMessagesPage() {
         }
     }
 
+    async function handleDeleteImage(messageId: number) {
+        if (!token || !publicId) {
+            return;
+        }
+
+        setDeletingImageMessageIds((current) => [...current, messageId]);
+        setComposeError(null);
+        setPageError(null);
+        setSuccessMessage(null);
+        setImageDeleteCandidate(null);
+
+        try {
+            const payload = await apiRequest<ApiEnvelope<BookingMessageRecord>>(`/bookings/${publicId}/messages/${messageId}/image`, {
+                method: 'DELETE',
+                token,
+            });
+            const deletedMessage = unwrapData(payload);
+
+            setMessages((current) => current.map((message) => (
+                message.id === deletedMessage.id ? deletedMessage : message
+            )));
+            setExpandedImage((current) => (current?.id === deletedMessage.id ? null : current));
+            setSuccessMessage('画像を削除しました。');
+            await loadData({ refresh: true, silent: true, preserveSuccess: true });
+        } catch (requestError) {
+            const message =
+                requestError instanceof ApiError
+                    ? requestError.message
+                    : '画像の削除に失敗しました。';
+
+            setPageError(message);
+        } finally {
+            setDeletingImageMessageIds((current) => current.filter((id) => id !== messageId));
+        }
+    }
+
     if (isLoading) {
         return <LoadingScreen title="予約メッセージを読み込み中" message="利用者との連絡内容と未読状況を確認しています。" />;
     }
@@ -387,12 +573,6 @@ export function TherapistBookingMessagesPage() {
                         <div className="flex flex-wrap items-center gap-2">
                             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
                                 {statusLabel(booking.status)}
-                            </span>
-                            <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
-                                {readFilterLabel(readFilter)}
-                            </span>
-                            <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
-                                受信未読 {meta?.unread_count ?? unreadIncomingCount}件
                             </span>
                             {meta?.counterparty_typing ? (
                                 <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
@@ -440,50 +620,12 @@ export function TherapistBookingMessagesPage() {
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
                 <section className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                    <div className="flex flex-col gap-4 border-b border-[#efe5d7] pb-5 md:flex-row md:items-end md:justify-between">
-                        <div>
-                            <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">やりとり</p>
-                            <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">やりとり一覧</h2>
-                        </div>
-
-                        <div className="flex flex-wrap gap-2">
-                            {[
-                                ['all', 'すべて'],
-                                ['unread', '未読'],
-                                ['read', '既読'],
-                            ].map(([value, label]) => (
-                                <button
-                                    key={value}
-                                    type="button"
-                                    onClick={() => {
-                                        setSearchParams((previous) => {
-                                            const next = new URLSearchParams(previous);
-
-                                            if (value === 'all') {
-                                                next.delete('read_status');
-                                            } else {
-                                                next.set('read_status', value);
-                                            }
-
-                                            return next;
-                                        });
-                                    }}
-                                    className={[
-                                        'rounded-full px-4 py-2 text-sm font-semibold transition',
-                                        readFilter === value
-                                            ? 'bg-[#17202b] text-white'
-                                            : 'bg-[#f5efe4] text-[#48505a] hover:bg-[#ebe2d3]',
-                                    ].join(' ')}
-                                >
-                                    {label}
-                                </button>
-                            ))}
-                        </div>
-                    </div>
-
-                    <div className="mt-6 space-y-4">
+                    <div className="space-y-4">
                         {messages.length > 0 ? messages.map((message) => {
                             const isPendingRead = pendingReadIds.includes(message.id);
+                            const isDeletingImage = deletingImageMessageIds.includes(message.id);
+                            const isDeletedImageMessage = message.message_type === 'image' && message.is_deleted;
+                            const isImageMessage = message.message_type === 'image' && Boolean(message.attachment_url);
 
                             return (
                                 <article
@@ -502,7 +644,28 @@ export function TherapistBookingMessagesPage() {
                                                     : 'bg-[#f8f4ed] text-[#17202b]',
                                             ].join(' ')}
                                         >
-                                            <p className="text-sm leading-7">{message.body}</p>
+                                            {isDeletedImageMessage ? (
+                                                <p className="text-sm leading-[160%] opacity-80">（画像が削除されました）</p>
+                                            ) : isImageMessage ? (
+                                                <div className="space-y-3">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setExpandedImage(message);
+                                                        }}
+                                                        className="block w-full cursor-zoom-in"
+                                                    >
+                                                        <img
+                                                            src={message.attachment_url ?? undefined}
+                                                            alt={message.attachment_original_name ?? '送信画像'}
+                                                            className="max-h-[26rem] w-full rounded-[18px] object-cover"
+                                                        />
+                                                    </button>
+                                                    {message.body ? <p className="text-sm leading-[160%]">{message.body}</p> : null}
+                                                </div>
+                                            ) : (
+                                                <p className="text-sm leading-[160%]">{message.body}</p>
+                                            )}
                                         </div>
 
                                         <div className={`flex flex-wrap items-center gap-3 px-1 text-xs ${message.is_own ? 'justify-end text-slate-400' : 'text-[#7a7066]'}`}>
@@ -511,6 +674,19 @@ export function TherapistBookingMessagesPage() {
                                             </span>
                                             <span>{formatDateTime(message.sent_at)}</span>
                                             <span>{message.is_read ? '既読' : '未読'}</span>
+                                            {message.can_delete_image ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        setImageDeleteCandidate(message);
+                                                    }}
+                                                    disabled={isDeletingImage}
+                                                    className="inline-flex items-center gap-1 rounded-full border border-current/20 px-3 py-1 font-semibold transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-60"
+                                                >
+                                                    <TrashIcon />
+                                                    <span>{isDeletingImage ? '削除中...' : '画像を削除'}</span>
+                                                </button>
+                                            ) : null}
                                             {!message.is_own && !message.is_read ? (
                                                 <button
                                                     type="button"
@@ -556,38 +732,103 @@ export function TherapistBookingMessagesPage() {
                     </div>
 
                     <form onSubmit={handleSendMessage} className="mt-6 space-y-3 border-t border-[#efe5d7] pt-5">
-                        <div className="space-y-2">
-                            <label htmlFor="therapist-message-body" className="text-sm font-semibold text-[#17202b]">
-                                メッセージを送る
-                            </label>
-                            <textarea
-                                id="therapist-message-body"
-                                value={draft}
-                                onChange={(event) => {
-                                    setDraft(event.target.value);
-                                }}
-                                rows={4}
-                                placeholder="例: 到着予定時刻や入室方法があれば教えてください。"
-                                className="w-full rounded-[18px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 text-sm leading-7 text-[#17202b] outline-none transition focus:border-[#c6a16a]"
-                            />
+                        <input
+                            ref={fileInputRef}
+                            type="file"
+                            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+                            className="hidden"
+                            onChange={handleImageChange}
+                        />
+
+                        {isPreparingImage ? (
+                            <div className="flex items-center gap-3 rounded-[20px] bg-[#fff7ea] px-3 py-3 text-sm text-[#48505a]">
+                                <span className="h-10 w-10 animate-spin rounded-full border-2 border-[#d2b179]/35 border-t-[#b5894d]" />
+                                <div>
+                                    <p className="font-semibold text-[#17202b]">画像を送信向けに調整しています</p>
+                                    <p className="text-xs text-[#7a7066]">サイズが大きい画像は自動で縮小・圧縮します。</p>
+                                </div>
+                            </div>
+                        ) : null}
+
+                        {selectedImage && selectedImagePreviewUrl ? (
+                            <div className="flex items-center gap-3 rounded-[20px] bg-[#fff7ea] px-3 py-3 text-sm text-[#48505a]">
+                                <img src={selectedImagePreviewUrl} alt={selectedImage.name} className="h-14 w-14 rounded-[14px] object-cover" />
+                                <div className="min-w-0 flex-1">
+                                    <p className="truncate font-semibold text-[#17202b]">{selectedImage.name}</p>
+                                    <p className="text-xs text-[#7a7066]">
+                                        {selectedImageWasOptimized && selectedImageOriginalSizeBytes
+                                            ? `${formatFileSize(selectedImageOriginalSizeBytes)} → ${formatFileSize(selectedImage.size)} に自動圧縮`
+                                            : `${formatFileSize(selectedImage.size)} / 画像は1枚ずつ送信`}
+                                    </p>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={clearSelectedImage}
+                                    className="rounded-full border border-[#d9c9ae] px-3 py-1 text-xs font-semibold text-[#17202b] transition hover:bg-[#fff1df]"
+                                >
+                                    取り消す
+                                </button>
+                            </div>
+                        ) : null}
+
+                        <div className="flex items-end gap-3 rounded-[24px] border border-[#e4d7c2] bg-[#fffaf3] px-3 py-3">
+                            <button
+                                type="button"
+                                onClick={() => fileInputRef.current?.click()}
+                                disabled={isSending || isPreparingImage}
+                                className={[
+                                    'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition',
+                                    selectedImage
+                                        ? 'bg-[#d2b179] text-[#17202b]'
+                                        : 'bg-[#f1e7d8] text-[#6f5a43] hover:bg-[#e8dcc9]',
+                                ].join(' ')}
+                                aria-label="画像を選択"
+                            >
+                                <PhotoIcon />
+                            </button>
+
+                            <div className="min-w-0 flex-1">
+                                <textarea
+                                    id="therapist-message-body"
+                                    value={draft}
+                                    onChange={(event) => {
+                                        setDraft(event.target.value);
+                                    }}
+                                    rows={1}
+                                    maxLength={1000}
+                                    placeholder="到着予定や入室方法などを入力"
+                                    className="min-h-11 w-full resize-none bg-transparent px-1 py-2 text-sm leading-6 text-[#17202b] outline-none placeholder:text-[#9b8c78]"
+                                />
+                            </div>
+
+                            <button
+                                type="submit"
+                                disabled={isSending || isPreparingImage || (!draft.trim() && !selectedImage)}
+                                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#17202b] text-white transition hover:bg-[#243447] disabled:cursor-not-allowed disabled:opacity-60"
+                                aria-label="送信"
+                            >
+                                {isSending ? (
+                                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                ) : (
+                                    <SendIcon />
+                                )}
+                            </button>
+                        </div>
+
+                        <div className="px-1 text-right text-xs text-[#68707a]">
+                            {draft.length}/1000
+                        </div>
+
+                        <div className="flex items-start gap-2 px-1 text-xs text-[#68707a]">
+                            <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#f1e7d8] text-[10px] font-bold text-[#8b6a3e]">
+                                !
+                            </span>
+                            <span>連絡先交換につながる文言は送れません。待ち合わせや進行確認に必要な連絡だけに絞って使います。</span>
                         </div>
 
                         {composeError ? (
                             <p className="text-sm text-[#9a4b35]">{composeError}</p>
                         ) : null}
-
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <p className="text-xs leading-6 text-[#68707a]">
-                                連絡先交換につながる文言は送れません。待ち合わせ・待ち合わせ場所・タイミング確認に絞って使います。
-                            </p>
-                            <button
-                                type="submit"
-                                disabled={isSending || !draft.trim()}
-                                className="inline-flex items-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243447] disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                                {isSending ? '送信中...' : '送信する'}
-                            </button>
-                        </div>
                     </form>
                 </section>
 
@@ -640,6 +881,92 @@ export function TherapistBookingMessagesPage() {
                     </section>
                 </aside>
             </div>
+
+            {expandedImage?.attachment_url ? (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(12,16,24,0.88)] px-4 py-6"
+                    onClick={() => {
+                        setExpandedImage(null);
+                    }}
+                >
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="送信画像を拡大表示"
+                        className="relative flex max-h-full w-full max-w-5xl items-center justify-center"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                        }}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setExpandedImage(null);
+                            }}
+                            className="absolute right-3 top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white transition hover:bg-black/60"
+                            aria-label="拡大表示を閉じる"
+                        >
+                            <CloseIcon />
+                        </button>
+
+                        <img
+                            src={expandedImage.attachment_url}
+                            alt={expandedImage.attachment_original_name ?? '送信画像'}
+                            className="max-h-[88vh] w-auto max-w-full rounded-[24px] object-contain shadow-[0_24px_60px_rgba(0,0,0,0.35)]"
+                        />
+                    </div>
+                </div>
+            ) : null}
+
+            {imageDeleteCandidate ? (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(12,16,24,0.72)] px-4 py-6"
+                    onClick={() => {
+                        if (!deletingImageMessageIds.includes(imageDeleteCandidate.id)) {
+                            setImageDeleteCandidate(null);
+                        }
+                    }}
+                >
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="画像削除の確認"
+                        className="w-full max-w-md rounded-[28px] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)]"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                        }}
+                    >
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">画像削除</p>
+                        <h2 className="mt-2 text-xl font-semibold text-[#17202b]">この画像を削除しますか？</h2>
+                        <p className="mt-3 text-sm leading-7 text-[#68707a]">
+                            削除すると相手ユーザーの画面からも非表示になり、あとから元に戻せません。
+                        </p>
+
+                        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setImageDeleteCandidate(null);
+                                }}
+                                disabled={deletingImageMessageIds.includes(imageDeleteCandidate.id)}
+                                className="inline-flex items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                キャンセル
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    void handleDeleteImage(imageDeleteCandidate.id);
+                                }}
+                                disabled={deletingImageMessageIds.includes(imageDeleteCandidate.id)}
+                                className="inline-flex items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243447] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {deletingImageMessageIds.includes(imageDeleteCandidate.id) ? '削除中...' : '削除する'}
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }

@@ -13,6 +13,7 @@ class SelfProfilePhotoResource extends JsonResource
         return [
             'id' => $this->id,
             'usage_type' => $this->usage_type,
+            'visibility' => $this->visibility,
             'status' => $this->status,
             'rejection_reason_code' => $this->rejection_reason_code,
             'sort_order' => $this->sort_order,

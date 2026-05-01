@@ -3,19 +3,10 @@ import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { useToastOnMessage } from '../../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../../lib/api';
-import { formatNotificationTypeLabel } from '../../lib/notifications';
-import {
-    formatDateTime,
-    formatIdentityVerificationStatus,
-    formatProfileStatus,
-    formatStripeRequirementField,
-    formatStripeStatus,
-} from '../../lib/therapist';
+import { formatDateTime, formatIdentityVerificationStatus } from '../../lib/therapist';
 import type {
     ApiEnvelope,
-    AppNotificationRecord,
-    NotificationListMeta,
-    StripeConnectedAccountStatus,
+    TherapistAvailabilitySlotRecord,
     TherapistBookingSettingRecord,
     TherapistProfileRecord,
     TherapistReviewStatus,
@@ -34,7 +25,7 @@ function onlineStatusLabel(profile: TherapistProfileRecord | null): string {
         return '非公開';
     }
 
-    return profile.is_online ? '受付中' : '公開中';
+    return profile.is_online ? '今すぐ受付中' : '公開中';
 }
 
 function onlineStatusTone(profile: TherapistProfileRecord | null): string {
@@ -55,50 +46,12 @@ function onlineStatusTone(profile: TherapistProfileRecord | null): string {
         : 'bg-[#eaf2ff] text-[#30527a]';
 }
 
-function buildNotificationHint(notification: AppNotificationRecord): string {
-    if (notification.notification_type === 'travel_request_received') {
-        return '需要通知として届いたメッセージです。必要に応じて出張リクエスト一覧で確認します。';
-    }
-
-    if (notification.notification_type === 'travel_request_warning' || notification.notification_type === 'travel_request_restricted') {
-        return '運営からの注意・制限に関する通知です。内容を確認してから利用を続けてください。';
-    }
-
-    return notification.body;
-}
-
-function formatRequirementCount(status: TherapistReviewStatus | null): string {
-    if (!status) {
-        return '確認中';
-    }
-
-    const total = status.requirements.length;
-    const completed = status.requirements.filter((requirement) => requirement.is_satisfied).length;
-
-    return `${completed} / ${total} 項目`;
-}
-
-function formatTravelMode(value: TherapistBookingSettingRecord['travel_mode'] | null | undefined): string {
-    switch (value) {
-        case 'bicycle':
-            return '自転車';
-        case 'transit':
-            return '公共交通機関';
-        case 'car':
-            return '車';
-        default:
-            return '徒歩';
-    }
-}
-
 export function TherapistSettingsOverviewPanel() {
     const { token } = useAuth();
     const [profile, setProfile] = useState<TherapistProfileRecord | null>(null);
     const [reviewStatus, setReviewStatus] = useState<TherapistReviewStatus | null>(null);
-    const [stripeStatus, setStripeStatus] = useState<StripeConnectedAccountStatus | null>(null);
     const [bookingSetting, setBookingSetting] = useState<TherapistBookingSettingRecord | null>(null);
-    const [notifications, setNotifications] = useState<AppNotificationRecord[]>([]);
-    const [notificationMeta, setNotificationMeta] = useState<NotificationListMeta | null>(null);
+    const [availabilitySlots, setAvailabilitySlots] = useState<TherapistAvailabilitySlotRecord[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
@@ -106,8 +59,6 @@ export function TherapistSettingsOverviewPanel() {
     const [isUpdatingOnline, setIsUpdatingOnline] = useState(false);
     const [isUpdatingListing, setIsUpdatingListing] = useState(false);
     const [isUpdatingLocation, setIsUpdatingLocation] = useState(false);
-    const [markingNotificationId, setMarkingNotificationId] = useState<number | null>(null);
-
     useToastOnMessage(error, 'error');
     useToastOnMessage(successMessage, 'success');
 
@@ -123,20 +74,17 @@ export function TherapistSettingsOverviewPanel() {
         }
 
         try {
-            const [profilePayload, reviewPayload, stripePayload, bookingPayload, notificationPayload] = await Promise.all([
+            const [profilePayload, reviewPayload, bookingPayload, availabilityPayload] = await Promise.all([
                 apiRequest<ApiEnvelope<TherapistProfileRecord>>('/me/therapist-profile', { token }),
                 apiRequest<ApiEnvelope<TherapistReviewStatus>>('/me/therapist-profile/review-status', { token }),
-                apiRequest<ApiEnvelope<StripeConnectedAccountStatus>>('/me/stripe-connect', { token }),
                 apiRequest<ApiEnvelope<TherapistBookingSettingRecord>>('/me/therapist/scheduled-booking-settings', { token }),
-                apiRequest<{ data: AppNotificationRecord[]; meta: NotificationListMeta }>('/notifications?limit=8', { token }),
+                apiRequest<ApiEnvelope<TherapistAvailabilitySlotRecord[]>>('/me/therapist/availability-slots?status=published', { token }),
             ]);
 
             setProfile(unwrapData(profilePayload));
             setReviewStatus(unwrapData(reviewPayload));
-            setStripeStatus(unwrapData(stripePayload));
             setBookingSetting(unwrapData(bookingPayload));
-            setNotifications(notificationPayload.data);
-            setNotificationMeta(notificationPayload.meta ?? null);
+            setAvailabilitySlots(unwrapData(availabilityPayload));
             setError(null);
         } catch (requestError) {
             const message = requestError instanceof ApiError
@@ -154,19 +102,92 @@ export function TherapistSettingsOverviewPanel() {
         void loadData();
     }, [loadData]);
 
-    const unreadNotifications = notificationMeta?.unread_count ?? notifications.filter((notification) => !notification.is_read).length;
-    const activeStripeRequirements = stripeStatus?.requirements_currently_due ?? [];
+    const isListingActive = Boolean(profile?.profile_status === 'approved' && profile.is_listed);
     const canGoOnline = Boolean(profile?.profile_status === 'approved' && profile.is_listed && !profile.is_online);
     const canGoOffline = Boolean(profile?.is_online);
     const canListProfile = Boolean(profile?.profile_status === 'approved' && !profile.is_listed);
     const canHideProfile = Boolean(profile?.profile_status === 'approved' && profile.is_listed);
+    const canShowLocationTools = Boolean(profile?.is_online);
+    const currentLocation = profile?.location ?? null;
+    const isIdentityVerified = reviewStatus?.latest_identity_verification_status === 'approved';
+    const isPublicProfileConfigured = Boolean((profile?.public_name?.trim().length ?? 0) > 0 && (profile?.bio?.trim().length ?? 0) > 0);
+    const activeMenuCount = profile?.menus.filter((menu) => menu.is_active).length ?? 0;
+    const hasMenuConfigured = activeMenuCount > 0;
+    const hasBaseConfigured = Boolean(bookingSetting?.has_scheduled_base_location);
+    const publishedAvailabilitySlotCount = availabilitySlots.length;
+    const currentLocationMapSrc = useMemo(() => {
+        if (!currentLocation) {
+            return null;
+        }
 
-    const summary = useMemo(() => ({
-        online: onlineStatusLabel(profile),
-        unreadNotifications,
-        reviewProgress: formatRequirementCount(reviewStatus),
-        stripe: formatStripeStatus(stripeStatus?.status),
-    }), [profile, reviewStatus, stripeStatus, unreadNotifications]);
+        return `https://maps.google.com/maps?q=${currentLocation.lat},${currentLocation.lng}&z=15&output=embed`;
+    }, [currentLocation]);
+    const checklistItems = useMemo(() => ([
+        {
+            step: 1,
+            title: '本人確認',
+            done: isIdentityVerified,
+            optional: false,
+            description: isIdentityVerified
+                ? '本人確認・年齢確認の承認が完了しています。'
+                : `現在の状態: ${formatIdentityVerificationStatus(reviewStatus?.latest_identity_verification_status)}`,
+            to: '/therapist/identity-verification',
+            actionLabel: '本人確認を開く',
+        },
+        {
+            step: 2,
+            title: '公開プロフィール設定',
+            done: isPublicProfileConfigured,
+            optional: false,
+            description: isPublicProfileConfigured
+                ? '公開名と紹介文を設定済みです。'
+                : '公開名と紹介文を入力すると、プロフィールの見え方を整えられます。',
+            to: '/therapist/profile',
+            actionLabel: 'プロフィールを開く',
+        },
+        {
+            step: 3,
+            title: 'メニュー設定',
+            done: hasMenuConfigured,
+            optional: false,
+            description: hasMenuConfigured
+                ? `${activeMenuCount}件のメニューを設定済みです。`
+                : 'メニューを1件以上設定してください。',
+            to: '/therapist/menus',
+            actionLabel: 'メニューを開く',
+        },
+        {
+            step: 4,
+            title: '拠点設定',
+            done: hasBaseConfigured,
+            optional: false,
+            description: hasBaseConfigured
+                ? `${bookingSetting?.scheduled_base_location?.label ?? '出動拠点'}を設定済みです。`
+                : '出動拠点を設定すると、予定予約の案内を出せます。',
+            to: '/therapist/bases',
+            actionLabel: '拠点設定を開く',
+        },
+        {
+            step: 5,
+            title: '空き枠設定',
+            done: publishedAvailabilitySlotCount > 0,
+            optional: true,
+            description: publishedAvailabilitySlotCount > 0
+                ? `${publishedAvailabilitySlotCount}件の空き枠を公開中です。`
+                : '未設定でも今すぐ予約は受け付けられます。',
+            to: '/therapist/availability',
+            actionLabel: '空き枠設定を開く',
+        },
+    ]), [
+        activeMenuCount,
+        bookingSetting?.scheduled_base_location?.label,
+        hasBaseConfigured,
+        hasMenuConfigured,
+        isIdentityVerified,
+        isPublicProfileConfigured,
+        publishedAvailabilitySlotCount,
+        reviewStatus?.latest_identity_verification_status,
+    ]);
 
     async function updateListingState(isListed: boolean) {
         if (!token) {
@@ -219,7 +240,7 @@ export function TherapistSettingsOverviewPanel() {
             );
 
             setProfile(unwrapData(payload));
-            setSuccessMessage(nextState === 'online' ? 'オンライン受付を開始しました。' : 'オンライン受付を停止しました。');
+            setSuccessMessage(nextState === 'online' ? '今すぐ受付を開始しました。' : '今すぐ受付を停止しました。');
             await loadData(true);
         } catch (requestError) {
             const message = requestError instanceof ApiError
@@ -232,19 +253,25 @@ export function TherapistSettingsOverviewPanel() {
         }
     }
 
-    async function updateCurrentLocation() {
+    async function updateCurrentLocation(options?: { suppressSuccessMessage?: boolean; refresh?: boolean }) {
         if (!token) {
-            return;
+            return false;
         }
 
         if (!navigator.geolocation) {
             setError('このブラウザでは現在地取得に対応していません。');
-            return;
+            return false;
         }
+
+        const suppressSuccessMessage = options?.suppressSuccessMessage ?? false;
+        const refresh = options?.refresh ?? true;
 
         setIsUpdatingLocation(true);
         setError(null);
-        setSuccessMessage(null);
+
+        if (!suppressSuccessMessage) {
+            setSuccessMessage(null);
+        }
 
         try {
             const position = await new Promise<GeolocationPosition>((resolve, reject) => {
@@ -266,8 +293,13 @@ export function TherapistSettingsOverviewPanel() {
             });
 
             setProfile(unwrapData(payload));
-            setSuccessMessage('現在地を更新しました。オンライン受付の準備にも使われます。');
-            await loadData(true);
+            if (!suppressSuccessMessage) {
+                setSuccessMessage('現在地を更新しました。今すぐ受付の検索にも使われます。');
+            }
+            if (refresh) {
+                await loadData(true);
+            }
+            return true;
         } catch (requestError) {
             const message = requestError instanceof ApiError
                 ? requestError.message
@@ -276,356 +308,268 @@ export function TherapistSettingsOverviewPanel() {
                     : '現在地の更新に失敗しました。';
 
             setError(message);
+            return false;
         } finally {
             setIsUpdatingLocation(false);
         }
     }
 
-    async function markNotificationRead(notification: AppNotificationRecord) {
-        if (!token || notification.is_read) {
+    async function enableOnlineReception() {
+        if (!profile) {
             return;
         }
 
-        setMarkingNotificationId(notification.id);
-        setError(null);
+        const locationUpdated = await updateCurrentLocation({
+            suppressSuccessMessage: true,
+            refresh: false,
+        });
 
-        try {
-            await apiRequest<ApiEnvelope<AppNotificationRecord>>(`/notifications/${notification.id}/read`, {
-                method: 'POST',
-                token,
-            });
-
-            await loadData(true);
-        } catch (requestError) {
-            const message = requestError instanceof ApiError
-                ? requestError.message
-                : '通知の既読更新に失敗しました。';
-
-            setError(message);
-        } finally {
-            setMarkingNotificationId(null);
+        if (!locationUpdated) {
+            return;
         }
+
+        await updateOnlineState('online');
     }
 
     return (
         <div id="settings-overview" className="space-y-6">
-            <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_16px_34px_rgba(2,6,23,0.14)]">
-                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                    <div className="space-y-2">
-                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">公開・受付設定</p>
-                        <h2 className="text-2xl font-semibold text-white">タチキャストとしての公開状態をここで管理します</h2>
-                        <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                            公開の切り替え、オンライン受付、現在地、受取設定、最近の通知までをこの下にまとめています。
-                        </p>
-                    </div>
-
-                    <button
-                        type="button"
-                        onClick={() => {
-                            void loadData(true);
-                        }}
-                        disabled={isRefreshing}
-                        className="inline-flex items-center self-start rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                        {isRefreshing ? '更新中...' : '更新'}
-                    </button>
-                </div>
-            </section>
-
             {isLoading ? (
                 <section className="rounded-[28px] border border-white/10 bg-white/[0.04] p-6 shadow-[0_16px_34px_rgba(2,6,23,0.14)]">
                     <p className="text-sm font-semibold text-white">設定情報を読み込み中です。</p>
                     <p className="mt-2 text-sm leading-7 text-slate-300">
-                        公開状態、受取設定、最近の通知をまとめています。
+                        公開状態、今すぐ受付、公開前チェックをまとめています。
                     </p>
                 </section>
             ) : (
                 <>
-                    <section className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
-                        {[
-                            { label: '公開状態', value: summary.online, hint: '公開と受付の現在地' },
-                            { label: '未読通知', value: `${summary.unreadNotifications}件`, hint: 'アプリ内通知の未読数' },
-                            { label: '公開条件', value: summary.reviewProgress, hint: '公開に必要な項目の充足数' },
-                            { label: '受取設定', value: summary.stripe, hint: '受取口座の準備状況' },
-                        ].map((item) => (
-                            <article
-                                key={item.label}
-                                className="rounded-[24px] border border-white/10 bg-white/5 p-5 shadow-[0_12px_28px_rgba(15,23,42,0.08)]"
-                            >
-                                <p className="text-xs font-semibold tracking-wide text-[#d2b179]">{item.label}</p>
-                                <p className="mt-3 text-2xl font-semibold text-white">{item.value}</p>
-                                <p className="mt-2 text-sm leading-6 text-slate-300">{item.hint}</p>
-                            </article>
-                        ))}
-                    </section>
+                    <section className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
+                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                            <div>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">公開と受付</p>
+                                <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">公開プロフィールと今すぐ受付</h2>
+                            </div>
+                            <div className="flex items-center gap-3">
+                                <span className={`rounded-full px-3 py-1 text-xs font-semibold ${onlineStatusTone(profile)}`}>
+                                    {onlineStatusLabel(profile)}
+                                </span>
+                                <button
+                                    type="button"
+                                    onClick={() => {
+                                        void loadData(true);
+                                    }}
+                                    disabled={isRefreshing}
+                                    className="inline-flex items-center rounded-full border border-[#d9c9ae] px-4 py-2 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff6ea] disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {isRefreshing ? '更新中...' : '更新'}
+                                </button>
+                            </div>
+                        </div>
 
-                    <section className="grid gap-6 xl:grid-cols-[minmax(0,0.92fr)_minmax(360px,0.88fr)]">
-                        <div className="space-y-6">
-                            <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-                                    <div>
-                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">公開と受付</p>
-                                        <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">公開プロフィールとオンライン状態</h2>
-                                    </div>
-                                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${onlineStatusTone(profile)}`}>
-                                        {onlineStatusLabel(profile)}
-                                    </span>
-                                </div>
-
-                                <div className="mt-5 grid gap-4 md:grid-cols-3">
-                                    <div className="rounded-[24px] bg-[#fffaf3] p-4">
-                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">公開プロフィール</p>
-                                        <p className="mt-2 text-sm font-semibold text-[#17202b]">{formatProfileStatus(profile?.profile_status)}</p>
-                                        <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                            本人確認・年齢確認と必須情報が揃うと公開できます。非公開にすると検索や詳細ページには表示されません。
-                                        </p>
-                                    </div>
-
-                                    <div className="rounded-[24px] bg-[#fffaf3] p-4">
-                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">公開設定</p>
-                                        <p className="mt-2 text-sm font-semibold text-[#17202b]">{profile?.is_listed ? '公開中' : '非公開'}</p>
-                                        <p className="mt-2 text-sm leading-7 text-[#68707a]">
+                        <div className="mt-6 grid gap-4">
+                            <div className="rounded-[24px] bg-[#fffaf3] p-5">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="space-y-2">
+                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">プロフィールの公開</p>
+                                        <p className="text-base font-semibold text-[#17202b]">{isListingActive ? '公開中' : '非公開'}</p>
+                                        <p className="text-sm leading-7 text-[#68707a]">
                                             公開中は利用者にプロフィールが表示されます。今すぐ受付を止めても、予定予約の案内は継続できます。
                                         </p>
                                     </div>
+                                    <button
+                                        type="button"
+                                        role="switch"
+                                        aria-checked={isListingActive}
+                                        aria-label="プロフィール公開を切り替える"
+                                        onClick={() => {
+                                            if (isUpdatingListing || !profile) {
+                                                return;
+                                            }
 
-                                    <div className="rounded-[24px] bg-[#fffaf3] p-4">
-                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">現在地の更新</p>
-                                        <p className="mt-2 text-sm font-semibold text-[#17202b]">{formatDateTime(profile?.last_location_updated_at)}</p>
-                                        <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                            オンライン受付には検索に使える現在地が必要です。出動前に更新しておくと安心です。
+                                            if (profile.is_listed && canHideProfile) {
+                                                void updateListingState(false);
+                                                return;
+                                            }
+
+                                            if (!profile.is_listed && canListProfile) {
+                                                void updateListingState(true);
+                                            }
+                                        }}
+                                        disabled={isUpdatingListing || (!profile?.is_listed && !canListProfile) || (Boolean(profile?.is_listed) && !canHideProfile)}
+                                        className={[
+                                            'relative inline-flex h-8 w-14 shrink-0 items-center rounded-full border transition disabled:cursor-not-allowed disabled:opacity-60',
+                                            isListingActive
+                                                ? 'border-[#17202b] bg-[#17202b]'
+                                                : 'border-[#d8c6a8] bg-[#efe3cf]',
+                                        ].join(' ')}
+                                    >
+                                        <span
+                                            className={[
+                                                'inline-block h-6 w-6 rounded-full bg-white shadow-sm transition',
+                                                isListingActive ? 'translate-x-7' : 'translate-x-1',
+                                            ].join(' ')}
+                                        />
+                                    </button>
+                                </div>
+                            </div>
+
+                            <div className="rounded-[24px] bg-[#fffaf3] p-5">
+                                <div className="flex items-start justify-between gap-4">
+                                    <div className="space-y-2">
+                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">今すぐ受付</p>
+                                        <p className="text-base font-semibold text-[#17202b]">{profile?.is_online ? '受付中' : '停止中'}</p>
+                                        <p className="text-sm leading-7 text-[#68707a]">
+                                            オンにすると現在地を更新したうえで、利用者の「今すぐ」検索に表示されます。
                                         </p>
                                     </div>
-                                </div>
+                                    <button
+                                        type="button"
+                                        role="switch"
+                                        aria-checked={profile?.is_online ?? false}
+                                        aria-label="今すぐ受付を切り替える"
+                                        onClick={() => {
+                                            if (isUpdatingOnline || isUpdatingLocation || !profile) {
+                                                return;
+                                            }
 
-                                <div className="mt-5 flex flex-wrap gap-3">
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            void updateListingState(true);
+                                            if (profile.is_online) {
+                                                void updateOnlineState('offline');
+                                                return;
+                                            }
+
+                                            if (canGoOnline) {
+                                                void enableOnlineReception();
+                                            }
                                         }}
-                                        disabled={!canListProfile || isUpdatingListing}
-                                        className="inline-flex items-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#223243] disabled:cursor-not-allowed disabled:opacity-60"
+                                        disabled={isUpdatingOnline || isUpdatingLocation || (!profile?.is_online && !canGoOnline) || (Boolean(profile?.is_online) && !canGoOffline)}
+                                        className={[
+                                            'relative inline-flex h-8 w-14 shrink-0 items-center rounded-full border transition disabled:cursor-not-allowed disabled:opacity-60',
+                                            profile?.is_online
+                                                ? 'border-[#17202b] bg-[#17202b]'
+                                                : 'border-[#d8c6a8] bg-[#efe3cf]',
+                                        ].join(' ')}
                                     >
-                                        {isUpdatingListing && canListProfile ? '切り替え中...' : 'プロフィールを公開する'}
+                                        <span
+                                            className={[
+                                                'inline-block h-6 w-6 rounded-full bg-white shadow-sm transition',
+                                                profile?.is_online ? 'translate-x-7' : 'translate-x-1',
+                                            ].join(' ')}
+                                        />
                                     </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            void updateListingState(false);
-                                        }}
-                                        disabled={!canHideProfile || isUpdatingListing}
-                                        className="inline-flex items-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff6ea] disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
-                                        {isUpdatingListing && canHideProfile ? '切り替え中...' : 'プロフィールを非公開にする'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            void updateOnlineState('online');
-                                        }}
-                                        disabled={!canGoOnline || isUpdatingOnline}
-                                        className="inline-flex items-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#223243] disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
-                                        {isUpdatingOnline && canGoOnline ? '切り替え中...' : 'オンライン受付を開始'}
-                                    </button>
-                                    <button
-                                        type="button"
-                                        onClick={() => {
-                                            void updateOnlineState('offline');
-                                        }}
-                                        disabled={!canGoOffline || isUpdatingOnline}
-                                        className="inline-flex items-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff6ea] disabled:cursor-not-allowed disabled:opacity-60"
-                                    >
-                                        {isUpdatingOnline && canGoOffline ? '切り替え中...' : 'オンライン受付を停止'}
-                                    </button>
+                                </div>
+                            </div>
+                        </div>
+
+                        {canShowLocationTools ? (
+                            <div className="mt-6 rounded-[24px] border border-[#ead8b8] bg-[#fff8ec] p-5">
+                                <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                    <div className="space-y-2">
+                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">現在地の更新</p>
+                                        <p className="text-base font-semibold text-[#17202b]">{formatDateTime(profile?.last_location_updated_at)}</p>
+                                        <p className="text-sm leading-7 text-[#68707a]">
+                                            今すぐ受付に使う検索位置です。出動場所が変わったときは、ここで更新してください。
+                                        </p>
+                                        {currentLocation ? (
+                                            <p className="text-xs text-[#68707a]">
+                                                緯度 {currentLocation.lat.toFixed(6)} / 経度 {currentLocation.lng.toFixed(6)}
+                                            </p>
+                                        ) : null}
+                                    </div>
                                     <button
                                         type="button"
                                         onClick={() => {
                                             void updateCurrentLocation();
                                         }}
                                         disabled={isUpdatingLocation}
-                                        className="inline-flex items-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff6ea] disabled:cursor-not-allowed disabled:opacity-60"
+                                        className="inline-flex items-center self-start rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff1da] disabled:cursor-not-allowed disabled:opacity-60"
                                     >
                                         {isUpdatingLocation ? '取得中...' : '現在地を更新'}
                                     </button>
                                 </div>
-                            </article>
 
-                            <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                                <div>
-                                    <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">公開前チェック</p>
-                                    <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">準備状況の要点</h2>
-                                </div>
-
-                                <div className="mt-5 grid gap-4 md:grid-cols-2">
-                                    <div className="rounded-[24px] bg-[#fffaf3] p-4">
-                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">本人確認</p>
-                                        <p className="mt-2 text-sm font-semibold text-[#17202b]">
-                                            {formatIdentityVerificationStatus(reviewStatus?.latest_identity_verification_status)}
-                                        </p>
-                                        <Link
-                                            to="/therapist/identity-verification"
-                                            className="mt-4 inline-flex text-sm font-semibold text-[#8f5c22] hover:text-[#6f4718]"
-                                        >
-                                            本人確認を開く
-                                        </Link>
-                                    </div>
-
-                                    <div className="rounded-[24px] bg-[#fffaf3] p-4">
-                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">受取設定</p>
-                                        <p className="mt-2 text-sm font-semibold text-[#17202b]">{formatStripeStatus(stripeStatus?.status)}</p>
-                                        <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                            {stripeStatus?.is_payout_ready ? '出金申請まで進める状態です。' : '口座情報の追加入力が必要です。'}
-                                        </p>
-                                        <Link
-                                            to="/therapist/stripe-connect"
-                                            className="mt-4 inline-flex text-sm font-semibold text-[#8f5c22] hover:text-[#6f4718]"
-                                        >
-                                            受取設定を開く
-                                        </Link>
-                                    </div>
-
-                                    <div className="rounded-[24px] bg-[#fffaf3] p-4">
-                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予定予約の準備</p>
-                                        <p className="mt-2 text-sm font-semibold text-[#17202b]">
-                                            {bookingSetting?.has_scheduled_base_location ? '出動拠点あり' : '出動拠点未設定'}
-                                        </p>
-                                        <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                            受付締切 {bookingSetting?.booking_request_lead_time_minutes ? `${bookingSetting.booking_request_lead_time_minutes}分前まで` : '未設定'}
-                                            <br />
-                                            {formatTravelMode(bookingSetting?.travel_mode)} / {bookingSetting?.max_travel_minutes ?? 120}分以内
-                                        </p>
-                                        <Link
-                                            to="/therapist/availability"
-                                            className="mt-4 inline-flex text-sm font-semibold text-[#8f5c22] hover:text-[#6f4718]"
-                                        >
-                                            空き枠設定を開く
-                                        </Link>
-                                    </div>
-
-                                    <div className="rounded-[24px] bg-[#fffaf3] p-4">
-                                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">公開条件</p>
-                                        <p className="mt-2 text-sm font-semibold text-[#17202b]">{formatRequirementCount(reviewStatus)}</p>
-                                        <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                            {reviewStatus?.can_submit ? '必要項目が揃っています。' : 'まだ埋める項目があります。'}
-                                        </p>
-                                        <Link
-                                            to="/therapist/onboarding"
-                                            className="mt-4 inline-flex text-sm font-semibold text-[#8f5c22] hover:text-[#6f4718]"
-                                        >
-                                            準備状況を開く
-                                        </Link>
-                                    </div>
-                                </div>
-
-                                {activeStripeRequirements.length > 0 ? (
-                                    <section className="mt-5 rounded-[24px] border border-[#e5d7c0] bg-[#fffaf3] p-5">
-                                        <p className="text-sm font-semibold text-[#17202b]">受取設定で追加入力が必要な項目</p>
-                                        <ul className="mt-3 grid gap-2 text-sm text-[#68707a]">
-                                            {activeStripeRequirements.slice(0, 6).map((requirement) => (
-                                                <li key={requirement}>- {formatStripeRequirementField(requirement)}</li>
-                                            ))}
-                                        </ul>
-                                    </section>
-                                ) : null}
-                            </article>
-                        </div>
-
-                        <div className="space-y-6">
-                            <article className="rounded-[28px] border border-white/10 bg-white/5 p-6">
-                                <div className="flex items-center justify-between gap-3">
-                                    <div>
-                                        <p className="text-xs font-semibold tracking-wide text-[#d2b179]">通知</p>
-                                        <h2 className="mt-2 text-2xl font-semibold text-white">最近の連絡</h2>
-                                    </div>
-                                    <div className="flex flex-wrap items-center gap-3">
-                                        <span className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-200">
-                                            未読 {unreadNotifications}件
-                                        </span>
-                                        <Link
-                                            to="/notifications"
-                                            className="rounded-full border border-white/10 px-3 py-1 text-xs font-semibold text-slate-200 transition hover:bg-white/6"
-                                        >
-                                            通知一覧へ
-                                        </Link>
-                                    </div>
-                                </div>
-
-                                {notifications.length > 0 ? (
-                                    <div className="mt-5 grid gap-3">
-                                        {notifications.map((notification) => (
-                                            <article key={notification.id} className="rounded-[22px] border border-white/10 bg-[#17202b] p-4">
-                                                <div className="flex items-start justify-between gap-4">
-                                                    <div className="space-y-2">
-                                                        <div className="flex flex-wrap items-center gap-2">
-                                                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${
-                                                                notification.is_read
-                                                                    ? 'bg-white/10 text-slate-300'
-                                                                    : 'bg-[#f6e7cb] text-[#17202b]'
-                                                            }`}>
-                                                                {notification.is_read ? '既読' : '未読'}
-                                                            </span>
-                                                            <span className="text-xs text-slate-400">{formatNotificationTypeLabel(notification.notification_type)}</span>
-                                                        </div>
-                                                        <p className="text-sm font-semibold text-white">{notification.title}</p>
-                                                        <p className="text-sm leading-7 text-slate-300">{buildNotificationHint(notification)}</p>
-                                                        <p className="text-xs text-slate-400">受信 {formatDateTime(notification.sent_at ?? notification.created_at)}</p>
-                                                    </div>
-
-                                                    {!notification.is_read ? (
-                                                        <button
-                                                            type="button"
-                                                            onClick={() => {
-                                                                void markNotificationRead(notification);
-                                                            }}
-                                                            disabled={markingNotificationId === notification.id}
-                                                            className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-xs font-semibold text-white transition hover:bg-white/6 disabled:cursor-not-allowed disabled:opacity-60"
-                                                        >
-                                                            {markingNotificationId === notification.id ? '更新中...' : '既読にする'}
-                                                        </button>
-                                                    ) : null}
-                                                </div>
-                                            </article>
-                                        ))}
+                                {currentLocationMapSrc ? (
+                                    <div className="mt-5 overflow-hidden rounded-[24px] border border-[#ead8b8] bg-white">
+                                        <iframe
+                                            title="現在地マップ"
+                                            src={currentLocationMapSrc}
+                                            className="h-[280px] w-full border-0"
+                                            loading="lazy"
+                                            referrerPolicy="no-referrer-when-downgrade"
+                                        />
                                     </div>
                                 ) : (
-                                    <div className="mt-5 rounded-[24px] border border-dashed border-white/10 bg-[#17202b] p-6 text-center">
-                                        <p className="text-sm font-semibold text-white">まだ通知はありません。</p>
-                                        <p className="mt-2 text-sm leading-7 text-slate-300">
-                                            出張リクエストや運営連絡が届くと、この画面でまとめて確認できます。
+                                    <div className="mt-5 rounded-[24px] border border-dashed border-[#ead8b8] bg-white p-5">
+                                        <p className="text-sm font-semibold text-[#17202b]">現在地はまだ反映されていません。</p>
+                                        <p className="mt-2 text-sm leading-7 text-[#68707a]">
+                                            位置情報の取得に成功すると、ここにマップが表示されます。
                                         </p>
                                     </div>
                                 )}
-                            </article>
+                            </div>
+                        ) : null}
+                    </section>
 
-                            <article className="rounded-[28px] border border-white/10 bg-white/5 p-6">
-                                <p className="text-xs font-semibold tracking-wide text-[#d2b179]">設定ページから移動できる場所</p>
-                                <div className="mt-4 grid gap-3">
-                                    <Link
-                                        to="/therapist/profile"
-                                        className="rounded-[22px] border border-white/10 bg-[#17202b] px-4 py-4 transition hover:bg-[#1d2a36]"
+                    <section className="space-y-6">
+                        <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
+                            <div>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">公開前チェック</p>
+                                <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">公開前のチェック項目</h2>
+                            </div>
+
+                            <div className="mt-5 space-y-3">
+                                {checklistItems.map((item) => (
+                                    <article
+                                        key={item.step}
+                                        className={[
+                                            'rounded-[24px] border p-5',
+                                            item.done
+                                                ? 'border-[#cfe7d7] bg-[#f7fcf9]'
+                                                : (item.optional
+                                                    ? 'border-[#e5d7c0] bg-[#fffaf3]'
+                                                    : 'border-[#ead8b8] bg-[#fff8ec]'),
+                                        ].join(' ')}
                                     >
-                                        <p className="text-sm font-semibold text-white">プロフィールを整える</p>
-                                        <p className="mt-2 text-sm leading-6 text-slate-300">公開プロフィール、写真、対応内容の見直しに進みます。</p>
-                                    </Link>
-                                    <Link
-                                        to="/therapist/travel-requests"
-                                        className="rounded-[22px] border border-white/10 bg-[#17202b] px-4 py-4 transition hover:bg-[#1d2a36]"
-                                    >
-                                        <p className="text-sm font-semibold text-white">出張リクエストを見る</p>
-                                        <p className="mt-2 text-sm leading-6 text-slate-300">需要が集まっているエリアや未読通知の元を確認できます。</p>
-                                    </Link>
-                                    <Link
-                                        to="/therapist/balance"
-                                        className="rounded-[22px] border border-white/10 bg-[#17202b] px-4 py-4 transition hover:bg-[#1d2a36]"
-                                    >
-                                        <p className="text-sm font-semibold text-white">売上と出金を確認する</p>
-                                        <p className="mt-2 text-sm leading-6 text-slate-300">受取口座の準備状況や出金申請の進み具合を見直せます。</p>
-                                    </Link>
-                                </div>
-                            </article>
-                        </div>
+                                        <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                                            <div className="flex gap-4">
+                                                <div className={[
+                                                    'flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-sm font-semibold',
+                                                    item.done
+                                                        ? 'bg-[#2f7a4f] text-white'
+                                                        : 'bg-white text-[#8f5c22]',
+                                                ].join(' ')}>
+                                                    {item.step}
+                                                </div>
+                                                <div className="space-y-2">
+                                                    <div className="flex flex-wrap items-center gap-2">
+                                                        <h3 className="text-lg font-semibold text-[#17202b]">
+                                                            {item.title}
+                                                            {item.optional ? '（任意）' : ''}
+                                                        </h3>
+                                                        <span className={[
+                                                            'inline-flex items-center rounded-full px-3 py-1 text-xs font-semibold',
+                                                            item.done
+                                                                ? 'bg-[#e4f4ea] text-[#24553a]'
+                                                                : (item.optional
+                                                                    ? 'bg-[#efe7d9] text-[#7a6242]'
+                                                                    : 'bg-[#f7e6c8] text-[#8b5a16]'),
+                                                        ].join(' ')}>
+                                                            {item.done ? '✓ 完了' : (item.optional ? '任意' : '未完了')}
+                                                        </span>
+                                                    </div>
+                                                    <p className="text-sm leading-7 text-[#68707a]">{item.description}</p>
+                                                </div>
+                                            </div>
+
+                                            <Link
+                                                to={item.to}
+                                                className="inline-flex items-center self-start rounded-full border border-[#d9c9ae] px-4 py-2 text-sm font-semibold text-[#8f5c22] transition hover:bg-[#fff1da]"
+                                            >
+                                                {item.actionLabel}
+                                            </Link>
+                                        </div>
+                                    </article>
+                                ))}
+                            </div>
+                        </article>
                     </section>
                 </>
             )}

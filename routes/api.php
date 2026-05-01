@@ -1,6 +1,7 @@
 <?php
 
 use App\Http\Controllers\Api\AccountBlockController;
+use App\Http\Controllers\Api\AccountWithdrawalController;
 use App\Http\Controllers\Api\AccountRoleController;
 use App\Http\Controllers\Api\AdminAccountController;
 use App\Http\Controllers\Api\AdminAuditLogController;
@@ -36,6 +37,7 @@ use App\Http\Controllers\Api\MeProfileController;
 use App\Http\Controllers\Api\NotificationController;
 use App\Http\Controllers\Api\PaymentIntentController;
 use App\Http\Controllers\Api\PaymentSyncController;
+use App\Http\Controllers\Api\PrivatePhotoViewSessionController;
 use App\Http\Controllers\Api\ProfilePhotoController;
 use App\Http\Controllers\Api\ProfilePhotoFileController;
 use App\Http\Controllers\Api\PushSubscriptionController;
@@ -79,6 +81,8 @@ Route::get('/therapists/{therapistProfile:public_id}/reviews', [ReviewController
 Route::get('/profile-photos/{profilePhoto}/file', [ProfilePhotoFileController::class, 'showPublic']);
 Route::get('/profile-photos/{profilePhoto}/signed-file', [ProfilePhotoFileController::class, 'showSigned'])
     ->name('profile-photos.signed-file');
+Route::get('/bookings/{booking:public_id}/messages/{message}/signed-file', [BookingMessageController::class, 'showSigned'])
+    ->name('booking-messages.signed-file');
 Route::get('/admin/identity-verifications/{identityVerification}/signed-document', [AdminIdentityVerificationFileController::class, 'showDocument'])
     ->name('admin.identity-verifications.signed-document');
 Route::get('/admin/identity-verifications/{identityVerification}/signed-selfie', [AdminIdentityVerificationFileController::class, 'showSelfie'])
@@ -93,9 +97,14 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::patch('/me/profile', [MeProfileController::class, 'update']);
     Route::patch('/me/profile/email', [MeProfileController::class, 'updateEmail']);
     Route::post('/me/profile/password-reset-link', [MeProfileController::class, 'sendPasswordResetLink']);
+    Route::get('/me/withdrawal', [AccountWithdrawalController::class, 'show']);
+    Route::post('/me/withdrawal', [AccountWithdrawalController::class, 'store']);
     Route::post('/me/profile/photos', [ProfilePhotoController::class, 'store']);
     Route::delete('/me/profile/photos/{profilePhoto}', [ProfilePhotoController::class, 'destroy']);
     Route::get('/me/profile/photos/{profilePhoto}/file', [ProfilePhotoFileController::class, 'showOwned']);
+    Route::post('/therapists/{therapistProfile:public_id}/private-photo-sessions', [PrivatePhotoViewSessionController::class, 'store']);
+    Route::get('/private-photo-sessions/{sessionToken}/photos/{profilePhoto}/file', [PrivatePhotoViewSessionController::class, 'show']);
+    Route::post('/private-photo-sessions/{sessionToken}/close', [PrivatePhotoViewSessionController::class, 'close']);
     Route::get('/me/user-profile', [UserProfileController::class, 'show']);
     Route::put('/me/user-profile', [UserProfileController::class, 'upsert']);
     Route::patch('/me/user-profile/sensitive-disclosure', [UserProfileController::class, 'updateSensitiveDisclosure']);
@@ -257,6 +266,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/bookings/{booking:public_id}/messages', [BookingMessageController::class, 'store']);
     Route::post('/bookings/{booking:public_id}/messages/typing', [BookingMessageController::class, 'typing']);
     Route::post('/bookings/{booking:public_id}/messages/{message}/read', [BookingMessageController::class, 'read']);
+    Route::delete('/bookings/{booking:public_id}/messages/{message}/image', [BookingMessageController::class, 'destroyImage']);
     Route::post('/bookings/{booking:public_id}/reviews', [ReviewController::class, 'store']);
     Route::get('/refund-requests/{refund:public_id}', [RefundRequestController::class, 'show']);
     Route::post('/bookings/{booking:public_id}/accept', [BookingStatusController::class, 'accept']);

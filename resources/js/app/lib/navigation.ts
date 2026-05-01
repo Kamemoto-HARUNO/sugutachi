@@ -10,7 +10,7 @@ export const publicNavItems: NavItem[] = [
 ];
 
 export const userNavItems: NavItem[] = [
-    { label: 'マイページ', to: '/user', exact: true },
+    { label: 'ダッシュボード', to: '/user/dashboard', exact: true },
     { label: 'オファー', to: '/user/offers' },
     { label: '予約', to: '/user/bookings' },
     { label: 'プロフィール', to: '/user/profile' },
@@ -19,20 +19,18 @@ export const userNavItems: NavItem[] = [
 ];
 
 export const therapistNavItems: NavItem[] = [
-    { label: 'マイページ', to: '/therapist', exact: true },
-    { label: '準備状況', to: '/therapist/onboarding' },
+    { label: 'ダッシュボード', to: '/therapist/dashboard', exact: true },
     { label: 'プロフィール', to: '/therapist/profile' },
+    { label: 'メニュー', to: '/therapist/menus' },
     { label: '料金', to: '/therapist/pricing' },
     { label: '空き枠', to: '/therapist/availability' },
-    { label: 'レビュー', to: '/therapist/reviews' },
+    { label: '拠点', to: '/therapist/bases' },
     { label: '予約管理', to: '/therapist/bookings' },
-    { label: '出張リクエスト', to: '/therapist/travel-requests' },
     { label: '売上', to: '/therapist/balance' },
     { label: '設定', to: '/therapist/settings' },
 ];
 
 export const adminNavItems: NavItem[] = [
-    { label: 'マイページ', to: '/admin', exact: true },
     { label: 'アカウント', to: '/admin/accounts' },
     { label: 'タチキャスト', to: '/admin/therapist-profiles' },
     { label: '予約', to: '/admin/bookings' },
@@ -70,9 +68,11 @@ export const therapistPlaceholderRoutes: PlaceholderRouteDefinition[] = [
     { path: 'identity-verification', title: '本人確認', description: '本人確認と年齢確認の提出・再提出を行います。', apiPath: '/api/me/identity-verification' },
     { path: 'stripe-connect', title: '受取設定', description: '受取口座の登録と出金準備状況を管理します。', apiPath: '/api/me/stripe-connect' },
     { path: 'profile', title: 'タチキャストプロフィール', description: '公開プロフィールの編集と公開条件の確認を行います。', apiPath: '/api/me/therapist-profile' },
+    { path: 'menus', title: 'メニュー設定', description: '提供メニューの編集と公開状態を管理します。', apiPath: '/api/me/therapist/menus' },
     { path: 'photos', title: 'プロフィール写真', description: '写真アップロードと公開状況を管理します。', apiPath: '/api/me/profile/photos' },
     { path: 'pricing', title: '料金ルール', description: '動的料金やメニューごとの調整ルールを設定します。', apiPath: '/api/me/therapist/pricing-rules' },
-    { path: 'availability', title: '空き枠管理', description: '予定予約用の設定と公開空き枠を管理します。', apiPath: '/api/me/therapist/availability-slots' },
+    { path: 'availability', title: '空き枠管理', description: '公開空き枠とカレンダー編集を管理します。', apiPath: '/api/me/therapist/availability-slots' },
+    { path: 'bases', title: '拠点設定', description: '予定予約の基本拠点、受付締切、対応範囲を管理します。', apiPath: '/api/me/therapist/scheduled-booking-settings' },
     { path: 'requests', title: '予約依頼一覧', description: '今すぐ予約と予定予約の依頼を確認します。', apiPath: '/api/me/therapist/booking-requests' },
     { path: 'requests/:publicId', title: '予約依頼詳細', description: '承認時バッファや拒否理由を扱う画面です。', apiPath: '/api/bookings/{public_id}' },
     { path: 'bookings', title: '予約一覧', description: '進行中・完了済みの予約を管理します。', apiPath: '/api/bookings' },

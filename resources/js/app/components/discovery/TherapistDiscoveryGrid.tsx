@@ -8,6 +8,9 @@ interface TherapistDiscoveryGridProps {
     buildLink: (therapist: TherapistSearchResult) => string;
     emptyState?: React.ReactNode;
     className?: string;
+    hideTravelTimePlaceholder?: boolean;
+    hideEstimatedPricePlaceholder?: boolean;
+    showOfflineStatus?: boolean;
 }
 
 export function TherapistDiscoveryGrid({
@@ -17,6 +20,9 @@ export function TherapistDiscoveryGrid({
     buildLink,
     emptyState = null,
     className = '',
+    hideTravelTimePlaceholder = false,
+    hideEstimatedPricePlaceholder = false,
+    showOfflineStatus = false,
 }: TherapistDiscoveryGridProps) {
     if (therapists.length === 0) {
         return <>{emptyState}</>;
@@ -34,15 +40,18 @@ export function TherapistDiscoveryGrid({
                     pSizeCm={therapist.p_size_cm}
                     ratingAverage={therapist.rating_average}
                     reviewCount={therapist.review_count}
+                    isOnline={therapist.is_online}
                     travelMode={therapist.travel_mode}
                     walkingTimeRange={therapist.walking_time_range}
                     estimatedTotalAmount={therapist.estimated_total_amount}
                     durationMinutes={durationMinutes}
-                    trainingStatus={therapist.training_status}
                     therapistCancellationCount={therapist.therapist_cancellation_count}
                     photoUrl={therapist.photos[0]?.url ?? null}
                     to={buildLink(therapist)}
                     footerHint={footerHint}
+                    hideTravelTimePlaceholder={hideTravelTimePlaceholder}
+                    hideEstimatedPricePlaceholder={hideEstimatedPricePlaceholder}
+                    showOfflineStatus={showOfflineStatus}
                 />
             ))}
         </div>

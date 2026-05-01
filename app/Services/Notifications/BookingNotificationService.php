@@ -57,6 +57,32 @@ class BookingNotificationService
         );
     }
 
+    public function notifyTherapistConfirmed(Booking $booking): void
+    {
+        $booking->loadMissing(['therapistAccount', 'therapistProfile']);
+
+        $body = $this->buildTherapistConfirmedBody($booking);
+
+        $this->create(
+            accountId: $booking->therapist_account_id,
+            type: 'booking_confirmed',
+            title: '予約が確定しました',
+            body: $body,
+            data: [
+                'booking_public_id' => $booking->public_id,
+                'request_type' => $booking->is_on_demand ? 'on_demand' : 'scheduled',
+                'scheduled_start_at' => $booking->scheduled_start_at?->toJSON(),
+                'target_path' => $this->therapistBookingPath($booking),
+            ],
+        );
+
+        $this->sendEmail(
+            email: $booking->therapistAccount?->email,
+            subject: '予約が確定しました',
+            body: $body.' アプリで予約詳細をご確認ください。'
+        );
+    }
+
     public function notifyAdjustmentProposed(Booking $booking): void
     {
         $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);
@@ -105,6 +131,39 @@ class BookingNotificationService
             email: $booking->therapistAccount?->email,
             subject: '利用者が時間変更を承認しました',
             body: '提案した時間で予約が確定しました。アプリで開始時刻と予約詳細をご確認ください。'
+        );
+    }
+
+    public function notifyTherapistStartReminder(Booking $booking, string $stage, int $travelMinutes): void
+    {
+        $booking->loadMissing(['therapistAccount', 'therapistProfile']);
+
+        $title = match ($stage) {
+            'pre_departure' => '予約準備の時間が近づいています',
+            'departure' => 'そろそろ出発の時間です',
+            default => '予約リマインド',
+        };
+        $body = $this->buildTherapistStartReminderBody($booking, $stage, $travelMinutes);
+
+        $this->create(
+            accountId: $booking->therapist_account_id,
+            type: 'booking_start_reminder',
+            title: $title,
+            body: $body,
+            data: [
+                'booking_public_id' => $booking->public_id,
+                'status' => $booking->status,
+                'scheduled_start_at' => $booking->scheduled_start_at?->toJSON(),
+                'walking_time_minutes' => $travelMinutes,
+                'reminder_stage' => $stage,
+                'target_path' => $this->therapistBookingPath($booking),
+            ],
+        );
+
+        $this->sendEmail(
+            email: $booking->therapistAccount?->email,
+            subject: $title,
+            body: $body.' アプリで予約詳細をご確認ください。'
         );
     }
 
@@ -550,5 +609,40 @@ class BookingNotificationService
         };
 
         return $reasonNote ? "{$base} {$reasonNote}" : $base;
+    }
+
+    private function buildTherapistConfirmedBody(Booking $booking): string
+    {
+        $scheduledStartLabel = $this->scheduledStartLabel($booking);
+
+        if ($scheduledStartLabel === null) {
+            return '予約が確定しました。';
+        }
+
+        return "{$scheduledStartLabel} 開始予定の予約が確定しました。";
+    }
+
+    private function buildTherapistStartReminderBody(Booking $booking, string $stage, int $travelMinutes): string
+    {
+        $scheduledStartLabel = $this->scheduledStartLabel($booking);
+
+        $body = match ($stage) {
+            'pre_departure' => $travelMinutes > 0
+                ? "移動時間目安は{$travelMinutes}分です。そろそろ移動準備を始める時間です。"
+                : '予約開始の1時間前です。そろそろ準備を始める時間です。',
+            'departure' => $travelMinutes > 0
+                ? "移動時間目安は{$travelMinutes}分です。そろそろ出発の時間です。"
+                : '予約開始の時間が近づいています。',
+            default => '予約開始前のリマインドです。',
+        };
+
+        return $scheduledStartLabel === null
+            ? $body
+            : "{$scheduledStartLabel} 開始予定の予約です。 {$body}";
+    }
+
+    private function scheduledStartLabel(Booking $booking): ?string
+    {
+        return $booking->scheduled_start_at?->copy()->timezone('Asia/Tokyo')->format('n月j日 G:i');
     }
 }

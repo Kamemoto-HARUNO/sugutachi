@@ -1,5 +1,5 @@
 import { Link } from 'react-router-dom';
-import { buildEstimatedPriceLabel, formatTrainingStatus, formatTravelTimeEstimate } from '../../lib/discovery';
+import { buildEstimatedPriceLabel, formatTravelTimeEstimate } from '../../lib/discovery';
 
 interface TherapistDiscoveryCardProps {
     name: string;
@@ -13,12 +13,15 @@ interface TherapistDiscoveryCardProps {
     walkingTimeRange: string | null | undefined;
     estimatedTotalAmount: number | null | undefined;
     durationMinutes?: number | null;
-    trainingStatus?: string | null;
     therapistCancellationCount?: number;
     tags?: string[];
     photoUrl?: string | null;
     to?: string;
     footerHint?: string;
+    isOnline?: boolean;
+    showOfflineStatus?: boolean;
+    hideTravelTimePlaceholder?: boolean;
+    hideEstimatedPricePlaceholder?: boolean;
 }
 
 function buildMetaLine(reviewCount: number, ratingAverage: number): string {
@@ -53,13 +56,20 @@ function CardBody({
     walkingTimeRange,
     estimatedTotalAmount,
     durationMinutes,
-    trainingStatus,
     tags,
     photoUrl,
     footerHint,
+    isOnline = true,
+    showOfflineStatus = false,
+    hideTravelTimePlaceholder = false,
+    hideEstimatedPricePlaceholder = false,
 }: Omit<TherapistDiscoveryCardProps, 'to'>) {
     const resolvedTags = tags && tags.length > 0 ? tags : [];
     const profileLine = buildProfileLine({ heightCm, weightKg, age, pSizeCm });
+    const travelTimeLabel = formatTravelTimeEstimate(travelMode, walkingTimeRange);
+    const estimatedPriceLabel = buildEstimatedPriceLabel(durationMinutes, estimatedTotalAmount);
+    const shouldShowTravelTime = !hideTravelTimePlaceholder || travelTimeLabel !== '到着目安は準備中';
+    const shouldShowEstimatedPrice = !hideEstimatedPricePlaceholder || estimatedPriceLabel !== '料金は詳細で確認';
 
     return (
         <div className="flex h-full flex-col">
@@ -78,9 +88,9 @@ function CardBody({
                     <div className="space-y-2">
                         <div className="flex flex-wrap items-center gap-2">
                             <h3 className="text-[1.65rem] font-semibold leading-none text-[#17202b]">{name}</h3>
-                            {trainingStatus ? (
-                                <span className="rounded-full bg-[#e8f1eb] px-2.5 py-1 text-xs font-medium text-[#2d5b3d]">
-                                    {formatTrainingStatus(trainingStatus)}
+                            {showOfflineStatus && !isOnline ? (
+                                <span className="rounded-full bg-[#f7e1db] px-2.5 py-1 text-xs font-medium text-[#9a4b35]">
+                                    現在オフライン
                                 </span>
                             ) : null}
                         </div>
@@ -92,15 +102,19 @@ function CardBody({
 
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#68707a]">
                             <span>{buildMetaLine(reviewCount, ratingAverage)}</span>
-                            <span>{formatTravelTimeEstimate(travelMode, walkingTimeRange)}</span>
+                            {shouldShowTravelTime ? (
+                                <span>{travelTimeLabel}</span>
+                            ) : null}
                         </div>
                     </div>
 
-                    <div className="space-y-2">
-                        <p className="text-xl font-bold text-[#17202b]">
-                            {buildEstimatedPriceLabel(durationMinutes, estimatedTotalAmount)}
-                        </p>
-                    </div>
+                    {shouldShowEstimatedPrice ? (
+                        <div className="space-y-2">
+                            <p className="text-xl font-bold text-[#17202b]">
+                                {estimatedPriceLabel}
+                            </p>
+                        </div>
+                    ) : null}
 
                     {resolvedTags.length > 0 ? (
                         <div className="flex flex-wrap gap-2">

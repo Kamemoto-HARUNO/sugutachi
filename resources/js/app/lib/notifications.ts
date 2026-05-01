@@ -16,10 +16,14 @@ export function formatNotificationTypeLabel(type: string | null | undefined): st
             return '新しい予約リクエスト';
         case 'booking_accepted':
             return '予約承諾';
+        case 'booking_confirmed':
+            return '予約確定';
         case 'booking_adjustment_proposed':
             return '時間変更の提案';
         case 'booking_adjustment_accepted':
             return '時間変更の承認';
+        case 'booking_start_reminder':
+            return '予約開始前リマインド';
         case 'booking_no_show_reported':
             return '未着申告の確認';
         case 'booking_no_show_confirmed':
@@ -90,6 +94,8 @@ export function resolveNotificationRole(notification: AppNotificationRecord): No
 
     switch (notification.notification_type) {
         case 'booking_requested':
+        case 'booking_confirmed':
+        case 'booking_start_reminder':
         case 'booking_adjustment_accepted':
         case 'booking_no_show_confirmed':
         case 'booking_no_show_disputed':
@@ -177,7 +183,11 @@ export function resolveNotificationPath(
     switch (notification.notification_type) {
         case 'booking_requested':
             return bookingPublicId ? `/therapist/requests/${bookingPublicId}` : '/therapist/bookings?group=requested';
+        case 'booking_confirmed':
+        case 'booking_start_reminder':
         case 'booking_adjustment_accepted':
+        case 'booking_no_show_confirmed':
+        case 'booking_no_show_disputed':
             return bookingPublicId ? `/therapist/bookings/${bookingPublicId}` : '/therapist/bookings';
         case 'booking_accepted':
         case 'booking_adjustment_proposed':
@@ -190,9 +200,6 @@ export function resolveNotificationPath(
         case 'booking_completion_reminder':
         case 'booking_refunded':
             return bookingPublicId ? `/user/bookings/${bookingPublicId}` : '/user/bookings';
-        case 'booking_no_show_confirmed':
-        case 'booking_no_show_disputed':
-            return bookingPublicId ? `/therapist/bookings/${bookingPublicId}` : '/therapist/bookings';
         case 'booking_auto_completed':
         case 'booking_canceled':
         case 'booking_interrupted':

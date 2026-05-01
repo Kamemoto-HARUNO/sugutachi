@@ -10,6 +10,12 @@ const ROLE_HOME_PATHS: Record<RoleName, string> = {
     admin: '/admin',
 };
 
+const ROLE_DASHBOARD_PATHS: Record<RoleName, string> = {
+    user: '/user/dashboard',
+    therapist: '/therapist/dashboard',
+    admin: '/admin',
+};
+
 export function isRoleName(value: string | null | undefined): value is RoleName {
     return value === 'user' || value === 'therapist' || value === 'admin';
 }
@@ -43,6 +49,20 @@ export function getPreferredRole(account: Account | null): RoleName | null {
 
 export function getRoleHomePath(role: RoleName): string {
     return ROLE_HOME_PATHS[role];
+}
+
+export function getRoleDashboardPath(role: RoleName): string {
+    return ROLE_DASHBOARD_PATHS[role];
+}
+
+export function getMyPageEntryPath(account: Account | null): string {
+    const activeRoles = getActiveRoles(account);
+
+    if (activeRoles.length === 1) {
+        return getRoleDashboardPath(activeRoles[0]);
+    }
+
+    return '/role-select';
 }
 
 export function sanitizeAppPath(value: string | null | undefined): string | null {
@@ -81,13 +101,13 @@ export function getPostAuthPath(account: Account | null, requestedRole?: RoleNam
     }
 
     if (requestedRole && hasActiveRole(account, requestedRole)) {
-        return getRoleHomePath(requestedRole);
+        return getRoleDashboardPath(requestedRole);
     }
 
     const activeRoles = getActiveRoles(account);
 
     if (activeRoles.length === 1) {
-        return getRoleHomePath(activeRoles[0]);
+        return getRoleDashboardPath(activeRoles[0]);
     }
 
     const preferredRole = getPreferredRole(account);
