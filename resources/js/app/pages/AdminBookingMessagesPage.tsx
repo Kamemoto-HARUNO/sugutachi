@@ -782,7 +782,9 @@ export function AdminBookingMessagesPage() {
                                                 ) : null}
                                             </div>
                                             <h3 className="text-lg font-semibold text-white">{displayName(message.sender)}</h3>
-                                            {message.message_type === 'image' && message.attachment_url ? (
+                                            {message.message_type === 'image' && message.is_deleted ? (
+                                                <p className="text-sm leading-7 text-slate-300">（画像が削除されました）</p>
+                                            ) : message.message_type === 'image' && message.attachment_url ? (
                                                 <div className="flex items-center gap-3">
                                                     <img
                                                         src={message.attachment_url}
@@ -857,7 +859,9 @@ export function AdminBookingMessagesPage() {
 
                                 <article className="mt-5 rounded-[22px] bg-[#101720] p-5">
                                     <p className="text-xs font-semibold tracking-wide text-[#d2b179]">メッセージ本文</p>
-                                    {selectedMessage.message_type === 'image' && selectedMessage.attachment_url ? (
+                                    {selectedMessage.message_type === 'image' && selectedMessage.is_deleted ? (
+                                        <p className="mt-3 text-sm leading-7 text-slate-300">（画像が削除されました）</p>
+                                    ) : selectedMessage.message_type === 'image' && selectedMessage.attachment_url ? (
                                         <div className="mt-3 space-y-3">
                                             <a href={selectedMessage.attachment_url} target="_blank" rel="noreferrer" className="block">
                                                 <img

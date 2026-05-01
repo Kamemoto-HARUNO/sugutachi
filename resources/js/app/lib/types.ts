@@ -448,6 +448,7 @@ export interface AdminBookingMessageRecord {
     attachment_original_name: string | null;
     attachment_mime_type: string | null;
     attachment_size_bytes: number | null;
+    is_deleted: boolean;
     detected_contact_exchange: boolean;
     moderation_status: string;
     moderated_by_admin: {
@@ -1198,6 +1199,8 @@ export interface BookingMessageRecord {
     attachment_original_name: string | null;
     attachment_mime_type: string | null;
     attachment_size_bytes: number | null;
+    is_deleted: boolean;
+    can_delete_image: boolean;
     detected_contact_exchange: boolean;
     moderation_status: string;
     is_own: boolean | null;

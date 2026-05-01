@@ -12,6 +12,7 @@ class BookingMessageResource extends JsonResource
     public function toArray(Request $request): array
     {
         $viewerAccountId = $this->resource->getAttribute('viewer_account_id') ?? $request->user()?->id;
+        $isDeleted = $this->message_type === 'image' && ! $this->attachment_storage_key_encrypted;
 
         return [
             'id' => $this->id,
@@ -39,6 +40,11 @@ class BookingMessageResource extends JsonResource
             'attachment_original_name' => $this->attachment_original_name,
             'attachment_mime_type' => $this->attachment_mime_type,
             'attachment_size_bytes' => $this->attachment_size_bytes,
+            'is_deleted' => $isDeleted,
+            'can_delete_image' => ! $isDeleted
+                && $this->message_type === 'image'
+                && $viewerAccountId !== null
+                && $this->sender_account_id === $viewerAccountId,
             'detected_contact_exchange' => $this->detected_contact_exchange,
             'moderation_status' => $this->moderation_status,
             'is_own' => $viewerAccountId !== null ? $this->sender_account_id === $viewerAccountId : null,

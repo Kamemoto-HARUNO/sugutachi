@@ -138,6 +138,27 @@ function SendIcon() {
     );
 }
 
+function CloseIcon() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
+            <path d="M6 6l12 12" />
+            <path d="M18 6 6 18" />
+        </svg>
+    );
+}
+
+function TrashIcon() {
+    return (
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-4 w-4">
+            <path d="M4 7h16" />
+            <path d="M9 7V5.8c0-.44.36-.8.8-.8h4.4c.44 0 .8.36.8.8V7" />
+            <path d="M7.5 7.5v9.7c0 .99.81 1.8 1.8 1.8h5.4c.99 0 1.8-.81 1.8-1.8V7.5" />
+            <path d="M10 11v4.5" />
+            <path d="M14 11v4.5" />
+        </svg>
+    );
+}
+
 export function UserBookingMessagesPage() {
     const { publicId } = useParams();
     const { token } = useAuth();
@@ -150,10 +171,12 @@ export function UserBookingMessagesPage() {
     const [draft, setDraft] = useState('');
     const [selectedImage, setSelectedImage] = useState<File | null>(null);
     const [selectedImagePreviewUrl, setSelectedImagePreviewUrl] = useState<string | null>(null);
+    const [expandedImage, setExpandedImage] = useState<BookingMessageRecord | null>(null);
     const [pageError, setPageError] = useState<string | null>(null);
     const [composeError, setComposeError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
     const [pendingReadIds, setPendingReadIds] = useState<number[]>([]);
+    const [deletingImageMessageIds, setDeletingImageMessageIds] = useState<number[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isSending, setIsSending] = useState(false);
@@ -281,6 +304,24 @@ export function UserBookingMessagesPage() {
             void syncTypingState(false);
         }
     }, [syncTypingState]);
+
+    useEffect(() => {
+        if (!expandedImage) {
+            return;
+        }
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape') {
+                setExpandedImage(null);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [expandedImage]);
 
     useEffect(() => {
         if (!selectedImage) {
@@ -430,6 +471,41 @@ export function UserBookingMessagesPage() {
         }
     }
 
+    async function handleDeleteImage(messageId: number) {
+        if (!token || !publicId) {
+            return;
+        }
+
+        setDeletingImageMessageIds((current) => [...current, messageId]);
+        setComposeError(null);
+        setPageError(null);
+        setSuccessMessage(null);
+
+        try {
+            const payload = await apiRequest<ApiEnvelope<BookingMessageRecord>>(`/bookings/${publicId}/messages/${messageId}/image`, {
+                method: 'DELETE',
+                token,
+            });
+            const deletedMessage = unwrapData(payload);
+
+            setMessages((current) => current.map((message) => (
+                message.id === deletedMessage.id ? deletedMessage : message
+            )));
+            setExpandedImage((current) => (current?.id === deletedMessage.id ? null : current));
+            setSuccessMessage('画像を削除しました。');
+            await loadData({ refresh: true, silent: true, preserveSuccess: true });
+        } catch (requestError) {
+            const message =
+                requestError instanceof ApiError
+                    ? requestError.message
+                    : '画像の削除に失敗しました。';
+
+            setPageError(message);
+        } finally {
+            setDeletingImageMessageIds((current) => current.filter((id) => id !== messageId));
+        }
+    }
+
     if (isLoading) {
         return <LoadingScreen title="予約メッセージを読み込み中" message="相手との連絡内容と未読状況を確認しています。" />;
     }
@@ -557,6 +633,8 @@ export function UserBookingMessagesPage() {
                     <div className="mt-6 space-y-4">
                         {messages.length > 0 ? messages.map((message) => {
                             const isPendingRead = pendingReadIds.includes(message.id);
+                            const isDeletingImage = deletingImageMessageIds.includes(message.id);
+                            const isDeletedImageMessage = message.message_type === 'image' && message.is_deleted;
                             const isImageMessage = message.message_type === 'image' && Boolean(message.attachment_url);
 
                             return (
@@ -576,15 +654,23 @@ export function UserBookingMessagesPage() {
                                                     : 'bg-[#f8f4ed] text-[#17202b]',
                                             ].join(' ')}
                                         >
-                                            {isImageMessage ? (
+                                            {isDeletedImageMessage ? (
+                                                <p className="text-sm leading-7 opacity-80">（画像が削除されました）</p>
+                                            ) : isImageMessage ? (
                                                 <div className="space-y-3">
-                                                    <a href={message.attachment_url ?? '#'} target="_blank" rel="noreferrer" className="block">
+                                                    <button
+                                                        type="button"
+                                                        onClick={() => {
+                                                            setExpandedImage(message);
+                                                        }}
+                                                        className="block w-full cursor-zoom-in"
+                                                    >
                                                         <img
                                                             src={message.attachment_url ?? undefined}
                                                             alt={message.attachment_original_name ?? '送信画像'}
                                                             className="max-h-[26rem] w-full rounded-[18px] object-cover"
                                                         />
-                                                    </a>
+                                                    </button>
                                                     {message.body ? <p className="text-sm leading-7">{message.body}</p> : null}
                                                 </div>
                                             ) : (
@@ -598,6 +684,19 @@ export function UserBookingMessagesPage() {
                                             </span>
                                             <span>{formatDateTime(message.sent_at)}</span>
                                             <span>{message.is_read ? '既読' : '未読'}</span>
+                                            {message.can_delete_image ? (
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        void handleDeleteImage(message.id);
+                                                    }}
+                                                    disabled={isDeletingImage}
+                                                    className="inline-flex items-center gap-1 rounded-full border border-current/20 px-3 py-1 font-semibold transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-60"
+                                                >
+                                                    <TrashIcon />
+                                                    <span>{isDeletingImage ? '削除中...' : '画像を削除'}</span>
+                                                </button>
+                                            ) : null}
                                             {!message.is_own && !message.is_read ? (
                                                 <button
                                                     type="button"
@@ -763,6 +862,42 @@ export function UserBookingMessagesPage() {
                     </section>
                 </aside>
             </div>
+
+            {expandedImage?.attachment_url ? (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(12,16,24,0.88)] px-4 py-6"
+                    onClick={() => {
+                        setExpandedImage(null);
+                    }}
+                >
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="送信画像を拡大表示"
+                        className="relative flex max-h-full w-full max-w-5xl items-center justify-center"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                        }}
+                    >
+                        <button
+                            type="button"
+                            onClick={() => {
+                                setExpandedImage(null);
+                            }}
+                            className="absolute right-3 top-3 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full bg-black/45 text-white transition hover:bg-black/60"
+                            aria-label="拡大表示を閉じる"
+                        >
+                            <CloseIcon />
+                        </button>
+
+                        <img
+                            src={expandedImage.attachment_url}
+                            alt={expandedImage.attachment_original_name ?? '送信画像'}
+                            className="max-h-[88vh] w-auto max-w-full rounded-[24px] object-contain shadow-[0_24px_60px_rgba(0,0,0,0.35)]"
+                        />
+                    </div>
+                </div>
+            ) : null}
         </div>
     );
 }

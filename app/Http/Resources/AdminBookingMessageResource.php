@@ -11,6 +11,8 @@ class AdminBookingMessageResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $isDeleted = $this->message_type === 'image' && ! $this->attachment_storage_key_encrypted;
+
         return [
             'id' => $this->id,
             'booking_public_id' => $this->whenLoaded('booking', fn () => $this->booking?->public_id),
@@ -34,6 +36,7 @@ class AdminBookingMessageResource extends JsonResource
             'attachment_original_name' => $this->attachment_original_name,
             'attachment_mime_type' => $this->attachment_mime_type,
             'attachment_size_bytes' => $this->attachment_size_bytes,
+            'is_deleted' => $isDeleted,
             'detected_contact_exchange' => $this->detected_contact_exchange,
             'moderation_status' => $this->moderation_status,
             'moderated_by_admin' => $this->whenLoaded('moderatedByAdmin', fn () => $this->moderatedByAdmin ? [

@@ -165,6 +165,75 @@ class BookingMessageTest extends TestCase
         $this->assertNotNull($therapistMessages->json('data.0.attachment_url'));
     }
 
+    public function test_image_message_sender_can_delete_uploaded_image_and_counterparty_sees_placeholder(): void
+    {
+        Storage::fake('local');
+
+        [$user, $therapist, $booking] = $this->createMessageFixture();
+
+        $response = $this->withToken($user->createToken('api')->plainTextToken)
+            ->withHeaders(['Accept' => 'application/json'])
+            ->post("/api/bookings/{$booking->public_id}/messages", [
+                'image' => UploadedFile::fake()->image('meeting-place.png', 1000, 700),
+            ])
+            ->assertCreated();
+
+        $messageId = $response->json('data.id');
+        $attachmentUrl = $response->json('data.attachment_url');
+        $attachmentPath = parse_url($attachmentUrl, PHP_URL_PATH);
+        $attachmentQuery = parse_url($attachmentUrl, PHP_URL_QUERY);
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->deleteJson("/api/bookings/{$booking->public_id}/messages/{$messageId}/image")
+            ->assertOk()
+            ->assertJsonPath('data.message_type', BookingMessage::TYPE_IMAGE)
+            ->assertJsonPath('data.is_deleted', true)
+            ->assertJsonPath('data.can_delete_image', false)
+            ->assertJsonPath('data.attachment_url', null);
+
+        $this->assertDatabaseHas('booking_messages', [
+            'id' => $messageId,
+            'attachment_storage_key_encrypted' => null,
+            'attachment_original_name' => null,
+            'attachment_mime_type' => null,
+            'attachment_size_bytes' => null,
+        ]);
+
+        $this->get($attachmentQuery ? $attachmentPath.'?'.$attachmentQuery : $attachmentPath)
+            ->assertNotFound();
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->getJson("/api/bookings/{$booking->public_id}/messages")
+            ->assertOk()
+            ->assertJsonPath('data.0.is_deleted', true)
+            ->assertJsonPath('data.0.attachment_url', null);
+    }
+
+    public function test_only_image_message_sender_can_delete_the_uploaded_image(): void
+    {
+        Storage::fake('local');
+
+        [$user, $therapist, $booking] = $this->createMessageFixture();
+
+        $response = $this->withToken($user->createToken('api')->plainTextToken)
+            ->withHeaders(['Accept' => 'application/json'])
+            ->post("/api/bookings/{$booking->public_id}/messages", [
+                'image' => UploadedFile::fake()->image('private-route.png', 640, 480),
+            ])
+            ->assertCreated();
+
+        $messageId = $response->json('data.id');
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->deleteJson("/api/bookings/{$booking->public_id}/messages/{$messageId}/image")
+            ->assertForbidden();
+
+        $this->assertDatabaseMissing('booking_messages', [
+            'id' => $messageId,
+            'attachment_storage_key_encrypted' => null,
+        ]);
+    }
+
     public function test_non_participant_cannot_read_booking_messages(): void
     {
         [, , $booking] = $this->createMessageFixture();

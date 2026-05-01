@@ -139,6 +139,40 @@ class BookingMessageController extends Controller
         return $this->attachmentResponse($message, 'private, max-age=300');
     }
 
+    public function destroyImage(Request $request, Booking $booking, BookingMessage $message): BookingMessageResource
+    {
+        $actor = $this->authenticatedActor($request);
+        $this->authorizeParticipant($booking, $actor);
+        abort_unless($message->booking_id === $booking->id, 404);
+        abort_unless($message->sender_account_id === $actor->id, 403);
+
+        if ($message->message_type !== BookingMessage::TYPE_IMAGE) {
+            throw ValidationException::withMessages([
+                'message' => '画像メッセージのみ削除できます。',
+            ]);
+        }
+
+        if ($message->attachment_storage_key_encrypted) {
+            $path = Crypt::decryptString($message->attachment_storage_key_encrypted);
+
+            if (Storage::disk('local')->exists($path)) {
+                Storage::disk('local')->delete($path);
+            }
+
+            $message->forceFill([
+                'attachment_storage_key_encrypted' => null,
+                'attachment_original_name' => null,
+                'attachment_mime_type' => null,
+                'attachment_size_bytes' => null,
+            ])->save();
+        }
+
+        $message = $message->refresh()->load(['booking', 'sender']);
+        $message->setAttribute('viewer_account_id', $actor->id);
+
+        return new BookingMessageResource($message);
+    }
+
     public function typing(
         Request $request,
         Booking $booking,
