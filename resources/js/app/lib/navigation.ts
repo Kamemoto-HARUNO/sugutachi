@@ -24,9 +24,7 @@ export const therapistNavItems: NavItem[] = [
     { label: 'メニュー', to: '/therapist/menus' },
     { label: '料金', to: '/therapist/pricing' },
     { label: '空き枠', to: '/therapist/availability' },
-    { label: 'レビュー', to: '/therapist/reviews' },
     { label: '予約管理', to: '/therapist/bookings' },
-    { label: '出張リクエスト', to: '/therapist/travel-requests' },
     { label: '売上', to: '/therapist/balance' },
     { label: '設定', to: '/therapist/settings' },
 ];

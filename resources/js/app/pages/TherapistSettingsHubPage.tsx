@@ -12,6 +12,7 @@ export function TherapistSettingsHubPage() {
                 { label: '公開プロフィール', to: '/therapist/profile', description: '公開・非公開、写真、紹介文を見直します。' },
                 { label: 'メニュー設定', to: '/therapist/menus', description: '提供内容、最短時間、料金を見直します。' },
                 { label: '空き枠と出動拠点', to: '/therapist/availability', description: '公開枠、出動拠点、受付締切を管理します。' },
+                { label: 'レビュー', to: '/therapist/reviews', description: '届いたレビューや評価の見え方を確認します。' },
                 { label: '受取設定', to: '/therapist/stripe-connect', description: '受取口座の登録と出金準備状況を確認します。' },
                 { label: '売上と出金', to: '/therapist/balance', description: '売上残高、出金可能額、出金申請を確認します。' },
                 { label: '通知一覧', to: '/notifications', description: '利用者、タチキャスト、運営向けの通知をまとめて確認します。' },
