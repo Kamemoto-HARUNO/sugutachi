@@ -5,6 +5,7 @@ import { StickyHeroHeader } from '../components/discovery/StickyHeroHeader';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
+import { useToast } from '../hooks/useToast';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import {
     DISCOVERY_BOOKING_TYPE_LABEL,
@@ -90,6 +91,45 @@ function buildReviewMeta(review: ReviewSummary): string {
     return labels.length > 0 ? labels.join(' / ') : '総合評価を反映しています。';
 }
 
+function buildShareableTherapistUrl(publicId: string): string {
+    const path = `/therapists/${publicId}`;
+
+    if (typeof window === 'undefined') {
+        return path;
+    }
+
+    return new URL(path, window.location.origin).toString();
+}
+
+async function copyTextToClipboard(value: string): Promise<void> {
+    if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
+        await navigator.clipboard.writeText(value);
+        return;
+    }
+
+    if (typeof document === 'undefined') {
+        throw new Error('Clipboard API is unavailable.');
+    }
+
+    const textarea = document.createElement('textarea');
+    textarea.value = value;
+    textarea.setAttribute('readonly', '');
+    textarea.style.position = 'fixed';
+    textarea.style.opacity = '0';
+    textarea.style.pointerEvents = 'none';
+
+    document.body.appendChild(textarea);
+    textarea.focus();
+    textarea.select();
+
+    const copied = document.execCommand('copy');
+    document.body.removeChild(textarea);
+
+    if (!copied) {
+        throw new Error('Unable to copy text.');
+    }
+}
+
 function disabledActionClass(): string {
     return 'inline-flex w-full cursor-not-allowed items-center justify-center rounded-full border border-[#ded4c5] bg-[#f4efe6] px-5 py-3 text-sm font-semibold text-[#97a0aa] opacity-80';
 }
@@ -138,6 +178,7 @@ interface PhotoDragState {
 export function UserTherapistDetailPage() {
     const { publicId } = useParams();
     const { account, hasRole, isAuthenticated, token } = useAuth();
+    const { showError, showSuccess } = useToast();
     const [searchParams, setSearchParams] = useSearchParams();
     const [serviceAddresses, setServiceAddresses] = useState<ServiceAddress[]>([]);
     const [therapistDetail, setTherapistDetail] = useState<TherapistDetail | null>(null);
@@ -312,6 +353,7 @@ export function UserTherapistDetailPage() {
         )) ?? null,
         [serviceMeta],
     );
+    const shareUrl = therapistDetail ? buildShareableTherapistUrl(therapistDetail.public_id) : null;
 
     usePageTitle(therapistDetail ? `${therapistDetail.public_name}の詳細` : 'タチキャスト詳細');
     useToastOnMessage(error, 'error');
@@ -653,6 +695,20 @@ export function UserTherapistDetailPage() {
         handleMainPhotoActivate();
     };
 
+    const handleShareButtonClick = async () => {
+        if (!shareUrl) {
+            showError('共有URLを作成できませんでした。');
+            return;
+        }
+
+        try {
+            await copyTextToClipboard(shareUrl);
+            showSuccess('コピーしました。');
+        } catch {
+            showError('URLのコピーに失敗しました。');
+        }
+    };
+
     return (
         <div className="min-h-screen bg-[#f6f1e7] text-[#17202b]">
             <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-16 px-6 py-10 md:px-10 md:py-14 xl:gap-[60px] xl:px-0">
@@ -688,6 +744,18 @@ export function UserTherapistDetailPage() {
                                                         {profileSummary}
                                                     </p>
                                                 ) : null}
+                                                <div className="pt-2">
+                                                    <button
+                                                        type="button"
+                                                        onClick={handleShareButtonClick}
+                                                        className="inline-flex min-h-12 items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white shadow-[0_16px_32px_rgba(23,32,43,0.18)] transition hover:-translate-y-0.5 hover:bg-[#223142] focus:outline-none focus:ring-2 focus:ring-[#9a7a49] focus:ring-offset-2 focus:ring-offset-[#fffdf8]"
+                                                    >
+                                                        URLをコピーして共有
+                                                    </button>
+                                                    <p className="mt-2 text-xs text-[#68707a]">
+                                                        この詳細ページのURLをコピーして、すぐに共有できます。
+                                                    </p>
+                                                </div>
                                             </div>
                                         </div>
 
