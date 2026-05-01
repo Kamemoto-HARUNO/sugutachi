@@ -20,7 +20,6 @@ export const userNavItems: NavItem[] = [
 
 export const therapistNavItems: NavItem[] = [
     { label: 'ダッシュボード', to: '/therapist/dashboard', exact: true },
-    { label: '準備状況', to: '/therapist/onboarding' },
     { label: 'プロフィール', to: '/therapist/profile' },
     { label: 'メニュー', to: '/therapist/menus' },
     { label: '料金', to: '/therapist/pricing' },
