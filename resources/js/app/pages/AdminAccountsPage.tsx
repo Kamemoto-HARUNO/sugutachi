@@ -9,6 +9,7 @@ import {
     formatDateTime,
     formatIdentityVerificationStatus,
     formatProfileStatus,
+    formatRejectionReason,
 } from '../lib/therapist';
 import type {
     AdminAccountRecord,
@@ -106,6 +107,23 @@ function profilePhotoReviewLabel(status: string | null | undefined): string {
 
 function displayName(account: AdminAccountRecord): string {
     return account.display_name?.trim() || account.email;
+}
+
+function documentTypeLabel(value: string | null | undefined): string {
+    switch (value) {
+        case 'driver_license':
+            return '運転免許証';
+        case 'passport':
+            return 'パスポート';
+        case 'residence_card':
+            return '在留カード';
+        case 'my_number_card':
+            return 'マイナンバーカード';
+        case 'other':
+            return 'その他';
+        default:
+            return value ?? '未設定';
+    }
 }
 
 export function AdminAccountsPage() {
@@ -337,6 +355,7 @@ export function AdminAccountsPage() {
     }
 
     const detailAccount = selectedAccount ?? selectedListAccount;
+    const detailIdentityVerification = detailAccount?.latest_identity_verification ?? null;
     const detailHasAdminRole = hasActiveRole(detailAccount, 'admin');
 
     return (
@@ -619,10 +638,10 @@ export function AdminAccountsPage() {
                                     <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3">
                                         <p className="text-xs font-semibold tracking-wide text-[#7d6852]">本人確認</p>
                                         <p className="mt-1 font-semibold text-[#17202b]">
-                                            {formatIdentityVerificationStatus(detailAccount.latest_identity_verification?.status)}
+                                            {formatIdentityVerificationStatus(detailIdentityVerification?.status)}
                                         </p>
                                         <p className="mt-1 text-xs text-[#68707a]">
-                                            年齢確認 {detailAccount.latest_identity_verification?.is_age_verified ? '済み' : '未確認'}
+                                            年齢確認 {detailIdentityVerification?.is_age_verified ? '済み' : '未確認'}
                                         </p>
                                     </div>
                                     <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3">
@@ -647,6 +666,90 @@ export function AdminAccountsPage() {
                                         ) : null}
                                     </div>
                                 </div>
+                            </article>
+
+                            <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">IDENTITY FILES</p>
+                                {detailIdentityVerification ? (
+                                    <>
+                                        <div className="mt-4 grid gap-4 md:grid-cols-2">
+                                            <section className="rounded-[20px] border border-[#efe5d7] bg-[#fffdf8] p-4">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <p className="text-sm font-semibold text-[#17202b]">本人確認書類</p>
+                                                    {detailIdentityVerification.document_file_url ? (
+                                                        <a
+                                                            href={detailIdentityVerification.document_file_url}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="text-xs font-semibold text-[#8f5c22] hover:text-[#6f4718]"
+                                                        >
+                                                            別タブで開く
+                                                        </a>
+                                                    ) : null}
+                                                </div>
+                                                {detailIdentityVerification.document_file_url ? (
+                                                    <iframe
+                                                        src={detailIdentityVerification.document_file_url}
+                                                        title="本人確認書類"
+                                                        className="mt-3 h-64 w-full rounded-[16px] border border-[#efe5d7] bg-[#f8f4ed]"
+                                                    />
+                                                ) : (
+                                                    <div className="mt-3 flex h-64 items-center justify-center rounded-[16px] border border-dashed border-[#d9c9ae] bg-[#f8f4ed] text-sm text-[#68707a]">
+                                                        書類ファイルはまだ確認できません。
+                                                    </div>
+                                                )}
+                                            </section>
+
+                                            <section className="rounded-[20px] border border-[#efe5d7] bg-[#fffdf8] p-4">
+                                                <div className="flex items-center justify-between gap-3">
+                                                    <p className="text-sm font-semibold text-[#17202b]">セルフィー</p>
+                                                    {detailIdentityVerification.selfie_file_url ? (
+                                                        <a
+                                                            href={detailIdentityVerification.selfie_file_url}
+                                                            target="_blank"
+                                                            rel="noreferrer"
+                                                            className="text-xs font-semibold text-[#8f5c22] hover:text-[#6f4718]"
+                                                        >
+                                                            別タブで開く
+                                                        </a>
+                                                    ) : null}
+                                                </div>
+                                                {detailIdentityVerification.selfie_file_url ? (
+                                                    <img
+                                                        src={detailIdentityVerification.selfie_file_url}
+                                                        alt="本人確認セルフィー"
+                                                        className="mt-3 h-64 w-full rounded-[16px] border border-[#efe5d7] object-contain bg-[#f8f4ed]"
+                                                    />
+                                                ) : (
+                                                    <div className="mt-3 flex h-64 items-center justify-center rounded-[16px] border border-dashed border-[#d9c9ae] bg-[#f8f4ed] text-sm text-[#68707a]">
+                                                        セルフィー画像はまだ確認できません。
+                                                    </div>
+                                                )}
+                                            </section>
+                                        </div>
+
+                                        <div className="mt-5 grid gap-3">
+                                            <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3 text-sm text-[#48505a]">
+                                                <p className="text-xs font-semibold tracking-wide text-[#7d6852]">提出情報</p>
+                                                <p className="mt-1 font-semibold text-[#17202b]">{documentTypeLabel(detailIdentityVerification.document_type)}</p>
+                                                <p className="mt-1">提出日時 {formatDateTime(detailIdentityVerification.submitted_at)}</p>
+                                                <p className="mt-1">審査日時 {formatDateTime(detailIdentityVerification.reviewed_at)}</p>
+                                            </div>
+                                            <div className="rounded-[18px] bg-[#f8f4ed] px-4 py-3 text-sm text-[#48505a]">
+                                                <p className="text-xs font-semibold tracking-wide text-[#7d6852]">審査ログ</p>
+                                                <p className="mt-1 font-semibold text-[#17202b]">
+                                                    {detailIdentityVerification.reviewed_by?.display_name ?? detailIdentityVerification.reviewed_by?.public_id ?? '未設定'}
+                                                </p>
+                                                <p className="mt-1">理由 {formatRejectionReason(detailIdentityVerification.rejection_reason_code)}</p>
+                                                <p className="mt-1">削除予定 {formatDateTime(detailIdentityVerification.purge_after)}</p>
+                                            </div>
+                                        </div>
+                                    </>
+                                ) : (
+                                    <div className="mt-4 rounded-[18px] border border-dashed border-[#d9c9ae] bg-[#fffdf8] px-4 py-6 text-sm text-[#68707a]">
+                                        本人確認書類の提出はまだありません。
+                                    </div>
+                                )}
                             </article>
 
                             <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">

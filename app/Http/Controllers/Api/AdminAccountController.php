@@ -35,7 +35,7 @@ class AdminAccountController extends Controller
 
         return AdminAccountResource::collection(
             Account::query()
-                ->with(['roleAssignments', 'latestIdentityVerification', 'therapistProfile'])
+                ->with($this->listRelations())
                 ->when($validated['status'] ?? null, fn ($query, string $status) => $query->where('status', $status))
                 ->when($validated['role'] ?? null, fn ($query, string $role) => $query->whereHas(
                     'roleAssignments',
@@ -60,12 +60,7 @@ class AdminAccountController extends Controller
     {
         $this->authorizeAdmin($request->user());
 
-        return new AdminAccountResource($account->load([
-            'roleAssignments',
-            'latestIdentityVerification',
-            'userProfile',
-            'therapistProfile',
-        ]));
+        return new AdminAccountResource($account->load($this->detailRelations()));
     }
 
     public function suspend(Request $request, Account $account): AdminAccountResource
@@ -82,12 +77,7 @@ class AdminAccountController extends Controller
 
         $this->recordAdminAudit($request, 'account.suspend', $account, $before, $this->snapshot($account->refresh()));
 
-        return new AdminAccountResource($account->load([
-            'roleAssignments',
-            'latestIdentityVerification',
-            'userProfile',
-            'therapistProfile',
-        ]));
+        return new AdminAccountResource($account->load($this->detailRelations()));
     }
 
     public function restore(Request $request, Account $account): AdminAccountResource
@@ -101,12 +91,7 @@ class AdminAccountController extends Controller
 
         $this->recordAdminAudit($request, 'account.restore', $account, $before, $this->snapshot($account->refresh()));
 
-        return new AdminAccountResource($account->load([
-            'roleAssignments',
-            'latestIdentityVerification',
-            'userProfile',
-            'therapistProfile',
-        ]));
+        return new AdminAccountResource($account->load($this->detailRelations()));
     }
 
     public function grantAdmin(Request $request, Account $account): AdminAccountResource
@@ -126,12 +111,7 @@ class AdminAccountController extends Controller
             ])->save();
         });
 
-        $refreshed = $account->fresh([
-            'roleAssignments',
-            'latestIdentityVerification',
-            'userProfile',
-            'therapistProfile',
-        ]);
+        $refreshed = $account->fresh($this->detailRelations());
 
         $this->recordAdminAudit($request, 'account.grant_admin', $refreshed, $before, $this->snapshot($refreshed));
 
@@ -162,6 +142,25 @@ class AdminAccountController extends Controller
                 ])
                 ->values()
                 ->all(),
+        ];
+    }
+
+    private function listRelations(): array
+    {
+        return [
+            'roleAssignments',
+            'latestIdentityVerification',
+            'therapistProfile',
+        ];
+    }
+
+    private function detailRelations(): array
+    {
+        return [
+            'roleAssignments',
+            'latestIdentityVerification.reviewedBy',
+            'userProfile',
+            'therapistProfile',
         ];
     }
 }

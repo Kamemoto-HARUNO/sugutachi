@@ -3,6 +3,8 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\IdentityVerification;
+use Illuminate\Support\Facades\Crypt;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -13,6 +15,25 @@ class AdminAccountTest extends TestCase
     public function test_admin_can_list_and_show_accounts(): void
     {
         [$admin, $user] = $this->createAdminAccountFixture();
+        $verification = IdentityVerification::create([
+            'account_id' => $user->id,
+            'provider' => 'manual',
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'full_name_encrypted' => Crypt::encryptString('Managed User'),
+            'birthdate_encrypted' => Crypt::encryptString('1990-01-01'),
+            'birth_year' => 1990,
+            'is_age_verified' => true,
+            'self_declared_male' => true,
+            'document_type' => 'driver_license',
+            'document_last4_hash' => hash('sha256', '1234'),
+            'document_storage_key_encrypted' => Crypt::encryptString('identity-verifications/document.png'),
+            'selfie_storage_key_encrypted' => Crypt::encryptString('identity-verifications/selfie.png'),
+            'submitted_at' => now()->subDay(),
+            'reviewed_by_account_id' => $admin->id,
+            'reviewed_at' => now()->subHours(12),
+            'rejection_reason_code' => null,
+            'purge_after' => now()->addDays(30),
+        ]);
         $token = $admin->createToken('api')->plainTextToken;
 
         $this->withToken($token)
@@ -22,11 +43,23 @@ class AdminAccountTest extends TestCase
             ->assertJsonPath('data.0.public_id', $user->public_id)
             ->assertJsonFragment(['role' => 'user']);
 
-        $this->withToken($token)
+        $response = $this->withToken($token)
             ->getJson("/api/admin/accounts/{$user->public_id}")
             ->assertOk()
             ->assertJsonPath('data.public_id', $user->public_id)
-            ->assertJsonPath('data.status', Account::STATUS_ACTIVE);
+            ->assertJsonPath('data.status', Account::STATUS_ACTIVE)
+            ->assertJsonPath('data.latest_identity_verification.status', IdentityVerification::STATUS_APPROVED)
+            ->assertJsonPath('data.latest_identity_verification.document_type', 'driver_license')
+            ->assertJsonPath('data.latest_identity_verification.reviewed_by.public_id', $admin->public_id);
+
+        $this->assertStringContainsString(
+            "/api/admin/identity-verifications/{$verification->id}/signed-document",
+            (string) $response->json('data.latest_identity_verification.document_file_url')
+        );
+        $this->assertStringContainsString(
+            "/api/admin/identity-verifications/{$verification->id}/signed-selfie",
+            (string) $response->json('data.latest_identity_verification.selfie_file_url')
+        );
     }
 
     public function test_admin_can_suspend_and_restore_account(): void

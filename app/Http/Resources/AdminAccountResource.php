@@ -4,6 +4,7 @@ namespace App\Http\Resources;
 
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
+use Illuminate\Support\Facades\URL;
 
 class AdminAccountResource extends JsonResource
 {
@@ -31,12 +32,7 @@ class AdminAccountResource extends JsonResource
                     'revoked_at' => $role->revoked_at,
                 ])
                 ->values()),
-            'latest_identity_verification' => $this->whenLoaded('latestIdentityVerification', fn () => $this->latestIdentityVerification ? [
-                'status' => $this->latestIdentityVerification->status,
-                'is_age_verified' => $this->latestIdentityVerification->is_age_verified,
-                'submitted_at' => $this->latestIdentityVerification->submitted_at,
-                'reviewed_at' => $this->latestIdentityVerification->reviewed_at,
-            ] : null),
+            'latest_identity_verification' => $this->whenLoaded('latestIdentityVerification', fn () => $this->verificationSummary()),
             'user_profile' => $this->whenLoaded('userProfile', fn () => $this->userProfile ? [
                 'profile_status' => $this->userProfile->profile_status,
                 'age_range' => $this->userProfile->age_range,
@@ -56,6 +52,44 @@ class AdminAccountResource extends JsonResource
             ] : null),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
+        ];
+    }
+
+    private function verificationSummary(): ?array
+    {
+        if (! $this->latestIdentityVerification) {
+            return null;
+        }
+
+        $verification = [
+            'status' => $this->latestIdentityVerification->status,
+            'is_age_verified' => $this->latestIdentityVerification->is_age_verified,
+            'submitted_at' => $this->latestIdentityVerification->submitted_at,
+            'reviewed_at' => $this->latestIdentityVerification->reviewed_at,
+        ];
+
+        if (! $this->latestIdentityVerification->relationLoaded('reviewedBy')) {
+            return $verification;
+        }
+
+        return $verification + [
+            'document_type' => $this->latestIdentityVerification->document_type,
+            'document_file_url' => filled($this->latestIdentityVerification->document_storage_key_encrypted)
+                ? URL::temporarySignedRoute('admin.identity-verifications.signed-document', now()->addMinutes(30), [
+                    'identityVerification' => $this->latestIdentityVerification->id,
+                ])
+                : null,
+            'selfie_file_url' => filled($this->latestIdentityVerification->selfie_storage_key_encrypted)
+                ? URL::temporarySignedRoute('admin.identity-verifications.signed-selfie', now()->addMinutes(30), [
+                    'identityVerification' => $this->latestIdentityVerification->id,
+                ])
+                : null,
+            'reviewed_by' => [
+                'public_id' => $this->latestIdentityVerification->reviewedBy?->public_id,
+                'display_name' => $this->latestIdentityVerification->reviewedBy?->display_name,
+            ],
+            'rejection_reason_code' => $this->latestIdentityVerification->rejection_reason_code,
+            'purge_after' => $this->latestIdentityVerification->purge_after,
         ];
     }
 }
