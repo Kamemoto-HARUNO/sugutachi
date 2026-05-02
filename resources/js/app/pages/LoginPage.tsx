@@ -1,6 +1,6 @@
 import { useMemo, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
-import { PasswordField } from '../components/forms/PasswordField';
+import { PasswordVisibilityToggleButton } from '../components/forms/PasswordVisibilityToggleButton';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
@@ -32,6 +32,7 @@ export function LoginPage({ targetRole }: LoginPageProps) {
     const { login, logout, selectRole } = useAuth();
     const [email, setEmail] = useState('');
     const [password, setPassword] = useState('');
+    const [isPasswordVisible, setIsPasswordVisible] = useState(false);
     const [error, setError] = useState<string | null>(null);
     const [isSubmitting, setIsSubmitting] = useState(false);
 
@@ -120,15 +121,28 @@ export function LoginPage({ targetRole }: LoginPageProps) {
                             />
                         </div>
 
-                        <PasswordField
-                            id="password"
-                            label="パスワード"
-                            value={password}
-                            onChange={(event) => setPassword(event.target.value)}
-                            placeholder="10文字以上"
-                            autoComplete="current-password"
-                            required
-                        />
+                        <div className="space-y-2">
+                            <label htmlFor="password" className="text-sm font-semibold text-[#17202b]">
+                                パスワード
+                            </label>
+                            <div className="relative">
+                                <input
+                                    id="password"
+                                    type={isPasswordVisible ? 'text' : 'password'}
+                                    value={password}
+                                    onChange={(event) => setPassword(event.target.value)}
+                                    className="w-full rounded-[18px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 pr-12 text-sm outline-none transition focus:border-[#c6a16a]"
+                                    placeholder="10文字以上"
+                                    autoComplete="current-password"
+                                    required
+                                />
+                                <PasswordVisibilityToggleButton
+                                    isVisible={isPasswordVisible}
+                                    label="パスワード"
+                                    onClick={() => setIsPasswordVisible((current) => !current)}
+                                />
+                            </div>
+                        </div>
 
                         <button
                             type="submit"

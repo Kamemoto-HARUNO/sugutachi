@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { BrandMark } from '../components/brand/BrandMark';
-import { PasswordField } from '../components/forms/PasswordField';
+import { PasswordVisibilityToggleButton } from '../components/forms/PasswordVisibilityToggleButton';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
@@ -33,6 +33,8 @@ export function RegisterPage() {
     const [initialRole, setInitialRole] = useState<InitialRole>('user');
     const [password, setPassword] = useState('');
     const [passwordConfirmation, setPasswordConfirmation] = useState('');
+    const [isPasswordVisible, setIsPasswordVisible] = useState(false);
+    const [isPasswordConfirmationVisible, setIsPasswordConfirmationVisible] = useState(false);
     const [acceptTerms, setAcceptTerms] = useState(false);
     const [acceptPrivacy, setAcceptPrivacy] = useState(false);
     const [isOver18, setIsOver18] = useState(false);
@@ -312,24 +314,50 @@ export function RegisterPage() {
                             </label>
 
                             <div className="grid gap-4 md:grid-cols-2">
-                                <PasswordField
-                                    id="register-password"
-                                    label="パスワード"
-                                    value={password}
-                                    onChange={(event) => setPassword(event.target.value)}
-                                    placeholder="10文字以上"
-                                    autoComplete="new-password"
-                                    required
-                                />
-                                <PasswordField
-                                    id="register-password-confirmation"
-                                    label="パスワード確認"
-                                    value={passwordConfirmation}
-                                    onChange={(event) => setPasswordConfirmation(event.target.value)}
-                                    placeholder="もう一度入力"
-                                    autoComplete="new-password"
-                                    required
-                                />
+                                <div className="space-y-2">
+                                    <label htmlFor="register-password" className="text-sm font-semibold">
+                                        パスワード
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            id="register-password"
+                                            type={isPasswordVisible ? 'text' : 'password'}
+                                            value={password}
+                                            onChange={(event) => setPassword(event.target.value)}
+                                            className="w-full rounded-[18px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 pr-12 text-sm outline-none transition focus:border-[#c6a16a]"
+                                            placeholder="10文字以上"
+                                            autoComplete="new-password"
+                                            required
+                                        />
+                                        <PasswordVisibilityToggleButton
+                                            isVisible={isPasswordVisible}
+                                            label="パスワード"
+                                            onClick={() => setIsPasswordVisible((current) => !current)}
+                                        />
+                                    </div>
+                                </div>
+                                <div className="space-y-2">
+                                    <label htmlFor="register-password-confirmation" className="text-sm font-semibold">
+                                        パスワード確認
+                                    </label>
+                                    <div className="relative">
+                                        <input
+                                            id="register-password-confirmation"
+                                            type={isPasswordConfirmationVisible ? 'text' : 'password'}
+                                            value={passwordConfirmation}
+                                            onChange={(event) => setPasswordConfirmation(event.target.value)}
+                                            className="w-full rounded-[18px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 pr-12 text-sm outline-none transition focus:border-[#c6a16a]"
+                                            placeholder="もう一度入力"
+                                            autoComplete="new-password"
+                                            required
+                                        />
+                                        <PasswordVisibilityToggleButton
+                                            isVisible={isPasswordConfirmationVisible}
+                                            label="パスワード確認"
+                                            onClick={() => setIsPasswordConfirmationVisible((current) => !current)}
+                                        />
+                                    </div>
+                                </div>
                             </div>
 
                             <div className="rounded-[24px] bg-[#f6f1e7] p-5">
