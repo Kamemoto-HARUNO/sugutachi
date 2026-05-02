@@ -276,6 +276,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/bookings/{booking:public_id}/refund-requests', [RefundRequestController::class, 'store']);
     Route::get('/bookings/{booking:public_id}/messages', [BookingMessageController::class, 'index']);
     Route::post('/bookings/{booking:public_id}/messages', [BookingMessageController::class, 'store']);
+    Route::post('/bookings/{booking:public_id}/messages/close', [BookingMessageController::class, 'close']);
     Route::post('/bookings/{booking:public_id}/messages/typing', [BookingMessageController::class, 'typing']);
     Route::post('/bookings/{booking:public_id}/messages/{message}/read', [BookingMessageController::class, 'read']);
     Route::delete('/bookings/{booking:public_id}/messages/{message}/image', [BookingMessageController::class, 'destroyImage']);

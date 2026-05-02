@@ -181,6 +181,8 @@ export function TherapistBookingMessagesPage() {
     const [isRefreshing, setIsRefreshing] = useState(false);
     const [isPreparingImage, setIsPreparingImage] = useState(false);
     const [isSending, setIsSending] = useState(false);
+    const [isCloseDialogOpen, setIsCloseDialogOpen] = useState(false);
+    const [isClosingThread, setIsClosingThread] = useState(false);
     const isTypingRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const imagePreparationRequestRef = useRef(0);
@@ -275,31 +277,6 @@ export function TherapistBookingMessagesPage() {
         }
     }, [publicId, token]);
 
-    useEffect(() => {
-        const hasDraft = draft.trim().length > 0;
-
-        if (!hasDraft) {
-            if (isTypingRef.current) {
-                isTypingRef.current = false;
-                void syncTypingState(false);
-            }
-            return;
-        }
-
-        if (!isTypingRef.current) {
-            isTypingRef.current = true;
-            void syncTypingState(true);
-        }
-
-        const intervalId = window.setInterval(() => {
-            void syncTypingState(true);
-        }, 3000);
-
-        return () => {
-            window.clearInterval(intervalId);
-        };
-    }, [draft, syncTypingState]);
-
     useEffect(() => () => {
         if (isTypingRef.current) {
             void syncTypingState(false);
@@ -371,6 +348,11 @@ export function TherapistBookingMessagesPage() {
     const counterpartyName = booking?.counterparty?.display_name
         ?? meta?.counterparty?.display_name
         ?? '利用者を確認中';
+    const messageThread = booking?.message_thread ?? meta?.message_thread ?? null;
+    const canSendMessages = messageThread?.can_send ?? true;
+    const canCloseThread = messageThread?.can_close ?? false;
+    const isThreadClosed = messageThread?.is_closed ?? false;
+    const closedAtLabel = isThreadClosed ? formatDateTime(messageThread?.closed_at ?? null) : null;
 
     function clearSelectedImage() {
         imagePreparationRequestRef.current += 1;
@@ -384,7 +366,32 @@ export function TherapistBookingMessagesPage() {
         }
     }
 
+    useEffect(() => {
+        if (!canSendMessages) {
+            if (draft) {
+                setDraft('');
+            }
+
+            if (selectedImage) {
+                clearSelectedImage();
+            }
+
+            if (isTypingRef.current) {
+                isTypingRef.current = false;
+                void syncTypingState(false);
+            }
+
+            setImageDeleteCandidate(null);
+        }
+    }, [canSendMessages, draft, selectedImage, syncTypingState]);
+
     async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+        if (!canSendMessages) {
+            event.target.value = '';
+            setComposeError('このチャットはクローズ済みのため新しいメッセージを送れません。');
+            return;
+        }
+
         const file = event.target.files?.[0];
 
         if (!file) {
@@ -426,6 +433,11 @@ export function TherapistBookingMessagesPage() {
         event.preventDefault();
 
         const trimmedDraft = draft.trim();
+
+        if (!canSendMessages) {
+            setComposeError('このチャットはクローズ済みのため新しいメッセージを送れません。');
+            return;
+        }
 
         if (!token || !publicId || isPreparingImage || (!trimmedDraft && !selectedImage)) {
             return;
@@ -477,6 +489,43 @@ export function TherapistBookingMessagesPage() {
             setComposeError(message);
         } finally {
             setIsSending(false);
+        }
+    }
+
+    async function handleCloseMessageThread() {
+        if (!token || !publicId || !canCloseThread) {
+            return;
+        }
+
+        setIsClosingThread(true);
+        setComposeError(null);
+        setPageError(null);
+        setSuccessMessage(null);
+
+        try {
+            await apiRequest<ApiEnvelope<unknown>>(`/bookings/${publicId}/messages/close`, {
+                method: 'POST',
+                token,
+            });
+
+            setDraft('');
+            clearSelectedImage();
+            setExpandedImage(null);
+            setImageDeleteCandidate(null);
+            setIsCloseDialogOpen(false);
+            isTypingRef.current = false;
+            setSuccessMessage('チャットをクローズしました。以後は履歴の閲覧のみ可能です。');
+            await loadData({ refresh: true, silent: true, preserveSuccess: true });
+            notifyBookingMessageSummaryChanged();
+        } catch (requestError) {
+            const message =
+                requestError instanceof ApiError
+                    ? requestError.message
+                    : 'チャットのクローズに失敗しました。';
+
+            setPageError(message);
+        } finally {
+            setIsClosingThread(false);
         }
     }
 
@@ -545,6 +594,49 @@ export function TherapistBookingMessagesPage() {
         }
     }
 
+    useEffect(() => {
+        const hasDraft = draft.trim().length > 0;
+
+        if (!canSendMessages || !hasDraft) {
+            if (isTypingRef.current) {
+                isTypingRef.current = false;
+                void syncTypingState(false);
+            }
+            return;
+        }
+
+        if (!isTypingRef.current) {
+            isTypingRef.current = true;
+            void syncTypingState(true);
+        }
+
+        const intervalId = window.setInterval(() => {
+            void syncTypingState(true);
+        }, 3000);
+
+        return () => {
+            window.clearInterval(intervalId);
+        };
+    }, [canSendMessages, draft, syncTypingState]);
+
+    useEffect(() => {
+        if (!isCloseDialogOpen) {
+            return;
+        }
+
+        const handleKeyDown = (event: KeyboardEvent) => {
+            if (event.key === 'Escape' && !isClosingThread) {
+                setIsCloseDialogOpen(false);
+            }
+        };
+
+        window.addEventListener('keydown', handleKeyDown);
+
+        return () => {
+            window.removeEventListener('keydown', handleKeyDown);
+        };
+    }, [isCloseDialogOpen, isClosingThread]);
+
     if (isLoading) {
         return <LoadingScreen title="予約メッセージを読み込み中" message="利用者との連絡内容と未読状況を確認しています。" />;
     }
@@ -576,7 +668,12 @@ export function TherapistBookingMessagesPage() {
                             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
                                 {statusLabel(booking.status)}
                             </span>
-                            {meta?.counterparty_typing ? (
+                            {isThreadClosed ? (
+                                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
+                                    チャットクローズ済み
+                                </span>
+                            ) : null}
+                            {canSendMessages && meta?.counterparty_typing ? (
                                 <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
                                     {counterpartyName}が入力中...
                                 </span>
@@ -593,6 +690,18 @@ export function TherapistBookingMessagesPage() {
                     </div>
 
                     <div className="flex flex-wrap gap-3">
+                        {canCloseThread ? (
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsCloseDialogOpen(true);
+                                }}
+                                disabled={isClosingThread}
+                                className="inline-flex items-center rounded-full border border-[#f7d7ab] bg-[#fff4e8] px-5 py-3 text-sm font-semibold text-[#9a4b35] transition hover:bg-[#ffebd7] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {isClosingThread ? 'クローズ中...' : 'チャットをクローズ'}
+                            </button>
+                        ) : null}
                         <button
                             type="button"
                             onClick={() => {
@@ -616,6 +725,16 @@ export function TherapistBookingMessagesPage() {
             {pageError ? (
                 <section className="rounded-[24px] border border-[#f1d4b5] bg-[#fff4e8] px-5 py-4 text-sm text-[#9a4b35]">
                     {pageError}
+                </section>
+            ) : null}
+
+            {isThreadClosed ? (
+                <section className="rounded-[24px] border border-[#ead9bc] bg-[#fffaf1] px-5 py-4 text-sm leading-7 text-[#6f5a43]">
+                    <p className="font-semibold text-[#17202b]">このチャットはクローズ済みです。</p>
+                    <p>
+                        利用者は履歴を見られず、新しいメッセージも送れません。タチキャスト側は履歴のみ確認できます。
+                        {closedAtLabel ? ` クローズ日時: ${closedAtLabel}` : ''}
+                    </p>
                 </section>
             ) : null}
 
@@ -676,7 +795,7 @@ export function TherapistBookingMessagesPage() {
                                             </span>
                                             <span>{formatDateTime(message.sent_at)}</span>
                                             <span>{message.is_read ? '既読' : '未読'}</span>
-                                            {message.can_delete_image ? (
+                                            {message.can_delete_image && canSendMessages ? (
                                                 <button
                                                     type="button"
                                                     onClick={() => {
@@ -707,11 +826,13 @@ export function TherapistBookingMessagesPage() {
                             );
                         }) : !meta?.counterparty_typing ? (
                             <div className="rounded-[24px] bg-[#f8f4ed] px-5 py-6 text-sm leading-7 text-[#68707a]">
-                                この予約ではまだメッセージがありません。必要な連絡があれば下のフォームから送れます。
+                                {canSendMessages
+                                    ? 'この予約ではまだメッセージがありません。必要な連絡があれば下のフォームから送れます。'
+                                    : 'このチャットはクローズ済みです。必要な連絡が残っていても新しいメッセージは送れません。'}
                             </div>
                         ) : null}
 
-                        {meta?.counterparty_typing ? (
+                        {canSendMessages && meta?.counterparty_typing ? (
                             <article className="flex justify-start">
                                 <div className="max-w-[min(100%,38rem)] space-y-2">
                                     <div className="rounded-[24px] bg-[#f8f4ed] px-4 py-4 text-[#17202b] shadow-[0_10px_24px_rgba(23,32,43,0.08)]">
@@ -733,105 +854,115 @@ export function TherapistBookingMessagesPage() {
                         ) : null}
                     </div>
 
-                    <form onSubmit={handleSendMessage} className="mt-6 space-y-3 border-t border-[#efe5d7] pt-5">
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
-                            className="hidden"
-                            onChange={handleImageChange}
-                        />
+                    {canSendMessages ? (
+                        <form onSubmit={handleSendMessage} className="mt-6 space-y-3 border-t border-[#efe5d7] pt-5">
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+                                className="hidden"
+                                onChange={handleImageChange}
+                            />
 
-                        {isPreparingImage ? (
-                            <div className="flex items-center gap-3 rounded-[20px] bg-[#fff7ea] px-3 py-3 text-sm text-[#48505a]">
-                                <span className="h-10 w-10 animate-spin rounded-full border-2 border-[#d2b179]/35 border-t-[#b5894d]" />
-                                <div>
-                                    <p className="font-semibold text-[#17202b]">画像を送信向けに調整しています</p>
-                                    <p className="text-xs text-[#7a7066]">サイズが大きい画像は自動で縮小・圧縮します。</p>
+                            {isPreparingImage ? (
+                                <div className="flex items-center gap-3 rounded-[20px] bg-[#fff7ea] px-3 py-3 text-sm text-[#48505a]">
+                                    <span className="h-10 w-10 animate-spin rounded-full border-2 border-[#d2b179]/35 border-t-[#b5894d]" />
+                                    <div>
+                                        <p className="font-semibold text-[#17202b]">画像を送信向けに調整しています</p>
+                                        <p className="text-xs text-[#7a7066]">サイズが大きい画像は自動で縮小・圧縮します。</p>
+                                    </div>
                                 </div>
-                            </div>
-                        ) : null}
+                            ) : null}
 
-                        {selectedImage && selectedImagePreviewUrl ? (
-                            <div className="flex items-center gap-3 rounded-[20px] bg-[#fff7ea] px-3 py-3 text-sm text-[#48505a]">
-                                <img src={selectedImagePreviewUrl} alt={selectedImage.name} className="h-14 w-14 rounded-[14px] object-cover" />
-                                <div className="min-w-0 flex-1">
-                                    <p className="truncate font-semibold text-[#17202b]">{selectedImage.name}</p>
-                                    <p className="text-xs text-[#7a7066]">
-                                        {selectedImageWasOptimized && selectedImageOriginalSizeBytes
-                                            ? `${formatFileSize(selectedImageOriginalSizeBytes)} → ${formatFileSize(selectedImage.size)} に自動圧縮`
-                                            : `${formatFileSize(selectedImage.size)} / 画像は1枚ずつ送信`}
-                                    </p>
+                            {selectedImage && selectedImagePreviewUrl ? (
+                                <div className="flex items-center gap-3 rounded-[20px] bg-[#fff7ea] px-3 py-3 text-sm text-[#48505a]">
+                                    <img src={selectedImagePreviewUrl} alt={selectedImage.name} className="h-14 w-14 rounded-[14px] object-cover" />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate font-semibold text-[#17202b]">{selectedImage.name}</p>
+                                        <p className="text-xs text-[#7a7066]">
+                                            {selectedImageWasOptimized && selectedImageOriginalSizeBytes
+                                                ? `${formatFileSize(selectedImageOriginalSizeBytes)} → ${formatFileSize(selectedImage.size)} に自動圧縮`
+                                                : `${formatFileSize(selectedImage.size)} / 画像は1枚ずつ送信`}
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={clearSelectedImage}
+                                        className="rounded-full border border-[#d9c9ae] px-3 py-1 text-xs font-semibold text-[#17202b] transition hover:bg-[#fff1df]"
+                                    >
+                                        取り消す
+                                    </button>
                                 </div>
+                            ) : null}
+
+                            <div className="flex items-end gap-3 rounded-[24px] border border-[#e4d7c2] bg-[#fffaf3] px-3 py-3">
                                 <button
                                     type="button"
-                                    onClick={clearSelectedImage}
-                                    className="rounded-full border border-[#d9c9ae] px-3 py-1 text-xs font-semibold text-[#17202b] transition hover:bg-[#fff1df]"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isSending || isPreparingImage}
+                                    className={[
+                                        'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition',
+                                        selectedImage
+                                            ? 'bg-[#d2b179] text-[#17202b]'
+                                            : 'bg-[#f1e7d8] text-[#6f5a43] hover:bg-[#e8dcc9]',
+                                    ].join(' ')}
+                                    aria-label="画像を選択"
                                 >
-                                    取り消す
+                                    <PhotoIcon />
+                                </button>
+
+                                <div className="min-w-0 flex-1">
+                                    <textarea
+                                        id="therapist-message-body"
+                                        value={draft}
+                                        onChange={(event) => {
+                                            setDraft(event.target.value);
+                                        }}
+                                        rows={1}
+                                        maxLength={1000}
+                                        placeholder="到着予定や入室方法などを入力"
+                                        className="min-h-11 w-full resize-none bg-transparent px-1 py-2 text-sm leading-6 text-[#17202b] outline-none placeholder:text-[#9b8c78]"
+                                    />
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={isSending || isPreparingImage || (!draft.trim() && !selectedImage)}
+                                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#17202b] text-white transition hover:bg-[#243447] disabled:cursor-not-allowed disabled:opacity-60"
+                                    aria-label="送信"
+                                >
+                                    {isSending ? (
+                                        <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                    ) : (
+                                        <SendIcon />
+                                    )}
                                 </button>
                             </div>
-                        ) : null}
 
-                        <div className="flex items-end gap-3 rounded-[24px] border border-[#e4d7c2] bg-[#fffaf3] px-3 py-3">
-                            <button
-                                type="button"
-                                onClick={() => fileInputRef.current?.click()}
-                                disabled={isSending || isPreparingImage}
-                                className={[
-                                    'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition',
-                                    selectedImage
-                                        ? 'bg-[#d2b179] text-[#17202b]'
-                                        : 'bg-[#f1e7d8] text-[#6f5a43] hover:bg-[#e8dcc9]',
-                                ].join(' ')}
-                                aria-label="画像を選択"
-                            >
-                                <PhotoIcon />
-                            </button>
-
-                            <div className="min-w-0 flex-1">
-                                <textarea
-                                    id="therapist-message-body"
-                                    value={draft}
-                                    onChange={(event) => {
-                                        setDraft(event.target.value);
-                                    }}
-                                    rows={1}
-                                    maxLength={1000}
-                                    placeholder="到着予定や入室方法などを入力"
-                                    className="min-h-11 w-full resize-none bg-transparent px-1 py-2 text-sm leading-6 text-[#17202b] outline-none placeholder:text-[#9b8c78]"
-                                />
+                            <div className="px-1 text-right text-xs text-[#68707a]">
+                                {draft.length}/1000
                             </div>
 
-                            <button
-                                type="submit"
-                                disabled={isSending || isPreparingImage || (!draft.trim() && !selectedImage)}
-                                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#17202b] text-white transition hover:bg-[#243447] disabled:cursor-not-allowed disabled:opacity-60"
-                                aria-label="送信"
-                            >
-                                {isSending ? (
-                                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                                ) : (
-                                    <SendIcon />
-                                )}
-                            </button>
-                        </div>
+                            <div className="flex items-start gap-2 px-1 text-xs text-[#68707a]">
+                                <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#f1e7d8] text-[10px] font-bold text-[#8b6a3e]">
+                                    !
+                                </span>
+                                <span>連絡先交換につながる文言は送れません。待ち合わせや進行確認に必要な連絡だけに絞って使います。</span>
+                            </div>
 
-                        <div className="px-1 text-right text-xs text-[#68707a]">
-                            {draft.length}/1000
+                            {composeError ? (
+                                <p className="text-sm text-[#9a4b35]">{composeError}</p>
+                            ) : null}
+                        </form>
+                    ) : (
+                        <div className="mt-6 rounded-[24px] border border-[#ead9bc] bg-[#fffaf1] px-5 py-5 text-sm leading-7 text-[#6f5a43]">
+                            <p className="font-semibold text-[#17202b]">新しいメッセージは送れません。</p>
+                            <p>
+                                チャットをクローズしたため、ここから先は履歴の確認のみ可能です。
+                                {closedAtLabel ? ` クローズ日時: ${closedAtLabel}` : ''}
+                            </p>
                         </div>
-
-                        <div className="flex items-start gap-2 px-1 text-xs text-[#68707a]">
-                            <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#f1e7d8] text-[10px] font-bold text-[#8b6a3e]">
-                                !
-                            </span>
-                            <span>連絡先交換につながる文言は送れません。待ち合わせや進行確認に必要な連絡だけに絞って使います。</span>
-                        </div>
-
-                        {composeError ? (
-                            <p className="text-sm text-[#9a4b35]">{composeError}</p>
-                        ) : null}
-                    </form>
+                    )}
                 </section>
 
                 <aside className="space-y-5">
@@ -863,6 +994,12 @@ export function TherapistBookingMessagesPage() {
                             <div>
                                 <p className="text-xs font-semibold text-[#7d6852]">運用メモ</p>
                                 <p className="mt-1 text-sm leading-7 text-[#48505a]">{stageHint(booking.status)}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold text-[#7d6852]">チャット状態</p>
+                                <p className="mt-1 font-semibold text-[#17202b]">
+                                    {isThreadClosed ? `クローズ済み${closedAtLabel ? `（${closedAtLabel}）` : ''}` : '送受信可能'}
+                                </p>
                             </div>
                         </div>
 
@@ -916,6 +1053,56 @@ export function TherapistBookingMessagesPage() {
                             alt={expandedImage.attachment_original_name ?? '送信画像'}
                             className="max-h-[88vh] w-auto max-w-full rounded-[24px] object-contain shadow-[0_24px_60px_rgba(0,0,0,0.35)]"
                         />
+                    </div>
+                </div>
+            ) : null}
+
+            {isCloseDialogOpen ? (
+                <div
+                    className="fixed inset-0 z-50 flex items-center justify-center bg-[rgba(12,16,24,0.72)] px-4 py-6"
+                    onClick={() => {
+                        if (!isClosingThread) {
+                            setIsCloseDialogOpen(false);
+                        }
+                    }}
+                >
+                    <div
+                        role="dialog"
+                        aria-modal="true"
+                        aria-label="チャットクローズの確認"
+                        className="w-full max-w-md rounded-[28px] bg-white p-6 shadow-[0_24px_60px_rgba(15,23,42,0.22)]"
+                        onClick={(event) => {
+                            event.stopPropagation();
+                        }}
+                    >
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">チャットクローズ</p>
+                        <h2 className="mt-2 text-xl font-semibold text-[#17202b]">このチャットをクローズしますか？</h2>
+                        <p className="mt-3 text-sm leading-7 text-[#68707a]">
+                            クローズ後は利用者が履歴を見られなくなり、双方とも新しいメッセージを送れません。タチキャスト側では履歴のみ確認できます。
+                        </p>
+
+                        <div className="mt-6 flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    setIsCloseDialogOpen(false);
+                                }}
+                                disabled={isClosingThread}
+                                className="inline-flex items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                キャンセル
+                            </button>
+                            <button
+                                type="button"
+                                onClick={() => {
+                                    void handleCloseMessageThread();
+                                }}
+                                disabled={isClosingThread}
+                                className="inline-flex items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243447] disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {isClosingThread ? 'クローズ中...' : 'クローズする'}
+                            </button>
+                        </div>
                     </div>
                 </div>
             ) : null}

@@ -380,6 +380,7 @@ export function AdminBookingMessagesPage() {
         withNotes: messages.filter((message) => message.admin_note_count > 0).length,
         contactExchange: messages.filter((message) => message.detected_contact_exchange).length,
     }), [messages]);
+    const selectedMessageNotes = selectedMessage?.notes ?? [];
 
     const senderOptions = useMemo(() => {
         if (!booking) {
@@ -908,16 +909,16 @@ export function AdminBookingMessagesPage() {
                                         <p className="text-xs font-semibold tracking-wide text-[#d2b179]">内部メモ</p>
                                         <h4 className="mt-2 text-lg font-semibold text-white">運営メモ</h4>
                                     </div>
-                                    <span className="text-sm text-slate-400">{selectedMessage.notes.length}件</span>
+                                    <span className="text-sm text-slate-400">{selectedMessageNotes.length}件</span>
                                 </div>
 
                                 <div className="mt-4 space-y-3">
-                                    {selectedMessage.notes.length === 0 ? (
+                                    {selectedMessageNotes.length === 0 ? (
                                         <div className="rounded-[22px] border border-dashed border-white/10 px-4 py-6 text-center text-sm text-slate-400">
                                             まだ内部メモはありません。
                                         </div>
                                     ) : (
-                                        selectedMessage.notes.map((note) => (
+                                        selectedMessageNotes.map((note) => (
                                             <article key={note.id} className="rounded-[22px] bg-[#101720] p-4">
                                                 <div className="flex flex-wrap items-start justify-between gap-3">
                                                     <div>

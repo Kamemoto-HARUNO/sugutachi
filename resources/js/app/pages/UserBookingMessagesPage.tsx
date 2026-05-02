@@ -190,20 +190,38 @@ export function UserBookingMessagesPage() {
         }
 
         try {
-            const [bookingPayload, messagesPayload] = await Promise.all([
-                apiRequest<ApiEnvelope<BookingDetailRecord>>(`/bookings/${publicId}`, {
-                    token,
-                }),
-                apiRequest<BookingMessagesResponse>(`/bookings/${publicId}/messages`, {
-                    token,
-                }),
-            ]);
+            const bookingPayload = await apiRequest<ApiEnvelope<BookingDetailRecord>>(`/bookings/${publicId}`, {
+                token,
+            });
+            const bookingRecord = unwrapData(bookingPayload);
 
-            setBooking(unwrapData(bookingPayload));
+            setBooking(bookingRecord);
+
+            if (!bookingRecord.message_thread.can_view) {
+                setMessages([]);
+                setMeta(null);
+                setExpandedImage(null);
+                setImageDeleteCandidate(null);
+                setComposeError(null);
+                setPageError(null);
+                return;
+            }
+
+            const messagesPayload = await apiRequest<BookingMessagesResponse>(`/bookings/${publicId}/messages`, {
+                token,
+            });
+
             setMessages(unwrapData(messagesPayload));
             setMeta(messagesPayload.meta ?? null);
             setPageError(null);
         } catch (requestError) {
+            if (requestError instanceof ApiError && requestError.status === 404) {
+                setMessages([]);
+                setMeta(null);
+                setExpandedImage(null);
+                setImageDeleteCandidate(null);
+            }
+
             const message =
                 requestError instanceof ApiError
                     ? requestError.message
@@ -255,31 +273,6 @@ export function UserBookingMessagesPage() {
             // Typing indicators are best-effort only.
         }
     }, [publicId, token]);
-
-    useEffect(() => {
-        const hasDraft = draft.trim().length > 0;
-
-        if (!hasDraft) {
-            if (isTypingRef.current) {
-                isTypingRef.current = false;
-                void syncTypingState(false);
-            }
-            return;
-        }
-
-        if (!isTypingRef.current) {
-            isTypingRef.current = true;
-            void syncTypingState(true);
-        }
-
-        const intervalId = window.setInterval(() => {
-            void syncTypingState(true);
-        }, 3000);
-
-        return () => {
-            window.clearInterval(intervalId);
-        };
-    }, [draft, syncTypingState]);
 
     useEffect(() => () => {
         if (isTypingRef.current) {
@@ -353,10 +346,15 @@ export function UserBookingMessagesPage() {
         ?? meta?.counterparty?.display_name
         ?? booking?.counterparty?.display_name
         ?? '相手を確認中';
+    const messageThread = booking?.message_thread ?? meta?.message_thread ?? null;
+    const canViewMessages = messageThread?.can_view ?? true;
+    const canSendMessages = messageThread?.can_send ?? true;
+    const isThreadClosed = messageThread?.is_closed ?? false;
+    const closedAtLabel = isThreadClosed ? formatDateTime(messageThread?.closed_at ?? null) : null;
 
     const unreadIncomingCount = useMemo(
-        () => messages.filter((message) => !message.is_own && !message.is_read).length,
-        [messages],
+        () => canViewMessages ? messages.filter((message) => !message.is_own && !message.is_read).length : 0,
+        [canViewMessages, messages],
     );
 
     function clearSelectedImage() {
@@ -371,7 +369,32 @@ export function UserBookingMessagesPage() {
         }
     }
 
+    useEffect(() => {
+        if (!canSendMessages) {
+            if (draft) {
+                setDraft('');
+            }
+
+            if (selectedImage) {
+                clearSelectedImage();
+            }
+
+            if (isTypingRef.current) {
+                isTypingRef.current = false;
+                void syncTypingState(false);
+            }
+
+            setImageDeleteCandidate(null);
+        }
+    }, [canSendMessages, draft, selectedImage, syncTypingState]);
+
     async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+        if (!canSendMessages) {
+            event.target.value = '';
+            setComposeError('このチャットはクローズ済みのため新しいメッセージを送れません。');
+            return;
+        }
+
         const file = event.target.files?.[0];
 
         if (!file) {
@@ -413,6 +436,11 @@ export function UserBookingMessagesPage() {
         event.preventDefault();
 
         const trimmedDraft = draft.trim();
+
+        if (!canSendMessages) {
+            setComposeError('このチャットはクローズ済みのため新しいメッセージを送れません。');
+            return;
+        }
 
         if (!token || !publicId || isPreparingImage || (!trimmedDraft && !selectedImage)) {
             return;
@@ -532,6 +560,31 @@ export function UserBookingMessagesPage() {
         }
     }
 
+    useEffect(() => {
+        const hasDraft = draft.trim().length > 0;
+
+        if (!canSendMessages || !hasDraft) {
+            if (isTypingRef.current) {
+                isTypingRef.current = false;
+                void syncTypingState(false);
+            }
+            return;
+        }
+
+        if (!isTypingRef.current) {
+            isTypingRef.current = true;
+            void syncTypingState(true);
+        }
+
+        const intervalId = window.setInterval(() => {
+            void syncTypingState(true);
+        }, 3000);
+
+        return () => {
+            window.clearInterval(intervalId);
+        };
+    }, [canSendMessages, draft, syncTypingState]);
+
     if (isLoading) {
         return <LoadingScreen title="予約メッセージを読み込み中" message="相手との連絡内容と未読状況を確認しています。" />;
     }
@@ -563,7 +616,12 @@ export function UserBookingMessagesPage() {
                             <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
                                 {statusLabel(booking.status)}
                             </span>
-                            {meta?.counterparty_typing ? (
+                            {isThreadClosed ? (
+                                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
+                                    チャットクローズ済み
+                                </span>
+                            ) : null}
+                            {canSendMessages && meta?.counterparty_typing ? (
                                 <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
                                     {counterpartyName}が入力中...
                                 </span>
@@ -606,11 +664,21 @@ export function UserBookingMessagesPage() {
                 </section>
             ) : null}
 
+            {isThreadClosed ? (
+                <section className="rounded-[24px] border border-[#ead9bc] bg-[#fffaf1] px-5 py-4 text-sm leading-7 text-[#6f5a43]">
+                    <p className="font-semibold text-[#17202b]">このチャットはクローズされました。</p>
+                    <p>
+                        タチキャスト側でクローズされたため、過去の履歴は表示されず、新しいメッセージも送れません。
+                        {closedAtLabel ? ` クローズ日時: ${closedAtLabel}` : ''}
+                    </p>
+                </section>
+            ) : null}
+
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
                 <section className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                     <div className="space-y-4">
-                        {messages.length > 0 ? messages.map((message) => {
+                        {canViewMessages && messages.length > 0 ? messages.map((message) => {
                             const isPendingRead = pendingReadIds.includes(message.id);
                             const isDeletingImage = deletingImageMessageIds.includes(message.id);
                             const isDeletedImageMessage = message.message_type === 'image' && message.is_deleted;
@@ -663,7 +731,7 @@ export function UserBookingMessagesPage() {
                                             </span>
                                             <span>{formatDateTime(message.sent_at)}</span>
                                             <span>{message.is_read ? '既読' : '未読'}</span>
-                                            {message.can_delete_image ? (
+                                            {message.can_delete_image && canSendMessages ? (
                                                 <button
                                                     type="button"
                                                     onClick={() => {
@@ -694,11 +762,13 @@ export function UserBookingMessagesPage() {
                             );
                         }) : !meta?.counterparty_typing ? (
                             <div className="rounded-[24px] bg-[#f8f4ed] px-5 py-6 text-sm leading-7 text-[#68707a]">
-                                この予約ではまだメッセージがありません。必要な連絡があれば下の入力欄から送れます。
+                                {canViewMessages
+                                    ? 'この予約ではまだメッセージがありません。必要な連絡があれば下の入力欄から送れます。'
+                                    : 'このチャットはクローズ済みのため、過去の履歴は表示されません。'}
                             </div>
                         ) : null}
 
-                        {meta?.counterparty_typing ? (
+                        {canSendMessages && meta?.counterparty_typing ? (
                             <article className="flex justify-start">
                                 <div className="max-w-[min(100%,38rem)] space-y-2">
                                     <div className="rounded-[24px] bg-[#f8f4ed] px-4 py-4 text-[#17202b] shadow-[0_10px_24px_rgba(23,32,43,0.08)]">
@@ -720,104 +790,114 @@ export function UserBookingMessagesPage() {
                         ) : null}
                     </div>
 
-                    <form onSubmit={handleSendMessage} className="mt-6 space-y-3 border-t border-[#efe5d7] pt-5">
-                        <input
-                            ref={fileInputRef}
-                            type="file"
-                            accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
-                            className="hidden"
-                            onChange={handleImageChange}
-                        />
+                    {canSendMessages ? (
+                        <form onSubmit={handleSendMessage} className="mt-6 space-y-3 border-t border-[#efe5d7] pt-5">
+                            <input
+                                ref={fileInputRef}
+                                type="file"
+                                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
+                                className="hidden"
+                                onChange={handleImageChange}
+                            />
 
-                        {isPreparingImage ? (
-                            <div className="flex items-center gap-3 rounded-[20px] bg-[#fff7ea] px-3 py-3 text-sm text-[#48505a]">
-                                <span className="h-10 w-10 animate-spin rounded-full border-2 border-[#d2b179]/35 border-t-[#b5894d]" />
-                                <div>
-                                    <p className="font-semibold text-[#17202b]">画像を送信向けに調整しています</p>
-                                    <p className="text-xs text-[#7a7066]">サイズが大きい画像は自動で縮小・圧縮します。</p>
+                            {isPreparingImage ? (
+                                <div className="flex items-center gap-3 rounded-[20px] bg-[#fff7ea] px-3 py-3 text-sm text-[#48505a]">
+                                    <span className="h-10 w-10 animate-spin rounded-full border-2 border-[#d2b179]/35 border-t-[#b5894d]" />
+                                    <div>
+                                        <p className="font-semibold text-[#17202b]">画像を送信向けに調整しています</p>
+                                        <p className="text-xs text-[#7a7066]">サイズが大きい画像は自動で縮小・圧縮します。</p>
+                                    </div>
                                 </div>
-                            </div>
-                        ) : null}
+                            ) : null}
 
-                        {selectedImage && selectedImagePreviewUrl ? (
-                            <div className="flex items-center gap-3 rounded-[20px] bg-[#fff7ea] px-3 py-3 text-sm text-[#48505a]">
-                                <img src={selectedImagePreviewUrl} alt={selectedImage.name} className="h-14 w-14 rounded-[14px] object-cover" />
-                                <div className="min-w-0 flex-1">
-                                    <p className="truncate font-semibold text-[#17202b]">{selectedImage.name}</p>
-                                    <p className="text-xs text-[#7a7066]">
-                                        {selectedImageWasOptimized && selectedImageOriginalSizeBytes
-                                            ? `${formatFileSize(selectedImageOriginalSizeBytes)} → ${formatFileSize(selectedImage.size)} に自動圧縮`
-                                            : `${formatFileSize(selectedImage.size)} / 画像は1枚ずつ送信`}
-                                    </p>
+                            {selectedImage && selectedImagePreviewUrl ? (
+                                <div className="flex items-center gap-3 rounded-[20px] bg-[#fff7ea] px-3 py-3 text-sm text-[#48505a]">
+                                    <img src={selectedImagePreviewUrl} alt={selectedImage.name} className="h-14 w-14 rounded-[14px] object-cover" />
+                                    <div className="min-w-0 flex-1">
+                                        <p className="truncate font-semibold text-[#17202b]">{selectedImage.name}</p>
+                                        <p className="text-xs text-[#7a7066]">
+                                            {selectedImageWasOptimized && selectedImageOriginalSizeBytes
+                                                ? `${formatFileSize(selectedImageOriginalSizeBytes)} → ${formatFileSize(selectedImage.size)} に自動圧縮`
+                                                : `${formatFileSize(selectedImage.size)} / 画像は1枚ずつ送信`}
+                                        </p>
+                                    </div>
+                                    <button
+                                        type="button"
+                                        onClick={clearSelectedImage}
+                                        className="rounded-full border border-[#d9c9ae] px-3 py-1 text-xs font-semibold text-[#17202b] transition hover:bg-[#fff1df]"
+                                    >
+                                        取り消す
+                                    </button>
                                 </div>
+                            ) : null}
+
+                            <div className="flex items-end gap-3 rounded-[24px] border border-[#e4d7c2] bg-[#fffaf3] px-3 py-3">
                                 <button
                                     type="button"
-                                    onClick={clearSelectedImage}
-                                    className="rounded-full border border-[#d9c9ae] px-3 py-1 text-xs font-semibold text-[#17202b] transition hover:bg-[#fff1df]"
+                                    onClick={() => fileInputRef.current?.click()}
+                                    disabled={isSending || isPreparingImage}
+                                    className={[
+                                        'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition',
+                                        selectedImage
+                                            ? 'bg-[#d2b179] text-[#17202b]'
+                                            : 'bg-[#f1e7d8] text-[#6f5a43] hover:bg-[#e8dcc9]',
+                                    ].join(' ')}
+                                    aria-label="画像を選択"
                                 >
-                                    取り消す
+                                    <PhotoIcon />
+                                </button>
+
+                                <div className="min-w-0 flex-1">
+                                    <textarea
+                                        value={draft}
+                                        onChange={(event) => setDraft(event.target.value)}
+                                        rows={1}
+                                        maxLength={1000}
+                                        className="min-h-11 w-full resize-none bg-transparent px-1 py-2 text-sm leading-6 text-[#17202b] outline-none placeholder:text-[#9b8c78]"
+                                        placeholder="待ち合わせや到着予定などを入力"
+                                    />
+                                </div>
+
+                                <button
+                                    type="submit"
+                                    disabled={isSending || isPreparingImage || (!draft.trim() && !selectedImage)}
+                                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#17202b] text-white transition hover:bg-[#243447] disabled:cursor-not-allowed disabled:opacity-60"
+                                    aria-label="送信"
+                                >
+                                    {isSending ? (
+                                        <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+                                    ) : (
+                                        <SendIcon />
+                                    )}
                                 </button>
                             </div>
-                        ) : null}
 
-                        <div className="flex items-end gap-3 rounded-[24px] border border-[#e4d7c2] bg-[#fffaf3] px-3 py-3">
-                            <button
-                                type="button"
-                                onClick={() => fileInputRef.current?.click()}
-                                disabled={isSending || isPreparingImage}
-                                className={[
-                                    'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition',
-                                    selectedImage
-                                        ? 'bg-[#d2b179] text-[#17202b]'
-                                        : 'bg-[#f1e7d8] text-[#6f5a43] hover:bg-[#e8dcc9]',
-                                ].join(' ')}
-                                aria-label="画像を選択"
-                            >
-                                <PhotoIcon />
-                            </button>
-
-                            <div className="min-w-0 flex-1">
-                                <textarea
-                                    value={draft}
-                                    onChange={(event) => setDraft(event.target.value)}
-                                    rows={1}
-                                    maxLength={1000}
-                                    className="min-h-11 w-full resize-none bg-transparent px-1 py-2 text-sm leading-6 text-[#17202b] outline-none placeholder:text-[#9b8c78]"
-                                    placeholder="待ち合わせや到着予定などを入力"
-                                />
+                            <div className="px-1 text-right text-xs text-[#7a7066]">
+                                {draft.length}/1000
                             </div>
 
-                            <button
-                                type="submit"
-                                disabled={isSending || isPreparingImage || (!draft.trim() && !selectedImage)}
-                                className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#17202b] text-white transition hover:bg-[#243447] disabled:cursor-not-allowed disabled:opacity-60"
-                                aria-label="送信"
-                            >
-                                {isSending ? (
-                                    <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                                ) : (
-                                    <SendIcon />
-                                )}
-                            </button>
-                        </div>
-
-                        <div className="px-1 text-right text-xs text-[#7a7066]">
-                            {draft.length}/1000
-                        </div>
-
-                        <div className="flex items-start gap-2 px-1 text-xs text-[#7a7066]">
-                            <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#f1e7d8] text-[10px] font-bold text-[#8b6a3e]">
-                                !
-                            </span>
-                            <span>連絡先交換につながる文言は送れません。待ち合わせや進行確認に必要な連絡だけに絞って使います。</span>
-                        </div>
-
-                        {composeError ? (
-                            <div className="rounded-[20px] border border-[#f1d4b5] bg-[#fff4e8] px-4 py-3 text-sm text-[#9a4b35]">
-                                {composeError}
+                            <div className="flex items-start gap-2 px-1 text-xs text-[#7a7066]">
+                                <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#f1e7d8] text-[10px] font-bold text-[#8b6a3e]">
+                                    !
+                                </span>
+                                <span>連絡先交換につながる文言は送れません。待ち合わせや進行確認に必要な連絡だけに絞って使います。</span>
                             </div>
-                        ) : null}
-                    </form>
+
+                            {composeError ? (
+                                <div className="rounded-[20px] border border-[#f1d4b5] bg-[#fff4e8] px-4 py-3 text-sm text-[#9a4b35]">
+                                    {composeError}
+                                </div>
+                            ) : null}
+                        </form>
+                    ) : (
+                        <div className="mt-6 rounded-[24px] border border-[#ead9bc] bg-[#fffaf1] px-5 py-5 text-sm leading-7 text-[#6f5a43]">
+                            <p className="font-semibold text-[#17202b]">このチャットから新しいメッセージは送れません。</p>
+                            <p>
+                                タチキャスト側でクローズされたため、過去の履歴は見られず、入力欄も利用できません。
+                                {closedAtLabel ? ` クローズ日時: ${closedAtLabel}` : ''}
+                            </p>
+                        </div>
+                    )}
                 </section>
 
                 <aside className="space-y-5">
@@ -841,6 +921,12 @@ export function UserBookingMessagesPage() {
                             <div>
                                 <p className="text-xs font-semibold text-[#7d6852]">受信未読</p>
                                 <p className="mt-1 font-semibold text-[#17202b]">{meta?.unread_count ?? unreadIncomingCount}件</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold text-[#7d6852]">チャット状態</p>
+                                <p className="mt-1 font-semibold text-[#17202b]">
+                                    {isThreadClosed ? `クローズ済み${closedAtLabel ? `（${closedAtLabel}）` : ''}` : '送受信可能'}
+                                </p>
                             </div>
                         </div>
 

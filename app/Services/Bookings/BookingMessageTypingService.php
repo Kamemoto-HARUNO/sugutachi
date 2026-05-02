@@ -24,6 +24,12 @@ class BookingMessageTypingService
         Cache::forget($this->cacheKey($booking, $actor));
     }
 
+    public function clearForParticipants(Booking $booking): void
+    {
+        Cache::forget($this->cacheKeyForAccount($booking, $booking->user_account_id));
+        Cache::forget($this->cacheKeyForAccount($booking, $booking->therapist_account_id));
+    }
+
     public function counterpartyTypingMeta(Booking $booking, Account $actor): array
     {
         $counterpartyId = $booking->user_account_id === $actor->id

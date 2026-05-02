@@ -43,7 +43,10 @@ export async function fetchBookingInboxThreads(
 }
 
 export function countUnreadBookingInboxMessages(threads: BookingInboxRecord[]): number {
-    return threads.reduce((total, booking) => total + booking.unread_message_count, 0);
+    return threads.reduce(
+        (total, booking) => total + (booking.message_thread.can_view ? booking.unread_message_count : 0),
+        0,
+    );
 }
 
 export function notifyBookingMessageSummaryChanged(): void {

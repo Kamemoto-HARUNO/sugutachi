@@ -287,6 +287,131 @@ class BookingMessageTest extends TestCase
             ->assertNotFound();
     }
 
+    public function test_therapist_can_close_message_thread_and_user_loses_access(): void
+    {
+        [$user, $therapist, $booking] = $this->createMessageFixture();
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/messages", [
+                'body' => '入館方法を確認したいです。',
+            ])
+            ->assertCreated();
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/messages/close")
+            ->assertOk()
+            ->assertJsonPath('data.is_closed', true)
+            ->assertJsonPath('data.can_view', true)
+            ->assertJsonPath('data.can_send', false)
+            ->assertJsonPath('data.can_close', false)
+            ->assertJsonPath('data.closed_by_role', 'therapist');
+
+        $booking->refresh();
+
+        $this->assertNotNull($booking->messages_closed_at);
+        $this->assertSame($therapist->id, $booking->messages_closed_by_account_id);
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->getJson("/api/bookings/{$booking->public_id}/messages")
+            ->assertNotFound();
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/messages", [
+                'body' => 'まだ送れますか？',
+            ])
+            ->assertNotFound();
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/messages/typing", [
+                'is_typing' => true,
+            ])
+            ->assertNotFound();
+    }
+
+    public function test_therapist_can_view_closed_message_thread_but_cannot_send(): void
+    {
+        Storage::fake('local');
+
+        [$user, $therapist, $booking] = $this->createMessageFixture();
+
+        $imageResponse = $this->withToken($user->createToken('api')->plainTextToken)
+            ->withHeaders(['Accept' => 'application/json'])
+            ->post("/api/bookings/{$booking->public_id}/messages", [
+                'image' => UploadedFile::fake()->image('after-close.png', 900, 700),
+            ])
+            ->assertCreated();
+
+        $userAttachmentUrl = $imageResponse->json('data.attachment_url');
+
+        $therapistImageResponse = $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->withHeaders(['Accept' => 'application/json'])
+            ->post("/api/bookings/{$booking->public_id}/messages", [
+                'image' => UploadedFile::fake()->image('therapist-before-close.png', 820, 620),
+            ])
+            ->assertCreated();
+
+        $therapistMessageId = $therapistImageResponse->json('data.id');
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/messages/close")
+            ->assertOk();
+
+        $therapistMessages = $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->getJson("/api/bookings/{$booking->public_id}/messages")
+            ->assertOk()
+            ->assertJsonPath('meta.message_thread.is_closed', true)
+            ->assertJsonPath('meta.message_thread.can_view', true)
+            ->assertJsonPath('meta.message_thread.can_send', false);
+
+        $therapistMessage = collect($therapistMessages->json('data'))
+            ->firstWhere('id', $therapistMessageId);
+
+        $this->assertNotNull($therapistMessage);
+        $this->assertSame(BookingMessage::TYPE_IMAGE, $therapistMessage['message_type']);
+        $this->assertFalse($therapistMessage['can_delete_image']);
+
+        $therapistAttachmentUrl = $therapistMessage['attachment_url'];
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/messages", [
+                'body' => 'クローズ後の返信です。',
+            ])
+            ->assertStatus(409);
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/messages/typing", [
+                'is_typing' => true,
+            ])
+            ->assertStatus(409);
+
+        $this->withToken($therapist->createToken('api')->plainTextToken)
+            ->deleteJson("/api/bookings/{$booking->public_id}/messages/{$therapistMessageId}/image")
+            ->assertStatus(409);
+
+        $userAttachmentPath = parse_url($userAttachmentUrl, PHP_URL_PATH);
+        $userAttachmentQuery = parse_url($userAttachmentUrl, PHP_URL_QUERY);
+        $therapistAttachmentPath = parse_url($therapistAttachmentUrl, PHP_URL_PATH);
+        $therapistAttachmentQuery = parse_url($therapistAttachmentUrl, PHP_URL_QUERY);
+
+        $this->assertNotFalse($userAttachmentPath);
+        $this->assertNotFalse($therapistAttachmentPath);
+
+        $this->get($userAttachmentQuery ? $userAttachmentPath.'?'.$userAttachmentQuery : $userAttachmentPath)
+            ->assertNotFound();
+
+        $this->get($therapistAttachmentQuery ? $therapistAttachmentPath.'?'.$therapistAttachmentQuery : $therapistAttachmentPath)
+            ->assertOk();
+    }
+
+    public function test_user_cannot_close_message_thread(): void
+    {
+        [$user, , $booking] = $this->createMessageFixture();
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/messages/close")
+            ->assertNotFound();
+    }
+
     private function createMessageFixture(): array
     {
         $user = Account::factory()->create(['public_id' => 'acc_user_message']);

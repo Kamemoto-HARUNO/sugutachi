@@ -106,6 +106,41 @@ class BookingListApiTest extends TestCase
             ->assertJsonPath('data.status', Booking::STATUS_EXPIRED);
     }
 
+    public function test_closed_message_thread_is_hidden_from_user_booking_list_and_detail(): void
+    {
+        [$user, $therapist, $scheduledBooking] = $this->createBookingListFixture();
+
+        $scheduledBooking->forceFill([
+            'messages_closed_at' => now(),
+            'messages_closed_by_account_id' => $therapist->id,
+        ])->save();
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->getJson('/api/bookings?role=user&status=requested&request_type=scheduled&sort=scheduled_start_at&direction=asc')
+            ->assertOk()
+            ->assertJsonCount(1, 'data')
+            ->assertJsonPath('data.0.public_id', $scheduledBooking->public_id)
+            ->assertJsonPath('data.0.message_thread.is_closed', true)
+            ->assertJsonPath('data.0.message_thread.closed_by_role', 'therapist')
+            ->assertJsonPath('data.0.message_thread.can_view', false)
+            ->assertJsonPath('data.0.message_thread.can_send', false)
+            ->assertJsonPath('data.0.unread_message_count', 0)
+            ->assertJsonPath('data.0.latest_message_sent_at', null)
+            ->assertJsonPath('data.0.latest_incoming_message_sent_at', null)
+            ->assertJsonPath('data.0.latest_message_summary', null);
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->getJson("/api/bookings/{$scheduledBooking->public_id}")
+            ->assertOk()
+            ->assertJsonPath('data.message_thread.is_closed', true)
+            ->assertJsonPath('data.message_thread.can_view', false)
+            ->assertJsonPath('data.message_thread.can_send', false)
+            ->assertJsonPath('data.unread_message_count', null)
+            ->assertJsonPath('data.latest_message_sent_at', null)
+            ->assertJsonPath('data.latest_incoming_message_sent_at', null)
+            ->assertJsonPath('data.latest_message_summary', null);
+    }
+
     private function createBookingListFixture(): array
     {
         $user = Account::factory()->create([

@@ -315,7 +315,8 @@ class AdminBookingTest extends TestCase
             ->assertJsonPath('data.0.sender.public_id', $user->public_id)
             ->assertJsonPath('data.0.sender.status', Account::STATUS_ACTIVE)
             ->assertJsonPath('data.0.body', 'I am in the hotel lobby.')
-            ->assertJsonPath('data.0.detected_contact_exchange', false);
+            ->assertJsonPath('data.0.detected_contact_exchange', false)
+            ->assertJsonPath('data.0.notes', []);
 
         $this->withToken($admin->createToken('api')->plainTextToken)
             ->getJson("/api/admin/bookings/{$booking->public_id}/messages?sender_account_id={$therapist->public_id}&detected_contact_exchange=1")

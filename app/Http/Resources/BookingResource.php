@@ -13,11 +13,16 @@ class BookingResource extends JsonResource
 {
     public function toArray(Request $request): array
     {
+        $messageThread = $this->messageThreadStateForRole(
+            $this->messageParticipantRoleForAccountId($request->user()?->id)
+        );
+
         return [
             'public_id' => $this->public_id,
             'status' => $this->status,
             'request_type' => $this->is_on_demand ? 'on_demand' : 'scheduled',
             'is_on_demand' => $this->is_on_demand,
+            'is_free_booking' => $this->isFreeBooking(),
             'availability_slot_id' => $this->currentQuote?->input_snapshot_json['availability_slot_id']
                 ?? $this->whenLoaded('availabilitySlot', fn () => $this->availabilitySlot?->public_id),
             'requested_start_at' => $this->requested_start_at,
@@ -92,19 +97,8 @@ class BookingResource extends JsonResource
             'settlement_matching_fee_amount' => $this->settlement_matching_fee_amount,
             'uncaptured_extension_amount' => $this->uncaptured_extension_amount,
             'counterparty' => $this->counterparty($request),
-            'therapist_profile' => $this->whenLoaded('therapistProfile', fn () => $this->therapistProfile ? [
-                'public_id' => $this->therapistProfile->public_id,
-                'public_name' => $this->therapistProfile->public_name,
-            ] : null),
-            'therapist_menu' => $this->whenLoaded('therapistMenu', fn () => $this->therapistMenu ? [
-                'public_id' => $this->therapistMenu->public_id,
-                'name' => $this->therapistMenu->name,
-                'duration_minutes' => $this->therapistMenu->duration_minutes,
-                'minimum_duration_minutes' => $this->therapistMenu->minimum_duration_minutes,
-                'duration_step_minutes' => $this->therapistMenu->duration_step_minutes,
-                'base_price_amount' => $this->therapistMenu->base_price_amount,
-                'hourly_rate_amount' => $this->therapistMenu->hourly_rate_amount,
-            ] : null),
+            'therapist_profile' => $this->therapistProfileSummary(),
+            'therapist_menu' => $this->therapistMenuSummary(),
             'service_address' => $this->whenLoaded('serviceAddress', fn () => $this->serviceAddress
                 ? new ServiceAddressResource($this->serviceAddress)
                 : null),
@@ -116,15 +110,25 @@ class BookingResource extends JsonResource
             'refunds' => $this->whenLoaded('refunds', fn () => BookingRefundResource::collection($this->refunds)),
             'consents' => $this->whenLoaded('consents', fn () => BookingConsentResource::collection($this->consents)),
             'health_checks' => $this->whenLoaded('healthChecks', fn () => BookingHealthCheckResource::collection($this->healthChecks)),
-            'unread_message_count' => $this->when(isset($this->unread_message_count), fn () => $this->unread_message_count),
+            'message_thread' => $messageThread,
+            'unread_message_count' => $this->when(
+                isset($this->unread_message_count),
+                fn () => $messageThread['can_view'] ? $this->unread_message_count : 0
+            ),
             'refund_count' => $this->when(isset($this->refunds_count), fn () => $this->refunds_count),
             'open_report_count' => $this->when(isset($this->open_report_count), fn () => $this->open_report_count),
-            'latest_message_sent_at' => $this->when(isset($this->latest_message_sent_at), fn () => $this->latest_message_sent_at),
+            'latest_message_sent_at' => $this->when(
+                isset($this->latest_message_sent_at),
+                fn () => $messageThread['can_view'] ? $this->latest_message_sent_at : null,
+            ),
             'latest_incoming_message_sent_at' => $this->when(
                 isset($this->latest_incoming_message_sent_at),
-                fn () => $this->latest_incoming_message_sent_at,
+                fn () => $messageThread['can_view'] ? $this->latest_incoming_message_sent_at : null,
             ),
-            'latest_message_summary' => $this->whenLoaded('latestMessage', fn () => $this->latestMessageSummary()),
+            'latest_message_summary' => $this->whenLoaded(
+                'latestMessage',
+                fn () => $messageThread['can_view'] ? $this->latestMessageSummary() : null
+            ),
             'created_at' => $this->created_at,
         ];
     }
@@ -154,6 +158,62 @@ class BookingResource extends JsonResource
                 default => null,
             },
             'is_deleted' => $isDeletedImage,
+        ];
+    }
+
+    private function therapistProfileSummary(): ?array
+    {
+        if ($this->relationLoaded('therapistProfile') && $this->therapistProfile) {
+            return [
+                'public_id' => $this->therapistProfile->public_id,
+                'public_name' => $this->therapistProfile->public_name,
+            ];
+        }
+
+        $publicId = data_get($this->therapist_snapshot_json, 'therapist_profile_public_id');
+        $publicName = data_get($this->therapist_snapshot_json, 'therapist_public_name');
+
+        if (! $publicId && ! $publicName) {
+            return null;
+        }
+
+        return [
+            'public_id' => $publicId,
+            'public_name' => $publicName,
+        ];
+    }
+
+    private function therapistMenuSummary(): ?array
+    {
+        if ($this->relationLoaded('therapistMenu') && $this->therapistMenu) {
+            return [
+                'public_id' => $this->therapistMenu->public_id,
+                'name' => $this->therapistMenu->name,
+                'duration_minutes' => $this->therapistMenu->duration_minutes,
+                'minimum_duration_minutes' => $this->therapistMenu->minimum_duration_minutes,
+                'duration_step_minutes' => $this->therapistMenu->duration_step_minutes,
+                'base_price_amount' => $this->therapistMenu->base_price_amount,
+                'hourly_rate_amount' => $this->therapistMenu->hourly_rate_amount,
+                'is_free' => (bool) $this->therapistMenu->is_free,
+            ];
+        }
+
+        $publicId = data_get($this->therapist_snapshot_json, 'menu_public_id');
+        $name = data_get($this->therapist_snapshot_json, 'menu_name');
+
+        if (! $publicId && ! $name) {
+            return null;
+        }
+
+        return [
+            'public_id' => $publicId,
+            'name' => $name,
+            'duration_minutes' => $this->duration_minutes,
+            'minimum_duration_minutes' => data_get($this->therapist_snapshot_json, 'menu_minimum_duration_minutes', $this->duration_minutes),
+            'duration_step_minutes' => data_get($this->therapist_snapshot_json, 'menu_duration_step_minutes'),
+            'base_price_amount' => data_get($this->therapist_snapshot_json, 'menu_base_price_amount'),
+            'hourly_rate_amount' => data_get($this->therapist_snapshot_json, 'menu_hourly_rate_amount'),
+            'is_free' => (bool) data_get($this->therapist_snapshot_json, 'menu_is_free', false),
         ];
     }
 

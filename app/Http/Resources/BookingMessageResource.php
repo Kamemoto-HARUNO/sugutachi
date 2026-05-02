@@ -13,6 +13,18 @@ class BookingMessageResource extends JsonResource
     {
         $viewerAccountId = $this->resource->getAttribute('viewer_account_id') ?? $request->user()?->id;
         $isDeleted = $this->message_type === 'image' && ! $this->attachment_storage_key_encrypted;
+        $viewerRole = $this->relationLoaded('booking') && $this->booking
+            ? $this->booking->messageParticipantRoleForAccountId($viewerAccountId)
+            : null;
+        $canDeleteImage = ! $isDeleted
+            && $this->message_type === 'image'
+            && $viewerAccountId !== null
+            && $this->sender_account_id === $viewerAccountId
+            && (
+                ! $this->relationLoaded('booking')
+                || ! $this->booking
+                || $this->booking->canSendMessagesForRole($viewerRole)
+            );
 
         return [
             'id' => $this->id,
@@ -35,16 +47,14 @@ class BookingMessageResource extends JsonResource
                 fn () => URL::temporarySignedRoute('booking-messages.signed-file', now()->addMinutes(30), [
                     'booking' => $this->booking->public_id,
                     'message' => $this->id,
+                    'viewer_role' => $viewerRole,
                 ]),
             ),
             'attachment_original_name' => $this->attachment_original_name,
             'attachment_mime_type' => $this->attachment_mime_type,
             'attachment_size_bytes' => $this->attachment_size_bytes,
             'is_deleted' => $isDeleted,
-            'can_delete_image' => ! $isDeleted
-                && $this->message_type === 'image'
-                && $viewerAccountId !== null
-                && $this->sender_account_id === $viewerAccountId,
+            'can_delete_image' => $canDeleteImage,
             'detected_contact_exchange' => $this->detected_contact_exchange,
             'moderation_status' => $this->moderation_status,
             'is_own' => $viewerAccountId !== null ? $this->sender_account_id === $viewerAccountId : null,

@@ -158,7 +158,7 @@ export function BookingMessagesPage() {
     }, [availableInboxRoles, token]);
 
     const threads = [...bookings]
-        .filter((booking) => booking.latest_message_summary || booking.latest_message_sent_at)
+        .filter((booking) => booking.message_thread.can_view && (booking.latest_message_summary || booking.latest_message_sent_at))
         .sort((left, right) => {
             const difference = threadTimestamp(right) - threadTimestamp(left);
 

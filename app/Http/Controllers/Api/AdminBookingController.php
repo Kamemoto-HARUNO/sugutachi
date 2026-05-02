@@ -234,7 +234,7 @@ class AdminBookingController extends Controller
         $moderatedByAdminId = $this->resolveAccountId($validated['moderated_by_admin_account_id'] ?? null);
 
         $messages = $booking->messages()
-            ->with(['booking', 'sender', 'moderatedByAdmin'])
+            ->with(['booking', 'sender', 'moderatedByAdmin', 'adminNotes.author'])
             ->withCount([
                 'adminNotes',
                 'sourceReports as open_report_count' => fn ($query) => $query->where('status', Report::STATUS_OPEN),

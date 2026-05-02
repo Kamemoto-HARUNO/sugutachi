@@ -40,6 +40,89 @@ class Booking extends Model
 
     public const STATUS_COMPLETED = 'completed';
 
+    public function isFreeBooking(): bool
+    {
+        $snapshotValue = data_get($this->therapist_snapshot_json, 'menu_is_free');
+
+        if ($snapshotValue !== null) {
+            return (bool) $snapshotValue;
+        }
+
+        if ($this->relationLoaded('currentQuote') && $this->currentQuote) {
+            $quoteSnapshotValue = data_get($this->currentQuote->input_snapshot_json, 'is_free_menu');
+
+            if ($quoteSnapshotValue !== null) {
+                return (bool) $quoteSnapshotValue;
+            }
+        }
+
+        if ($this->relationLoaded('therapistMenu') && $this->therapistMenu) {
+            return (bool) $this->therapistMenu->is_free;
+        }
+
+        return (int) $this->total_amount === 0
+            && (int) $this->therapist_net_amount === 0
+            && (int) $this->platform_fee_amount === 0
+            && (int) $this->matching_fee_amount === 0;
+    }
+
+    public function isMessageThreadClosed(): bool
+    {
+        return $this->messages_closed_at !== null;
+    }
+
+    public function messageParticipantRoleForAccountId(?int $accountId): ?string
+    {
+        return match ($accountId) {
+            null => null,
+            $this->user_account_id => 'user',
+            $this->therapist_account_id => 'therapist',
+            default => null,
+        };
+    }
+
+    public function messageThreadClosedByRole(): ?string
+    {
+        return match ($this->messages_closed_by_account_id) {
+            null => null,
+            $this->user_account_id => 'user',
+            $this->therapist_account_id => 'therapist',
+            default => 'admin',
+        };
+    }
+
+    public function canViewMessageThreadForRole(?string $role): bool
+    {
+        return match ($role) {
+            'user' => ! $this->isMessageThreadClosed(),
+            'therapist', 'admin' => true,
+            default => false,
+        };
+    }
+
+    public function canSendMessagesForRole(?string $role): bool
+    {
+        return ! $this->isMessageThreadClosed()
+            && in_array($role, ['user', 'therapist'], true);
+    }
+
+    public function canCloseMessageThreadForRole(?string $role): bool
+    {
+        return $role === 'therapist' && ! $this->isMessageThreadClosed();
+    }
+
+    public function messageThreadStateForRole(?string $role): array
+    {
+        return [
+            'is_closed' => $this->isMessageThreadClosed(),
+            'closed_at' => $this->messages_closed_at,
+            'closed_by_role' => $this->messageThreadClosedByRole(),
+            'can_view' => $this->canViewMessageThreadForRole($role),
+            'can_send' => $this->canSendMessagesForRole($role),
+            'can_close' => $this->canCloseMessageThreadForRole($role),
+        ];
+    }
+
     public function hasPendingTherapistAdjustment(): bool
     {
         return $this->therapist_adjustment_proposed_at !== null
@@ -123,6 +206,11 @@ class Booking extends Model
     public function canceledBy(): BelongsTo
     {
         return $this->belongsTo(Account::class, 'canceled_by_account_id');
+    }
+
+    public function messagesClosedBy(): BelongsTo
+    {
+        return $this->belongsTo(Account::class, 'messages_closed_by_account_id');
     }
 
     public function quotes(): HasMany
@@ -233,6 +321,7 @@ class Booking extends Model
             'completion_confirmation_reminder_sent_at' => 'datetime',
             'canceled_at' => 'datetime',
             'interrupted_at' => 'datetime',
+            'messages_closed_at' => 'datetime',
             'pending_no_show_reported_at' => 'datetime',
             'user_snapshot_json' => 'array',
             'therapist_snapshot_json' => 'array',

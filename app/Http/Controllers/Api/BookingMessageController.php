@@ -29,7 +29,7 @@ class BookingMessageController extends Controller
     ): AnonymousResourceCollection
     {
         $actor = $this->authenticatedActor($request);
-        $this->authorizeParticipant($booking, $actor);
+        $this->authorizeMessageThreadView($booking, $actor);
         $validated = $request->validate([
             'read_status' => ['nullable', Rule::in(['read', 'unread'])],
         ]);
@@ -61,6 +61,9 @@ class BookingMessageController extends Controller
                 'counterparty_typing' => $counterpartyTyping['is_typing'],
                 'counterparty_typing_updated_at' => $counterpartyTyping['updated_at'],
                 'counterparty' => $this->counterparty($booking, $actor),
+                'message_thread' => $booking->messageThreadStateForRole(
+                    $booking->messageParticipantRoleForAccountId($actor->id)
+                ),
                 'filters' => [
                     'read_status' => $validated['read_status'] ?? null,
                 ],
@@ -77,7 +80,7 @@ class BookingMessageController extends Controller
     ): JsonResponse
     {
         $actor = $this->authenticatedActor($request);
-        $this->authorizeParticipant($booking, $actor);
+        $this->authorizeMessageThreadWrite($booking, $actor);
 
         $validated = $request->validate([
             'body' => ['nullable', 'string', 'max:1000'],
@@ -133,11 +136,46 @@ class BookingMessageController extends Controller
             ->setStatusCode(201);
     }
 
+    public function close(
+        Request $request,
+        Booking $booking,
+        BookingMessageTypingService $bookingMessageTypingService,
+    ): JsonResponse {
+        $actor = $this->authenticatedActor($request);
+        $this->authorizeParticipant($booking, $actor);
+        abort_unless($booking->therapist_account_id === $actor->id, 404);
+
+        if ($booking->isMessageThreadClosed()) {
+            return response()->json([
+                'message' => 'このチャットはすでにクローズされています。',
+            ], 409);
+        }
+
+        $booking->forceFill([
+            'messages_closed_at' => now(),
+            'messages_closed_by_account_id' => $actor->id,
+        ])->save();
+
+        $bookingMessageTypingService->clearForParticipants($booking);
+
+        return response()->json([
+            'data' => $booking->messageThreadStateForRole(
+                $booking->messageParticipantRoleForAccountId($actor->id)
+            ),
+        ]);
+    }
+
     public function showSigned(Request $request, Booking $booking, BookingMessage $message): StreamedResponse
     {
         abort_unless($request->hasValidSignature(), 403);
         abort_unless($message->booking_id === $booking->id, 404);
         abort_unless($message->attachment_storage_key_encrypted, 404);
+
+        $viewerRole = $request->query('viewer_role');
+
+        if ($booking->isMessageThreadClosed() && ! in_array($viewerRole, ['therapist', 'admin'], true)) {
+            abort(404);
+        }
 
         return $this->attachmentResponse($message, 'private, max-age=300');
     }
@@ -145,7 +183,7 @@ class BookingMessageController extends Controller
     public function destroyImage(Request $request, Booking $booking, BookingMessage $message): BookingMessageResource
     {
         $actor = $this->authenticatedActor($request);
-        $this->authorizeParticipant($booking, $actor);
+        $this->authorizeMessageThreadWrite($booking, $actor);
         abort_unless($message->booking_id === $booking->id, 404);
         abort_unless($message->sender_account_id === $actor->id, 403);
 
@@ -183,7 +221,7 @@ class BookingMessageController extends Controller
     ): JsonResponse
     {
         $actor = $this->authenticatedActor($request);
-        $this->authorizeParticipant($booking, $actor);
+        $this->authorizeMessageThreadWrite($booking, $actor);
 
         $validated = $request->validate([
             'is_typing' => ['required', 'boolean'],
@@ -206,7 +244,7 @@ class BookingMessageController extends Controller
     public function read(Request $request, Booking $booking, BookingMessage $message): BookingMessageResource
     {
         $actor = $this->authenticatedActor($request);
-        $this->authorizeParticipant($booking, $actor);
+        $this->authorizeMessageThreadView($booking, $actor);
         abort_unless($message->booking_id === $booking->id, 404);
 
         if (! $message->read_at && $message->sender_account_id !== $actor->id) {
@@ -225,6 +263,31 @@ class BookingMessageController extends Controller
             $booking->user_account_id === $actor->id || $booking->therapist_account_id === $actor->id,
             404
         );
+    }
+
+    private function authorizeMessageThreadView(Booking $booking, Account $actor): void
+    {
+        $this->authorizeParticipant($booking, $actor);
+
+        abort_unless(
+            $booking->canViewMessageThreadForRole($booking->messageParticipantRoleForAccountId($actor->id)),
+            404
+        );
+    }
+
+    private function authorizeMessageThreadWrite(Booking $booking, Account $actor): void
+    {
+        $this->authorizeParticipant($booking, $actor);
+
+        $role = $booking->messageParticipantRoleForAccountId($actor->id);
+
+        if ($booking->isMessageThreadClosed() && $role === 'user') {
+            abort(404);
+        }
+
+        if (! $booking->canSendMessagesForRole($role)) {
+            abort(409, 'このチャットはクローズ済みのため新しいメッセージを送れません。');
+        }
     }
 
     private function authenticatedActor(Request $request): Account

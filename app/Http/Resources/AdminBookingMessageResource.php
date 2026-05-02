@@ -31,6 +31,7 @@ class AdminBookingMessageResource extends JsonResource
                 fn () => URL::temporarySignedRoute('booking-messages.signed-file', now()->addMinutes(30), [
                     'booking' => $this->booking->public_id,
                     'message' => $this->id,
+                    'viewer_role' => 'admin',
                 ]),
             ),
             'attachment_original_name' => $this->attachment_original_name,

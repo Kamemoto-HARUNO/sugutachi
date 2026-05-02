@@ -558,6 +558,7 @@ export interface TherapistMenu {
     duration_step_minutes: number;
     base_price_amount: number;
     hourly_rate_amount: number;
+    is_free: boolean;
     is_active: boolean;
     sort_order: number;
     estimated_total_amount: number | null;
@@ -1032,6 +1033,7 @@ export interface BookingQuoteRecord {
     quote_id: string;
     expires_at: string | null;
     is_on_demand: boolean;
+    is_free: boolean;
     requested_start_at: string | null;
     availability_slot_id: string | null;
     travel_mode: 'walking' | 'bicycle' | 'transit' | 'car' | null;
@@ -1077,6 +1079,7 @@ export interface BookingTherapistMenuSummary {
     name: string;
     duration_minutes: number;
     base_price_amount: number;
+    is_free: boolean;
     minimum_duration_minutes?: number | null;
     duration_step_minutes?: number | null;
     hourly_rate_amount?: number | null;
@@ -1103,6 +1106,7 @@ export interface BookingListRecord {
     status: string;
     request_type: 'on_demand' | 'scheduled';
     is_on_demand: boolean;
+    is_free_booking: boolean;
     availability_slot_id: string | null;
     requested_start_at: string | null;
     scheduled_start_at: string | null;
@@ -1146,6 +1150,7 @@ export interface BookingListRecord {
     unread_message_count: number;
     refund_count: number;
     open_report_count: number;
+    message_thread: BookingMessageThreadState;
     latest_message_sent_at: string | null;
     latest_incoming_message_sent_at: string | null;
     latest_message_summary: BookingLatestMessageSummary | null;
@@ -1158,6 +1163,15 @@ export interface BookingLatestMessageSummary {
     sent_at: string | null;
     sender_role: string | null;
     is_deleted: boolean;
+}
+
+export interface BookingMessageThreadState {
+    is_closed: boolean;
+    closed_at: string | null;
+    closed_by_role: string | null;
+    can_view: boolean;
+    can_send: boolean;
+    can_close: boolean;
 }
 
 export interface BookingCanceledByAccount {
@@ -1320,6 +1334,7 @@ export interface BookingMessagesMeta {
     counterparty_typing: boolean;
     counterparty_typing_updated_at: string | null;
     counterparty: BookingCounterparty | null;
+    message_thread: BookingMessageThreadState;
     filters: {
         read_status: 'read' | 'unread' | null;
     };
@@ -1475,8 +1490,17 @@ export interface AdminAccountRoleRecord {
 export interface AdminAccountIdentitySummary {
     status: string;
     is_age_verified: boolean;
+    document_type?: string | null;
+    document_file_url?: string | null;
+    selfie_file_url?: string | null;
     submitted_at: string | null;
+    reviewed_by?: {
+        public_id: string | null;
+        display_name: string | null;
+    } | null;
     reviewed_at: string | null;
+    rejection_reason_code?: string | null;
+    purge_after?: string | null;
 }
 
 export interface AdminAccountUserProfileSummary {
