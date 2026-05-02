@@ -7,8 +7,6 @@ use Carbon\CarbonInterface;
 use Illuminate\Database\Eloquent\Attributes\Guarded;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Illuminate\Support\Facades\Storage;
-
 #[Guarded(['id'])]
 class Banner extends Model
 {
@@ -122,7 +120,7 @@ class Banner extends Model
 
     public function imageUrl(): string
     {
-        return Storage::disk('public')->url($this->image_path);
+        return route('banners.image', ['banner' => $this->public_id], false);
     }
 
     public static function placementOptions(): array

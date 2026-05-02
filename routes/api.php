@@ -76,6 +76,8 @@ Route::get('/legal-documents', [LegalDocumentController::class, 'index']);
 Route::get('/legal-documents/{type}', [LegalDocumentController::class, 'showLatest']);
 Route::get('/service-meta', [ServiceMetaController::class, 'show']);
 Route::get('/banners', [BannerController::class, 'index']);
+Route::get('/banners/{banner:public_id}/image', [BannerController::class, 'showImage'])
+    ->name('banners.image');
 Route::post('/banners/{banner:public_id}/impressions', [BannerController::class, 'trackImpression']);
 Route::post('/banners/{banner:public_id}/clicks', [BannerController::class, 'trackClick']);
 Route::get('/help/faqs', [HelpFaqController::class, 'index']);

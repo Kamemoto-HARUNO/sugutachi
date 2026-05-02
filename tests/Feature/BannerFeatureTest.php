@@ -41,10 +41,12 @@ class BannerFeatureTest extends TestCase
             ->assertJsonPath('data.viewer_segments.1', 'user');
 
         $bannerPublicId = (string) $createResponse->json('data.public_id');
+        $this->assertSame("/api/banners/{$bannerPublicId}/image", $createResponse->json('data.image_url'));
         $banner = Banner::query()->where('public_id', $bannerPublicId)->firstOrFail();
         $originalImagePath = $banner->image_path;
 
         Storage::disk('public')->assertExists($originalImagePath);
+        $this->get("/api/banners/{$bannerPublicId}/image")->assertOk();
 
         $this->withToken($token)
             ->getJson('/api/admin/banners?placement=home&viewer_segment=guest&status=published')

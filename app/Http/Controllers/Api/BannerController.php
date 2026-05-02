@@ -9,7 +9,9 @@ use App\Models\Banner;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
+use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
+use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class BannerController extends Controller
 {
@@ -48,6 +50,22 @@ class BannerController extends Controller
         }
 
         return response()->json(null, 204);
+    }
+
+    public function showImage(Banner $banner): StreamedResponse
+    {
+        abort_unless(
+            $banner->image_path && Storage::disk('public')->exists($banner->image_path),
+            404
+        );
+
+        return Storage::disk('public')->response(
+            $banner->image_path,
+            $banner->image_original_name ?? basename($banner->image_path),
+            [
+                'Cache-Control' => 'public, max-age=3600',
+            ],
+        );
     }
 
     private function validatePlacement(Request $request): string
