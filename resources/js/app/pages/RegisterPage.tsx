@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useLocation, useNavigate, useSearchParams } from 'react-router-dom';
 import { BrandMark } from '../components/brand/BrandMark';
+import { PasswordField } from '../components/forms/PasswordField';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
@@ -242,11 +243,6 @@ export function RegisterPage() {
                             ))}
                         </div>
 
-                        {returnTo ? (
-                            <div className="rounded-[24px] border border-white/10 bg-white/6 px-5 py-4 text-sm leading-7 text-[#d8d3ca]">
-                                登録後は、さっき見ていた画面に戻ります。
-                            </div>
-                        ) : null}
                     </div>
                 </section>
 
@@ -299,7 +295,6 @@ export function RegisterPage() {
                                         autoComplete="tel-national"
                                         placeholder="08012345678"
                                     />
-                                    <p className="text-xs leading-6 text-[#68707a]">数字のみ入力してください。国番号の入力は不要です。</p>
                                 </label>
                             </div>
 
@@ -317,30 +312,24 @@ export function RegisterPage() {
                             </label>
 
                             <div className="grid gap-4 md:grid-cols-2">
-                                <label className="space-y-2">
-                                    <span className="text-sm font-semibold">パスワード</span>
-                                    <input
-                                        type="password"
-                                        value={password}
-                                        onChange={(event) => setPassword(event.target.value)}
-                                        className="w-full rounded-[18px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 text-sm outline-none transition focus:border-[#c6a16a]"
-                                        placeholder="10文字以上"
-                                        autoComplete="new-password"
-                                        required
-                                    />
-                                </label>
-                                <label className="space-y-2">
-                                    <span className="text-sm font-semibold">パスワード確認</span>
-                                    <input
-                                        type="password"
-                                        value={passwordConfirmation}
-                                        onChange={(event) => setPasswordConfirmation(event.target.value)}
-                                        className="w-full rounded-[18px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 text-sm outline-none transition focus:border-[#c6a16a]"
-                                        placeholder="もう一度入力"
-                                        autoComplete="new-password"
-                                        required
-                                    />
-                                </label>
+                                <PasswordField
+                                    id="register-password"
+                                    label="パスワード"
+                                    value={password}
+                                    onChange={(event) => setPassword(event.target.value)}
+                                    placeholder="10文字以上"
+                                    autoComplete="new-password"
+                                    required
+                                />
+                                <PasswordField
+                                    id="register-password-confirmation"
+                                    label="パスワード確認"
+                                    value={passwordConfirmation}
+                                    onChange={(event) => setPasswordConfirmation(event.target.value)}
+                                    placeholder="もう一度入力"
+                                    autoComplete="new-password"
+                                    required
+                                />
                             </div>
 
                             <div className="rounded-[24px] bg-[#f6f1e7] p-5">
@@ -363,7 +352,8 @@ export function RegisterPage() {
                                             <Link to="/terms" className="font-semibold text-[#9a7a49] underline underline-offset-4">
                                                 利用規約
                                             </Link>
-                                            {termsDocument ? `（v${termsDocument.version}）` : ' の最新版'} に同意します
+                                            {' '}
+                                            に同意します
                                         </span>
                                     </label>
                                     <label className="flex items-start gap-3 text-sm text-[#17202b]">
@@ -372,7 +362,8 @@ export function RegisterPage() {
                                             <Link to="/privacy" className="font-semibold text-[#9a7a49] underline underline-offset-4">
                                                 プライバシーポリシー
                                             </Link>
-                                            {privacyDocument ? `（v${privacyDocument.version}）` : ' の最新版'} に同意します
+                                            {' '}
+                                            に同意します
                                         </span>
                                     </label>
                                     <label className="flex items-start gap-3 text-sm text-[#17202b]">
