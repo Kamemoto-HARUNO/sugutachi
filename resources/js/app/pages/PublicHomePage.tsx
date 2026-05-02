@@ -624,7 +624,7 @@ export function PublicHomePage() {
                 </div>
             ) : null}
 
-            <BannerPlacementSection placement="home" className="px-4 pb-12 sm:px-6 lg:px-8" />
+            <BannerPlacementSection placement="home" className="pb-12" />
 
             <DiscoveryFooter
                 domain={serviceMeta?.domain ?? 'sugutachi.com'}

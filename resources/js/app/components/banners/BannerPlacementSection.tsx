@@ -33,7 +33,7 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
     const resolvedIndex = count <= 1 ? 0 : ((activeIndex - 1 + count) % count + count) % count;
     const activeBanner = banners[resolvedIndex] ?? null;
     const resolvedViewportWidth = viewportWidth || 1040;
-    const viewportPadding = count > 1 ? Math.max(16, Math.min(40, resolvedViewportWidth * 0.028)) : 0;
+    const viewportPadding = count > 1 ? Math.max(0, Math.min(8, resolvedViewportWidth * 0.008)) : 0;
     const availableWidth = Math.max(0, resolvedViewportWidth - viewportPadding * 2);
     const slideGap = count > 1 ? Math.max(10, Math.min(20, resolvedViewportWidth * 0.018)) : 0;
     const slideWidth = count > 1
@@ -215,7 +215,7 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
     return (
         <div
             ref={containerRef}
-            className="mx-auto w-full max-w-[1280px]"
+            className="mx-auto w-full"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
@@ -225,6 +225,7 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
                     style={{
                         gap: `${slideGap}px`,
                         transform: `translateX(${translateX}px)`,
+                        touchAction: 'pan-y',
                         transition: isDragging || !isTransitionEnabled ? 'none' : 'transform 360ms ease',
                     }}
                     onPointerDown={handlePointerDown}

@@ -1887,7 +1887,7 @@ export function UserTherapistDetailPage() {
                 </div>
             ) : null}
 
-            <BannerPlacementSection placement="therapist_detail" className="px-4 pb-12 sm:px-6 lg:px-8" />
+            <BannerPlacementSection placement="therapist_detail" className="pb-12" />
 
             <DiscoveryFooter
                 domain={serviceMeta?.domain ?? 'sugutachi.com'}
