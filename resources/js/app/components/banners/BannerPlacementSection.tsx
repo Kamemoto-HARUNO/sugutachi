@@ -14,7 +14,6 @@ interface DragState {
 }
 
 function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
-    const trackRef = useRef<HTMLDivElement | null>(null);
     const containerRef = useRef<HTMLDivElement | null>(null);
     const dragStateRef = useRef<DragState | null>(null);
     const trackedBannerIdsRef = useRef<Set<string>>(new Set());
@@ -25,6 +24,7 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
     const [isInView, setIsInView] = useState(false);
     const [isTransitionEnabled, setIsTransitionEnabled] = useState(banners.length > 1);
     const [activeIndex, setActiveIndex] = useState(banners.length > 1 ? 1 : 0);
+    const [viewportWidth, setViewportWidth] = useState(0);
     const count = banners.length;
     const loopedBanners = useMemo(
         () => (count > 1 ? [banners[count - 1], ...banners, banners[0]] : banners),
@@ -32,6 +32,15 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
     );
     const resolvedIndex = count <= 1 ? 0 : ((activeIndex - 1 + count) % count + count) % count;
     const activeBanner = banners[resolvedIndex] ?? null;
+    const resolvedViewportWidth = viewportWidth || 1040;
+    const slideGap = count > 1 ? Math.max(10, Math.min(20, resolvedViewportWidth * 0.018)) : 0;
+    const preferredPeek = count > 1 ? Math.max(24, Math.min(72, resolvedViewportWidth * 0.09)) : 0;
+    const slideWidth = Math.min(
+        900,
+        Math.max(resolvedViewportWidth - preferredPeek * 2, Math.min(240, resolvedViewportWidth)),
+    );
+    const sideInset = Math.max(0, (resolvedViewportWidth - slideWidth) / 2);
+    const translateX = sideInset - activeIndex * (slideWidth + slideGap) + dragOffsetX;
 
     useEffect(() => {
         setIsTransitionEnabled(count > 1);
@@ -39,6 +48,38 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
         setDragOffsetX(0);
         trackedBannerIdsRef.current.clear();
     }, [count, banners]);
+
+    useEffect(() => {
+        const element = containerRef.current;
+
+        if (!element) {
+            return;
+        }
+
+        const updateWidth = () => {
+            setViewportWidth(element.clientWidth);
+        };
+
+        updateWidth();
+
+        if (typeof ResizeObserver === 'undefined') {
+            window.addEventListener('resize', updateWidth);
+
+            return () => {
+                window.removeEventListener('resize', updateWidth);
+            };
+        }
+
+        const observer = new ResizeObserver(() => {
+            updateWidth();
+        });
+
+        observer.observe(element);
+
+        return () => {
+            observer.disconnect();
+        };
+    }, []);
 
     useEffect(() => {
         const element = containerRef.current;
@@ -92,16 +133,6 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
         };
     }, [count, isDragging, isHovered]);
 
-    const navigate = (direction: -1 | 1) => {
-        if (count <= 1) {
-            return;
-        }
-
-        setIsTransitionEnabled(true);
-        setActiveIndex((current) => current + direction);
-        setDragOffsetX(0);
-    };
-
     const finishDrag = (pointerId: number, pointerTarget: HTMLDivElement | null) => {
         if (dragStateRef.current?.pointerId !== pointerId) {
             return;
@@ -109,7 +140,7 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
 
         pointerTarget?.releasePointerCapture(pointerId);
 
-        const threshold = Math.min(90, Math.max(48, (containerRef.current?.clientWidth ?? 320) * 0.14));
+        const threshold = Math.min(90, Math.max(48, slideWidth * 0.16));
         const shouldMove = Math.abs(dragOffsetX) >= threshold;
         const shouldSuppressClick = Math.abs(dragOffsetX) > 8;
 
@@ -176,16 +207,16 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
     return (
         <div
             ref={containerRef}
-            className="mx-auto w-full max-w-[960px]"
+            className="mx-auto w-full max-w-[1040px]"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            <div className="relative overflow-hidden rounded-[30px]">
+            <div className="overflow-hidden">
                 <div
-                    ref={trackRef}
-                    className="flex touch-pan-y"
+                    className={`flex touch-pan-y ${count > 1 ? 'cursor-grab active:cursor-grabbing' : ''}`}
                     style={{
-                        transform: `translateX(calc(-${activeIndex * 100}% + ${dragOffsetX}px))`,
+                        gap: `${slideGap}px`,
+                        transform: `translateX(${translateX}px)`,
                         transition: isDragging || !isTransitionEnabled ? 'none' : 'transform 360ms ease',
                     }}
                     onPointerDown={handlePointerDown}
@@ -195,7 +226,11 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
                     onTransitionEnd={handleTransitionEnd}
                 >
                     {loopedBanners.map((banner, index) => (
-                        <div key={`${banner.public_id}-${index}`} className="min-w-full px-1">
+                        <div
+                            key={`${banner.public_id}-${index}`}
+                            className="shrink-0"
+                            style={{ width: `${slideWidth}px` }}
+                        >
                             <a
                                 href={banner.link_url}
                                 target="_blank"
@@ -210,39 +245,18 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
 
                                     trackBannerClick(banner.public_id);
                                 }}
-                                className="group flex justify-center overflow-hidden rounded-[30px] border border-[#ddd4c5] bg-white shadow-[0_16px_36px_rgba(15,23,42,0.14)] transition hover:-translate-y-0.5 hover:shadow-[0_22px_44px_rgba(15,23,42,0.18)]"
+                                className="group block overflow-hidden rounded-[28px]"
                             >
                                 <img
                                     src={banner.image_url}
                                     alt={banner.title}
-                                    className="mx-auto block h-auto w-full max-w-[900px] object-contain"
+                                    className="mx-auto block h-auto w-full rounded-[28px] object-contain"
                                     draggable={false}
                                 />
                             </a>
                         </div>
                     ))}
                 </div>
-
-                {count > 1 ? (
-                    <>
-                        <button
-                            type="button"
-                            onClick={() => navigate(-1)}
-                            className="absolute left-3 top-1/2 z-10 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[rgba(23,32,43,0.76)] text-2xl font-semibold text-white transition hover:bg-[rgba(23,32,43,0.92)]"
-                            aria-label="前のバナーへ"
-                        >
-                            ‹
-                        </button>
-                        <button
-                            type="button"
-                            onClick={() => navigate(1)}
-                            className="absolute right-3 top-1/2 z-10 inline-flex h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-[rgba(23,32,43,0.76)] text-2xl font-semibold text-white transition hover:bg-[rgba(23,32,43,0.92)]"
-                            aria-label="次のバナーへ"
-                        >
-                            ›
-                        </button>
-                    </>
-                ) : null}
             </div>
         </div>
     );
