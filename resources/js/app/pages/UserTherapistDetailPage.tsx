@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
 import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { BannerPlacementSection } from '../components/banners/BannerPlacementSection';
 import { DiscoveryFooter } from '../components/discovery/DiscoveryFooter';
 import { StickyHeroHeader, type StickyHeroHeaderAction } from '../components/discovery/StickyHeroHeader';
 import { LoadingScreen } from '../components/LoadingScreen';
@@ -1885,6 +1886,8 @@ export function UserTherapistDetailPage() {
                     </div>
                 </div>
             ) : null}
+
+            <BannerPlacementSection placement="therapist_detail" className="px-4 pb-12 sm:px-6 lg:px-8" />
 
             <DiscoveryFooter
                 domain={serviceMeta?.domain ?? 'sugutachi.com'}

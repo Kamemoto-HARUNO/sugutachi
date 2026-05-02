@@ -7,6 +7,7 @@ import { DiscoveryHeroShell } from '../components/discovery/DiscoveryHeroShell';
 import { DiscoverySearchPanel } from '../components/discovery/DiscoverySearchPanel';
 import { DiscoverySortBar } from '../components/discovery/DiscoverySortBar';
 import { TherapistDiscoveryGrid } from '../components/discovery/TherapistDiscoveryGrid';
+import { BannerPlacementSection } from '../components/banners/BannerPlacementSection';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
@@ -622,6 +623,8 @@ export function PublicHomePage() {
                     </div>
                 </div>
             ) : null}
+
+            <BannerPlacementSection placement="home" className="px-4 pb-12 sm:px-6 lg:px-8" />
 
             <DiscoveryFooter
                 domain={serviceMeta?.domain ?? 'sugutachi.com'}

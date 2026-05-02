@@ -4,6 +4,7 @@ import { RoleModeSwitcher } from '../components/account/RoleModeSwitcher';
 import { BrandMark } from '../components/brand/BrandMark';
 import { BookingMessagesLink } from '../components/messages/BookingMessagesLink';
 import { NotificationBellLink } from '../components/notifications/NotificationBellLink';
+import { BannerPlacementSection } from '../components/banners/BannerPlacementSection';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatRoleLabel } from '../lib/account';
 import type { ApiEnvelope, NavItem, PublicCampaignRecord, RoleName, ServiceMeta } from '../lib/types';
@@ -441,6 +442,8 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
                 <main className="w-full">
                     <Outlet />
                 </main>
+
+                <BannerPlacementSection placement="dashboard" className="pt-2" />
             </div>
         </div>
     );

@@ -1,4 +1,8 @@
 export type RoleName = 'user' | 'therapist' | 'admin';
+export type BannerPlacement = 'home' | 'therapist_detail' | 'dashboard';
+export type BannerViewerSegment = 'guest' | 'user' | 'therapist';
+export type BannerStatus = 'draft' | 'hidden' | 'published';
+export type BannerPublicationState = 'draft' | 'hidden' | 'scheduled' | 'expired' | 'visible';
 
 export interface RoleAssignment {
     role: string;
@@ -49,6 +53,14 @@ export interface PublicCampaignRecord {
     starts_at: string | null;
     ends_at: string | null;
     offer_valid_days: number | null;
+}
+
+export interface PublicBannerRecord {
+    public_id: string;
+    title: string;
+    image_url: string;
+    link_url: string;
+    sort_order: number;
 }
 
 export interface LegalDocumentSummary {
@@ -1393,6 +1405,40 @@ export interface AdminCampaignActorSummary {
     public_id: string | null;
     display_name: string | null;
     email: string | null;
+}
+
+export interface AdminBannerActorSummary {
+    public_id: string | null;
+    display_name: string | null;
+    email: string | null;
+}
+
+export interface AdminBannerRecord {
+    public_id: string;
+    title: string;
+    link_url: string;
+    image_url: string;
+    image_original_name: string | null;
+    image_mime_type: string | null;
+    image_size_bytes: number | null;
+    placements: BannerPlacement[];
+    placement_labels: string[];
+    viewer_segments: BannerViewerSegment[];
+    viewer_segment_labels: string[];
+    status: BannerStatus;
+    status_label: string;
+    publication_state: BannerPublicationState;
+    publication_state_label: string;
+    is_visible: boolean;
+    sort_order: number;
+    starts_at: string | null;
+    ends_at: string | null;
+    impression_count: number;
+    click_count: number;
+    created_by_account?: AdminBannerActorSummary | null;
+    updated_by_account?: AdminBannerActorSummary | null;
+    created_at: string;
+    updated_at: string;
 }
 
 export interface AdminCampaignRecord {

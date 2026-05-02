@@ -6,6 +6,7 @@ use App\Http\Controllers\Api\AccountRoleController;
 use App\Http\Controllers\Api\AdminAccountController;
 use App\Http\Controllers\Api\AdminAuditLogController;
 use App\Http\Controllers\Api\AdminBookingController;
+use App\Http\Controllers\Api\AdminBannerController;
 use App\Http\Controllers\Api\AdminCampaignController;
 use App\Http\Controllers\Api\AdminContactInquiryController;
 use App\Http\Controllers\Api\AdminDashboardController;
@@ -22,6 +23,7 @@ use App\Http\Controllers\Api\AdminStripeDisputeController;
 use App\Http\Controllers\Api\AdminTherapistProfileController;
 use App\Http\Controllers\Api\AdminTravelRequestController;
 use App\Http\Controllers\Api\AuthController;
+use App\Http\Controllers\Api\BannerController;
 use App\Http\Controllers\Api\BookingCancellationController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\BookingMessageController;
@@ -73,6 +75,9 @@ Route::prefix('auth')->group(function (): void {
 Route::get('/legal-documents', [LegalDocumentController::class, 'index']);
 Route::get('/legal-documents/{type}', [LegalDocumentController::class, 'showLatest']);
 Route::get('/service-meta', [ServiceMetaController::class, 'show']);
+Route::get('/banners', [BannerController::class, 'index']);
+Route::post('/banners/{banner:public_id}/impressions', [BannerController::class, 'trackImpression']);
+Route::post('/banners/{banner:public_id}/clicks', [BannerController::class, 'trackClick']);
 Route::get('/help/faqs', [HelpFaqController::class, 'index']);
 Route::post('/contact', [ContactController::class, 'store']);
 Route::get('/public-therapists', [TherapistDiscoveryController::class, 'publicIndex']);
@@ -91,6 +96,7 @@ Route::get('/admin/identity-verifications/{identityVerification}/signed-selfie',
 Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
+    Route::get('/me/banners', [BannerController::class, 'indexForAuthenticated']);
     Route::post('/me/roles', [AccountRoleController::class, 'store']);
     Route::post('/legal-documents/{legalDocument:public_id}/accept', [LegalDocumentController::class, 'accept']);
     Route::get('/me/profile', [MeProfileController::class, 'show']);
@@ -160,6 +166,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/admin/bookings/{booking:public_id}/messages/{message}/suspend-sender', [AdminBookingController::class, 'suspendSender']);
     Route::get('/admin/stripe-disputes', [AdminStripeDisputeController::class, 'index']);
     Route::get('/admin/dashboard', [AdminDashboardController::class, 'index']);
+    Route::get('/admin/banners', [AdminBannerController::class, 'index']);
+    Route::post('/admin/banners', [AdminBannerController::class, 'store']);
+    Route::patch('/admin/banners/{banner:public_id}', [AdminBannerController::class, 'update']);
+    Route::delete('/admin/banners/{banner:public_id}', [AdminBannerController::class, 'destroy']);
     Route::get('/admin/accounts', [AdminAccountController::class, 'index']);
     Route::get('/admin/accounts/{account:public_id}', [AdminAccountController::class, 'show']);
     Route::post('/admin/accounts/{account:public_id}/suspend', [AdminAccountController::class, 'suspend']);

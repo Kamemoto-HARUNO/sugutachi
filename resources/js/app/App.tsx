@@ -32,6 +32,7 @@ import { NotFoundPage } from './pages/NotFoundPage';
 import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminAccountsPage } from './pages/AdminAccountsPage';
 import { AdminCampaignsPage } from './pages/AdminCampaignsPage';
+import { AdminBannersPage } from './pages/AdminBannersPage';
 import { AdminLegalDocumentsPage } from './pages/AdminLegalDocumentsPage';
 import { AdminBookingsPage } from './pages/AdminBookingsPage';
 import { AdminBookingMessagesPage } from './pages/AdminBookingMessagesPage';
@@ -317,6 +318,7 @@ function AppRoutes() {
                     <Route path="bookings/:publicId" element={<AdminBookingsPage />} />
                     <Route path="bookings/:publicId/messages" element={<AdminBookingMessagesPage />} />
                     <Route path="campaigns" element={<AdminCampaignsPage />} />
+                    <Route path="banners" element={<AdminBannersPage />} />
                     <Route path="reports" element={<AdminReportsPage />} />
                     <Route path="reports/:publicId" element={<AdminReportsPage />} />
                     <Route path="refund-requests" element={<AdminRefundRequestsPage />} />
