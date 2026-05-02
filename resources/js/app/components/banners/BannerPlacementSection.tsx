@@ -33,14 +33,16 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
     const resolvedIndex = count <= 1 ? 0 : ((activeIndex - 1 + count) % count + count) % count;
     const activeBanner = banners[resolvedIndex] ?? null;
     const resolvedViewportWidth = viewportWidth || 1040;
+    const viewportPadding = count > 1 ? Math.max(16, Math.min(40, resolvedViewportWidth * 0.028)) : 0;
+    const availableWidth = Math.max(0, resolvedViewportWidth - viewportPadding * 2);
     const slideGap = count > 1 ? Math.max(10, Math.min(20, resolvedViewportWidth * 0.018)) : 0;
-    const preferredPeek = count > 1 ? Math.max(24, Math.min(72, resolvedViewportWidth * 0.09)) : 0;
-    const slideWidth = Math.min(
-        900,
-        Math.max(resolvedViewportWidth - preferredPeek * 2, Math.min(240, resolvedViewportWidth)),
-    );
-    const sideInset = Math.max(0, (resolvedViewportWidth - slideWidth) / 2);
-    const translateX = sideInset - activeIndex * (slideWidth + slideGap) + dragOffsetX;
+    const slideWidth = count > 1
+        ? availableWidth < 260
+            ? availableWidth
+            : Math.min(900, Math.max(260, availableWidth * 0.72))
+        : Math.min(900, availableWidth || resolvedViewportWidth);
+    const sideInset = Math.max(0, (availableWidth - slideWidth) / 2);
+    const translateX = viewportPadding + sideInset - activeIndex * (slideWidth + slideGap) + dragOffsetX;
 
     useEffect(() => {
         setIsTransitionEnabled(count > 1);
@@ -140,7 +142,7 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
 
         pointerTarget?.releasePointerCapture(pointerId);
 
-        const threshold = Math.min(90, Math.max(48, slideWidth * 0.16));
+        const threshold = Math.min(72, Math.max(24, slideWidth * 0.08));
         const shouldMove = Math.abs(dragOffsetX) >= threshold;
         const shouldSuppressClick = Math.abs(dragOffsetX) > 8;
 
@@ -167,6 +169,11 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
             return;
         }
 
+        if (event.pointerType === 'mouse' && event.button !== 0) {
+            return;
+        }
+
+        event.preventDefault();
         suppressClickRef.current = false;
         dragStateRef.current = {
             pointerId: event.pointerId,
@@ -183,6 +190,7 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
             return;
         }
 
+        event.preventDefault();
         const nextOffset = event.clientX - dragStateRef.current.startX;
         setDragOffsetX(nextOffset);
     };
@@ -207,13 +215,13 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
     return (
         <div
             ref={containerRef}
-            className="mx-auto w-full max-w-[1040px]"
+            className="mx-auto w-full max-w-[1280px]"
             onMouseEnter={() => setIsHovered(true)}
             onMouseLeave={() => setIsHovered(false)}
         >
-            <div className="overflow-hidden">
+            <div className="overflow-hidden" style={{ paddingInline: `${viewportPadding}px` }}>
                 <div
-                    className={`flex touch-pan-y ${count > 1 ? 'cursor-grab active:cursor-grabbing' : ''}`}
+                    className={`flex select-none touch-pan-y ${count > 1 ? 'cursor-grab active:cursor-grabbing' : ''}`}
                     style={{
                         gap: `${slideGap}px`,
                         transform: `translateX(${translateX}px)`,
@@ -235,6 +243,7 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
                                 href={banner.link_url}
                                 target="_blank"
                                 rel="noreferrer"
+                                draggable={false}
                                 onClick={(event) => {
                                     if (suppressClickRef.current) {
                                         suppressClickRef.current = false;
@@ -243,7 +252,18 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
                                         return;
                                     }
 
+                                    if (count > 1 && index !== activeIndex) {
+                                        event.preventDefault();
+                                        event.stopPropagation();
+                                        setIsTransitionEnabled(true);
+                                        setActiveIndex(index);
+                                        return;
+                                    }
+
                                     trackBannerClick(banner.public_id);
+                                }}
+                                onDragStart={(event) => {
+                                    event.preventDefault();
                                 }}
                                 className="group block overflow-hidden rounded-[28px]"
                             >
