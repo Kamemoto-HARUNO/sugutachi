@@ -58,14 +58,16 @@ export function PasswordField({
     placeholder,
     autoComplete,
     required = false,
-    className = 'block space-y-2',
+    className = 'space-y-2',
     inputClassName = 'w-full rounded-[18px] border border-[#e4d7c2] bg-[#fffaf3] px-4 py-3 pr-12 text-sm outline-none transition focus:border-[#c6a16a]',
 }: PasswordFieldProps) {
     const [isVisible, setIsVisible] = useState(false);
 
     return (
-        <label className={className}>
-            <span className="text-sm font-semibold">{label}</span>
+        <div className={className}>
+            <label htmlFor={id} className="block text-sm font-semibold">
+                {label}
+            </label>
             <div className="relative">
                 <input
                     id={id}
@@ -87,6 +89,6 @@ export function PasswordField({
                     {isVisible ? <EyeOffIcon /> : <EyeIcon />}
                 </button>
             </div>
-        </label>
+        </div>
     );
 }
