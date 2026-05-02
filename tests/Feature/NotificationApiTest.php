@@ -11,6 +11,7 @@ use App\Services\Notifications\WebPushDeliveryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Mail;
 use Mockery;
 use Tests\TestCase;
 
@@ -206,7 +207,7 @@ class NotificationApiTest extends TestCase
         $this->assertNotNull(PushSubscription::query()->findOrFail($subscriptionId)->revoked_at);
     }
 
-    public function test_creating_notification_triggers_web_push_delivery_service(): void
+    public function test_creating_notification_triggers_web_push_and_email_delivery_services(): void
     {
         $account = Account::factory()->create(['public_id' => 'acc_push_delivery']);
 
@@ -219,6 +220,13 @@ class NotificationApiTest extends TestCase
             });
 
         $this->app->instance(WebPushDeliveryService::class, $mock);
+        Mail::shouldReceive('raw')
+            ->once()
+            ->withArgs(function (string $body, $callback): bool {
+                return str_contains($body, '新しい予約があります')
+                    && str_contains($body, '内容を確認してください。')
+                    && is_callable($callback);
+            });
 
         AppNotification::create([
             'account_id' => $account->id,
@@ -235,6 +243,13 @@ class NotificationApiTest extends TestCase
     {
         config()->set('services.admin_notifications.slack_webhook_url', 'https://hooks.slack.com/services/test/admin/webhook');
         config()->set('app.url', 'https://dev.sugutachi.com');
+        Mail::shouldReceive('raw')
+            ->once()
+            ->withArgs(function (string $body, $callback): bool {
+                return str_contains($body, '新しいお問い合わせがあります')
+                    && str_contains($body, '/admin/contact-inquiries/cnt_slack_notify')
+                    && is_callable($callback);
+            });
 
         Http::fake([
             'https://hooks.slack.com/*' => Http::response('ok', 200),

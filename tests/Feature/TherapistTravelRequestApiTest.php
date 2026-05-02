@@ -10,6 +10,7 @@ use App\Models\TherapistProfile;
 use App\Models\TherapistTravelRequest;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\Sanctum;
 use Tests\TestCase;
 
@@ -19,6 +20,14 @@ class TherapistTravelRequestApiTest extends TestCase
 
     public function test_user_can_send_travel_request_and_therapist_receives_notification(): void
     {
+        Mail::shouldReceive('raw')
+            ->once()
+            ->withArgs(function (string $body, $callback): bool {
+                return str_contains($body, '新しい出張リクエスト')
+                    && str_contains($body, '/therapist/travel-requests/')
+                    && is_callable($callback);
+            });
+
         $user = Account::factory()->create([
             'public_id' => 'acc_travel_user',
             'display_name' => 'Travel User',

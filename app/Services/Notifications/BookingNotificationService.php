@@ -7,7 +7,6 @@ use App\Models\Account;
 use App\Models\Booking;
 use App\Models\BookingMessage;
 use App\Models\Refund;
-use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Facades\Crypt;
 
 class BookingNotificationService
@@ -51,12 +50,6 @@ class BookingNotificationService
                 'target_path' => $this->userBookingPath($booking),
             ],
         );
-
-        $this->sendEmail(
-            email: $booking->userAccount?->email,
-            subject: '予約が承諾されました',
-            body: '予約リクエストが承諾されました。アプリから予約詳細をご確認ください。'
-        );
     }
 
     public function notifyTherapistConfirmed(Booking $booking): void
@@ -76,12 +69,6 @@ class BookingNotificationService
                 'scheduled_start_at' => $booking->scheduled_start_at?->toJSON(),
                 'target_path' => $this->therapistBookingPath($booking),
             ],
-        );
-
-        $this->sendEmail(
-            email: $booking->therapistAccount?->email,
-            subject: '予約が確定しました',
-            body: $body.' アプリで予約詳細をご確認ください。'
         );
     }
 
@@ -103,12 +90,6 @@ class BookingNotificationService
                 'target_path' => $this->userBookingPath($booking),
             ],
         );
-
-        $this->sendEmail(
-            email: $booking->userAccount?->email,
-            subject: '時間変更の提案が届きました',
-            body: 'タチキャストから開始時間または終了時間の調整提案が届いています。アプリで新しい時間と金額をご確認ください。'
-        );
     }
 
     public function notifyAdjustmentAccepted(Booking $booking): void
@@ -127,12 +108,6 @@ class BookingNotificationService
                 'scheduled_end_at' => $booking->scheduled_end_at?->toJSON(),
                 'target_path' => $this->therapistBookingPath($booking),
             ],
-        );
-
-        $this->sendEmail(
-            email: $booking->therapistAccount?->email,
-            subject: '利用者が時間変更を承認しました',
-            body: '提案した時間で予約が確定しました。アプリで開始時刻と予約詳細をご確認ください。'
         );
     }
 
@@ -161,12 +136,6 @@ class BookingNotificationService
                 'target_path' => $this->therapistBookingPath($booking),
             ],
         );
-
-        $this->sendEmail(
-            email: $booking->therapistAccount?->email,
-            subject: $title,
-            body: $body.' アプリで予約詳細をご確認ください。'
-        );
     }
 
     public function notifyNoShowReported(Booking $booking): void
@@ -186,12 +155,6 @@ class BookingNotificationService
                 'target_path' => $this->userBookingPath($booking),
             ],
         );
-
-        $this->sendEmail(
-            email: $booking->userAccount?->email,
-            subject: '未着申告の確認が必要です',
-            body: 'タチキャストから未着申告が届いています。請求はまだ確定していません。アプリで内容を確認してください。'
-        );
     }
 
     public function notifyNoShowConfirmed(Booking $booking): void
@@ -209,12 +172,6 @@ class BookingNotificationService
                 'target_path' => $this->therapistBookingPath($booking),
             ],
         );
-
-        $this->sendEmail(
-            email: $booking->therapistAccount?->email,
-            subject: '利用者が未着を認めました',
-            body: '利用者が未着申告を確認しました。予約は中断となり、キャンセル料を反映しています。アプリで詳細をご確認ください。'
-        );
     }
 
     public function notifyNoShowDisputed(Booking $booking): void
@@ -231,12 +188,6 @@ class BookingNotificationService
                 'status' => $booking->status,
                 'target_path' => $this->therapistBookingPath($booking),
             ],
-        );
-
-        $this->sendEmail(
-            email: $booking->therapistAccount?->email,
-            subject: '利用者が未着申告に異議を申し立てました',
-            body: '利用者が未着申告に異議を申し立てました。予約は中断し、請求は確定していません。アプリで詳細をご確認ください。'
         );
     }
 
@@ -256,12 +207,6 @@ class BookingNotificationService
                 'target_path' => $this->userBookingPath($booking),
             ],
         );
-
-        $this->sendEmail(
-            email: $booking->userAccount?->email,
-            subject: 'タチキャストが向かっています',
-            body: 'タチキャストが移動を開始しました。到着したら、アプリの予約詳細に表示される4桁コードをお伝えください。'
-        );
     }
 
     public function notifyArrived(Booking $booking): void
@@ -278,12 +223,6 @@ class BookingNotificationService
                 'status' => $booking->status,
                 'target_path' => $this->userBookingPath($booking),
             ],
-        );
-
-        $this->sendEmail(
-            email: $booking->userAccount?->email,
-            subject: 'タチキャストが到着しました',
-            body: 'タチキャストが到着しました。アプリから予約詳細やメッセージをご確認ください。'
         );
     }
 
@@ -302,12 +241,6 @@ class BookingNotificationService
                 'target_path' => $this->userBookingPath($booking),
             ],
         );
-
-        $this->sendEmail(
-            email: $booking->userAccount?->email,
-            subject: '対応が開始されました',
-            body: '対応が開始されました。何かあればアプリからメッセージや通報をご利用ください。'
-        );
     }
 
     public function notifyTherapistCompleted(Booking $booking): void
@@ -325,12 +258,6 @@ class BookingNotificationService
                 'ended_at' => $booking->ended_at?->toJSON(),
                 'target_path' => $this->userBookingPath($booking),
             ],
-        );
-
-        $this->sendEmail(
-            email: $booking->userAccount?->email,
-            subject: '対応終了の確認をお願いします',
-            body: 'タチキャストが対応終了を記録しました。アプリでレビュー送信、または完了確認をお願いします。'
         );
     }
 
@@ -353,12 +280,6 @@ class BookingNotificationService
                 'target_path' => $this->userBookingPath($booking),
             ],
         );
-
-        $this->sendEmail(
-            email: $booking->userAccount?->email,
-            subject: '対応時間が更新されました',
-            body: 'タチキャストが対応時間を更新しました。アプリから開始時刻、終了時刻、最終金額をご確認ください。'
-        );
     }
 
     public function notifyCompletionReminder(Booking $booking): void
@@ -375,12 +296,6 @@ class BookingNotificationService
                 'status' => $booking->status,
                 'target_path' => $this->userBookingPath($booking),
             ],
-        );
-
-        $this->sendEmail(
-            email: $booking->userAccount?->email,
-            subject: '対応終了の確認がまだです',
-            body: 'レビュー送信または完了確認を行うと、予約が完了します。アプリからご対応ください。'
         );
     }
 
@@ -412,18 +327,6 @@ class BookingNotificationService
                 'completed_at' => $booking->completed_at?->toJSON(),
                 'target_path' => $this->therapistBookingPath($booking),
             ],
-        );
-
-        $this->sendEmail(
-            email: $booking->userAccount?->email,
-            subject: '予約が自動で完了になりました',
-            body: '一定時間経過したため、この予約は自動で完了になりました。'
-        );
-
-        $this->sendEmail(
-            email: $booking->therapistAccount?->email,
-            subject: '予約が自動で完了になりました',
-            body: '利用者確認がなかったため、この予約は自動で完了になりました。'
         );
     }
 
@@ -531,22 +434,20 @@ class BookingNotificationService
     {
         $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);
 
-        [$recipientAccountId, $recipientEmail, $targetPath, $targetRole, $senderRole] = match ($sender->id) {
+        [$recipientAccountId, $targetPath, $targetRole, $senderRole] = match ($sender->id) {
             $booking->user_account_id => [
                 $booking->therapist_account_id,
-                $booking->therapistAccount?->email,
                 $this->therapistBookingMessagesPath($booking),
                 'therapist',
                 'user',
             ],
             $booking->therapist_account_id => [
                 $booking->user_account_id,
-                $booking->userAccount?->email,
                 $this->userBookingMessagesPath($booking),
                 'user',
                 'therapist',
             ],
-            default => [null, null, null, null, null],
+            default => [null, null, null, null],
         };
 
         if ($recipientAccountId === null || $targetPath === null || $senderRole === null || $targetRole === null) {
@@ -569,12 +470,6 @@ class BookingNotificationService
                 'target_role' => $targetRole,
                 'target_path' => $targetPath,
             ],
-        );
-
-        $this->sendEmail(
-            email: $recipientEmail,
-            subject: $title,
-            body: $body.' アプリでメッセージをご確認ください。'
         );
     }
 
@@ -615,19 +510,6 @@ class BookingNotificationService
     private function userBookingMessagesPath(Booking $booking): string
     {
         return "/user/bookings/{$booking->public_id}/messages";
-    }
-
-    private function sendEmail(?string $email, string $subject, string $body): void
-    {
-        if (blank($email)) {
-            return;
-        }
-
-        rescue(function () use ($body, $email, $subject): void {
-            Mail::raw($body, function ($message) use ($email, $subject): void {
-                $message->to($email)->subject($subject);
-            });
-        }, report: false);
     }
 
     private function cancellationRecipientId(Booking $booking): int

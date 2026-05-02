@@ -3,6 +3,7 @@
 namespace App\Observers;
 
 use App\Models\AppNotification;
+use App\Services\Notifications\AppNotificationEmailDeliveryService;
 use App\Services\Notifications\WebPushDeliveryService;
 
 class AppNotificationObserver
@@ -10,5 +11,6 @@ class AppNotificationObserver
     public function created(AppNotification $notification): void
     {
         app(WebPushDeliveryService::class)->deliverForNotification($notification);
+        app(AppNotificationEmailDeliveryService::class)->deliverForNotification($notification);
     }
 }
