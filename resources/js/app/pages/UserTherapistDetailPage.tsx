@@ -22,6 +22,7 @@ import {
     getPendingScheduledRequestActionLabel,
     getPendingScheduledRequestNotice,
     getServiceAddressLabel,
+    isFreeMenu,
     type BookingStartType,
     type DiscoverySort,
 } from '../lib/discovery';
@@ -1328,7 +1329,7 @@ export function UserTherapistDetailPage() {
 
                                                     <div className="space-y-1 md:min-w-[180px] md:text-right">
                                                         <p className="text-xl font-bold text-[#17202b]">
-                                                            60分 {formatCurrency(menu.hourly_rate_amount)}〜
+                                                            {isFreeMenu(menu) ? '無料' : `60分 ${formatCurrency(menu.hourly_rate_amount)}〜`}
                                                         </p>
                                                     </div>
                                                 </div>

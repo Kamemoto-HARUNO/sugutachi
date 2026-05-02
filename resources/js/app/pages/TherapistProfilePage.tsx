@@ -26,6 +26,7 @@ interface MenuDraft {
     description: string;
     minimum_duration_minutes: number;
     hourly_rate_amount: number;
+    is_free: boolean;
     is_active: boolean;
     sort_order: number;
 }
@@ -44,6 +45,13 @@ interface MenuReorderSession {
 interface MenuDragOffset {
     x: number;
     y: number;
+}
+
+interface MenuToggleSwitchProps {
+    checked: boolean;
+    label: string;
+    ariaLabel: string;
+    onChange: (checked: boolean) => void;
 }
 
 async function uploadProfilePhotoTempFile(token: string, file: File): Promise<TempFileRecord> {
@@ -105,6 +113,7 @@ function createMenuDraft(menu?: TherapistMenu): MenuDraft {
         description: menu?.description ?? '',
         minimum_duration_minutes: menu?.minimum_duration_minutes ?? menu?.duration_minutes ?? 60,
         hourly_rate_amount: menu?.hourly_rate_amount ?? 12000,
+        is_free: menu?.is_free ?? false,
         is_active: menu?.is_active ?? true,
         sort_order: menu?.sort_order ?? 0,
     };
@@ -122,6 +131,34 @@ function toOptionalNumber(value: string): number | null {
 
 function formatMenuPrice(amount: number): string {
     return `${amount.toLocaleString('ja-JP')}円`;
+}
+
+function MenuToggleSwitch({ checked, label, ariaLabel, onChange }: MenuToggleSwitchProps) {
+    return (
+        <div className="flex items-center gap-3">
+            <button
+                type="button"
+                role="switch"
+                aria-checked={checked}
+                aria-label={ariaLabel}
+                onClick={() => onChange(!checked)}
+                className={[
+                    'relative inline-flex h-7 w-12 shrink-0 items-center rounded-full border transition',
+                    checked
+                        ? 'border-rose-300 bg-rose-300'
+                        : 'border-white/10 bg-white/10',
+                ].join(' ')}
+            >
+                <span
+                    className={[
+                        'inline-block h-5 w-5 rounded-full bg-[#111923] shadow-sm transition',
+                        checked ? 'translate-x-6' : 'translate-x-1',
+                    ].join(' ')}
+                />
+            </button>
+            <span className="text-sm font-semibold text-slate-200">{label}</span>
+        </div>
+    );
 }
 
 function normalizeMenuSortOrder(drafts: MenuDraft[]): MenuDraft[] {
@@ -717,7 +754,8 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
                     name: draft.name,
                     description: draft.description || null,
                     minimum_duration_minutes: draft.minimum_duration_minutes,
-                    hourly_rate_amount: draft.hourly_rate_amount,
+                    hourly_rate_amount: draft.is_free ? null : draft.hourly_rate_amount,
+                    is_free: draft.is_free,
                     is_active: draft.is_active,
                     sort_order: draft.sort_order,
                 },
@@ -754,7 +792,8 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
                     name: newMenuDraft.name,
                     description: newMenuDraft.description || null,
                     minimum_duration_minutes: newMenuDraft.minimum_duration_minutes,
-                    hourly_rate_amount: newMenuDraft.hourly_rate_amount,
+                    hourly_rate_amount: newMenuDraft.is_free ? null : newMenuDraft.hourly_rate_amount,
+                    is_free: newMenuDraft.is_free,
                     sort_order: menuDraftsRef.current.length,
                 },
             });
@@ -871,6 +910,9 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
                                             ? '並び順を保存中です。完了するまで少しお待ちください。'
                                             : '編集中は並び替えを一時停止しています。'}
                                 </p>
+                                <p className="text-xs leading-6 text-slate-400">
+                                    「まずは相談」のような無料メニューも登録できます。無料メニューはカード決済なしで予約リクエストを受け付けます。
+                                </p>
                             </div>
 
                             <button
@@ -926,7 +968,7 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
                                             </label>
                                         </div>
 
-                                        <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+                                        <div className="space-y-4">
                                             <label className="space-y-2">
                                                 <span className="text-sm font-semibold text-white">説明</span>
                                                 <input
@@ -935,49 +977,72 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
                                                     className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
                                                 />
                                             </label>
-                                            <label className="space-y-2">
-                                                <span className="text-sm font-semibold text-white">60分料金（円）</span>
-                                                <input
-                                                    type="number"
-                                                    min={1000}
-                                                    max={300000}
-                                                    step={500}
-                                                    value={draft.hourly_rate_amount}
-                                                    onChange={(event) => updateMenuDraft(draft.public_id, { hourly_rate_amount: Number(event.target.value) })}
-                                                    className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                                />
-                                            </label>
+                                            <div className="space-y-4 pt-2">
+                                                <span className="text-sm font-semibold text-white">料金設定</span>
+                                                <div className="pt-2">
+                                                    <MenuToggleSwitch
+                                                        checked={draft.is_free}
+                                                        label="無料メニュー"
+                                                        ariaLabel="無料メニューを切り替える"
+                                                        onChange={(checked) => updateMenuDraft(draft.public_id, {
+                                                            is_free: checked,
+                                                            hourly_rate_amount: checked ? draft.hourly_rate_amount : Math.max(draft.hourly_rate_amount, 12000),
+                                                        })}
+                                                    />
+                                                </div>
+                                                {!draft.is_free ? (
+                                                    <label className="space-y-2">
+                                                        <span className="text-sm font-semibold text-white">60分料金（円）</span>
+                                                        <input
+                                                            type="number"
+                                                            min={1000}
+                                                            max={300000}
+                                                            step={500}
+                                                            value={draft.hourly_rate_amount}
+                                                            onChange={(event) => updateMenuDraft(draft.public_id, { hourly_rate_amount: Number(event.target.value) })}
+                                                            className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                                        />
+                                                    </label>
+                                                ) : null}
+                                            </div>
                                         </div>
 
-                                        <label className="inline-flex items-center gap-3 rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200">
-                                            <input
-                                                type="checkbox"
-                                                checked={draft.is_active}
-                                                onChange={(event) => updateMenuDraft(draft.public_id, { is_active: event.target.checked })}
-                                                className="h-4 w-4 rounded border-white/20 bg-transparent"
-                                            />
-                                            公開中
-                                        </label>
+                                        {draft.is_free ? (
+                                            <p className="text-xs leading-6 text-slate-400">
+                                                無料メニューでは料金ルール、手数料、カード決済は適用されません。
+                                            </p>
+                                        ) : null}
 
-                                        <div className="flex flex-wrap gap-3">
-                                            <button
-                                                type="button"
-                                                onClick={() => {
-                                                    void saveMenu(draft);
-                                                }}
-                                                disabled={pendingMenuId === draft.public_id}
-                                                className="inline-flex items-center rounded-full bg-rose-300 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
-                                            >
-                                                {pendingMenuId === draft.public_id ? '保存中...' : '保存する'}
-                                            </button>
-                                            <button
-                                                type="button"
-                                                onClick={cancelEditingMenu}
-                                                disabled={pendingMenuId === draft.public_id}
-                                                className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
-                                            >
-                                                キャンセル
-                                            </button>
+                                        <div className="pt-2">
+                                            <MenuToggleSwitch
+                                                checked={draft.is_active}
+                                                label="公開"
+                                                ariaLabel="メニューの公開状態を切り替える"
+                                                onChange={(checked) => updateMenuDraft(draft.public_id, { is_active: checked })}
+                                            />
+                                        </div>
+
+                                        <div className="flex flex-wrap items-center justify-between gap-3">
+                                            <div className="flex flex-wrap gap-3">
+                                                <button
+                                                    type="button"
+                                                    onClick={() => {
+                                                        void saveMenu(draft);
+                                                    }}
+                                                    disabled={pendingMenuId === draft.public_id}
+                                                    className="inline-flex items-center rounded-full bg-rose-300 px-4 py-2 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+                                                >
+                                                    {pendingMenuId === draft.public_id ? '保存中...' : '保存する'}
+                                                </button>
+                                                <button
+                                                    type="button"
+                                                    onClick={cancelEditingMenu}
+                                                    disabled={pendingMenuId === draft.public_id}
+                                                    className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+                                                >
+                                                    キャンセル
+                                                </button>
+                                            </div>
                                             <button
                                                 type="button"
                                                 onClick={() => {
@@ -986,9 +1051,9 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
                                                     }
                                                 }}
                                                 disabled={pendingMenuId === draft.public_id}
-                                                className="inline-flex items-center rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5 disabled:cursor-not-allowed disabled:opacity-60"
+                                                className="inline-flex items-center text-xs font-medium text-slate-500 transition hover:text-slate-300 disabled:cursor-not-allowed disabled:opacity-50"
                                             >
-                                                {pendingMenuId === draft.public_id ? '削除中...' : '削除'}
+                                                {pendingMenuId === draft.public_id ? '削除中...' : 'このメニューを削除'}
                                             </button>
                                         </div>
                                     </article>
@@ -1040,7 +1105,7 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
                                                     </div>
                                                     <div className="flex flex-wrap gap-3 text-sm text-slate-300">
                                                         <span>最短 {draft.minimum_duration_minutes}分</span>
-                                                        <span>60分 {formatMenuPrice(draft.hourly_rate_amount)}</span>
+                                                        <span>{draft.is_free ? '無料' : `60分 ${formatMenuPrice(draft.hourly_rate_amount)}`}</span>
                                                     </div>
                                                     {draft.description ? (
                                                         <p className="text-sm leading-7 text-slate-400">{draft.description}</p>
@@ -1069,14 +1134,14 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
 
                             {isCreatingMenu ? (
                                 <article className="space-y-4 rounded-[22px] border border-rose-300/30 bg-[#111923] p-5">
-                                    <div className="flex flex-wrap items-center justify-between gap-3">
-                                        <div>
-                                            <p className="text-sm font-semibold text-white">新しいメニューを作成</p>
-                                            <p className="mt-1 text-xs text-slate-400">まずは名前、最短時間、料金を入れると一覧に追加できます。</p>
-                                        </div>
-                                        <span className="rounded-full border border-rose-300/20 bg-rose-300/10 px-3 py-1 text-xs font-semibold text-rose-100">
-                                            新規作成中
-                                        </span>
+                                        <div className="flex flex-wrap items-center justify-between gap-3">
+                                            <div>
+                                                <p className="text-sm font-semibold text-white">新しいメニューを作成</p>
+                                                <p className="mt-1 text-xs text-slate-400">まずは名前、最短時間、料金設定を整えると一覧に追加できます。</p>
+                                            </div>
+                                            <span className="rounded-full border border-rose-300/20 bg-rose-300/10 px-3 py-1 text-xs font-semibold text-rose-100">
+                                                新規作成中
+                                            </span>
                                     </div>
 
                                     <div className="grid gap-4 md:grid-cols-2">
@@ -1103,7 +1168,7 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
                                         </label>
                                     </div>
 
-                                    <div className="grid gap-4 md:grid-cols-[minmax(0,1fr)_220px]">
+                                    <div className="space-y-4">
                                         <label className="space-y-2">
                                             <span className="text-sm font-semibold text-white">説明</span>
                                             <input
@@ -1113,19 +1178,42 @@ export function TherapistProfilePage({ tab = 'profile' }: TherapistProfilePagePr
                                                 placeholder="例: もみほぐし中心 / ゆったり会話OK / 食事のみも可"
                                             />
                                         </label>
-                                        <label className="space-y-2">
-                                            <span className="text-sm font-semibold text-white">60分料金（円）</span>
-                                            <input
-                                                type="number"
-                                                min={1000}
-                                                max={300000}
-                                                step={500}
-                                                value={newMenuDraft.hourly_rate_amount}
-                                                onChange={(event) => setNewMenuDraft((current) => ({ ...current, hourly_rate_amount: Number(event.target.value) }))}
-                                                className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
-                                            />
-                                        </label>
+                                        <div className="space-y-4 pt-2">
+                                            <span className="text-sm font-semibold text-white">料金設定</span>
+                                            <div className="pt-2">
+                                                <MenuToggleSwitch
+                                                    checked={newMenuDraft.is_free}
+                                                    label="無料メニュー"
+                                                    ariaLabel="無料メニューを切り替える"
+                                                    onChange={(checked) => setNewMenuDraft((current) => ({
+                                                        ...current,
+                                                        is_free: checked,
+                                                        hourly_rate_amount: checked ? current.hourly_rate_amount : Math.max(current.hourly_rate_amount, 12000),
+                                                    }))}
+                                                />
+                                            </div>
+                                            {!newMenuDraft.is_free ? (
+                                                <label className="space-y-2">
+                                                    <span className="text-sm font-semibold text-white">60分料金（円）</span>
+                                                    <input
+                                                        type="number"
+                                                        min={1000}
+                                                        max={300000}
+                                                        step={500}
+                                                        value={newMenuDraft.hourly_rate_amount}
+                                                        onChange={(event) => setNewMenuDraft((current) => ({ ...current, hourly_rate_amount: Number(event.target.value) }))}
+                                                        className="w-full rounded-[16px] border border-white/10 bg-transparent px-4 py-3 text-sm text-white outline-none transition focus:border-rose-300/50"
+                                                    />
+                                                </label>
+                                            ) : null}
+                                        </div>
                                     </div>
+
+                                    {newMenuDraft.is_free ? (
+                                        <p className="text-xs leading-6 text-slate-400">
+                                            無料メニューでは料金ルール、手数料、カード決済は適用されません。
+                                        </p>
+                                    ) : null}
 
                                     <div className="flex flex-wrap gap-3">
                                         <button

@@ -212,7 +212,9 @@ export function UserBookingRefundPage() {
                     <div className="space-y-3">
                         <h1 className="text-3xl font-semibold">返金申請</h1>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                            完了後の不備確認や、キャンセルに伴う返金状況をこの画面で追えます。進行中の申請がある場合は重複して送信できません。
+                            {booking.is_free_booking
+                                ? '無料予約では返金申請は利用できません。必要な連絡があれば予約詳細のメッセージや通報機能から対応してください。'
+                                : '完了後の不備確認や、キャンセルに伴う返金状況をこの画面で追えます。進行中の申請がある場合は重複して送信できません。'}
                         </p>
                     </div>
                     <div className="rounded-[22px] border border-white/10 bg-white/5 px-5 py-4 text-sm text-slate-200">
@@ -254,16 +256,23 @@ export function UserBookingRefundPage() {
                         <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">REQUEST FORM</p>
                         <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">新しい返金申請を送る</h2>
                         <p className="mt-3 text-sm leading-7 text-[#68707a]">
-                            金額を空欄にすると予約総額で申請します。すでに進行中の申請がある場合は、結果が出るまで待ってください。
+                            {booking.is_free_booking
+                                ? '無料予約では金銭の授受がないため、このフォームは利用できません。'
+                                : '金額を空欄にすると予約総額で申請します。すでに進行中の申請がある場合は、結果が出るまで待ってください。'}
                         </p>
 
                         <div className="mt-6 space-y-5">
+                            {booking.is_free_booking ? (
+                                <div className="rounded-[20px] border border-[#e8dccd] bg-[#f8f4ed] px-4 py-4 text-sm leading-7 text-[#68707a]">
+                                    この予約は無料メニューのため、返金申請フォームは表示していません。
+                                </div>
+                            ) : null}
                             <label className="block space-y-2">
                                 <span className="text-sm font-semibold text-[#17202b]">理由</span>
                                 <select
                                     value={reasonCode}
                                     onChange={(event) => setReasonCode(event.target.value)}
-                                    disabled={hasOpenRequest}
+                                    disabled={booking.is_free_booking || hasOpenRequest}
                                     className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d] disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                     {refundReasonOptions.map((option) => (
@@ -281,7 +290,7 @@ export function UserBookingRefundPage() {
                                     onChange={(event) => setRequestedAmount(event.target.value.replace(/[^\d]/g, ''))}
                                     inputMode="numeric"
                                     placeholder={`上限 ${booking.total_amount.toLocaleString('ja-JP')}`}
-                                    disabled={hasOpenRequest}
+                                    disabled={booking.is_free_booking || hasOpenRequest}
                                     className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm text-[#17202b] outline-none transition focus:border-[#b5894d] disabled:cursor-not-allowed disabled:opacity-60"
                                 />
                             </label>
@@ -292,7 +301,7 @@ export function UserBookingRefundPage() {
                                     value={detail}
                                     onChange={(event) => setDetail(event.target.value)}
                                     rows={5}
-                                    disabled={hasOpenRequest}
+                                    disabled={booking.is_free_booking || hasOpenRequest}
                                     placeholder="返金を希望する理由や確認したい点を入力"
                                     className="w-full rounded-[18px] border border-[#d9c9ae] bg-[#fffdf8] px-4 py-3 text-sm leading-7 text-[#17202b] outline-none transition focus:border-[#b5894d] disabled:cursor-not-allowed disabled:opacity-60"
                                 />
@@ -315,7 +324,7 @@ export function UserBookingRefundPage() {
                         <div className="mt-6 flex flex-wrap gap-3">
                             <button
                                 type="submit"
-                                disabled={hasOpenRequest || isSubmitting}
+                                disabled={booking.is_free_booking || hasOpenRequest || isSubmitting}
                                 className="inline-flex min-h-11 items-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243140] disabled:cursor-not-allowed disabled:opacity-60"
                             >
                                 {isSubmitting ? '送信中...' : '返金申請を送る'}

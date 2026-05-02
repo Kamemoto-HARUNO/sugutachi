@@ -124,7 +124,11 @@ function requestTypeLabel(value: BookingListRecord['request_type']): string {
     return value === 'scheduled' ? '予定予約' : '今すぐ';
 }
 
-function paymentStatusLabel(value: string | null | undefined): string {
+function paymentStatusLabel(value: string | null | undefined, isFreeBooking = false): string {
+    if (isFreeBooking) {
+        return '決済不要';
+    }
+
     switch (value) {
         case 'requires_capture':
             return '与信確保済み';
@@ -569,7 +573,7 @@ export function TherapistBookingsPage() {
                                                 <p className="mt-2 text-sm font-semibold text-[#17202b]">
                                                     {booking.status === 'requested'
                                                         ? formatRequestDeadline(booking.request_expires_at)
-                                                        : paymentStatusLabel(booking.current_payment_intent?.status)}
+                                                        : paymentStatusLabel(booking.current_payment_intent?.status, booking.is_free_booking)}
                                                 </p>
                                             </div>
                                         </div>
@@ -587,7 +591,7 @@ export function TherapistBookingsPage() {
                                                     <div className="flex items-center justify-between gap-4">
                                                         <span>決済状態</span>
                                                         <span className="font-semibold text-[#17202b]">
-                                                            {paymentStatusLabel(booking.current_payment_intent?.status)}
+                                                            {paymentStatusLabel(booking.current_payment_intent?.status, booking.is_free_booking)}
                                                         </span>
                                                     </div>
                                                 ) : (

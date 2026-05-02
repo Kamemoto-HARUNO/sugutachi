@@ -107,6 +107,7 @@ export function BookingNoShowPage({ actorRole }: BookingNoShowPageProps) {
     const messagePath = actorRole === 'user'
         ? `/user/bookings/${publicId ?? ''}/messages`
         : `/therapist/bookings/${publicId ?? ''}/messages`;
+    const canViewMessageThread = actorRole === 'therapist' || booking?.message_thread.can_view !== false;
 
     const loadBooking = useCallback(async () => {
         if (!token || !publicId) {
@@ -274,12 +275,18 @@ export function BookingNoShowPage({ actorRole }: BookingNoShowPageProps) {
                         >
                             予約詳細へ戻る
                         </Link>
-                        <Link
-                            to={messagePath}
-                            className="inline-flex items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
-                        >
-                            メッセージを確認
-                        </Link>
+                        {canViewMessageThread ? (
+                            <Link
+                                to={messagePath}
+                                className="inline-flex items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
+                            >
+                                メッセージを確認
+                            </Link>
+                        ) : (
+                            <div className="inline-flex items-center justify-center rounded-full border border-[#e8dccd] bg-[#f8f4ed] px-5 py-3 text-sm font-semibold text-[#68707a]">
+                                チャットはクローズ済み
+                            </div>
+                        )}
                     </div>
                 </section>
             </div>
@@ -306,12 +313,18 @@ export function BookingNoShowPage({ actorRole }: BookingNoShowPageProps) {
                         >
                             予約詳細へ戻る
                         </Link>
-                        <Link
-                            to={messagePath}
-                            className="inline-flex items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
-                        >
-                            メッセージを確認
-                        </Link>
+                        {canViewMessageThread ? (
+                            <Link
+                                to={messagePath}
+                                className="inline-flex items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
+                            >
+                                メッセージを確認
+                            </Link>
+                        ) : (
+                            <div className="inline-flex items-center justify-center rounded-full border border-[#e8dccd] bg-[#f8f4ed] px-5 py-3 text-sm font-semibold text-[#68707a]">
+                                チャットはクローズ済み
+                            </div>
+                        )}
                     </div>
                 </section>
             </div>
@@ -423,12 +436,18 @@ export function BookingNoShowPage({ actorRole }: BookingNoShowPageProps) {
                         </div>
 
                         <div className="mt-6 space-y-3">
-                            <Link
-                                to={messagePath}
-                                className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105"
-                            >
-                                メッセージを見る
-                            </Link>
+                            {canViewMessageThread ? (
+                                <Link
+                                    to={messagePath}
+                                    className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105"
+                                >
+                                    メッセージを見る
+                                </Link>
+                            ) : (
+                                <div className="rounded-[20px] border border-[#e8dccd] bg-[#f8f4ed] px-4 py-3 text-sm leading-7 text-[#68707a]">
+                                    タチキャスト側でチャットがクローズされたため、履歴は表示できません。
+                                </div>
+                            )}
                             <Link
                                 to={bookingDetailPath}
                                 className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"

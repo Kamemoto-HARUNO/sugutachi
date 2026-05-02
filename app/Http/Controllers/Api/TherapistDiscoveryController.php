@@ -433,6 +433,7 @@ class TherapistDiscoveryController extends Controller
                     'duration_step_minutes' => $menu->duration_step_minutes,
                     'base_price_amount' => $menu->base_price_amount,
                     'hourly_rate_amount' => $menu->hourly_rate_amount,
+                    'is_free' => (bool) $menu->is_free,
                     'estimated_total_amount' => $estimate['total_amount'] ?? null,
                 ];
             })

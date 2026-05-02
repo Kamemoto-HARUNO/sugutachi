@@ -238,6 +238,10 @@ export function buildEstimatedPriceLabel(
         return '料金は詳細で確認';
     }
 
+    if (amount === 0) {
+        return durationMinutes ? `${durationMinutes}分 無料` : '概算 無料';
+    }
+
     if (!durationMinutes) {
         return `概算 ${formatCurrency(amount)}〜`;
     }
@@ -245,7 +249,19 @@ export function buildEstimatedPriceLabel(
     return `${durationMinutes}分 ${formatCurrency(amount)}〜`;
 }
 
-type MenuPricingSummary = Pick<TherapistMenu, 'duration_minutes' | 'minimum_duration_minutes' | 'base_price_amount' | 'hourly_rate_amount'>;
+type MenuPricingSummary = Pick<TherapistMenu, 'duration_minutes' | 'minimum_duration_minutes' | 'base_price_amount' | 'hourly_rate_amount' | 'is_free'>;
+
+export function isFreeMenu(menu: MenuPricingSummary | null | undefined): boolean {
+    if (!menu) {
+        return false;
+    }
+
+    if (menu.is_free) {
+        return true;
+    }
+
+    return (menu.base_price_amount ?? 0) === 0 && (menu.hourly_rate_amount ?? 0) === 0;
+}
 
 export function getMenuMinimumDurationMinutes(menu: MenuPricingSummary | null | undefined): number {
     if (!menu) {
@@ -278,6 +294,10 @@ export function formatMenuMinimumDurationLabel(menu: MenuPricingSummary | null |
 }
 
 export function formatMenuHourlyRateLabel(menu: MenuPricingSummary | null | undefined): string {
+    if (isFreeMenu(menu)) {
+        return '無料';
+    }
+
     const hourlyRateAmount = getMenuHourlyRateAmount(menu);
 
     return hourlyRateAmount == null ? '60分料金は確認中' : `60分料金 ${formatCurrency(hourlyRateAmount)}`;

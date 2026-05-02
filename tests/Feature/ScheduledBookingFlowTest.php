@@ -192,6 +192,51 @@ class ScheduledBookingFlowTest extends TestCase
             ->assertConflict();
     }
 
+    public function test_user_can_create_scheduled_free_booking_without_payment_authorization(): void
+    {
+        $this->travelTo(CarbonImmutable::parse('2030-01-05 10:00:00'));
+
+        [$user, $serviceAddress] = $this->createUserWithServiceAddress('free');
+        [$profile, $menu, $slot] = $this->createScheduledTherapist($user, 'free');
+        $menu->forceFill([
+            'is_free' => true,
+            'base_price_amount' => 0,
+        ])->save();
+
+        $token = $user->createToken('api')->plainTextToken;
+        $requestedStartAt = CarbonImmutable::parse('2030-01-05 14:15:00');
+        $requestExpiresAt = CarbonImmutable::parse('2030-01-05 13:15:00');
+
+        $quoteId = $this->createScheduledQuote(
+            token: $token,
+            profile: $profile,
+            menu: $menu->fresh(),
+            serviceAddress: $serviceAddress,
+            slot: $slot,
+            requestedStartAt: $requestedStartAt,
+        );
+
+        $bookingId = $this->withToken($token)
+            ->postJson('/api/bookings', [
+                'quote_id' => $quoteId,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.status', Booking::STATUS_REQUESTED)
+            ->assertJsonPath('data.is_free_booking', true)
+            ->assertJsonPath('data.total_amount', 0)
+            ->assertJsonPath('data.request_expires_at', fn (string $value) => CarbonImmutable::parse($value)->equalTo($requestExpiresAt))
+            ->json('data.public_id');
+
+        $this->assertDatabaseHas('bookings', [
+            'public_id' => $bookingId,
+            'status' => Booking::STATUS_REQUESTED,
+            'total_amount' => 0,
+            'therapist_net_amount' => 0,
+            'platform_fee_amount' => 0,
+            'matching_fee_amount' => 0,
+        ]);
+    }
+
     private function createUserWithServiceAddress(string $suffix): array
     {
         $user = Account::factory()->create(['public_id' => "acc_sched_user_{$suffix}"]);

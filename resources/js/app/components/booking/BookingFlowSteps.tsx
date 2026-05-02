@@ -2,14 +2,14 @@ type BookingFlowStepKey = 'quote' | 'waiting';
 
 interface BookingFlowStepsProps {
     current: BookingFlowStepKey;
+    isPaymentRequired?: boolean;
 }
 
-const steps: Array<{ key: BookingFlowStepKey; label: string }> = [
-    { key: 'quote', label: '見積もり確認・カード入力' },
-    { key: 'waiting', label: '承諾待ち' },
-];
-
-export function BookingFlowSteps({ current }: BookingFlowStepsProps) {
+export function BookingFlowSteps({ current, isPaymentRequired = true }: BookingFlowStepsProps) {
+    const steps: Array<{ key: BookingFlowStepKey; label: string }> = [
+        { key: 'quote', label: isPaymentRequired ? '見積もり確認・カード入力' : '見積もり確認・予約内容' },
+        { key: 'waiting', label: '承諾待ち' },
+    ];
     const currentIndex = steps.findIndex((step) => step.key === current);
 
     return (

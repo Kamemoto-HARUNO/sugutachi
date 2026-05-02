@@ -110,6 +110,39 @@ class TherapistMenuApiTest extends TestCase
         ]);
     }
 
+    public function test_therapist_can_create_free_menu(): void
+    {
+        $therapist = Account::factory()->create(['public_id' => 'acc_menu_free']);
+        $token = $therapist->createToken('api')->plainTextToken;
+
+        $this->withToken($token)
+            ->putJson('/api/me/therapist-profile', [
+                'public_name' => 'Free Menu Owner',
+                'bio' => 'Conversation focused.',
+            ])
+            ->assertOk();
+
+        $menuId = $this->withToken($token)
+            ->postJson('/api/me/therapist/menus', [
+                'name' => 'まずは相談',
+                'description' => '料金なしで相談から始められます。',
+                'minimum_duration_minutes' => 60,
+                'is_free' => true,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.name', 'まずは相談')
+            ->assertJsonPath('data.is_free', true)
+            ->assertJsonPath('data.base_price_amount', 0)
+            ->assertJsonPath('data.hourly_rate_amount', 0)
+            ->json('data.public_id');
+
+        $this->assertDatabaseHas('therapist_menus', [
+            'public_id' => $menuId,
+            'is_free' => true,
+            'base_price_amount' => 0,
+        ]);
+    }
+
     public function test_substantive_menu_change_returns_approved_profile_to_draft(): void
     {
         $user = Account::factory()->create(['public_id' => 'acc_user_menu_recheck']);
@@ -120,6 +153,14 @@ class TherapistMenuApiTest extends TestCase
             'role' => 'therapist',
             'status' => 'active',
             'granted_at' => now(),
+        ]);
+
+        IdentityVerification::create([
+            'account_id' => $user->id,
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'is_age_verified' => true,
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now(),
         ]);
 
         IdentityVerification::create([

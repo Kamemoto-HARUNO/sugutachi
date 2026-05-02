@@ -22,6 +22,7 @@ class PublicTherapistMenuResource extends JsonResource
                 'hourly_rate_amount',
                 $this->resolveHourlyRateAmount(),
             ),
+            'is_free' => (bool) data_get($this->resource, 'is_free', false),
             'estimated_total_amount' => data_get($this->resource, 'estimated_total_amount'),
         ];
     }

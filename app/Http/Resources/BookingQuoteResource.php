@@ -13,6 +13,7 @@ class BookingQuoteResource extends JsonResource
             'quote_id' => $this->public_id,
             'expires_at' => $this->expires_at,
             'is_on_demand' => $this->input_snapshot_json['is_on_demand'] ?? true,
+            'is_free' => (bool) ($this->input_snapshot_json['is_free_menu'] ?? false),
             'requested_start_at' => $this->input_snapshot_json['requested_start_at'] ?? null,
             'availability_slot_id' => $this->input_snapshot_json['availability_slot_id'] ?? null,
             'amounts' => [

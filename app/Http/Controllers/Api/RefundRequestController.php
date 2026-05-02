@@ -37,6 +37,7 @@ class RefundRequestController extends Controller
     {
         abort_unless($booking->user_account_id === $request->user()->id, 404);
         abort_unless(in_array($booking->status, self::REFUNDABLE_BOOKING_STATUSES, true), 409, 'この予約は、まだ返金申請を受け付けられません。');
+        abort_if($booking->isFreeBooking(), 409, '無料予約では返金申請は利用できません。');
 
         $validated = $request->validate([
             'reason_code' => ['required', 'string', 'max:100'],

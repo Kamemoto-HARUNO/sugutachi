@@ -102,7 +102,19 @@ class RefundRequestTest extends TestCase
             ->assertConflict();
     }
 
-    private function createRefundFixture(string $status): array
+    public function test_free_booking_cannot_create_refund_request(): void
+    {
+        [$user, , $booking] = $this->createRefundFixture(Booking::STATUS_COMPLETED, freeBooking: true);
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/refund-requests", [
+                'reason_code' => 'service_issue',
+            ])
+            ->assertConflict()
+            ->assertJsonPath('message', '無料予約では返金申請は利用できません。');
+    }
+
+    private function createRefundFixture(string $status, bool $freeBooking = false): array
     {
         $user = Account::factory()->create(['public_id' => 'acc_user_refund']);
         $therapist = Account::factory()->create(['public_id' => 'acc_therapist_refund']);
@@ -119,7 +131,8 @@ class RefundRequestTest extends TestCase
             'therapist_profile_id' => $therapistProfile->id,
             'name' => 'Body care 60',
             'duration_minutes' => 60,
-            'base_price_amount' => 12000,
+            'base_price_amount' => $freeBooking ? 0 : 12000,
+            'is_free' => $freeBooking,
         ]);
 
         $address = ServiceAddress::create([
@@ -140,25 +153,30 @@ class RefundRequestTest extends TestCase
             'service_address_id' => $address->id,
             'status' => $status,
             'duration_minutes' => 60,
-            'total_amount' => 12300,
-            'therapist_net_amount' => 10800,
-            'platform_fee_amount' => 1200,
-            'matching_fee_amount' => 300,
+            'total_amount' => $freeBooking ? 0 : 12300,
+            'therapist_net_amount' => $freeBooking ? 0 : 10800,
+            'platform_fee_amount' => $freeBooking ? 0 : 1200,
+            'matching_fee_amount' => $freeBooking ? 0 : 300,
+            'therapist_snapshot_json' => [
+                'menu_is_free' => $freeBooking,
+            ],
         ]);
 
-        $paymentIntent = PaymentIntent::create([
-            'booking_id' => $booking->id,
-            'payer_account_id' => $user->id,
-            'stripe_payment_intent_id' => 'pi_refund',
-            'status' => PaymentIntent::STRIPE_STATUS_SUCCEEDED,
-            'capture_method' => 'manual',
-            'currency' => 'jpy',
-            'amount' => 12300,
-            'application_fee_amount' => 1500,
-            'transfer_amount' => 10800,
-            'is_current' => true,
-            'captured_at' => now(),
-        ]);
+        $paymentIntent = $freeBooking
+            ? null
+            : PaymentIntent::create([
+                'booking_id' => $booking->id,
+                'payer_account_id' => $user->id,
+                'stripe_payment_intent_id' => 'pi_refund',
+                'status' => PaymentIntent::STRIPE_STATUS_SUCCEEDED,
+                'capture_method' => 'manual',
+                'currency' => 'jpy',
+                'amount' => 12300,
+                'application_fee_amount' => 1500,
+                'transfer_amount' => 10800,
+                'is_current' => true,
+                'captured_at' => now(),
+            ]);
 
         return [$user, $therapist, $booking, $paymentIntent];
     }

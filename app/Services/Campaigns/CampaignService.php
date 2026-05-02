@@ -202,6 +202,10 @@ class CampaignService
 
     public function confirmBookingCampaignApplication(Booking $booking): void
     {
+        if ($booking->isFreeBooking()) {
+            return;
+        }
+
         $booking->loadMissing('currentQuote');
         $quote = $booking->currentQuote;
 
@@ -383,6 +387,10 @@ class CampaignService
 
     public function grantTherapistBookingBonus(Booking $booking): void
     {
+        if ($booking->isFreeBooking()) {
+            return;
+        }
+
         $booking->loadMissing('therapistAccount');
 
         if (! $booking->therapistAccount) {
@@ -750,6 +758,12 @@ class CampaignService
     {
         return Booking::query()
             ->where('user_account_id', $account->id)
+            ->where(function ($query): void {
+                $query
+                    ->where('therapist_net_amount', '>', 0)
+                    ->orWhere('platform_fee_amount', '>', 0)
+                    ->orWhere('matching_fee_amount', '>', 0);
+            })
             ->where(function ($query): void {
                 $query
                     ->whereNotIn('status', [

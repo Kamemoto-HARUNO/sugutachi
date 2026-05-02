@@ -8,6 +8,7 @@ import { useToast } from '../hooks/useToast';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import {
     formatCurrency,
+    isFreeMenu,
     formatMenuHourlyRateLabel,
     formatMenuMinimumDurationLabel,
     formatTravelTimeEstimate,
@@ -117,9 +118,6 @@ export function UserBookingQuotePage() {
     const durationMinutes = normalizeDuration(searchParams.get('menu_duration_minutes'));
     const isOnDemandRequest = startType === 'now';
 
-    usePageTitle('見積もり確認とカード入力');
-    useToastOnMessage(error, 'error');
-
     const selectedAddress = useMemo(
         () => serviceAddresses.find((address) => address.public_id === serviceAddressId) ?? null,
         [serviceAddresses, serviceAddressId],
@@ -135,6 +133,12 @@ export function UserBookingQuotePage() {
             ?? therapistDetail.menus[0]
             ?? null;
     }, [durationMinutes, therapistDetail, therapistMenuId]);
+
+    const isFreeFlow = booking?.is_free_booking ?? quote?.is_free ?? isFreeMenu(selectedMenu);
+    const requiresCardAuthorization = !isFreeFlow;
+
+    usePageTitle(requiresCardAuthorization ? '見積もり確認とカード入力' : '見積もり確認');
+    useToastOnMessage(error, 'error');
 
     const waitingPath = booking ? `/user/booking-request/waiting?booking_id=${encodeURIComponent(booking.public_id)}` : null;
     const availabilityPath = therapistId && !isOnDemandRequest
@@ -259,7 +263,7 @@ export function UserBookingQuotePage() {
     }, [availabilitySlotId, bookingId, durationMinutes, isOnDemandRequest, isUserVerificationReady, requestedStartAt, serviceAddressId, therapistId, therapistMenuId, token]);
 
     useEffect(() => {
-        if (!stripePublishableKey || !cardMountNode || isLoading) {
+        if (!requiresCardAuthorization || !stripePublishableKey || !cardMountNode || isLoading) {
             return;
         }
 
@@ -343,7 +347,7 @@ export function UserBookingQuotePage() {
             stripeRef.current = null;
             setIsCardComplete(false);
         };
-    }, [cardInitializationNonce, cardMountNode, isLoading, stripePublishableKey]);
+    }, [cardInitializationNonce, cardMountNode, isLoading, requiresCardAuthorization, stripePublishableKey]);
 
     if (!token) {
         return <Navigate to="/login" replace />;
@@ -359,7 +363,7 @@ export function UserBookingQuotePage() {
     }
 
     if (isLoading) {
-        return <LoadingScreen title="見積もりを作成中" message="料金内訳とカード入力の準備を進めています。" />;
+        return <LoadingScreen title="見積もりを作成中" message="料金内訳と予約内容を準備しています。" />;
     }
 
     if (!bookingId && pendingScheduledRequest) {
@@ -408,7 +412,7 @@ export function UserBookingQuotePage() {
                         <p className="text-xs font-semibold tracking-wide text-[#d2b179]">STEP 1</p>
                         <h1 className="text-3xl font-semibold">予約前に本人確認・年齢確認を完了してください</h1>
                         <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                            未成年の利用防止とトラブル時の対応のため、見積もり確認やカード入力へ進む前に、利用者側の本人確認・年齢確認の承認が必要です。
+                            未成年の利用防止とトラブル時の対応のため、見積もり確認や予約リクエスト送信へ進む前に、利用者側の本人確認・年齢確認の承認が必要です。
                         </p>
                     </div>
                 </section>
@@ -443,14 +447,16 @@ export function UserBookingQuotePage() {
             return;
         }
 
-        if (!stripeRef.current || !cardElementRef.current) {
-            showError('カード入力の準備がまだ完了していません。');
-            return;
-        }
+        if (requiresCardAuthorization) {
+            if (!stripeRef.current || !cardElementRef.current) {
+                showError('カード入力の準備がまだ完了していません。');
+                return;
+            }
 
-        if (!isCardComplete) {
-            setCardError('カード番号、有効期限、CVC を入力してください。');
-            return;
+            if (!isCardComplete) {
+                setCardError('カード番号、有効期限、CVC を入力してください。');
+                return;
+            }
         }
 
         setIsSubmitting(true);
@@ -469,6 +475,25 @@ export function UserBookingQuotePage() {
                 activeBooking = unwrapData(bookingPayload);
             }
 
+            if (activeBooking.is_free_booking) {
+                setBooking(activeBooking);
+                setSearchParams((current) => {
+                    const next = new URLSearchParams(current);
+                    next.set('booking_id', activeBooking?.public_id ?? '');
+
+                    return next;
+                }, { replace: true });
+                navigate(`/user/booking-request/waiting?booking_id=${encodeURIComponent(activeBooking.public_id)}`);
+                return;
+            }
+
+            const stripe = stripeRef.current;
+            const cardElement = cardElementRef.current;
+
+            if (!stripe || !cardElement) {
+                throw new Error('カード入力の準備がまだ完了していません。');
+            }
+
             const paymentIntentPayload = await apiRequest<ApiEnvelope<PaymentIntentRecord>>(
                 `/bookings/${activeBooking.public_id}/payment-intents`,
                 {
@@ -482,9 +507,9 @@ export function UserBookingQuotePage() {
                 throw new Error('カード確認を開始できませんでした。');
             }
 
-            const confirmation = await stripeRef.current.confirmCardPayment(nextPaymentIntent.client_secret, {
+            const confirmation = await stripe.confirmCardPayment(nextPaymentIntent.client_secret, {
                 payment_method: {
-                    card: cardElementRef.current,
+                    card: cardElement,
                 },
             });
 
@@ -558,9 +583,11 @@ export function UserBookingQuotePage() {
                     <div className="space-y-3">
                         <p className="text-xs font-semibold tracking-wide text-[#d2b179]">STEP 1</p>
                         <div className="space-y-2">
-                            <h1 className="text-3xl font-semibold">見積もり確認とカード入力</h1>
+                            <h1 className="text-3xl font-semibold">{requiresCardAuthorization ? '見積もり確認とカード入力' : '見積もり確認'}</h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                                金額を確認したあと、この画面のままカード情報を入力して依頼を送れます。
+                                {requiresCardAuthorization
+                                    ? '金額を確認したあと、この画面のままカード情報を入力して依頼を送れます。'
+                                    : '内容を確認したあと、この画面のまま無料で依頼を送れます。'}
                                 {isOnDemandRequest
                                     ? ' 条件を変えたいときはプロフィールへ戻って待ち合わせ場所を選び直してください。'
                                     : ' 内容を変えたいときは空き時間画面へ戻って選び直してください。'}
@@ -579,7 +606,7 @@ export function UserBookingQuotePage() {
                 </div>
             </section>
 
-            <BookingFlowSteps current="quote" />
+            <BookingFlowSteps current="quote" isPaymentRequired={requiresCardAuthorization} />
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,0.95fr)_minmax(360px,0.78fr)]">
                 <section className="space-y-5">
@@ -624,6 +651,12 @@ export function UserBookingQuotePage() {
                                                 オファー有効期限: {formatDateTime(quote.discount.offer_expires_at)}
                                             </p>
                                         ) : null}
+                                    </div>
+                                ) : null}
+
+                                {quote.is_free ? (
+                                    <div className="rounded-[22px] border border-[#dbe7d6] bg-[#f3faf2] px-5 py-4 text-sm leading-7 text-[#35533f]">
+                                        このメニューは完全無料です。料金、手数料、カード決済は発生しません。
                                     </div>
                                 ) : null}
 
@@ -673,15 +706,23 @@ export function UserBookingQuotePage() {
                     <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                         <div className="space-y-3">
                             <div>
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">カード情報</p>
-                                <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">カード情報を入力</h2>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">{requiresCardAuthorization ? 'カード情報' : '無料メニュー'}</p>
+                                <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">
+                                    {requiresCardAuthorization ? 'カード情報を入力' : 'カード決済なしで依頼できます'}
+                                </h2>
                                 <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                    依頼を送るときに、このカードへ与信を確保します。承諾前は仮押さえ扱いで、辞退や期限切れなら取消対象です。
+                                    {requiresCardAuthorization
+                                        ? '依頼を送るときに、このカードへ与信を確保します。承諾前は仮押さえ扱いで、辞退や期限切れなら取消対象です。'
+                                        : '無料メニューのため、カード情報の入力や与信確認はありません。そのまま予約リクエストを送信できます。'}
                                 </p>
                             </div>
                         </div>
 
-                        {!stripePublishableKey ? (
+                        {!requiresCardAuthorization ? (
+                            <div className="mt-5 rounded-[22px] border border-[#d9c9ae] bg-[#fffaf2] px-5 py-5 text-sm leading-7 text-[#68707a]">
+                                この予約では決済処理を行いません。タチキャストに承諾されると、そのまま予約が進みます。
+                            </div>
+                        ) : !stripePublishableKey ? (
                             <div className="mt-5 rounded-[22px] border border-dashed border-[#d9c9ae] bg-[#fffaf2] px-5 py-5 text-sm leading-7 text-[#68707a]">
                                 カード入力に必要な Stripe 公開鍵が未設定です。`STRIPE_PUBLISHABLE_KEY` を設定すると、この画面でカード確認を進められます。
                             </div>
@@ -782,14 +823,20 @@ export function UserBookingQuotePage() {
                                 <button
                                     type="button"
                                     onClick={() => void handleSubmitRequest()}
-                                    disabled={isSubmitting || isPreparingCard || !stripePublishableKey || !isCardComplete}
+                                    disabled={requiresCardAuthorization
+                                        ? (isSubmitting || isPreparingCard || !stripePublishableKey || !isCardComplete)
+                                        : isSubmitting}
                                     className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-bold text-[#1a2430] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
-                                    {isSubmitting ? 'カード確認と依頼送信を進めています...' : 'カードを確認して依頼を送る'}
+                                    {isSubmitting
+                                        ? (requiresCardAuthorization ? 'カード確認と依頼送信を進めています...' : '無料の依頼を送信しています...')
+                                        : (requiresCardAuthorization ? 'カードを確認して依頼を送る' : '無料で依頼を送る')}
                                 </button>
                             )}
                             <p className="text-xs leading-6 text-[#7d6852]">
-                                このボタンで予約作成、与信確保、依頼送信まで進みます。完了後は承諾待ちの画面へ切り替わります。
+                                {requiresCardAuthorization
+                                    ? 'このボタンで予約作成、与信確保、依頼送信まで進みます。完了後は承諾待ちの画面へ切り替わります。'
+                                    : 'このボタンで予約作成と依頼送信まで進みます。完了後は承諾待ちの画面へ切り替わります。'}
                             </p>
                         </div>
                     </section>

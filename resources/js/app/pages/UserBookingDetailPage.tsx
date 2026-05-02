@@ -108,8 +108,12 @@ function therapistRewardAmount(booking: Pick<BookingDetailRecord, 'total_amount'
 }
 
 function therapistRewardFormulaLabel(
-    booking: Pick<BookingDetailRecord, 'actual_duration_minutes' | 'duration_minutes' | 'therapist_menu'>,
+    booking: Pick<BookingDetailRecord, 'actual_duration_minutes' | 'duration_minutes' | 'therapist_menu' | 'is_free_booking'>,
 ): string | null {
+    if (booking.is_free_booking) {
+        return '無料メニュー';
+    }
+
     const hourlyRateAmount = booking.therapist_menu?.hourly_rate_amount;
 
     if (hourlyRateAmount == null) {
@@ -559,12 +563,18 @@ export function UserBookingDetailPage() {
                                 {booking.status === 'therapist_completed' ? 'レビューを書いて完了する' : 'レビューを書く'}
                             </Link>
                         ) : null}
-                        <Link
-                            to={`/user/bookings/${booking.public_id}/messages`}
-                            className="inline-flex items-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105"
-                        >
-                            メッセージを見る
-                        </Link>
+                        {booking.message_thread.can_view ? (
+                            <Link
+                                to={`/user/bookings/${booking.public_id}/messages`}
+                                className="inline-flex items-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105"
+                            >
+                                メッセージを見る
+                            </Link>
+                        ) : (
+                            <div className="inline-flex items-center rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-slate-200">
+                                チャットはクローズ済み
+                            </div>
+                        )}
                     </div>
                 </div>
             </section>
@@ -934,7 +944,7 @@ export function UserBookingDetailPage() {
                                     キャンセル条件を確認
                                 </Link>
                             ) : null}
-                            {['therapist_completed', 'completed', 'canceled'].includes(booking.status) ? (
+                            {['therapist_completed', 'completed', 'canceled'].includes(booking.status) && !booking.is_free_booking ? (
                                 <Link
                                     to={`/user/bookings/${booking.public_id}/refund`}
                                     className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
@@ -960,12 +970,18 @@ export function UserBookingDetailPage() {
                                     {isConfirmingCompletion ? '確認中...' : 'レビューせずに完了を確認する'}
                                 </button>
                             ) : null}
-                            <Link
-                                to={`/user/bookings/${booking.public_id}/messages`}
-                                className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105"
-                            >
-                                メッセージを見る
-                            </Link>
+                            {booking.message_thread.can_view ? (
+                                <Link
+                                    to={`/user/bookings/${booking.public_id}/messages`}
+                                    className="inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:brightness-105"
+                                >
+                                    メッセージを見る
+                                </Link>
+                            ) : (
+                                <div className="rounded-[22px] border border-[#e8dccd] bg-[#f8f4ed] px-5 py-4 text-sm leading-7 text-[#68707a]">
+                                    タチキャスト側でこのチャットはクローズされました。履歴は表示できません。
+                                </div>
+                            )}
                             <Link
                                 to={`/user/bookings/${booking.public_id}/report`}
                                 className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"

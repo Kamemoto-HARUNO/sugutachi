@@ -13,6 +13,11 @@ class TherapistMenu extends Model
 {
     use UsesPublicIdRouteKey;
 
+    public function isFree(): bool
+    {
+        return (bool) $this->is_free;
+    }
+
     public function getMinimumDurationMinutesAttribute(): int
     {
         return max(30, (int) $this->duration_minutes);
@@ -63,6 +68,7 @@ class TherapistMenu extends Model
     {
         return [
             'is_active' => 'boolean',
+            'is_free' => 'boolean',
         ];
     }
 }

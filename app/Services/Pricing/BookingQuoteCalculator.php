@@ -43,6 +43,53 @@ class BookingQuoteCalculator
         ?array $discountSnapshot = null,
     ): array {
         $walking = $this->walkingEstimate($therapistProfile, $serviceAddress, $originLat, $originLng);
+
+        if ($menu->is_free) {
+            return [
+                'duration_minutes' => $durationMinutes,
+                'base_amount' => 0,
+                'travel_fee_amount' => 0,
+                'night_fee_amount' => 0,
+                'demand_fee_amount' => 0,
+                'profile_adjustment_amount' => 0,
+                'matching_fee_amount' => 0,
+                'platform_fee_amount' => 0,
+                'discount_amount' => 0,
+                'discounted_matching_fee_amount' => 0,
+                'discounted_platform_fee_amount' => 0,
+                'total_amount' => 0,
+                'therapist_gross_amount' => 0,
+                'therapist_net_amount' => 0,
+                'walking_time_minutes' => $walking['walking_time_minutes'],
+                'walking_time_range' => $walking['walking_time_range'],
+                'travel_mode' => $therapistProfile->bookingSetting?->travel_mode ?: TherapistBookingSetting::TRAVEL_MODE_WALKING,
+                'input_snapshot_json' => [
+                    'therapist_profile_id' => $therapistProfile->public_id,
+                    'therapist_menu_id' => $menu->public_id,
+                    'service_address_id' => $serviceAddress->public_id,
+                    'duration_minutes' => $durationMinutes,
+                    'is_on_demand' => $isOnDemand,
+                    'requested_start_at' => $requestedStartAt,
+                    'walking_time_minutes' => $walking['walking_time_minutes'],
+                    'walking_time_range' => $walking['walking_time_range'],
+                    'travel_mode' => $therapistProfile->bookingSetting?->travel_mode ?: TherapistBookingSetting::TRAVEL_MODE_WALKING,
+                    'is_free_menu' => true,
+                    'user_profile_attributes' => [],
+                    'pricing_rule_context' => [],
+                ],
+                'applied_rules_json' => [
+                    'matching_fee_amount' => 0,
+                    'platform_fee_rate' => 0,
+                    'travel_fee_amount' => 0,
+                    'night_fee_amount' => 0,
+                    'demand_fee_amount' => 0,
+                    'pricing_rules' => [],
+                    'campaign_discount' => null,
+                ],
+                'discount_snapshot_json' => null,
+            ];
+        }
+
         $baseAmount = (int) round($menu->hourly_rate_amount * $durationMinutes / 60);
         $nightFeeAmount = $this->nightFeeAmount($requestedStartAt);
         $travelFeeAmount = $this->travelFeeAmount($walking['walking_time_minutes']);
@@ -98,6 +145,7 @@ class BookingQuoteCalculator
                 'walking_time_minutes' => $walking['walking_time_minutes'],
                 'walking_time_range' => $walking['walking_time_range'],
                 'travel_mode' => $therapistProfile->bookingSetting?->travel_mode ?: TherapistBookingSetting::TRAVEL_MODE_WALKING,
+                'is_free_menu' => false,
                 'user_profile_attributes' => $pricingRuleResult['input_snapshot']['user_profile_attributes'] ?? [],
                 'pricing_rule_context' => $pricingRuleResult['input_snapshot']['pricing_context'] ?? [],
             ],

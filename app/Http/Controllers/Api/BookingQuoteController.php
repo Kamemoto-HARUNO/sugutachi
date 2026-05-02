@@ -135,7 +135,9 @@ class BookingQuoteController extends Controller
             originLat: $originLat,
             originLng: $originLng,
         );
-        $discountSnapshot = $campaignService->resolveUserQuoteDiscountSnapshot($request->user(), $rawAmounts);
+        $discountSnapshot = data_get($rawAmounts, 'input_snapshot_json.is_free_menu')
+            ? null
+            : $campaignService->resolveUserQuoteDiscountSnapshot($request->user(), $rawAmounts);
         $amounts = $discountSnapshot
             ? $calculator->calculate(
                 therapistProfile: $therapistProfile,

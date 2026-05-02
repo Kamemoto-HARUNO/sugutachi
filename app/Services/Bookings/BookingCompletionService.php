@@ -38,6 +38,10 @@ class BookingCompletionService
             ],
         );
 
+        if ($booking->isFreeBooking() || (int) $booking->therapist_net_amount <= 0) {
+            return $booking->refresh();
+        }
+
         $booking->ledgerEntries()->firstOrCreate(
             [
                 'entry_type' => TherapistLedgerEntry::TYPE_BOOKING_SALE,

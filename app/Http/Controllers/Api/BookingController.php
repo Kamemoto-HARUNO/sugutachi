@@ -16,6 +16,7 @@ use App\Models\TherapistProfile;
 use App\Services\Campaigns\CampaignService;
 use App\Services\Bookings\BookingRequestExpirationService;
 use App\Services\Bookings\ScheduledBookingPolicy;
+use App\Services\Notifications\BookingNotificationService;
 use App\Services\Scheduling\PublicAvailabilityWindowCalculator;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -132,6 +133,7 @@ class BookingController extends Controller
         CampaignService $campaignService,
         PublicAvailabilityWindowCalculator $availabilityCalculator,
         ScheduledBookingPolicy $scheduledBookingPolicy,
+        BookingNotificationService $bookingNotificationService,
     ): JsonResponse {
         $validated = $request->validate([
             'quote_id' => ['required', 'string', 'max:36'],
@@ -173,11 +175,15 @@ class BookingController extends Controller
                 : null;
             $durationMinutes = $quote->duration_minutes;
             $isOnDemand = $input['is_on_demand'] ?? true;
+            $isFreeBooking = (bool) ($input['is_free_menu'] ?? false);
             $slot = null;
             $requestExpiresAt = null;
 
             if ($isOnDemand) {
                 $this->ensureOnDemandQuoteStillBookable($request->user(), $quote);
+                if ($isFreeBooking) {
+                    $requestExpiresAt = now()->addMinutes(10);
+                }
             } else {
                 abort_if(! $requestedStartAt, 409, '日時指定の見積もりに開始時刻が設定されていません。');
 
@@ -208,7 +214,7 @@ class BookingController extends Controller
                 'therapist_menu_id' => $quote->therapist_menu_id,
                 'service_address_id' => $serviceAddress->id,
                 'availability_slot_id' => $slot?->id,
-                'status' => Booking::STATUS_PAYMENT_AUTHORIZING,
+                'status' => $isFreeBooking ? Booking::STATUS_REQUESTED : Booking::STATUS_PAYMENT_AUTHORIZING,
                 'is_on_demand' => $isOnDemand,
                 'requested_start_at' => $requestedStartAt,
                 'scheduled_start_at' => $requestedStartAt,
@@ -230,6 +236,11 @@ class BookingController extends Controller
                     'therapist_public_name' => $quote->therapistProfile->public_name,
                     'menu_public_id' => $quote->therapistMenu->public_id,
                     'menu_name' => $quote->therapistMenu->name,
+                    'menu_is_free' => (bool) $quote->therapistMenu->is_free,
+                    'menu_base_price_amount' => (int) $quote->therapistMenu->base_price_amount,
+                    'menu_hourly_rate_amount' => (int) $quote->therapistMenu->hourly_rate_amount,
+                    'menu_minimum_duration_minutes' => (int) $quote->therapistMenu->minimum_duration_minutes,
+                    'menu_duration_step_minutes' => (int) $quote->therapistMenu->duration_step_minutes,
                 ],
             ]);
 
@@ -239,17 +250,28 @@ class BookingController extends Controller
             $campaignService->reserveBookingCampaignApplication($booking);
 
             $booking->statusLogs()->create([
-                'to_status' => Booking::STATUS_PAYMENT_AUTHORIZING,
+                'to_status' => $isFreeBooking ? Booking::STATUS_REQUESTED : Booking::STATUS_PAYMENT_AUTHORIZING,
                 'actor_account_id' => $request->user()->id,
                 'actor_role' => 'user',
-                'reason_code' => 'booking_created',
+                'reason_code' => $isFreeBooking ? 'free_booking_requested' : 'booking_created',
                 'metadata_json' => [
                     'quote_id' => $quote->public_id,
                 ],
             ]);
 
-            return $booking->load('currentQuote');
+            return $booking->load([
+                'currentQuote',
+                'therapistProfile',
+                'therapistMenu',
+                'serviceAddress',
+                'userAccount',
+                'therapistAccount',
+            ]);
         });
+
+        if ($booking->status === Booking::STATUS_REQUESTED) {
+            $bookingNotificationService->notifyRequested($booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']));
+        }
 
         return (new BookingResource($booking))
             ->response()

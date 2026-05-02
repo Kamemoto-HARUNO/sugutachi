@@ -37,8 +37,9 @@ class TherapistMenuController extends Controller
             'description' => ['nullable', 'string', 'max:1000'],
             'duration_minutes' => ['nullable', 'integer', 'min:30', 'max:240'],
             'minimum_duration_minutes' => ['nullable', 'integer', 'min:30', 'max:240'],
-            'base_price_amount' => ['nullable', 'integer', 'min:1000', 'max:300000'],
-            'hourly_rate_amount' => ['nullable', 'integer', 'min:1000', 'max:300000'],
+            'base_price_amount' => ['nullable', 'integer', 'min:0', 'max:300000'],
+            'hourly_rate_amount' => ['nullable', 'integer', 'min:0', 'max:300000'],
+            'is_free' => ['sometimes', 'boolean'],
             'sort_order' => ['nullable', 'integer', 'min:0', 'max:1000'],
         ]);
 
@@ -53,6 +54,7 @@ class TherapistMenuController extends Controller
                 'description' => $validated['description'] ?? null,
                 'duration_minutes' => $pricingAttributes['duration_minutes'],
                 'base_price_amount' => $pricingAttributes['base_price_amount'],
+                'is_free' => (bool) ($validated['is_free'] ?? false),
                 'is_active' => true,
                 'sort_order' => $validated['sort_order'] ?? 0,
             ]);
@@ -74,8 +76,9 @@ class TherapistMenuController extends Controller
             'description' => ['sometimes', 'nullable', 'string', 'max:1000'],
             'duration_minutes' => ['sometimes', 'nullable', 'integer', 'min:30', 'max:240'],
             'minimum_duration_minutes' => ['sometimes', 'nullable', 'integer', 'min:30', 'max:240'],
-            'base_price_amount' => ['sometimes', 'nullable', 'integer', 'min:1000', 'max:300000'],
-            'hourly_rate_amount' => ['sometimes', 'nullable', 'integer', 'min:1000', 'max:300000'],
+            'base_price_amount' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:300000'],
+            'hourly_rate_amount' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:300000'],
+            'is_free' => ['sometimes', 'boolean'],
             'is_active' => ['sometimes', 'boolean'],
             'sort_order' => ['sometimes', 'nullable', 'integer', 'min:0', 'max:1000'],
         ]);
@@ -105,6 +108,8 @@ class TherapistMenuController extends Controller
             $therapistMenu->save();
 
             if ($this->requiresReReview($dirtyAttributes)) {
+                $this->markProfileForReview($profile);
+            } else {
                 $this->syncProfileAfterMenuMutation($profile);
             }
 
@@ -140,6 +145,7 @@ class TherapistMenuController extends Controller
             'description',
             'duration_minutes',
             'base_price_amount',
+            'is_free',
             'is_active',
         ]) !== [];
     }
@@ -149,16 +155,38 @@ class TherapistMenuController extends Controller
         $this->publicationService->refreshPublicationState($profile);
     }
 
+    private function markProfileForReview(TherapistProfile $profile): void
+    {
+        $profile->refresh();
+
+        if ($profile->profile_status !== TherapistProfile::STATUS_APPROVED) {
+            $this->syncProfileAfterMenuMutation($profile);
+
+            return;
+        }
+
+        $profile->forceFill([
+            'profile_status' => TherapistProfile::STATUS_DRAFT,
+            'rejected_reason_code' => null,
+            'is_online' => false,
+            'online_since' => null,
+            'approved_at' => null,
+            'approved_by_account_id' => null,
+        ])->save();
+    }
+
     /**
      * @param  array<string, mixed>  $validated
      * @return array{duration_minutes:int,base_price_amount:int}|array{}
      */
     private function resolvePricingAttributes(array $validated, ?TherapistMenu $currentMenu = null): array
     {
+        $freeFlagProvided = array_key_exists('is_free', $validated);
         $minimumDurationProvided = array_key_exists('minimum_duration_minutes', $validated) || array_key_exists('duration_minutes', $validated);
         $pricingProvided = array_key_exists('hourly_rate_amount', $validated) || array_key_exists('base_price_amount', $validated);
+        $isFree = (bool) ($validated['is_free'] ?? $currentMenu?->is_free ?? false);
 
-        if (! $minimumDurationProvided && ! $pricingProvided) {
+        if (! $freeFlagProvided && ! $minimumDurationProvided && ! $pricingProvided) {
             return [];
         }
 
@@ -174,7 +202,20 @@ class TherapistMenuController extends Controller
 
         $durationMinutes = (int) $durationMinutes;
 
+        if ($isFree) {
+            return [
+                'duration_minutes' => $durationMinutes,
+                'base_price_amount' => 0,
+            ];
+        }
+
         if (array_key_exists('hourly_rate_amount', $validated) && $validated['hourly_rate_amount'] !== null) {
+            if ((int) $validated['hourly_rate_amount'] < 1000) {
+                throw ValidationException::withMessages([
+                    'hourly_rate_amount' => ['The hourly rate must be at least 1000.'],
+                ]);
+            }
+
             return [
                 'duration_minutes' => $durationMinutes,
                 'base_price_amount' => (int) round(((int) $validated['hourly_rate_amount'] * $durationMinutes) / 60),
@@ -182,6 +223,12 @@ class TherapistMenuController extends Controller
         }
 
         if (array_key_exists('base_price_amount', $validated) && $validated['base_price_amount'] !== null) {
+            if ((int) $validated['base_price_amount'] < 1000) {
+                throw ValidationException::withMessages([
+                    'base_price_amount' => ['The base price must be at least 1000.'],
+                ]);
+            }
+
             return [
                 'duration_minutes' => $durationMinutes,
                 'base_price_amount' => (int) $validated['base_price_amount'],
@@ -191,6 +238,12 @@ class TherapistMenuController extends Controller
         if (! $currentMenu) {
             throw ValidationException::withMessages([
                 'hourly_rate_amount' => ['The hourly rate is required when creating a menu.'],
+            ]);
+        }
+
+        if ((bool) $currentMenu->is_free || (int) $currentMenu->base_price_amount <= 0) {
+            throw ValidationException::withMessages([
+                'hourly_rate_amount' => ['The hourly rate is required when changing a free menu to paid.'],
             ]);
         }
 

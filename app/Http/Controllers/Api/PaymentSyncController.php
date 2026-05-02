@@ -180,6 +180,11 @@ class PaymentSyncController extends Controller
             'currentQuote',
             'currentPaymentIntent',
             'canceledBy',
+            'userAccount',
+            'therapistAccount',
+            'therapistProfile',
+            'therapistMenu',
+            'serviceAddress',
             'refunds' => fn ($query) => $query->latest('id'),
         ]);
     }

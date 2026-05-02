@@ -171,8 +171,12 @@ function therapistRewardAmount(
 }
 
 function therapistRewardFormulaLabel(
-    booking: Pick<BookingDetailRecord, 'actual_duration_minutes' | 'duration_minutes' | 'therapist_menu'>,
+    booking: Pick<BookingDetailRecord, 'actual_duration_minutes' | 'duration_minutes' | 'therapist_menu' | 'is_free_booking'>,
 ): string | null {
+    if (booking.is_free_booking) {
+        return '無料メニュー';
+    }
+
     const hourlyRateAmount = booking.therapist_menu?.hourly_rate_amount;
 
     if (hourlyRateAmount == null) {

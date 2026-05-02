@@ -211,6 +211,57 @@ class BookingPaymentFlowTest extends TestCase
             ->assertJsonPath('message', '予約リクエストを送るには、本人確認・年齢確認の承認を完了してください。');
     }
 
+    public function test_user_can_create_free_quote_and_booking_without_payment_intent(): void
+    {
+        [, , $userToken, $therapistProfileId, $therapistMenuId, $serviceAddressId] = $this->createBookableFixture();
+
+        TherapistMenu::query()
+            ->where('public_id', $therapistMenuId)
+            ->update([
+                'is_free' => true,
+                'base_price_amount' => 0,
+            ]);
+
+        $quoteId = $this->withToken($userToken)
+            ->postJson('/api/booking-quotes', [
+                'therapist_profile_id' => $therapistProfileId,
+                'therapist_menu_id' => $therapistMenuId,
+                'service_address_id' => $serviceAddressId,
+                'duration_minutes' => 60,
+                'is_on_demand' => true,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.is_free', true)
+            ->assertJsonPath('data.amounts.base_amount', 0)
+            ->assertJsonPath('data.amounts.matching_fee_amount', 0)
+            ->assertJsonPath('data.amounts.platform_fee_amount', 0)
+            ->assertJsonPath('data.amounts.total_amount', 0)
+            ->json('data.quote_id');
+
+        $bookingId = $this->withToken($userToken)
+            ->postJson('/api/bookings', [
+                'quote_id' => $quoteId,
+            ])
+            ->assertCreated()
+            ->assertJsonPath('data.status', Booking::STATUS_REQUESTED)
+            ->assertJsonPath('data.is_free_booking', true)
+            ->assertJsonPath('data.total_amount', 0)
+            ->json('data.public_id');
+
+        $this->assertDatabaseHas('bookings', [
+            'public_id' => $bookingId,
+            'status' => Booking::STATUS_REQUESTED,
+            'total_amount' => 0,
+            'therapist_net_amount' => 0,
+            'platform_fee_amount' => 0,
+            'matching_fee_amount' => 0,
+        ]);
+
+        $this->assertDatabaseMissing('payment_intents', [
+            'booking_id' => Booking::query()->where('public_id', $bookingId)->value('id'),
+        ]);
+    }
+
     public function test_user_can_abandon_failed_payment_authorization_without_notifying_therapist(): void
     {
         $this->app->bind(PaymentIntentGateway::class, fn () => new class implements PaymentIntentGateway

@@ -86,7 +86,27 @@ class BookingCompletionFollowupCommandTest extends TestCase
         ]);
     }
 
-    private function createTherapistCompletedBooking(\Illuminate\Support\Carbon $endedAt): array
+    public function test_command_auto_completes_free_booking_without_creating_ledger_entry(): void
+    {
+        Mail::shouldReceive('raw')->twice();
+
+        [, , $booking] = $this->createTherapistCompletedBooking(now()->subHours(73), freeBooking: true);
+
+        $this->artisan('bookings:follow-up-completion-confirmations')
+            ->expectsOutputToContain('auto_completed=1')
+            ->assertSuccessful();
+
+        $this->assertDatabaseHas('bookings', [
+            'id' => $booking->id,
+            'status' => Booking::STATUS_COMPLETED,
+        ]);
+        $this->assertDatabaseMissing('therapist_ledger_entries', [
+            'booking_id' => $booking->id,
+            'entry_type' => TherapistLedgerEntry::TYPE_BOOKING_SALE,
+        ]);
+    }
+
+    private function createTherapistCompletedBooking(\Illuminate\Support\Carbon $endedAt, bool $freeBooking = false): array
     {
         $user = Account::factory()->create(['public_id' => 'acc_user_followup_'.fake()->unique()->numberBetween(1000, 9999)]);
         $therapist = Account::factory()->create(['public_id' => 'acc_therapist_followup_'.fake()->unique()->numberBetween(1000, 9999)]);
@@ -103,7 +123,8 @@ class BookingCompletionFollowupCommandTest extends TestCase
             'therapist_profile_id' => $therapistProfile->id,
             'name' => 'Body care 60',
             'duration_minutes' => 60,
-            'base_price_amount' => 12000,
+            'base_price_amount' => $freeBooking ? 0 : 12000,
+            'is_free' => $freeBooking,
         ]);
 
         $address = ServiceAddress::create([
@@ -127,10 +148,13 @@ class BookingCompletionFollowupCommandTest extends TestCase
             'scheduled_start_at' => $endedAt->copy()->subHour(),
             'scheduled_end_at' => $endedAt,
             'ended_at' => $endedAt,
-            'total_amount' => 12300,
-            'therapist_net_amount' => 10800,
-            'platform_fee_amount' => 1200,
-            'matching_fee_amount' => 300,
+            'total_amount' => $freeBooking ? 0 : 12300,
+            'therapist_net_amount' => $freeBooking ? 0 : 10800,
+            'platform_fee_amount' => $freeBooking ? 0 : 1200,
+            'matching_fee_amount' => $freeBooking ? 0 : 300,
+            'therapist_snapshot_json' => [
+                'menu_is_free' => $freeBooking,
+            ],
         ]);
 
         return [$user, $therapist, $booking];

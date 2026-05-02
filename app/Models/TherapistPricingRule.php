@@ -165,6 +165,7 @@ class TherapistPricingRule extends Model
                 ->where('adjustment_type', self::ADJUSTMENT_TYPE_FIXED_AMOUNT)
                 ->whereNotNull('therapist_menu_id')
                 ->whereHas('therapistMenu', fn (Builder $menu) => $menu
+                    ->where('is_free', false)
                     ->whereRaw('ABS(therapist_pricing_rules.adjustment_amount) >= therapist_menus.base_price_amount')),
             default => $query->whereRaw('1 = 0'),
         };
@@ -313,6 +314,7 @@ class TherapistPricingRule extends Model
             && $this->adjustment_type === self::ADJUSTMENT_TYPE_FIXED_AMOUNT
             && $this->therapist_menu_id !== null
             && $this->therapistMenu !== null
+            && ! $this->therapistMenu->is_free
             && abs($this->adjustment_amount) >= $this->therapistMenu->base_price_amount;
     }
 }

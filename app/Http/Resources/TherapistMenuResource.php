@@ -18,6 +18,7 @@ class TherapistMenuResource extends JsonResource
             'duration_step_minutes' => $this->duration_step_minutes,
             'base_price_amount' => $this->base_price_amount,
             'hourly_rate_amount' => $this->hourly_rate_amount,
+            'is_free' => $this->is_free,
             'is_active' => $this->is_active,
             'sort_order' => $this->sort_order,
         ];

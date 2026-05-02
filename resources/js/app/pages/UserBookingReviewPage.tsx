@@ -250,6 +250,7 @@ export function UserBookingReviewPage() {
     const reportPath = actorRole === 'therapist'
         ? `/therapist/bookings/${publicId ?? ''}/report`
         : `/user/bookings/${publicId ?? ''}/report`;
+    const canViewMessageThread = actorRole === 'therapist' || booking?.message_thread.can_view !== false;
 
     const readinessMessage = useMemo(() => {
         if (existingReview) {
@@ -519,12 +520,18 @@ export function UserBookingReviewPage() {
                         </div>
 
                         <div className="mt-6 space-y-3">
-                            <Link
-                                to={messagePath}
-                                className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
-                            >
-                                メッセージを見る
-                            </Link>
+                            {canViewMessageThread ? (
+                                <Link
+                                    to={messagePath}
+                                    className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
+                                >
+                                    メッセージを見る
+                                </Link>
+                            ) : (
+                                <div className="rounded-[20px] border border-[#e8dccd] bg-[#f8f4ed] px-4 py-3 text-sm leading-7 text-[#68707a]">
+                                    タチキャスト側でチャットがクローズされたため、履歴は表示できません。
+                                </div>
+                            )}
                             <Link
                                 to={reportPath}
                                 className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"

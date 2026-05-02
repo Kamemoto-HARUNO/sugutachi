@@ -26,6 +26,7 @@ import {
     getDefaultServiceAddress,
     getMenuMinimumDurationMinutes,
     getServiceAddressLabel,
+    isFreeMenu,
 } from '../lib/discovery';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import type {
@@ -175,6 +176,10 @@ function buildAmountRangeLabel(
     }
 
     const prefix = `${durationMinutes}分 `;
+
+    if (amountRange.min === 0 && amountRange.max === 0) {
+        return `${prefix}無料`;
+    }
 
     if (amountRange.min === amountRange.max) {
         return `${prefix}${formatCurrency(amountRange.min)}`;
@@ -1505,6 +1510,9 @@ export function UserTherapistAvailabilityPage() {
                                                 <p className="mt-1 text-xs text-[#d8d3ca]">
                                                     {formatMenuMinimumDurationLabel(selectedMenu)} / {formatMenuHourlyRateLabel(selectedMenu)}
                                                 </p>
+                                                {isFreeMenu(selectedMenu) ? (
+                                                    <p className="mt-1 text-xs text-[#d8d3ca]">無料メニューのためカード決済はありません。</p>
+                                                ) : null}
                                             </div>
                                             <div>
                                                 <p className="text-xs font-semibold text-[#d2b179]">概算料金</p>

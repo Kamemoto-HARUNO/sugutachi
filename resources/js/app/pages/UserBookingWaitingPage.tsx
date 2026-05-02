@@ -75,7 +75,11 @@ function requestStatusLabel(booking: BookingDetailRecord): string {
     return bookingStatusLabel(booking.status);
 }
 
-function paymentStatusLabel(value: string | null | undefined): string {
+function paymentStatusLabel(value: string | null | undefined, isFreeBooking = false): string {
+    if (isFreeBooking) {
+        return '決済不要';
+    }
+
     switch (value) {
         case 'requires_capture':
             return '与信確保済み';
@@ -98,6 +102,10 @@ function formatDateTime(value: string | null): string {
 }
 
 function waitingHeadline(booking: BookingDetailRecord): string {
+    if (booking.is_free_booking && booking.status === 'requested') {
+        return '予約リクエストを送信しました';
+    }
+
     switch (booking.status) {
         case 'payment_authorizing':
             return booking.current_payment_intent?.status === 'requires_capture'
@@ -123,6 +131,12 @@ function waitingHeadline(booking: BookingDetailRecord): string {
 }
 
 function waitingDescription(booking: BookingDetailRecord): string {
+    if (booking.is_free_booking && booking.status === 'requested') {
+        return booking.pending_adjustment_proposal
+            ? '開始時間、終了時間、金額の変更案が届いています。内容を確認して、この条件で進めるか見送るかを選んでください。'
+            : '無料メニューのためカード確認はありません。このままタチキャストの承諾をお待ちください。';
+    }
+
     switch (booking.status) {
         case 'payment_authorizing':
             return booking.current_payment_intent?.status === 'requires_capture'
@@ -290,7 +304,7 @@ export function UserBookingWaitingPage() {
     }
 
     if (isLoading) {
-        return <LoadingScreen title="予約待機画面を準備中" message="最新の予約状態と支払い状況を読み込んでいます。" />;
+        return <LoadingScreen title="予約待機画面を準備中" message="最新の予約状態を読み込んでいます。" />;
     }
 
     if (!booking) {
@@ -314,7 +328,6 @@ export function UserBookingWaitingPage() {
     }
 
     const bookingDetailPath = `/user/bookings/${booking.public_id}`;
-    const messagesPath = `${bookingDetailPath}/messages`;
     const cancelPath = `${bookingDetailPath}/cancel`;
 
     return (
@@ -339,7 +352,7 @@ export function UserBookingWaitingPage() {
                 </div>
             </section>
 
-            <BookingFlowSteps current="waiting" />
+            <BookingFlowSteps current="waiting" isPaymentRequired={!booking.is_free_booking} />
 
 
             <div className="grid gap-6 xl:grid-cols-[minmax(0,1.05fr)_360px]">
@@ -382,9 +395,11 @@ export function UserBookingWaitingPage() {
                                 </p>
                             </div>
                             <div className="rounded-[20px] bg-[#f8f4ed] px-4 py-4">
-                                <p className="text-xs font-semibold tracking-wide text-[#7d6852]">カード与信状態</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#7d6852]">
+                                    {booking.is_free_booking ? '決済状態' : 'カード与信状態'}
+                                </p>
                                 <p className="mt-2 text-sm font-semibold text-[#17202b]">
-                                    {paymentStatusLabel(booking.current_payment_intent?.status)}
+                                    {paymentStatusLabel(booking.current_payment_intent?.status, booking.is_free_booking)}
                                 </p>
                             </div>
                         </div>
@@ -473,12 +488,18 @@ export function UserBookingWaitingPage() {
                             >
                                 予約詳細を見る
                             </Link>
-                            <Link
-                                to={messagesPath}
-                                className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
-                            >
-                                メッセージを開く
-                            </Link>
+                            {booking.message_thread.can_view ? (
+                                <Link
+                                    to={`${bookingDetailPath}/messages`}
+                                    className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
+                                >
+                                    メッセージを開く
+                                </Link>
+                            ) : (
+                                <div className="rounded-[22px] border border-[#e8dccd] bg-[#f8f4ed] px-5 py-4 text-sm leading-7 text-[#68707a]">
+                                    タチキャスト側でチャットがクローズされたため、履歴は表示できません。
+                                </div>
+                            )}
                             {(booking.status === 'payment_authorizing' || booking.status === 'requested' || booking.status === 'accepted') ? (
                                 <Link
                                     to={cancelPath}
@@ -493,8 +514,9 @@ export function UserBookingWaitingPage() {
                     <section className="rounded-[28px] bg-[#17202b] p-6 text-white shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                         <p className="text-xs font-semibold tracking-wide text-[#d2b179]">STATUS NOTE</p>
                         <p className="mt-3 text-sm leading-7 text-[#d8d3ca]">
-                            カード確認の直後は、承諾待ちへ切り替わるまで数秒かかることがあります。
-                            自動で切り替わらないときは、この画面の更新ボタンでもう一度確認できます。
+                            {booking.is_free_booking
+                                ? '無料メニューではカード確認を行いません。状態が変わらないときは、この画面の更新ボタンでもう一度確認できます。'
+                                : 'カード確認の直後は、承諾待ちへ切り替わるまで数秒かかることがあります。自動で切り替わらないときは、この画面の更新ボタンでもう一度確認できます。'}
                         </p>
                     </section>
                 </aside>
