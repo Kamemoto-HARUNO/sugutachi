@@ -127,13 +127,14 @@ export function LoginPage({ targetRole }: LoginPageProps) {
                             onChange={(event) => setPassword(event.target.value)}
                             placeholder="10文字以上"
                             autoComplete="current-password"
+                            className="block space-y-2 pb-4"
                             required
                         />
 
                         <button
                             type="submit"
                             disabled={isSubmitting}
-                            className="mt-4 inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-6 py-3 text-sm font-bold text-[#1a2430] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
+                            className="mt-6 inline-flex w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-6 py-3 text-sm font-bold text-[#1a2430] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-70"
                         >
                             {isSubmitting ? 'ログイン中...' : 'ログイン'}
                         </button>
