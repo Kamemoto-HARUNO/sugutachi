@@ -328,8 +328,6 @@ export function UserBookingWaitingPage() {
     }
 
     const bookingDetailPath = `/user/bookings/${booking.public_id}`;
-    const cancelPath = `${bookingDetailPath}/cancel`;
-
     return (
         <div className="space-y-8">
             <section className="rounded-[32px] bg-[linear-gradient(140deg,#17202b_0%,#223245_100%)] p-6 text-white shadow-[0_24px_60px_rgba(15,23,42,0.28)] sm:p-8">
@@ -341,14 +339,37 @@ export function UserBookingWaitingPage() {
                             {waitingDescription(booking)}
                         </p>
                     </div>
-                    <button
-                        type="button"
-                        onClick={() => void loadBooking(true)}
-                        disabled={isRefreshing}
-                        className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-60"
-                    >
-                        {isRefreshing ? '更新しています...' : '最新状態を更新'}
-                    </button>
+                    <div className="flex flex-col gap-3 lg:items-end">
+                        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap lg:justify-end">
+                            <button
+                                type="button"
+                                onClick={() => void loadBooking(true)}
+                                disabled={isRefreshing}
+                                className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-60"
+                            >
+                                {isRefreshing ? '更新しています...' : '最新状態を更新'}
+                            </button>
+                            <Link
+                                to={bookingDetailPath}
+                                className="inline-flex min-h-11 items-center justify-center rounded-full bg-[#f1dfbd] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#f6e8cb]"
+                            >
+                                予約詳細を見る
+                            </Link>
+                            {booking.message_thread.can_view ? (
+                                <Link
+                                    to={`${bookingDetailPath}/messages`}
+                                    className="inline-flex min-h-11 items-center justify-center rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8"
+                                >
+                                    メッセージを開く
+                                </Link>
+                            ) : null}
+                        </div>
+                        {!booking.message_thread.can_view ? (
+                            <p className="text-sm leading-7 text-slate-300 lg:max-w-[22rem] lg:text-right">
+                                タチキャスト側でチャットがクローズされたため、履歴は表示できません。
+                            </p>
+                        ) : null}
+                    </div>
                 </div>
             </section>
 
@@ -479,38 +500,6 @@ export function UserBookingWaitingPage() {
                 </section>
 
                 <aside className="space-y-5">
-                    <section className="rounded-[28px] bg-[#fffcf7] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.1)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">NEXT ACTION</p>
-                        <div className="mt-4 space-y-3">
-                            <Link
-                                to={bookingDetailPath}
-                                className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243140]"
-                            >
-                                予約詳細を見る
-                            </Link>
-                            {booking.message_thread.can_view ? (
-                                <Link
-                                    to={`${bookingDetailPath}/messages`}
-                                    className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
-                                >
-                                    メッセージを開く
-                                </Link>
-                            ) : (
-                                <div className="rounded-[22px] border border-[#e8dccd] bg-[#f8f4ed] px-5 py-4 text-sm leading-7 text-[#68707a]">
-                                    タチキャスト側でチャットがクローズされたため、履歴は表示できません。
-                                </div>
-                            )}
-                            {(booking.status === 'payment_authorizing' || booking.status === 'requested' || booking.status === 'accepted') ? (
-                                <Link
-                                    to={cancelPath}
-                                    className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
-                                >
-                                    キャンセル条件を見る
-                                </Link>
-                            ) : null}
-                        </div>
-                    </section>
-
                     <section className="rounded-[28px] bg-[#17202b] p-6 text-white shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                         <p className="text-xs font-semibold tracking-wide text-[#d2b179]">STATUS NOTE</p>
                         <p className="mt-3 text-sm leading-7 text-[#d8d3ca]">
