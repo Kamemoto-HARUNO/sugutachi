@@ -589,6 +589,7 @@ export interface TherapistDetail {
     travel_mode: 'walking' | 'bicycle' | 'transit' | 'car' | null;
     walking_time_range: string | null;
     lowest_estimated_total_amount: number | null;
+    has_published_availability_slots: boolean;
     pending_scheduled_request: PendingScheduledRequestSummary | null;
     menus: TherapistMenu[];
     photos: PublicProfilePhoto[];

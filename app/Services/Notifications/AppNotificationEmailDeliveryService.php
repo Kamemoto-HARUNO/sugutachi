@@ -3,7 +3,9 @@
 namespace App\Services\Notifications;
 
 use App\Models\AppNotification;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
+use Throwable;
 
 class AppNotificationEmailDeliveryService
 {
@@ -33,11 +35,19 @@ class AppNotificationEmailDeliveryService
 
         $body = implode("\n\n", $lines);
 
-        rescue(function () use ($body, $email, $subject): void {
+        try {
             Mail::raw($body, function ($message) use ($email, $subject): void {
                 $message->to($email)->subject($subject);
             });
-        }, report: false);
+        } catch (Throwable $exception) {
+            Log::warning('App notification email delivery failed.', [
+                'notification_id' => $notification->id,
+                'account_id' => $notification->account_id,
+                'notification_type' => $notification->notification_type,
+                'recipient_email' => $email,
+                'message' => $exception->getMessage(),
+            ]);
+        }
     }
 
     private function targetUrlLine(AppNotification $notification): ?string

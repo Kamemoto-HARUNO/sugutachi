@@ -217,7 +217,7 @@ class BookingQuoteCalculator
 
         $location = $therapistProfile->location;
 
-        if (! $location) {
+        if (! $location || ! $location->is_searchable) {
             return [
                 'walking_time_minutes' => null,
                 'walking_time_range' => 'unknown',

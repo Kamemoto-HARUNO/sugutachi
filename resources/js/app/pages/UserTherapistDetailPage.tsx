@@ -345,6 +345,7 @@ export function UserTherapistDetailPage() {
     );
     const pendingScheduledRequest = therapistDetail?.pending_scheduled_request ?? null;
     const pendingScheduledRequestPath = pendingScheduledRequest ? `/user/bookings/${pendingScheduledRequest.public_id}` : '/user/bookings';
+    const scheduledAvailabilityUnavailableMessage = 'このセラピストは空き枠が設定されていないのでリクエストを送ることができません。';
     const shouldBlockOfflineNowRequest = Boolean(
         therapistDetail
         && !therapistDetail.is_online
@@ -357,6 +358,15 @@ export function UserTherapistDetailPage() {
     const handleOfflineNowRequestClick = useCallback(() => {
         showError('このタチキャストは現在オフラインです');
     }, [showError]);
+    const shouldBlockScheduledRequestWithoutAvailability = Boolean(
+        therapistDetail
+        && selectedStartType === 'scheduled'
+        && !therapistDetail.has_published_availability_slots
+        && !pendingScheduledRequest,
+    );
+    const handleUnavailableScheduledRequestClick = useCallback(() => {
+        showError(scheduledAvailabilityUnavailableMessage);
+    }, [scheduledAvailabilityUnavailableMessage, showError]);
     const loginAvailabilityPath = intendedPrimaryActionPath
         ? `/login?return_to=${encodeURIComponent(intendedPrimaryActionPath)}`
         : '/login';
@@ -392,6 +402,13 @@ export function UserTherapistDetailPage() {
             ? { label: '待ち合わせ場所を設定する', to: serviceAddressPath }
             : !isUserVerificationReady
             ? { label: '本人確認・年齢確認を完了する', to: '/user/identity-verification' }
+            : shouldBlockScheduledRequestWithoutAvailability
+            ? {
+                label: '空き時間を見る',
+                to: availabilityPath,
+                disabled: true,
+                onClick: handleUnavailableScheduledRequestClick,
+            }
             : shouldBlockOfflineNowRequest
             ? {
                 label: '依頼をリクエストする',
@@ -406,6 +423,13 @@ export function UserTherapistDetailPage() {
                         ? '空き時間を見る'
                         : '依頼をリクエストする',
                 to: pendingScheduledRequest ? pendingScheduledRequestPath : availabilityPath,
+            }
+        : shouldBlockScheduledRequestWithoutAvailability
+            ? {
+                label: '空き時間を見る',
+                to: loginAvailabilityPath,
+                disabled: true,
+                onClick: handleUnavailableScheduledRequestClick,
             }
         : isAuthenticated
             ? {
@@ -1560,6 +1584,17 @@ export function UserTherapistDetailPage() {
                                                         現在の予約候補: {pendingScheduledRequestLabel}
                                                     </p>
                                                 ) : null}
+                                            </div>
+                                        ) : null}
+                                        {!isSelfPreview && shouldBlockScheduledRequestWithoutAvailability ? (
+                                            <div className="rounded-[20px] border border-[#e7d5b3] bg-[#fff8ec] p-4 text-sm leading-7 text-[#6f5a38]">
+                                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">空き枠が未設定です</p>
+                                                <p className="mt-2 font-semibold text-[#17202b]">
+                                                    {scheduledAvailabilityUnavailableMessage}
+                                                </p>
+                                                <p className="mt-2 text-xs text-[#7d6852]">
+                                                    空き枠が公開されるまでは、希望エリアや希望日時を添えて出張リクエストをご利用ください。
+                                                </p>
                                             </div>
                                         ) : null}
                                         {isSelfPreview ? (

@@ -1,3 +1,4 @@
+import { buildCurrentJstDateTimeLocalValue } from '../../lib/datetime';
 import {
     DISCOVERY_BOOKING_TYPE_OPTIONS,
     DISCOVERY_DISPLAY_NOTE_LABEL,
@@ -32,6 +33,8 @@ export function DiscoveryFilterPanel({
     priceRange,
     onSelectPriceRange,
 }: DiscoveryFilterPanelProps) {
+    const minScheduledStartAt = buildCurrentJstDateTimeLocalValue();
+
     return (
         <div className="space-y-5">
             <div className="space-y-3">
@@ -60,6 +63,7 @@ export function DiscoveryFilterPanel({
                     <input
                         type="datetime-local"
                         value={scheduledStartAt}
+                        min={minScheduledStartAt}
                         onChange={(event) => onScheduledStartAtChange(event.target.value)}
                         className="block min-w-0 max-w-full rounded-[20px] border border-[#e5d8c4] bg-white px-4 py-3 text-base text-[#17202b] outline-none sm:text-sm"
                     />

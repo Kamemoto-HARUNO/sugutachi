@@ -27,6 +27,7 @@ class PublicTherapistDetailResource extends JsonResource
             'travel_mode' => data_get($this->resource, 'travel_mode'),
             'walking_time_range' => data_get($this->resource, 'walking_time_range'),
             'lowest_estimated_total_amount' => data_get($this->resource, 'lowest_estimated_total_amount'),
+            'has_published_availability_slots' => (bool) data_get($this->resource, 'has_published_availability_slots', false),
             'pending_scheduled_request' => $this->pendingScheduledRequestSummary(),
             'menus' => PublicTherapistMenuResource::collection(
                 Collection::make(data_get($this->resource, 'menus', []))

@@ -13,6 +13,7 @@ use App\Models\LocationSearchLog;
 use App\Models\PrivatePhotoViewSession;
 use App\Models\ProfilePhoto;
 use App\Models\ServiceAddress;
+use App\Models\TherapistAvailabilitySlot;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
 use App\Services\Pricing\BookingQuoteCalculator;
@@ -156,24 +157,7 @@ class TherapistDiscoveryController extends Controller
         $includeOffline = ($validated['start_type'] ?? 'now') !== 'scheduled'
             && (bool) ($validated['include_offline'] ?? false);
         $profiles = ($validated['start_type'] ?? 'now') === 'scheduled'
-            ? TherapistProfile::query()
-                ->scheduledDiscoverableTo($viewer)
-                ->with([
-                    'account.latestIdentityVerification',
-                    'bookingSetting',
-                    'location',
-                    'menus' => fn ($query) => $query
-                        ->where('is_active', true)
-                        ->orderBy('sort_order')
-                        ->orderBy('id'),
-                    'pricingRules',
-                    'photos' => fn ($query) => $query
-                        ->where('status', ProfilePhoto::STATUS_APPROVED)
-                        ->where('visibility', ProfilePhoto::VISIBILITY_PUBLIC)
-                        ->orderBy('sort_order')
-                        ->orderBy('id'),
-                ])
-                ->get()
+            ? $this->scheduledSearchProfilesQuery($viewer)->get()
             : $this->discoverableProfilesQuery($viewer, $includeOffline)->get();
 
         $results = $this->buildSearchResults(
@@ -226,9 +210,41 @@ class TherapistDiscoveryController extends Controller
     {
         return TherapistProfile::query()
             ->visibleTo($viewer)
-            ->when(! $includeOffline, fn (Builder $query) => $query->where('is_online', true))
-            ->whereHas('location', fn (Builder $query) => $query->where('is_searchable', true))
             ->whereHas('menus', fn (Builder $query) => $query->where('is_active', true))
+            ->when(
+                $includeOffline,
+                fn (Builder $query) => $query->where(function (Builder $query): void {
+                    $query
+                        ->where('is_online', false)
+                        ->orWhereHas('location', fn (Builder $location) => $location->where('is_searchable', true));
+                }),
+                fn (Builder $query) => $query
+                    ->where('is_online', true)
+                    ->whereHas('location', fn (Builder $location) => $location->where('is_searchable', true)),
+            )
+            ->with([
+                'account.latestIdentityVerification',
+                'bookingSetting',
+                'location',
+                'menus' => fn ($query) => $query
+                    ->where('is_active', true)
+                    ->orderBy('sort_order')
+                    ->orderBy('id'),
+                'pricingRules',
+                'photos' => fn ($query) => $query
+                    ->where('status', ProfilePhoto::STATUS_APPROVED)
+                    ->where('visibility', ProfilePhoto::VISIBILITY_PUBLIC)
+                    ->orderBy('sort_order')
+                    ->orderBy('id'),
+            ]);
+    }
+
+    private function scheduledSearchProfilesQuery(Account $viewer): Builder
+    {
+        return TherapistProfile::query()
+            ->visibleTo($viewer)
+            ->whereHas('menus', fn (Builder $query) => $query->where('is_active', true))
+            ->whereHas('bookingSetting')
             ->with([
                 'account.latestIdentityVerification',
                 'bookingSetting',
@@ -269,6 +285,9 @@ class TherapistDiscoveryController extends Controller
                 'photos as private_photo_count' => fn ($query) => $query
                     ->where('status', ProfilePhoto::STATUS_APPROVED)
                     ->where('visibility', ProfilePhoto::VISIBILITY_PRIVATE),
+                'availabilitySlots as published_availability_slots_count' => fn ($query) => $query
+                    ->where('status', TherapistAvailabilitySlot::STATUS_PUBLISHED)
+                    ->where('end_at', '>', now()),
             ]);
     }
 
@@ -294,6 +313,9 @@ class TherapistDiscoveryController extends Controller
                 'photos as private_photo_count' => fn ($query) => $query
                     ->where('status', ProfilePhoto::STATUS_APPROVED)
                     ->where('visibility', ProfilePhoto::VISIBILITY_PRIVATE),
+                'availabilitySlots as published_availability_slots_count' => fn ($query) => $query
+                    ->where('status', TherapistAvailabilitySlot::STATUS_PUBLISHED)
+                    ->where('end_at', '>', now()),
             ]);
     }
 
@@ -467,6 +489,7 @@ class TherapistDiscoveryController extends Controller
             'travel_mode' => $profile->bookingSetting?->travel_mode,
             'walking_time_range' => $walkingEstimate['walking_time_range'] ?? null,
             'lowest_estimated_total_amount' => $walkingEstimate['total_amount'] ?? null,
+            'has_published_availability_slots' => (int) ($profile->published_availability_slots_count ?? 0) > 0,
             'pending_scheduled_request' => $this->pendingScheduledRequestSummary($viewer, $profile),
             'menus' => $menuEstimates->all(),
             'photos' => $this->publicPhotos(
@@ -610,9 +633,11 @@ class TherapistDiscoveryController extends Controller
             ])),
             'menu_duration_minutes' => ['nullable', 'integer', 'min:30', 'max:240'],
             'start_type' => ['nullable', Rule::in(['now', 'scheduled'])],
-            'scheduled_start_at' => ['nullable', 'date', 'after_or_equal:now'],
+            'scheduled_start_at' => ['nullable', 'date'],
             'sort' => ['nullable', Rule::in(['recommended', 'soonest', 'rating'])],
             'include_offline' => ['nullable', 'boolean'],
+        ], [
+            'scheduled_start_at.date' => '開始日時を正しく入力してください。',
         ]);
 
         $validated['start_type'] = $validated['start_type'] ?? 'now';
@@ -627,7 +652,16 @@ class TherapistDiscoveryController extends Controller
         if ($validated['start_type'] !== 'scheduled') {
             $validated['scheduled_start_at'] = null;
         } elseif (filled($validated['scheduled_start_at'] ?? null)) {
-            $validated['scheduled_start_at'] = $this->parseInputDateTime($validated['scheduled_start_at'])->toIso8601String();
+            $scheduledStartAt = $this->parseInputDateTime($validated['scheduled_start_at']);
+            $minimumStartAt = CarbonImmutable::now(self::INPUT_TIMEZONE)->startOfMinute()->utc();
+
+            if ($scheduledStartAt->lt($minimumStartAt)) {
+                throw ValidationException::withMessages([
+                    'scheduled_start_at' => '開始日時は現在時刻より後に設定してください。',
+                ]);
+            }
+
+            $validated['scheduled_start_at'] = $scheduledStartAt->toIso8601String();
         }
 
         $serviceAddress = null;

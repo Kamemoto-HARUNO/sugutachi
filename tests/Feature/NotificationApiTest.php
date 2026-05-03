@@ -11,6 +11,7 @@ use App\Services\Notifications\WebPushDeliveryService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\Client\Request;
 use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Mockery;
 use Tests\TestCase;
@@ -237,6 +238,86 @@ class NotificationApiTest extends TestCase
             'status' => AppNotification::STATUS_SENT,
             'sent_at' => now(),
         ]);
+    }
+
+    public function test_email_delivery_failures_are_logged_without_breaking_notification_creation(): void
+    {
+        $account = Account::factory()->create(['public_id' => 'acc_push_delivery_failure']);
+
+        $mock = Mockery::mock(WebPushDeliveryService::class);
+        $mock->shouldReceive('deliverForNotification')->once();
+
+        $this->app->instance(WebPushDeliveryService::class, $mock);
+
+        Mail::shouldReceive('raw')
+            ->once()
+            ->andThrow(new \RuntimeException('SMTP auth failed'));
+
+        Log::shouldReceive('warning')
+            ->once()
+            ->withArgs(function (string $message, array $context) use ($account): bool {
+                return $message === 'App notification email delivery failed.'
+                    && $context['account_id'] === $account->id
+                    && $context['notification_type'] === 'booking_requested'
+                    && $context['recipient_email'] === $account->email
+                    && str_contains($context['message'] ?? '', 'SMTP auth failed');
+            });
+
+        AppNotification::create([
+            'account_id' => $account->id,
+            'notification_type' => 'booking_requested',
+            'channel' => 'in_app',
+            'title' => '新しい予約があります',
+            'body' => '内容を確認してください。',
+            'status' => AppNotification::STATUS_SENT,
+            'sent_at' => now(),
+        ]);
+
+        $this->assertDatabaseHas('notifications', [
+            'account_id' => $account->id,
+            'notification_type' => 'booking_requested',
+            'status' => AppNotification::STATUS_SENT,
+        ]);
+    }
+
+    public function test_mail_config_normalizes_legacy_tls_and_ssl_schemes(): void
+    {
+        $originalEnv = [
+            'MAIL_SCHEME' => env('MAIL_SCHEME'),
+        ];
+
+        try {
+            putenv('MAIL_SCHEME=tls');
+            $_ENV['MAIL_SCHEME'] = 'tls';
+            $_SERVER['MAIL_SCHEME'] = 'tls';
+
+            $tlsConfig = require base_path('config/mail.php');
+
+            putenv('MAIL_SCHEME=ssl');
+            $_ENV['MAIL_SCHEME'] = 'ssl';
+            $_SERVER['MAIL_SCHEME'] = 'ssl';
+
+            $sslConfig = require base_path('config/mail.php');
+
+            putenv('MAIL_SCHEME=');
+            $_ENV['MAIL_SCHEME'] = '';
+            $_SERVER['MAIL_SCHEME'] = '';
+
+            $emptyConfig = require base_path('config/mail.php');
+        } finally {
+            if ($originalEnv['MAIL_SCHEME'] === null) {
+                putenv('MAIL_SCHEME');
+                unset($_ENV['MAIL_SCHEME'], $_SERVER['MAIL_SCHEME']);
+            } else {
+                putenv('MAIL_SCHEME='.$originalEnv['MAIL_SCHEME']);
+                $_ENV['MAIL_SCHEME'] = $originalEnv['MAIL_SCHEME'];
+                $_SERVER['MAIL_SCHEME'] = $originalEnv['MAIL_SCHEME'];
+            }
+        }
+
+        $this->assertSame('smtp', $tlsConfig['mailers']['smtp']['scheme']);
+        $this->assertSame('smtps', $sslConfig['mailers']['smtp']['scheme']);
+        $this->assertNull($emptyConfig['mailers']['smtp']['scheme']);
     }
 
     public function test_admin_notification_service_sends_slack_webhook_when_configured(): void

@@ -101,6 +101,63 @@ class TherapistDiscoveryApiTest extends TestCase
             ]);
     }
 
+    public function test_user_can_include_offline_therapists_even_when_location_is_not_searchable(): void
+    {
+        [$user, $address] = $this->createDiscoveryFixture();
+
+        $offlineTherapist = Account::factory()->create(['public_id' => 'acc_therapist_offline_hidden_location']);
+        $offlineProfile = TherapistProfile::create([
+            'account_id' => $offlineTherapist->id,
+            'public_id' => 'thp_offline_hidden_location',
+            'public_name' => 'Offline Hidden Location Therapist',
+            'profile_status' => TherapistProfile::STATUS_APPROVED,
+            'training_status' => 'completed',
+            'is_online' => false,
+        ]);
+        TherapistMenu::create([
+            'public_id' => 'menu_offline_hidden_location_60',
+            'therapist_profile_id' => $offlineProfile->id,
+            'name' => 'Offline Hidden Location Body Care 60',
+            'duration_minutes' => 60,
+            'base_price_amount' => 12000,
+            'is_active' => true,
+        ]);
+        TherapistLocation::create([
+            'therapist_profile_id' => $offlineProfile->id,
+            'lat' => '35.6822000',
+            'lng' => '139.7682000',
+            'is_searchable' => false,
+        ]);
+        IdentityVerification::create([
+            'account_id' => $offlineTherapist->id,
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'is_age_verified' => true,
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now(),
+        ]);
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->getJson("/api/therapists?service_address_id={$address->public_id}&menu_duration_minutes=60&start_type=now&include_offline=1&sort=recommended")
+            ->assertOk()
+            ->assertJsonCount(4, 'data')
+            ->assertJsonPath('data.3.public_id', $offlineProfile->public_id)
+            ->assertJsonPath('data.3.is_online', false)
+            ->assertJsonPath('data.3.walking_time_range', 'unknown');
+    }
+
+    public function test_scheduled_search_returns_clear_error_message_for_past_datetime(): void
+    {
+        [$user, $address] = $this->createDiscoveryFixture();
+        $pastStartAt = urlencode(now()->subHour()->format('Y-m-d H:i:s'));
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->getJson("/api/therapists?service_address_id={$address->public_id}&menu_duration_minutes=60&start_type=scheduled&scheduled_start_at={$pastStartAt}&sort=recommended")
+            ->assertStatus(422)
+            ->assertJsonValidationErrors([
+                'scheduled_start_at' => '開始日時は現在時刻より後に設定してください。',
+            ]);
+    }
+
     public function test_user_can_view_therapist_detail_with_menu_estimates(): void
     {
         [$user, $address, $nearbyProfile] = $this->createDiscoveryFixture();
@@ -179,6 +236,77 @@ class TherapistDiscoveryApiTest extends TestCase
             ->assertJsonPath('data.0.estimated_total_amount', 13300);
     }
 
+    public function test_scheduled_search_includes_therapists_without_published_slots_when_booking_settings_exist(): void
+    {
+        [$user, $address, $nearbyProfile] = $this->createDiscoveryFixture();
+
+        TherapistBookingSetting::create([
+            'therapist_profile_id' => $nearbyProfile->id,
+            'booking_request_lead_time_minutes' => 60,
+            'scheduled_base_label' => 'Tokyo Base',
+            'scheduled_base_lat' => '35.6820000',
+            'scheduled_base_lng' => '139.7680000',
+        ]);
+        TherapistAvailabilitySlot::create([
+            'public_id' => 'slot_discovery_scheduled_visible',
+            'therapist_profile_id' => $nearbyProfile->id,
+            'start_at' => CarbonImmutable::now()->addDays(2)->startOfHour(),
+            'end_at' => CarbonImmutable::now()->addDays(2)->startOfHour()->addHours(3),
+            'status' => TherapistAvailabilitySlot::STATUS_PUBLISHED,
+            'dispatch_base_type' => TherapistAvailabilitySlot::DISPATCH_BASE_TYPE_DEFAULT,
+            'dispatch_area_label' => '東京駅周辺',
+        ]);
+
+        $noSlotTherapist = Account::factory()->create(['public_id' => 'acc_therapist_scheduled_no_slot']);
+        $noSlotProfile = TherapistProfile::create([
+            'account_id' => $noSlotTherapist->id,
+            'public_id' => 'thp_scheduled_no_slot',
+            'public_name' => 'Scheduled No Slot Therapist',
+            'profile_status' => TherapistProfile::STATUS_APPROVED,
+            'training_status' => 'completed',
+            'is_online' => false,
+        ]);
+        TherapistMenu::create([
+            'public_id' => 'menu_scheduled_no_slot_60',
+            'therapist_profile_id' => $noSlotProfile->id,
+            'name' => 'Scheduled No Slot Body Care 60',
+            'duration_minutes' => 60,
+            'base_price_amount' => 12000,
+            'is_active' => true,
+        ]);
+        TherapistBookingSetting::create([
+            'therapist_profile_id' => $noSlotProfile->id,
+            'booking_request_lead_time_minutes' => 60,
+            'scheduled_base_label' => 'Shinjuku Base',
+            'scheduled_base_lat' => '35.6900000',
+            'scheduled_base_lng' => '139.7000000',
+        ]);
+        TherapistLocation::create([
+            'therapist_profile_id' => $noSlotProfile->id,
+            'lat' => '35.6900000',
+            'lng' => '139.7000000',
+            'is_searchable' => true,
+        ]);
+        IdentityVerification::create([
+            'account_id' => $noSlotTherapist->id,
+            'status' => IdentityVerification::STATUS_APPROVED,
+            'is_age_verified' => true,
+            'submitted_at' => now()->subDay(),
+            'reviewed_at' => now(),
+        ]);
+
+        $scheduledStartAt = urlencode(now()->addDays(2)->setMinute(0)->setSecond(0)->format('Y-m-d H:i:s'));
+
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->getJson("/api/therapists?service_address_id={$address->public_id}&menu_duration_minutes=60&start_type=scheduled&scheduled_start_at={$scheduledStartAt}&sort=recommended")
+            ->assertOk()
+            ->assertJsonCount(2, 'data')
+            ->assertJsonFragment([
+                'public_id' => $noSlotProfile->public_id,
+                'is_online' => false,
+            ]);
+    }
+
     public function test_guest_can_view_offline_public_therapist_detail_without_saved_address(): void
     {
         $this->createDiscoveryFixture();
@@ -209,6 +337,15 @@ class TherapistDiscoveryApiTest extends TestCase
             ->getJson("/api/therapists/{$nearbyProfile->public_id}?service_address_id={$address->public_id}")
             ->assertOk()
             ->assertJsonCount(1, 'data.photos');
+    }
+
+    public function test_public_detail_indicates_when_no_published_availability_slots_exist(): void
+    {
+        [, , $nearbyProfile] = $this->createDiscoveryFixture();
+
+        $this->getJson("/api/therapists/{$nearbyProfile->public_id}")
+            ->assertOk()
+            ->assertJsonPath('data.has_published_availability_slots', false);
     }
 
     public function test_user_can_view_pending_scheduled_request_summary_on_therapist_detail(): void

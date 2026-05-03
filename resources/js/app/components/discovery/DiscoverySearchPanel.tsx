@@ -1,4 +1,5 @@
 import { Link } from 'react-router-dom';
+import { buildCurrentJstDateTimeLocalValue } from '../../lib/datetime';
 import {
     DISCOVERY_BOOKING_TYPE_LABEL,
     DISCOVERY_BOOKING_TYPE_OPTIONS,
@@ -52,6 +53,8 @@ export function DiscoverySearchPanel({
     action,
     helperText,
 }: DiscoverySearchPanelProps) {
+    const minScheduledStartAt = buildCurrentJstDateTimeLocalValue();
+
     return (
         <div className="rounded-[32px] border border-white/12 bg-[linear-gradient(109deg,rgba(255,249,241,0.18)_2.98%,rgba(255,255,255,0.04)_101.1%)] p-6 text-white shadow-[0_24px_60px_rgba(0,0,0,0.16)] md:p-8">
             <div className="space-y-1">
@@ -92,6 +95,7 @@ export function DiscoverySearchPanel({
                     <input
                         type="datetime-local"
                         value={scheduledStartAt}
+                        min={minScheduledStartAt}
                         onChange={(event) => onScheduledStartAtChange(event.target.value)}
                         className="block min-w-0 max-w-full rounded-[24px] border border-transparent bg-white px-4 py-3 text-base font-medium text-[#17202b] outline-none sm:px-5 sm:text-sm"
                     />
