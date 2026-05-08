@@ -1318,6 +1318,57 @@ export interface AppNotificationRecord {
     created_at: string;
 }
 
+export interface SupportTicketAccountSummary {
+    public_id: string;
+    display_name: string | null;
+    email?: string | null;
+    status: string;
+}
+
+export interface SupportTicketActorSummary {
+    public_id: string | null;
+    display_name: string | null;
+    status?: string | null;
+}
+
+export interface SupportTicketMessageRecord {
+    id: number;
+    support_ticket_public_id?: string;
+    sender_role: 'user' | 'therapist' | 'admin';
+    sender: SupportTicketActorSummary | null;
+    message_type: 'text' | 'image';
+    body: string | null;
+    attachment_url?: string | null;
+    attachment_original_name: string | null;
+    attachment_mime_type: string | null;
+    attachment_size_bytes: number | null;
+    is_own: boolean;
+    is_read: boolean;
+    sent_at: string | null;
+    read_by_user_at: string | null;
+    read_by_admin_at?: string | null;
+}
+
+export interface SupportTicketRecord {
+    public_id: string;
+    account?: SupportTicketAccountSummary | null;
+    requester_role: 'user' | 'therapist';
+    origin: 'user' | 'therapist' | 'admin';
+    title: string;
+    category: string;
+    status: 'open' | 'completed';
+    can_send: boolean;
+    unread_count: number;
+    last_message_excerpt: string | null;
+    last_message_at: string | null;
+    created_by?: SupportTicketActorSummary | null;
+    completed_by_admin?: SupportTicketActorSummary | null;
+    completed_at: string | null;
+    created_at: string;
+    updated_at: string;
+    messages?: SupportTicketMessageRecord[];
+}
+
 export interface NotificationListMeta {
     unread_count: number;
     limit: number;
@@ -1376,6 +1427,8 @@ export interface AdminDashboardRecord {
         open_interruption_reports: number;
         open_message_origin_reports: number;
         pending_contact_inquiries: number;
+        open_support_tickets: number;
+        unread_support_tickets: number;
         unread_travel_requests: number;
         flagged_travel_requests: number;
         pending_travel_request_reviews: number;

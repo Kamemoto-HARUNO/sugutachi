@@ -46,6 +46,7 @@ import { AdminPayoutRequestsPage } from './pages/AdminPayoutRequestsPage';
 import { AdminRefundRequestsPage } from './pages/AdminRefundRequestsPage';
 import { AdminReportsPage } from './pages/AdminReportsPage';
 import { AdminStripeDisputesPage } from './pages/AdminStripeDisputesPage';
+import { AdminSupportTicketsPage } from './pages/AdminSupportTicketsPage';
 import { AdminTherapistProfilesPage } from './pages/AdminTherapistProfilesPage';
 import { AdminTravelRequestsPage } from './pages/AdminTravelRequestsPage';
 import { AccountIdentityVerificationPage } from './pages/AccountIdentityVerificationPage';
@@ -63,6 +64,7 @@ import { RegisterPage } from './pages/RegisterPage';
 import { ResetPasswordPage } from './pages/ResetPasswordPage';
 import { RoleSelectPage } from './pages/RoleSelectPage';
 import { SectionHomePage } from './pages/SectionHomePage';
+import { SupportTicketPage } from './pages/SupportTicketPage';
 import { TherapistIdentityVerificationPage } from './pages/TherapistIdentityVerificationPage';
 import { TherapistAvailabilityPage } from './pages/TherapistAvailabilityPage';
 import { TherapistBalancePage } from './pages/TherapistBalancePage';
@@ -142,6 +144,7 @@ function AppRoutes() {
                     <Route path="/identity-verification" element={<AccountIdentityVerificationPage />} />
                     <Route path="/profile" element={<AccountProfilePage />} />
                     <Route path="/profile/withdrawal" element={<AccountWithdrawalPage />} />
+                    <Route path="/help/tickets/:publicId" element={<SupportTicketPage />} />
                 </Route>
 
             <Route element={<RoleRoute role="user" hasRole={hasRole} isAuthenticated={isAuthenticated} activeRole={activeRole} selectRole={selectRole} />}>
@@ -326,6 +329,8 @@ function AppRoutes() {
                     <Route path="stripe-disputes" element={<AdminStripeDisputesPage />} />
                     <Route path="contact-inquiries" element={<AdminContactInquiriesPage />} />
                     <Route path="contact-inquiries/:publicId" element={<AdminContactInquiriesPage />} />
+                    <Route path="support-tickets" element={<AdminSupportTicketsPage />} />
+                    <Route path="support-tickets/:publicId" element={<AdminSupportTicketsPage />} />
                     <Route path="travel-requests" element={<AdminTravelRequestsPage />} />
                     <Route path="travel-requests/:publicId" element={<AdminTravelRequestsPage />} />
                     <Route path="pricing-rules" element={<AdminPricingRulesPage />} />
@@ -352,6 +357,8 @@ function AppRoutes() {
                             'stripe-disputes',
                             'contact-inquiries',
                             'contact-inquiries/:publicId',
+                            'support-tickets',
+                            'support-tickets/:publicId',
                             'travel-requests',
                             'travel-requests/:publicId',
                             'pricing-rules',

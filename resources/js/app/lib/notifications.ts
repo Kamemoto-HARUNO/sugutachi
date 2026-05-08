@@ -62,6 +62,10 @@ export function formatNotificationTypeLabel(type: string | null | undefined): st
             return '本人確認提出';
         case 'contact_inquiry_received':
             return '問い合わせ受信';
+        case 'support_ticket_created':
+            return 'サポートチケット';
+        case 'support_ticket_message_received':
+            return 'サポート返信';
         case 'refund_requested':
             return '返金申請受信';
         case 'payout_requested':
@@ -115,6 +119,8 @@ export function resolveNotificationRole(notification: AppNotificationRecord): No
         case 'booking_refunded':
         case 'travel_request_warning':
         case 'travel_request_restricted':
+        case 'support_ticket_created':
+        case 'support_ticket_message_received':
             return 'user';
         default:
             return 'shared';

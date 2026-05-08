@@ -4,6 +4,8 @@ import { RoleModeSwitcher } from '../components/account/RoleModeSwitcher';
 import { BrandMark } from '../components/brand/BrandMark';
 import { BookingMessagesLink } from '../components/messages/BookingMessagesLink';
 import { NotificationBellLink } from '../components/notifications/NotificationBellLink';
+import { SupportCenterButton } from '../components/support/SupportCenterButton';
+import { SupportCenterDrawer } from '../components/support/SupportCenterDrawer';
 import { BannerPlacementSection } from '../components/banners/BannerPlacementSection';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatRoleLabel } from '../lib/account';
@@ -93,6 +95,7 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
+    const [isSupportCenterOpen, setIsSupportCenterOpen] = useState(false);
     const [showModeBanner, setShowModeBanner] = useState(false);
 
     useEffect(() => {
@@ -184,6 +187,14 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
     useEffect(() => {
         setIsMobileMenuOpen(false);
     }, [location.pathname, location.search]);
+
+    useEffect(() => {
+        const searchParams = new URLSearchParams(location.search);
+
+        if (searchParams.get('support') === 'open') {
+            setIsSupportCenterOpen(true);
+        }
+    }, [location.search]);
 
     useEffect(() => {
         if (!isMobileMenuOpen) {
@@ -279,6 +290,23 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
                                             <div className="hidden md:block">
                                                 <NotificationBellLink className="border-white/15 bg-white/10 hover:bg-white/15" />
                                             </div>
+                                            {role === 'user' || role === 'therapist' ? (
+                                                <>
+                                                    <div className="md:hidden">
+                                                        <SupportCenterButton
+                                                            compact
+                                                            className="border-white/15 bg-white/10 hover:bg-white/15"
+                                                            onClick={() => setIsSupportCenterOpen(true)}
+                                                        />
+                                                    </div>
+                                                    <div className="hidden md:block">
+                                                        <SupportCenterButton
+                                                            className="border-white/15 bg-white/10 hover:bg-white/15"
+                                                            onClick={() => setIsSupportCenterOpen(true)}
+                                                        />
+                                                    </div>
+                                                </>
+                                            ) : null}
                                             {role === 'user' || role === 'therapist' ? (
                                                 <BookingMessagesLink
                                                     adaptive
@@ -445,6 +473,12 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
 
                 <BannerPlacementSection placement="dashboard" className="pt-2" />
             </div>
+            {role === 'user' || role === 'therapist' ? (
+                <SupportCenterDrawer
+                    isOpen={isSupportCenterOpen}
+                    onClose={() => setIsSupportCenterOpen(false)}
+                />
+            ) : null}
         </div>
     );
 }

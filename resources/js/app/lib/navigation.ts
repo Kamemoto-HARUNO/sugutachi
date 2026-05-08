@@ -38,6 +38,7 @@ export const adminNavItems: NavItem[] = [
     { label: 'バナー', to: '/admin/banners' },
     { label: '通報', to: '/admin/reports' },
     { label: '問い合わせ', to: '/admin/contact-inquiries' },
+    { label: 'サポート', to: '/admin/support-tickets' },
     { label: '料金ルール', to: '/admin/pricing-rules' },
     { label: '法務文書', to: '/admin/legal-documents' },
 ];

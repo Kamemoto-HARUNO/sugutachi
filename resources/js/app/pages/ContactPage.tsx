@@ -4,6 +4,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, getFieldError, unwrapData } from '../lib/api';
+import { getRoleDashboardPath } from '../lib/account';
 import type {
     ApiEnvelope,
     ContactInquirySubmissionRecord,
@@ -33,7 +34,7 @@ function replyChannelLabel(value: string | null | undefined): string {
 }
 
 export function ContactPage() {
-    const { account, isAuthenticated, token } = useAuth();
+    const { account, activeRole, isAuthenticated, token } = useAuth();
     const [searchParams] = useSearchParams();
     const [serviceMeta, setServiceMeta] = useState<ServiceMeta | null>(null);
     const [name, setName] = useState('');
@@ -148,7 +149,7 @@ export function ContactPage() {
                 <h1 className="text-4xl font-semibold text-white">お問い合わせ</h1>
                 <p className="max-w-3xl text-sm leading-7 text-slate-300">
                     予約前の不明点、アカウントの困りごと、安全面の相談までここから受け付けています。
-                    ログイン中ならアカウント情報を引き継いだまま送信できます。
+                    非会員の方はメール問い合わせ、ログイン済みの方はサポートセンターからチャットで相談できます。
                 </p>
                 <div className="flex flex-wrap gap-3">
                     <Link
@@ -169,6 +170,24 @@ export function ContactPage() {
 
             <section className="grid gap-6 lg:grid-cols-[minmax(0,1fr)_320px]">
                 <article className="rounded-[28px] border border-white/10 bg-white/5 p-6 md:p-8">
+                    {isAuthenticated ? (
+                        <div className="space-y-4">
+                            <div className="space-y-2">
+                                <p className="text-xs font-semibold tracking-wide text-rose-100">会員向けサポート</p>
+                                <h2 className="text-2xl font-semibold text-white">サポートセンターで問い合わせ</h2>
+                                <p className="text-sm leading-7 text-slate-300">
+                                    ログイン済みの問い合わせは、メールではなくサポートチケットとして運営とチャットできます。
+                                </p>
+                            </div>
+                            <Link
+                                to={`${getRoleDashboardPath(activeRole ?? 'user')}?support=open`}
+                                className="inline-flex min-h-11 items-center justify-center rounded-full bg-white px-5 py-2 text-sm font-semibold text-[#17202b] transition hover:bg-rose-50"
+                            >
+                                サポートセンターを開く
+                            </Link>
+                        </div>
+                    ) : (
+                        <>
                     <div className="space-y-2">
                         <p className="text-xs font-semibold tracking-wide text-rose-100">フォーム送信</p>
                         <h2 className="text-2xl font-semibold text-white">内容を入力して送信</h2>
@@ -272,6 +291,8 @@ export function ContactPage() {
                                 {isSubmitting ? '送信中...' : '送信する'}
                             </button>
                         </form>
+                    )}
+                        </>
                     )}
                 </article>
 

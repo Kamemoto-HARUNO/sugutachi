@@ -250,7 +250,7 @@ class PublicInfoApiTest extends TestCase
         ]);
     }
 
-    public function test_authenticated_user_can_submit_contact_without_explicit_email(): void
+    public function test_authenticated_user_is_directed_to_support_center_instead_of_contact_form(): void
     {
         $account = Account::factory()->create([
             'public_id' => 'acc_contact_user',
@@ -264,16 +264,11 @@ class PublicInfoApiTest extends TestCase
                 'category' => 'booking',
                 'message' => '予約について確認したいです。',
             ])
-            ->assertCreated()
-            ->assertJsonPath('data.status', 'pending')
-            ->assertJsonPath('data.category', 'booking')
-            ->assertJsonPath('data.source', 'authenticated');
+            ->assertForbidden()
+            ->assertJsonPath('message', 'ログイン済みの方はサポートセンターからお問い合わせください。');
 
-        $this->assertDatabaseHas('contact_inquiries', [
+        $this->assertDatabaseMissing('contact_inquiries', [
             'account_id' => $account->id,
-            'email' => 'member@example.com',
-            'category' => 'booking',
-            'source' => 'authenticated',
         ]);
     }
 }

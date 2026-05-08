@@ -10,7 +10,6 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
 use Illuminate\Validation\Rule;
-use Illuminate\Validation\ValidationException;
 
 class ContactController extends Controller
 {
@@ -18,32 +17,28 @@ class ContactController extends Controller
     {
         $account = $request->user('sanctum');
 
+        if ($account) {
+            return response()->json([
+                'message' => 'ログイン済みの方はサポートセンターからお問い合わせください。',
+            ], 403);
+        }
+
         $validated = $request->validate([
             'name' => ['required', 'string', 'max:120'],
-            'email' => $account
-                ? ['nullable', 'email:rfc', 'max:255']
-                : ['required', 'email:rfc', 'max:255'],
+            'email' => ['required', 'email:rfc', 'max:255'],
             'category' => ['required', Rule::in(['service', 'account', 'booking', 'payment', 'safety', 'other'])],
             'message' => ['required', 'string', 'min:10', 'max:5000'],
         ]);
 
-        $email = $validated['email'] ?? $account?->email;
-
-        if (blank($email)) {
-            throw ValidationException::withMessages([
-                'email' => 'お問い合わせを受け付けるには返信先メールアドレスが必要です。',
-            ]);
-        }
-
         $inquiry = ContactInquiry::create([
             'public_id' => 'ctc_'.Str::ulid(),
-            'account_id' => $account?->id,
+            'account_id' => null,
             'name' => $validated['name'],
-            'email' => $email,
+            'email' => $validated['email'],
             'category' => $validated['category'],
             'message' => $validated['message'],
             'status' => ContactInquiry::STATUS_PENDING,
-            'source' => $account ? ContactInquiry::SOURCE_AUTHENTICATED : ContactInquiry::SOURCE_GUEST,
+            'source' => ContactInquiry::SOURCE_GUEST,
             'submitted_ip_hash' => filled($request->ip())
                 ? hash('sha256', (string) $request->ip())
                 : null,
