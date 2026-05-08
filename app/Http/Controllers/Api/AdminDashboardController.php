@@ -14,6 +14,8 @@ use App\Models\ProfilePhoto;
 use App\Models\Refund;
 use App\Models\Report;
 use App\Models\StripeDispute;
+use App\Models\SupportTicket;
+use App\Models\SupportTicketMessage;
 use App\Models\TherapistPricingRule;
 use App\Models\TherapistProfile;
 use App\Models\TherapistTravelRequest;
@@ -63,6 +65,14 @@ class AdminDashboardController extends Controller
                         ->count(),
                     'pending_contact_inquiries' => ContactInquiry::query()
                         ->where('status', ContactInquiry::STATUS_PENDING)
+                        ->count(),
+                    'open_support_tickets' => SupportTicket::query()
+                        ->where('status', SupportTicket::STATUS_OPEN)
+                        ->count(),
+                    'unread_support_tickets' => SupportTicket::query()
+                        ->whereHas('messages', fn ($query) => $query
+                            ->where('sender_role', '!=', SupportTicketMessage::SENDER_ADMIN)
+                            ->whereNull('read_by_admin_at'))
                         ->count(),
                     'unread_travel_requests' => TherapistTravelRequest::query()
                         ->where('status', TherapistTravelRequest::STATUS_UNREAD)
@@ -223,6 +233,22 @@ class AdminDashboardController extends Controller
                             'query' => [
                                 'status' => ContactInquiry::STATUS_PENDING,
                                 'sort' => 'created_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
+                        'open_support_tickets' => [
+                            'path' => '/api/admin/support-tickets',
+                            'query' => [
+                                'status' => SupportTicket::STATUS_OPEN,
+                                'sort' => 'last_message_at',
+                                'direction' => 'desc',
+                            ],
+                        ],
+                        'unread_support_tickets' => [
+                            'path' => '/api/admin/support-tickets',
+                            'query' => [
+                                'read_status' => 'unread',
+                                'sort' => 'last_message_at',
                                 'direction' => 'desc',
                             ],
                         ],

@@ -70,7 +70,9 @@ class AppNotificationResource extends JsonResource
             'booking_completion_reminder',
             'booking_refunded',
             'travel_request_warning',
-            'travel_request_restricted' => 'user',
+            'travel_request_restricted',
+            'support_ticket_created',
+            'support_ticket_message_received' => 'user',
             default => null,
         };
     }

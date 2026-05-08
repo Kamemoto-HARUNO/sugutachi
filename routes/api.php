@@ -20,6 +20,7 @@ use App\Http\Controllers\Api\AdminProfilePhotoController;
 use App\Http\Controllers\Api\AdminRefundRequestController;
 use App\Http\Controllers\Api\AdminReportController;
 use App\Http\Controllers\Api\AdminStripeDisputeController;
+use App\Http\Controllers\Api\AdminSupportTicketController;
 use App\Http\Controllers\Api\AdminTherapistProfileController;
 use App\Http\Controllers\Api\AdminTravelRequestController;
 use App\Http\Controllers\Api\AuthController;
@@ -50,6 +51,7 @@ use App\Http\Controllers\Api\ServiceAddressController;
 use App\Http\Controllers\Api\ServiceMetaController;
 use App\Http\Controllers\Api\StripeConnectController;
 use App\Http\Controllers\Api\StripeWebhookController;
+use App\Http\Controllers\Api\SupportTicketController;
 use App\Http\Controllers\Api\TempFileController;
 use App\Http\Controllers\Api\TherapistAvailabilitySlotController;
 use App\Http\Controllers\Api\TherapistDiscoveryController;
@@ -90,6 +92,8 @@ Route::get('/profile-photos/{profilePhoto}/signed-file', [ProfilePhotoFileContro
     ->name('profile-photos.signed-file');
 Route::get('/bookings/{booking:public_id}/messages/{message}/signed-file', [BookingMessageController::class, 'showSigned'])
     ->name('booking-messages.signed-file');
+Route::get('/support/tickets/{ticket:public_id}/messages/{message}/signed-file', [SupportTicketController::class, 'showSigned'])
+    ->name('support-ticket-messages.signed-file');
 Route::get('/admin/identity-verifications/{identityVerification}/signed-document', [AdminIdentityVerificationFileController::class, 'showDocument'])
     ->name('admin.identity-verifications.signed-document');
 Route::get('/admin/identity-verifications/{identityVerification}/signed-selfie', [AdminIdentityVerificationFileController::class, 'showSelfie'])
@@ -120,6 +124,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'read']);
     Route::post('/notifications/read-all', [NotificationController::class, 'readAll']);
+    Route::get('/support/tickets', [SupportTicketController::class, 'index']);
+    Route::post('/support/tickets', [SupportTicketController::class, 'store']);
+    Route::get('/support/tickets/{ticket:public_id}', [SupportTicketController::class, 'show']);
+    Route::post('/support/tickets/{ticket:public_id}/messages', [SupportTicketController::class, 'message']);
     Route::post('/push-subscriptions', [PushSubscriptionController::class, 'store']);
     Route::delete('/push-subscriptions/current', [PushSubscriptionController::class, 'destroyCurrent']);
     Route::delete('/push-subscriptions/{pushSubscription}', [PushSubscriptionController::class, 'destroy']);
@@ -192,6 +200,11 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/admin/contact-inquiries/{contactInquiry:public_id}', [AdminContactInquiryController::class, 'show']);
     Route::post('/admin/contact-inquiries/{contactInquiry:public_id}/notes', [AdminContactInquiryController::class, 'note']);
     Route::post('/admin/contact-inquiries/{contactInquiry:public_id}/resolve', [AdminContactInquiryController::class, 'resolve']);
+    Route::get('/admin/support-tickets', [AdminSupportTicketController::class, 'index']);
+    Route::post('/admin/support-tickets', [AdminSupportTicketController::class, 'store']);
+    Route::get('/admin/support-tickets/{ticket:public_id}', [AdminSupportTicketController::class, 'show']);
+    Route::post('/admin/support-tickets/{ticket:public_id}/messages', [AdminSupportTicketController::class, 'message']);
+    Route::post('/admin/support-tickets/{ticket:public_id}/complete', [AdminSupportTicketController::class, 'complete']);
     Route::get('/admin/travel-requests', [AdminTravelRequestController::class, 'index']);
     Route::get('/admin/travel-requests/{travelRequest:public_id}', [AdminTravelRequestController::class, 'show']);
     Route::post('/admin/travel-requests/{travelRequest:public_id}/notes', [AdminTravelRequestController::class, 'note']);
