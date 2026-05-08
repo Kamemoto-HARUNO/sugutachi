@@ -116,7 +116,7 @@ class AdminSupportTicketController extends Controller
                 'read_by_admin_at' => now(),
             ]);
 
-            return $ticket->fresh(['account', 'createdBy', 'completedByAdmin', 'messages.sender', 'latestMessage']);
+            return $ticket->fresh(['account', 'createdBy', 'completedByAdmin', 'messages.sender', 'messages.ticket', 'latestMessage']);
         });
 
         $message = $ticket->messages->first();
@@ -133,7 +133,7 @@ class AdminSupportTicketController extends Controller
         $this->authorizeAdmin($admin);
         $this->markAdminMessagesRead($ticket);
 
-        $ticket = $ticket->fresh(['account', 'createdBy', 'completedByAdmin', 'messages.sender', 'latestMessage']);
+        $ticket = $ticket->fresh(['account', 'createdBy', 'completedByAdmin', 'messages.sender', 'messages.ticket', 'latestMessage']);
         $this->recordAdminAudit($request, 'support_ticket.view', $ticket, [], $this->snapshot($ticket));
         $this->markViewer($ticket, 'admin', $admin->id);
 
@@ -179,7 +179,7 @@ class AdminSupportTicketController extends Controller
             'completed_at' => now(),
         ])->save();
 
-        $ticket = $ticket->fresh(['account', 'createdBy', 'completedByAdmin', 'messages.sender', 'latestMessage']);
+        $ticket = $ticket->fresh(['account', 'createdBy', 'completedByAdmin', 'messages.sender', 'messages.ticket', 'latestMessage']);
         $this->recordAdminAudit($request, 'support_ticket.complete', $ticket, $before, $this->snapshot($ticket));
         $this->markViewer($ticket, 'admin', $admin->id);
 

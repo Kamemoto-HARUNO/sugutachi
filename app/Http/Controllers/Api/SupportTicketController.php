@@ -100,7 +100,7 @@ class SupportTicketController extends Controller
                 'read_by_user_at' => now(),
             ]);
 
-            return $ticket->fresh(['messages.sender', 'account', 'createdBy']);
+            return $ticket->fresh(['messages.sender', 'messages.ticket', 'account', 'createdBy']);
         });
 
         $message = $ticket->messages->first();
@@ -116,7 +116,7 @@ class SupportTicketController extends Controller
         abort_unless($ticket->account_id === $account->id, 404);
 
         $this->markUserMessagesRead($ticket);
-        $ticket = $ticket->fresh(['account', 'createdBy', 'messages.sender', 'latestMessage']);
+        $ticket = $ticket->fresh(['account', 'createdBy', 'messages.sender', 'messages.ticket', 'latestMessage']);
         $this->markViewer($ticket, $ticket->requester_role, $account->id);
 
         return new SupportTicketResource($ticket);

@@ -159,7 +159,21 @@ class SupportTicketTest extends TestCase
         $message = SupportTicketMessage::query()->findOrFail($messageId);
         $this->assertNotNull($message->attachment_storage_key_encrypted);
 
+        $userAttachmentUrl = $this->getJson("/api/support/tickets/{$ticketId}")
+            ->assertOk()
+            ->assertJsonPath('data.messages.1.message_type', SupportTicketMessage::TYPE_IMAGE)
+            ->assertJsonPath('data.messages.1.attachment_original_name', 'support.jpg')
+            ->json('data.messages.1.attachment_url');
+        $this->assertNotEmpty($userAttachmentUrl);
+
         Sanctum::actingAs($admin);
+        $adminAttachmentUrl = $this->getJson("/api/admin/support-tickets/{$ticketId}")
+            ->assertOk()
+            ->assertJsonPath('data.messages.1.message_type', SupportTicketMessage::TYPE_IMAGE)
+            ->assertJsonPath('data.messages.1.attachment_original_name', 'support.jpg')
+            ->json('data.messages.1.attachment_url');
+        $this->assertNotEmpty($adminAttachmentUrl);
+
         $this->postJson("/api/admin/support-tickets/{$ticketId}/messages", [
                 'body' => '画像を確認しました。',
             ])
