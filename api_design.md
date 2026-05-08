@@ -180,7 +180,9 @@
 | GET | `/legal-documents/{type}` | Guest | 種別ごとの最新文書取得 |
 | POST | `/legal-documents/{public_id}/accept` | Auth | ログイン後の追加同意 |
 | GET | `/help/faqs` | Guest | FAQ取得 |
-| POST | `/contact` | Guest/Auth | 問い合わせ送信 |
+| POST | `/contact` | Guest | 非会員向け問い合わせ送信 |
+
+`POST /contact` は非会員向けのメール問い合わせとして扱う。ログイン済みユーザーには、問い合わせページ上でサポートセンターへの導線を表示し、新規のメール問い合わせ作成ではなくサポートチケット作成へ誘導する。
 
 ### 4.1 一時ファイルAPI
 
@@ -807,6 +809,28 @@ Push購読情報はエンドポイントをハッシュ化して重複管理し�
 
 予約関連の主な通知種別は `booking_requested` / `booking_accepted` / `booking_canceled` / `booking_interrupted` / `booking_refunded` とし、`data.booking_public_id` を共通キーとして持つ。`booking_requested` はタチキャスト向け、`booking_accepted` はユーザー向け、`booking_canceled` は相手方または決済失敗時のユーザー向け、`booking_interrupted` は中断相手方への安全通知、`booking_refunded` は返金対象ユーザー向けに送る。
 
+### 9.4 サポートセンター
+
+| Method | Path | 権限 | 用途 |
+| --- | --- | --- | --- |
+| GET | `/support/tickets` | User/Therapist | 自分のサポートチケット一覧 |
+| POST | `/support/tickets` | User/Therapist | サポートチケット作成 |
+| GET | `/support/tickets/{public_id}` | User/Therapist | サポートチケット詳細 |
+| POST | `/support/tickets/{public_id}/messages` | User/Therapist | サポートチケットメッセージ送信 |
+| GET | `/support/tickets/{public_id}/messages/{message_id}/signed-file` | User/Therapist/Admin | 添付画像取得 |
+
+サポートセンターは利用者・タチキャストのみが利用できる。チケット作成時は `title`、`category=service|account|booking|payment|safety|other`、初回 `message` を必須とする。チケット詳細の公開URLは `/help/tickets/{public_id}` とし、フロント側ではこのURLから該当チケット詳細を表示する。APIパスは会員向けサポート機能であることを明確にするため `/support/tickets` 配下に置く。
+
+チケット一覧は `status=open|completed`、`category`、`read_status=read|unread`、`q`、`sort`、`direction` で絞り込める。既定順は `open` を上位にし、同じ状態では `last_message_at desc` とする。レスポンスには `unread_count`、`last_message_excerpt`、`last_message_at`、`created_by_role=user|therapist|admin` を含める。
+
+チケットメッセージは `message_type=text|image` とし、テキストと画像は1メッセージ内で併用できない。画像は `multipart/form-data` の `image` で送信し、予約メッセージ画像と同等のMIME/サイズ制限、private保存、署名付きURL配信を使う。画像削除APIは提供しない。
+
+`GET /support/tickets/{public_id}` は、チケット本文、メッセージ一覧、送信可否、未読件数を返し、閲覧者宛の未読メッセージを自動で既読化する。完了済みチケットでは `can_send=false` を返し、送信APIは `409` を返す。完了済みチケットは再開できない。
+
+運営からのメッセージは、ユーザー向けレスポンスでは送信者名を常に `運営` と返す。内部的には実送信者の管理アカウントIDを保存し、管理APIでは確認できるようにする。
+
+サポート通知種別は `support_ticket_created`、`support_ticket_message_received` を使う。運営からユーザーへの通知はアプリ内通知、メール、Web Pushを送信し、`data.target_path=/help/tickets/{public_id}` を含める。メール本文にはチャット本文の抜粋を含めず、サポートセンターへの案内に留める。ユーザーから運営へのチケット作成・返信は、管理者向けアプリ内通知、Slack通知、メール通知を送信し、Slack通知にも本文抜粋を含めない。チケット完了時のユーザー通知は送らない。
+
 ## 10. レビュー・通報・返金API
 
 ### 10.1 レビュー
@@ -913,6 +937,7 @@ Push購読情報はエンドポイントをハッシュ化して重複管理し�
 ダッシュボードは未処理件数を優先して返す。少なくとも、アカウント総数・停止中件数、本人確認待ち、タチキャスト審査待ち、停止中タチキャストプロフィール件数、写真審査待ち、未解決通報、返金申請待ち、出金申請待ち、進行中の予約件数を含める。
 
 問い合わせ未処理件数もダッシュボードに含め、`navigation` から `/admin/contact-inquiries` と `/admin/bookings` の推奨クエリへ遷移できるようにする。停止中タチキャストプロフィール件数には `/admin/therapist-profiles?status=suspended` への導線も含め、`restore` 運用へ辿れるようにする。安全運用向けに `bookings.interrupted` と `operations.open_interruption_reports` も集計し、`/admin/bookings?status=interrupted` と `/admin/reports?status=open&category=booking_interrupted` へ辿れるようにする。
+サポート対応向けに `operations.open_support_tickets` / `operations.unread_support_tickets` も集計し、`navigation.operations.open_support_tickets` / `unread_support_tickets` から `/admin/support-tickets` の推奨フィルタへ遷移できるようにする。
 キャンペーン運用向けに `campaigns.active` / `scheduled` / `inactive` の件数も集計し、`navigation.campaigns.*` から `/admin/campaigns` の推奨フィルタへ遷移できるようにする。
 
 ### 12.2 審査
@@ -1006,6 +1031,11 @@ Push購読情報はエンドポイントをハッシュ化して重複管理し�
 | GET | `/admin/contact-inquiries/{public_id}` | 問い合わせ詳細 |
 | POST | `/admin/contact-inquiries/{public_id}/notes` | 問い合わせ内部メモ追加 |
 | POST | `/admin/contact-inquiries/{public_id}/resolve` | 問い合わせ解決 |
+| GET | `/admin/support-tickets` | サポートチケット一覧 |
+| POST | `/admin/support-tickets` | 運営起点サポートチケット作成 |
+| GET | `/admin/support-tickets/{public_id}` | サポートチケット詳細 |
+| POST | `/admin/support-tickets/{public_id}/messages` | サポートチケット返信 |
+| POST | `/admin/support-tickets/{public_id}/complete` | サポートチケット完了 |
 | GET | `/admin/travel-requests` | 出張リクエスト一覧 |
 | GET | `/admin/travel-requests/{public_id}` | 出張リクエスト詳細 |
 | POST | `/admin/travel-requests/{public_id}/notes` | 出張リクエスト内部メモ追加 |
@@ -1027,6 +1057,8 @@ Push購読情報はエンドポイントをハッシュ化して重複管理し�
 法務文書は `document_type` と `version` の組み合わせで一意管理する。一覧では `document_type` / `is_published` で絞り込める。公開済み文書は後から上書きせず、新しい `version` を作成して差し替える運用を基本とするため、更新APIは未公開または公開前のドラフト文書の調整用途として扱う。作成・更新操作は `admin_audit_logs` に記録する。
 
 問い合わせ一覧は `account_id` / `status` / `category` / `source` / `has_notes` / `submitted_from` / `submitted_to` / `resolved_from` / `resolved_to` / `q` / `sort` / `direction` で絞り込める。詳細APIは送信者情報、本文、内部メモを返す。内部メモ追加と解決操作は `admin_notes` と `admin_audit_logs` に記録し、解決時は `status=resolved` と `resolved_at` を保存する。
+
+サポートチケット一覧は `account_id` / `status=open|completed` / `category` / `origin=user|therapist|admin` / `read_status=read|unread` / `q` / `sort` / `direction` で絞り込める。運営起点作成ではアカウント検索で対象の利用者またはタチキャストを選び、ユーザー起点と同じ `category`、`title`、初回 `message` を必須とする。詳細閲覧時は運営宛の未読メッセージを自動で既読化し、本文閲覧を `admin_audit_logs` に記録する。返信時は実送信者の管理アカウントIDを保存し、ユーザー側には送信者名を `運営` として返す。完了操作は `status=completed`、`completed_by_admin_account_id`、`completed_at` を保存し、以後の送信APIはユーザー側・運営側とも `409` を返す。完了時のユーザー通知は送らない。
 
 出張リクエスト一覧は `user_account_id` / `sender_status` / `has_sender_warning` / `sender_restriction_status` / `therapist_account_id` / `therapist_profile_id` / `status` / `monitoring_status` / `monitored_by_admin_account_id` / `prefecture` / `has_notes` / `detected_contact_exchange` / `submitted_from` / `submitted_to` / `q` / `sort` / `direction` で絞り込める。レスポンスには送信者、対象タチキャスト、本文、`admin_note_count`、対応状態に加えて送信者の停止状態、警告回数、一時制限状態も含める。詳細APIは内部メモ、対応管理者、対応日時も返し、閲覧時は `admin_audit_logs` に `travel_request.view` として記録する。`POST /admin/travel-requests/{public_id}/notes` は `admin_notes` と `admin_audit_logs` に記録し、`POST /admin/travel-requests/{public_id}/monitoring` は `monitoring_status` を `unreviewed` / `under_review` / `reviewed` / `escalated` で更新し、必要に応じて内部メモを同時追加できる。`POST /admin/travel-requests/{public_id}/warn-sender` は送信者にアプリ内警告通知を送り、警告回数・最終警告理由を更新したうえで `admin_audit_logs` に `account.travel_request_warn` と `travel_request.warn_sender` を記録する。`POST /admin/travel-requests/{public_id}/restrict-sender` は送信者に期限付きの一時制限を設定し、アプリ内通知を送ったうえで `admin_audit_logs` に `account.travel_request_restrict` と `travel_request.restrict_sender` を記録する。`POST /admin/travel-requests/{public_id}/suspend-sender` は送信者アカウントを停止し、対象リクエストも `escalated` 扱いに更新したうえで `admin_audit_logs` に `account.suspend` と `travel_request.suspend_sender` を記録する。
 

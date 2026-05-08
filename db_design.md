@@ -737,7 +737,70 @@ accounts
 * 同一ユーザーから同一タチキャストへの同一都道府県リクエストは、短期間の重複送信をアプリ側で禁止する。
 * MVPではタチキャスト返信機能を持たず、一方向の需要通知として扱う。
 
-### 9.3 push_subscriptions
+### 9.3 support_tickets
+会員向けサポートセンターの問い合わせチケット。
+
+| カラム | 型 | Null | 説明 |
+| --- | --- | --- | --- |
+| id | bigint unsigned | No | 主キー |
+| public_id | varchar(36) | No | 外部公開ID |
+| account_id | bigint unsigned | No | 対象会員accounts.id |
+| requester_role | varchar(50) | No | user, therapist |
+| origin | varchar(50) | No | user, therapist, admin |
+| title | varchar(160) | No | 問い合わせタイトル |
+| category | varchar(50) | No | service, account, booking, payment, safety, other |
+| status | varchar(50) | No | open, completed |
+| created_by_account_id | bigint unsigned | No | 作成者。運営起点では管理者 |
+| completed_by_admin_account_id | bigint unsigned | Yes | 完了操作した管理者 |
+| completed_at | timestamp | Yes | 完了日時 |
+| last_message_at | timestamp | Yes | 最新メッセージ日時 |
+| created_at / updated_at | timestamp | Yes | Laravel標準 |
+
+インデックス:
+* unique: `public_id`
+* index: `account_id, status, last_message_at`
+* index: `status, last_message_at`
+* index: `category, status`
+* index: `origin, created_at`
+
+補足:
+* 対象会員は利用者・タチキャストのみとする。
+* 完了後は再開不可とし、メッセージ追加を禁止する。
+* 既存の `contact_inquiries` は非会員向けメール問い合わせとして残し、会員向けサポートチケットとは分離する。
+
+### 9.4 support_ticket_messages
+サポートチケットのチャットメッセージ。
+
+| カラム | 型 | Null | 説明 |
+| --- | --- | --- | --- |
+| id | bigint unsigned | No | 主キー |
+| support_ticket_id | bigint unsigned | No | support_tickets.id |
+| sender_account_id | bigint unsigned | No | 送信者accounts.id |
+| sender_role | varchar(50) | No | user, therapist, admin |
+| message_type | varchar(50) | No | text, image |
+| body_encrypted | text | Yes | 本文。画像のみの場合はnull |
+| attachment_storage_key_encrypted | text | Yes | 添付画像の保存先 |
+| attachment_original_name | varchar(255) | Yes | 元ファイル名 |
+| attachment_mime_type | varchar(120) | Yes | MIME |
+| attachment_size_bytes | bigint unsigned | Yes | サイズ |
+| sent_at | timestamp | No | 送信日時 |
+| read_by_user_at | timestamp | Yes | 対象会員が既読にした日時 |
+| read_by_admin_at | timestamp | Yes | 運営が既読にした日時 |
+| created_at / updated_at | timestamp | Yes | Laravel標準 |
+
+インデックス:
+* index: `support_ticket_id, sent_at`
+* index: `sender_account_id, sent_at`
+* index: `support_ticket_id, read_by_user_at`
+* index: `support_ticket_id, read_by_admin_at`
+
+補足:
+* テキストと画像は1メッセージ内で併用しない。
+* 画像削除は提供しない。
+* ユーザー側では `sender_role=admin` の送信者名を常に「運営」と表示する。実送信者は内部・管理画面でのみ扱う。
+* 詳細閲覧時に、閲覧者宛の未読メッセージを自動で既読化する。
+
+### 9.5 push_subscriptions
 Web Push購読情報。
 
 | カラム | 型 | Null | 説明 |
@@ -758,7 +821,7 @@ Web Push購読情報。
 * unique: `endpoint_hash`
 * index: `account_id, permission_status`
 
-### 9.4 notifications
+### 9.6 notifications
 アプリ内通知・送信履歴。
 
 | カラム | 型 | Null | 説明 |
@@ -1171,6 +1234,7 @@ Webhookの冪等性・再処理用ログ。
 * `therapist_availability_slots.public_id`
 * `therapist_locations.therapist_profile_id`
 * `therapist_travel_requests.public_id`
+* `support_tickets.public_id`
 * `bookings.public_id`
 * `payment_intents.stripe_payment_intent_id`
 * `stripe_connected_accounts.account_id`
@@ -1185,6 +1249,8 @@ Webhookの冪等性・再処理用ログ。
 * 予定予約空き枠検索: `therapist_availability_slots.therapist_profile_id, status, start_at`
 * 位置検索: `therapist_locations.is_searchable, updated_at`, `lat, lng`, `geohash`
 * 出張リクエスト一覧: `therapist_travel_requests.therapist_account_id, status, created_at`
+* サポートチケット一覧: `support_tickets.account_id, status, last_message_at`, `support_tickets.status, last_message_at`
+* サポート未読確認: `support_ticket_messages.support_ticket_id, read_by_user_at`, `support_ticket_messages.support_ticket_id, read_by_admin_at`
 * ユーザー予約一覧: `bookings.user_account_id, status, scheduled_start_at`
 * タチキャスト予約一覧: `bookings.therapist_account_id, status, scheduled_start_at`
 * 承諾タイムアウト処理: `bookings.status, request_expires_at`
@@ -1206,13 +1272,14 @@ Webhookの冪等性・再処理用ログ。
 10. `booking_quotes`
 11. `booking_status_logs`, `booking_consents`, `booking_health_checks`
 12. `booking_messages`, `therapist_travel_requests`
-13. `push_subscriptions`, `notifications`
-14. `stripe_connected_accounts`, `stripe_customers`
-15. `payment_intents`, `refunds`, `stripe_disputes`, `stripe_webhook_events`
-16. `payout_requests`, `therapist_ledger_entries`
-17. `reviews`, `reports`, `report_actions`, `account_blocks`
-18. `admin_audit_logs`, `admin_notes`
-19. `temp_files`
+13. `support_tickets`, `support_ticket_messages`
+14. `push_subscriptions`, `notifications`
+15. `stripe_connected_accounts`, `stripe_customers`
+16. `payment_intents`, `refunds`, `stripe_disputes`, `stripe_webhook_events`
+17. `payout_requests`, `therapist_ledger_entries`
+18. `reviews`, `reports`, `report_actions`, `account_blocks`
+19. `admin_audit_logs`, `admin_notes`
+20. `temp_files`
 
 補足:
 * `bookings.current_quote_id` は `booking_quotes` 作成後に外部キーを追加するか、MVPでは外部キー制約なしで運用する。
