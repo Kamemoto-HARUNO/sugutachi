@@ -215,7 +215,7 @@ export function SupportCenterDrawer({ isOpen, initialTicketPublicId = null, onCl
     }
 
     return (
-        <div className="fixed inset-0 z-50">
+        <div className="fixed inset-0 z-[130]">
             <button type="button" aria-label="サポートセンターを閉じる" onClick={onClose} className="absolute inset-0 bg-[#111923]/45 backdrop-blur-sm" />
             <aside className="absolute right-0 top-0 flex h-full w-full max-w-[520px] flex-col bg-[#fbf7ef] shadow-[0_30px_80px_rgba(17,24,39,0.32)]">
                 <header className="border-b border-[#eadfca] px-5 py-4">
