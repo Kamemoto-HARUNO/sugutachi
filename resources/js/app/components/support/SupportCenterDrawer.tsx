@@ -13,6 +13,7 @@ import type { ApiEnvelope, SupportTicketMessageRecord, SupportTicketRecord } fro
 
 interface SupportCenterDrawerProps {
     isOpen: boolean;
+    initialTicketPublicId?: string | null;
     onClose: () => void;
 }
 
@@ -34,7 +35,7 @@ function messageBubbleClass(message: SupportTicketMessageRecord): string {
         : 'mr-auto border border-[#eadfca] bg-white text-[#17202b]';
 }
 
-export function SupportCenterDrawer({ isOpen, onClose }: SupportCenterDrawerProps) {
+export function SupportCenterDrawer({ isOpen, initialTicketPublicId = null, onClose }: SupportCenterDrawerProps) {
     const { token } = useAuth();
     const navigate = useNavigate();
     const fileInputRef = useRef<HTMLInputElement | null>(null);
@@ -105,9 +106,14 @@ export function SupportCenterDrawer({ isOpen, onClose }: SupportCenterDrawerProp
             return;
         }
 
-        setViewMode((current) => (current === 'detail' && selectedTicket ? 'detail' : 'home'));
         void loadTickets();
-    }, [isOpen, token]);
+        if (initialTicketPublicId) {
+            void loadTicket(initialTicketPublicId);
+            return;
+        }
+
+        setViewMode((current) => (current === 'detail' && selectedTicket ? 'detail' : 'home'));
+    }, [initialTicketPublicId, isOpen, token]);
 
     useEffect(() => {
         if (!isOpen) {
@@ -300,18 +306,18 @@ export function SupportCenterDrawer({ isOpen, onClose }: SupportCenterDrawerProp
                         <form onSubmit={handleCreate} className="space-y-4">
                             <label className="space-y-2">
                                 <span className="text-sm font-semibold text-[#17202b]">タイトル</span>
-                                <input value={title} onChange={(event) => setTitle(event.target.value)} className="w-full rounded-[8px] border border-[#eadfca] bg-white px-4 py-3 text-sm outline-none focus:border-[#d6b35a]" required />
+                                <input value={title} onChange={(event) => setTitle(event.target.value)} className="w-full rounded-[8px] border border-[#eadfca] bg-white px-4 py-3 text-sm text-[#17202b] outline-none placeholder:text-[#8a8f97] focus:border-[#d6b35a]" required />
                                 {getFieldError(requestError, 'title') ? <p className="text-xs text-[#8a3d2c]">{getFieldError(requestError, 'title')}</p> : null}
                             </label>
                             <label className="space-y-2">
                                 <span className="text-sm font-semibold text-[#17202b]">種別</span>
-                                <select value={category} onChange={(event) => setCategory(event.target.value)} className="w-full rounded-[8px] border border-[#eadfca] bg-white px-4 py-3 text-sm outline-none focus:border-[#d6b35a]">
+                                <select value={category} onChange={(event) => setCategory(event.target.value)} className="w-full rounded-[8px] border border-[#eadfca] bg-white px-4 py-3 text-sm text-[#17202b] outline-none focus:border-[#d6b35a]">
                                     {supportCategories.map((option) => <option key={option.value} value={option.value}>{option.label}</option>)}
                                 </select>
                             </label>
                             <label className="space-y-2">
                                 <span className="text-sm font-semibold text-[#17202b]">メッセージ</span>
-                                <textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={8} className="w-full rounded-[8px] border border-[#eadfca] bg-white px-4 py-3 text-sm leading-7 outline-none focus:border-[#d6b35a]" required />
+                                <textarea value={message} onChange={(event) => setMessage(event.target.value)} rows={8} className="w-full rounded-[8px] border border-[#eadfca] bg-white px-4 py-3 text-sm leading-7 text-[#17202b] outline-none placeholder:text-[#8a8f97] focus:border-[#d6b35a]" required />
                                 {getFieldError(requestError, 'message') ? <p className="text-xs text-[#8a3d2c]">{getFieldError(requestError, 'message')}</p> : null}
                             </label>
                             <button type="submit" disabled={isSending} className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[#17202b] px-4 py-2 text-sm font-semibold text-white transition hover:bg-[#263445] disabled:opacity-60">
@@ -363,7 +369,7 @@ export function SupportCenterDrawer({ isOpen, onClose }: SupportCenterDrawerProp
                                         <button type="button" onClick={() => setSelectedImage(null)} className="font-semibold text-[#8f5c22]">解除</button>
                                     </div>
                                 ) : null}
-                                <textarea value={draft} onChange={(event) => setDraft(event.target.value)} rows={3} disabled={Boolean(selectedImage)} placeholder="メッセージを入力" className="w-full rounded-[8px] border border-[#eadfca] bg-white px-4 py-3 text-sm leading-6 outline-none focus:border-[#d6b35a] disabled:bg-[#f5efe4]" />
+                                <textarea value={draft} onChange={(event) => setDraft(event.target.value)} rows={3} disabled={Boolean(selectedImage)} placeholder="メッセージを入力" className="w-full rounded-[8px] border border-[#eadfca] bg-white px-4 py-3 text-sm leading-6 text-[#17202b] outline-none placeholder:text-[#8a8f97] focus:border-[#d6b35a] disabled:bg-[#f5efe4]" />
                                 <div className="flex items-center gap-2">
                                     <input ref={fileInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={handleImageChange} className="hidden" />
                                     <button type="button" onClick={() => fileInputRef.current?.click()} className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-[#eadfca] bg-white text-[#17202b] transition hover:bg-[#f5efe4]">＋</button>

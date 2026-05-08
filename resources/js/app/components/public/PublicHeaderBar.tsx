@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom';
 import { BrandMark } from '../brand/BrandMark';
 import { BookingMessagesLink } from '../messages/BookingMessagesLink';
 import { NotificationBellLink } from '../notifications/NotificationBellLink';
+import { SupportCenterButton } from '../support/SupportCenterButton';
+import { SupportCenterDrawer } from '../support/SupportCenterDrawer';
 import { useAuth } from '../../hooks/useAuth';
 
 export interface PublicHeaderAction {
@@ -140,9 +142,11 @@ export function PublicHeaderBar({
     actions,
     sticky = false,
 }: PublicHeaderBarProps) {
-    const { isAuthenticated } = useAuth();
+    const { activeRole, isAuthenticated } = useAuth();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
+    const [isSupportCenterOpen, setIsSupportCenterOpen] = useState(false);
     const containerRef = useRef<HTMLDivElement | null>(null);
+    const canUseSupportCenter = isAuthenticated && (activeRole === 'user' || activeRole === 'therapist');
 
     useEffect(() => {
         if (!isMenuOpen) {
@@ -182,6 +186,12 @@ export function PublicHeaderBar({
                 <>
                     <div className="hidden items-center gap-3 md:flex">
                         {isAuthenticated ? <NotificationBellLink className="border-white/15 bg-white/10 hover:bg-white/15" /> : null}
+                        {canUseSupportCenter ? (
+                            <SupportCenterButton
+                                className="border-white/15 bg-white/10 hover:bg-white/15"
+                                onClick={() => setIsSupportCenterOpen(true)}
+                            />
+                        ) : null}
                         {isAuthenticated ? <BookingMessagesLink className="border-white/15 bg-white/10 hover:bg-white/15" /> : null}
                         {actions.map((action) => action.onClick ? (
                             <button
@@ -204,6 +214,13 @@ export function PublicHeaderBar({
 
                     <div className="flex items-center gap-2 md:hidden">
                         {isAuthenticated ? <NotificationBellLink compact className="border-white/15 bg-white/10 hover:bg-white/15" /> : null}
+                        {canUseSupportCenter ? (
+                            <SupportCenterButton
+                                compact
+                                className="border-white/15 bg-white/10 hover:bg-white/15"
+                                onClick={() => setIsSupportCenterOpen(true)}
+                            />
+                        ) : null}
                         {isAuthenticated ? <BookingMessagesLink compact className="border-white/15 bg-white/10 hover:bg-white/15" /> : null}
                         <MobileMenuButton isOpen={isMenuOpen} onToggle={() => setIsMenuOpen((value) => !value)} />
                     </div>
@@ -238,6 +255,12 @@ export function PublicHeaderBar({
                         </div>
                     ) : null}
                 </>
+            ) : null}
+            {canUseSupportCenter ? (
+                <SupportCenterDrawer
+                    isOpen={isSupportCenterOpen}
+                    onClose={() => setIsSupportCenterOpen(false)}
+                />
             ) : null}
         </div>
     );

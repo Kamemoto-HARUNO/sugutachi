@@ -25,6 +25,9 @@ function buildDetailPath(publicId: string, search: string): string {
     return `/admin/support-tickets/${publicId}${search}`;
 }
 
+const fieldClass = 'w-full rounded-[8px] border border-[#d7d5cf] bg-white px-3 py-2 text-sm text-[#17202b] outline-none placeholder:text-[#8a8f97] focus:border-[#b5894d]';
+const inlineFieldClass = 'rounded-[8px] border border-[#d7d5cf] bg-white px-3 py-2 text-sm text-[#17202b] outline-none placeholder:text-[#8a8f97] focus:border-[#b5894d]';
+
 export function AdminSupportTicketsPage() {
     const { token } = useAuth();
     const { publicId } = useParams();
@@ -254,17 +257,17 @@ export function AdminSupportTicketsPage() {
                         <h1 className="mt-1 text-2xl font-semibold text-[#17202b]">サポートチケット</h1>
                     </div>
                     <form onSubmit={handleFilterSubmit} className="flex flex-wrap gap-2">
-                        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className="rounded-[8px] border border-[#d7d5cf] px-3 py-2 text-sm">
+                        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value)} className={inlineFieldClass}>
                             <option value="open">進行中</option>
                             <option value="completed">完了</option>
                             <option value="all">すべて</option>
                         </select>
-                        <select value={readFilter} onChange={(event) => setReadFilter(event.target.value)} className="rounded-[8px] border border-[#d7d5cf] px-3 py-2 text-sm">
+                        <select value={readFilter} onChange={(event) => setReadFilter(event.target.value)} className={inlineFieldClass}>
                             <option value="all">既読問わず</option>
                             <option value="unread">未読あり</option>
                             <option value="read">未読なし</option>
                         </select>
-                        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ID/タイトル/アカウント" className="rounded-[8px] border border-[#d7d5cf] px-3 py-2 text-sm" />
+                        <input value={query} onChange={(event) => setQuery(event.target.value)} placeholder="ID/タイトル/アカウント" className={inlineFieldClass} />
                         <button type="submit" className="rounded-full bg-[#17202b] px-4 py-2 text-sm font-semibold text-white">絞り込み</button>
                     </form>
                 </div>
@@ -278,11 +281,11 @@ export function AdminSupportTicketsPage() {
                         <h2 className="text-base font-semibold text-[#17202b]">運営から新規発行</h2>
                         <form onSubmit={handleCreate} className="mt-4 space-y-3">
                             <div className="flex gap-2">
-                                <input value={accountQuery} onChange={(event) => setAccountQuery(event.target.value)} placeholder="アカウント検索" className="min-w-0 flex-1 rounded-[8px] border border-[#d7d5cf] px-3 py-2 text-sm" />
+                                <input value={accountQuery} onChange={(event) => setAccountQuery(event.target.value)} placeholder="アカウント検索" className={`${inlineFieldClass} min-w-0 flex-1`} />
                                 <button type="button" onClick={() => void searchAccounts()} className="rounded-full border border-[#d7d5cf] px-3 py-2 text-sm font-semibold">検索</button>
                             </div>
                             {accounts.length > 0 ? (
-                                <select value={targetAccountId} onChange={(event) => setTargetAccountId(event.target.value)} className="w-full rounded-[8px] border border-[#d7d5cf] px-3 py-2 text-sm">
+                                <select value={targetAccountId} onChange={(event) => setTargetAccountId(event.target.value)} className={fieldClass}>
                                     <option value="">対象を選択</option>
                                     {accounts.map((account) => (
                                         <option key={account.public_id} value={account.public_id}>
@@ -291,15 +294,15 @@ export function AdminSupportTicketsPage() {
                                     ))}
                                 </select>
                             ) : null}
-                            <select value={targetRole} onChange={(event) => setTargetRole(event.target.value as 'user' | 'therapist')} className="w-full rounded-[8px] border border-[#d7d5cf] px-3 py-2 text-sm">
+                            <select value={targetRole} onChange={(event) => setTargetRole(event.target.value as 'user' | 'therapist')} className={fieldClass}>
                                 <option value="user">利用者宛</option>
                                 <option value="therapist">タチキャスト宛</option>
                             </select>
-                            <input value={newTitle} onChange={(event) => setNewTitle(event.target.value)} placeholder="タイトル" className="w-full rounded-[8px] border border-[#d7d5cf] px-3 py-2 text-sm" />
-                            <select value={newCategory} onChange={(event) => setNewCategory(event.target.value)} className="w-full rounded-[8px] border border-[#d7d5cf] px-3 py-2 text-sm">
+                            <input value={newTitle} onChange={(event) => setNewTitle(event.target.value)} placeholder="タイトル" className={fieldClass} />
+                            <select value={newCategory} onChange={(event) => setNewCategory(event.target.value)} className={fieldClass}>
                                 {supportCategories.map((category) => <option key={category.value} value={category.value}>{category.label}</option>)}
                             </select>
-                            <textarea value={newMessage} onChange={(event) => setNewMessage(event.target.value)} rows={4} placeholder="メッセージ" className="w-full rounded-[8px] border border-[#d7d5cf] px-3 py-2 text-sm leading-6" />
+                            <textarea value={newMessage} onChange={(event) => setNewMessage(event.target.value)} rows={4} placeholder="メッセージ" className={`${fieldClass} leading-6`} />
                             {getFieldError(requestError, 'account_id') ? <p className="text-xs text-[#8a3d2c]">{getFieldError(requestError, 'account_id')}</p> : null}
                             <button type="submit" disabled={isSending || !selectedAccount} className="w-full rounded-full bg-[#17202b] px-4 py-2 text-sm font-semibold text-white disabled:opacity-60">
                                 チケットを発行
@@ -380,7 +383,7 @@ export function AdminSupportTicketsPage() {
                                                 <button type="button" onClick={() => setReplyImage(null)} className="font-semibold text-[#8a3d2c]">解除</button>
                                             </div>
                                         ) : null}
-                                        <textarea value={reply} onChange={(event) => setReply(event.target.value)} rows={4} disabled={Boolean(replyImage)} placeholder="運営として返信" className="w-full rounded-[8px] border border-[#d7d5cf] px-3 py-2 text-sm leading-6 disabled:bg-[#f5efe4]" />
+                                        <textarea value={reply} onChange={(event) => setReply(event.target.value)} rows={4} disabled={Boolean(replyImage)} placeholder="運営として返信" className={`${fieldClass} leading-6 disabled:bg-[#f5efe4]`} />
                                         <div className="flex flex-wrap items-center gap-2">
                                             <input ref={fileInputRef} type="file" accept="image/png,image/jpeg,image/webp" onChange={handleReplyImageChange} className="hidden" />
                                             <button type="button" onClick={() => fileInputRef.current?.click()} className="rounded-full border border-[#d7d5cf] px-4 py-2 text-sm font-semibold text-[#17202b]">
