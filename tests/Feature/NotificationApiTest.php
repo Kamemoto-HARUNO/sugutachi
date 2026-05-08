@@ -211,6 +211,9 @@ class NotificationApiTest extends TestCase
     public function test_creating_notification_triggers_web_push_and_email_delivery_services(): void
     {
         $account = Account::factory()->create(['public_id' => 'acc_push_delivery']);
+        config()->set('mail.from.address', 'noreply@example.test');
+        config()->set('mail.from.name', 'すぐタチ');
+        config()->set('service_meta.support_email', 'support@example.test');
 
         $mock = Mockery::mock(WebPushDeliveryService::class);
         $mock->shouldReceive('deliverForNotification')
@@ -223,9 +226,58 @@ class NotificationApiTest extends TestCase
         $this->app->instance(WebPushDeliveryService::class, $mock);
         Mail::shouldReceive('raw')
             ->once()
-            ->withArgs(function (string $body, $callback): bool {
+            ->withArgs(function (string $body, $callback) use ($account): bool {
+                $message = new class {
+                    public ?string $to = null;
+                    public ?string $subject = null;
+                    public ?string $fromAddress = null;
+                    public ?string $fromName = null;
+                    public ?string $replyToAddress = null;
+                    public ?string $replyToName = null;
+
+                    public function to(string $value): self
+                    {
+                        $this->to = $value;
+
+                        return $this;
+                    }
+
+                    public function subject(string $value): self
+                    {
+                        $this->subject = $value;
+
+                        return $this;
+                    }
+
+                    public function from(string $address, ?string $name = null): self
+                    {
+                        $this->fromAddress = $address;
+                        $this->fromName = $name;
+
+                        return $this;
+                    }
+
+                    public function replyTo(string $address, ?string $name = null): self
+                    {
+                        $this->replyToAddress = $address;
+                        $this->replyToName = $name;
+
+                        return $this;
+                    }
+                };
+
+                $callback($message);
+
                 return str_contains($body, '新しい予約があります')
                     && str_contains($body, '内容を確認してください。')
+                    && str_contains($body, 'このメールはアプリ内通知にあわせて自動送信しています。')
+                    && str_contains($body, 'お問い合わせ: support@example.test')
+                    && $message->to === $account->email
+                    && $message->subject === '[すぐタチ] 新しい予約があります'
+                    && $message->fromAddress === 'noreply@example.test'
+                    && $message->fromName === 'すぐタチ'
+                    && $message->replyToAddress === 'support@example.test'
+                    && $message->replyToName === 'すぐタチ'
                     && is_callable($callback);
             });
 

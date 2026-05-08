@@ -23,21 +23,37 @@ class AppNotificationEmailDeliveryService
             return;
         }
 
-        $subject = filled($notification->title)
+        $serviceName = (string) config('service_meta.name', config('app.name', 'Sugutachi'));
+        $supportEmail = trim((string) config('service_meta.support_email', ''));
+        $fromAddress = trim((string) config('mail.from.address', ''));
+        $fromName = (string) config('mail.from.name', $serviceName);
+        $subjectBase = filled($notification->title)
             ? $notification->title
-            : sprintf('%s からのお知らせ', (string) config('app.name', 'Sugutachi'));
+            : sprintf('%s からのお知らせ', $serviceName);
+        $subject = sprintf('[%s] %s', $serviceName, $subjectBase);
 
         $lines = array_values(array_filter([
             $notification->title,
             $notification->body,
             $this->targetUrlLine($notification),
+            'このメールはアプリ内通知にあわせて自動送信しています。',
+            '本メールは送信専用です。',
+            $supportEmail !== '' ? 'お問い合わせ: '.$supportEmail : null,
         ], fn (?string $line): bool => filled($line)));
 
         $body = implode("\n\n", $lines);
 
         try {
-            Mail::raw($body, function ($message) use ($email, $subject): void {
+            Mail::raw($body, function ($message) use ($email, $subject, $fromAddress, $fromName, $supportEmail): void {
                 $message->to($email)->subject($subject);
+
+                if ($fromAddress !== '') {
+                    $message->from($fromAddress, $fromName);
+                }
+
+                if ($supportEmail !== '') {
+                    $message->replyTo($supportEmail, $fromName);
+                }
             });
         } catch (Throwable $exception) {
             Log::warning('App notification email delivery failed.', [
