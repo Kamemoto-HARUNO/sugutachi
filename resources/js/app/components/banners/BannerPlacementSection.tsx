@@ -41,7 +41,7 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
             ? availableWidth
             : Math.min(900, Math.max(260, availableWidth * 0.72))
         : Math.min(900, availableWidth || resolvedViewportWidth);
-    const bannerBorderRadius = slideWidth <= 260 ? 8 : 28;
+    const bannerBorderRadius = resolvedViewportWidth < 640 && slideWidth <= 420 ? 8 : 28;
     const sideInset = Math.max(0, (availableWidth - slideWidth) / 2);
     const translateX = viewportPadding + sideInset - activeIndex * (slideWidth + slideGap) + dragOffsetX;
 
