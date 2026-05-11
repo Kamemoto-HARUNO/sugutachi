@@ -27,11 +27,23 @@ Route::get('/sitemap.xml', function () {
             'lastmod' => $post->updated_at?->toAtomString() ?? now()->toAtomString(),
         ]);
 
-    $xml = view('sitemap', [
-        'urls' => $urls->merge($posts),
-    ])->render();
+    $writer = new XMLWriter;
+    $writer->openMemory();
+    $writer->startDocument('1.0', 'UTF-8');
+    $writer->startElement('urlset');
+    $writer->writeAttribute('xmlns', 'http://www.sitemaps.org/schemas/sitemap/0.9');
 
-    return response($xml, 200, ['Content-Type' => 'application/xml']);
+    foreach ($urls->merge($posts) as $url) {
+        $writer->startElement('url');
+        $writer->writeElement('loc', $url['loc']);
+        $writer->writeElement('lastmod', $url['lastmod']);
+        $writer->endElement();
+    }
+
+    $writer->endElement();
+    $writer->endDocument();
+
+    return response($writer->outputMemory(), 200, ['Content-Type' => 'application/xml']);
 });
 
 Route::get('/robots.txt', function () {
