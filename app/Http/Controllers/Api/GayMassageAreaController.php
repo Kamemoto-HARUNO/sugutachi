@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Api;
 
 use App\Http\Controllers\Controller;
 use App\Http\Resources\PublicTherapistSearchResultResource;
+use App\Models\ProfilePhoto;
 use App\Models\TherapistProfile;
 use App\Services\Seo\GayMassageAreaCatalog;
 use Illuminate\Http\JsonResponse;
@@ -68,7 +69,18 @@ class GayMassageAreaController extends Controller
             'travel_mode' => $profile->bookingSetting?->travel_mode,
             'walking_time_range' => null,
             'estimated_total_amount' => null,
-            'photos' => Collection::make($profile->photos)->take(1),
+            'photos' => $this->publicPhotos(Collection::make($profile->photos)->take(1)),
         ];
+    }
+
+    private function publicPhotos(Collection $photos): array
+    {
+        return $photos
+            ->map(fn (ProfilePhoto $photo): array => [
+                'sort_order' => $photo->sort_order,
+                'url' => "/api/profile-photos/{$photo->id}/file",
+            ])
+            ->values()
+            ->all();
     }
 }

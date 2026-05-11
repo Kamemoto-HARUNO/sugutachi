@@ -4,10 +4,12 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\IdentityVerification;
+use App\Models\ProfilePhoto;
 use App\Models\TherapistLocation;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Facades\Crypt;
 use Tests\TestCase;
 
 class GayMassageAreaSeoTest extends TestCase
@@ -27,7 +29,10 @@ class GayMassageAreaSeoTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.area.slug', 'fukuoka')
             ->assertJsonPath('data.area.therapist_count', 1)
-            ->assertJsonPath('data.therapists.0.public_id', $profile->public_id);
+            ->assertJsonPath('data.therapists.0.public_id', $profile->public_id)
+            ->assertJsonPath('data.therapists.0.photos.0.sort_order', 0)
+            ->assertJsonPath('data.therapists.0.photos.0.url', fn (string $url) => str_contains($url, '/api/profile-photos/')
+                && str_ends_with($url, '/file'));
 
         $this->getJson('/api/gay-massage-areas/tokyo')->assertNotFound();
     }
@@ -91,6 +96,16 @@ class GayMassageAreaSeoTest extends TestCase
             'lat' => $lat,
             'lng' => $lng,
             'is_searchable' => true,
+        ]);
+
+        ProfilePhoto::create([
+            'account_id' => $account->id,
+            'therapist_profile_id' => $profile->id,
+            'usage_type' => 'therapist_profile',
+            'storage_key_encrypted' => Crypt::encryptString('photos/'.$publicId.'.jpg'),
+            'status' => ProfilePhoto::STATUS_APPROVED,
+            'visibility' => ProfilePhoto::VISIBILITY_PUBLIC,
+            'sort_order' => 0,
         ]);
 
         return $profile;
