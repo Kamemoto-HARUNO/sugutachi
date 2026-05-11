@@ -132,10 +132,12 @@ class BlogContentSanitizer
         }
 
         if ($tagName === 'a') {
-            $element->setAttribute('rel', 'nofollow noopener noreferrer');
-
             if ($element->getAttribute('target') === '_blank') {
                 $element->setAttribute('target', '_blank');
+                $element->setAttribute('rel', 'nofollow noopener noreferrer');
+            } else {
+                $element->removeAttribute('target');
+                $element->removeAttribute('rel');
             }
         }
 

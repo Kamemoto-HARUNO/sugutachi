@@ -36,7 +36,7 @@ class BlogFeatureTest extends TestCase
             ->post('/api/admin/blog-posts', [
                 'title' => '安心して使うためのガイド',
                 'slug' => 'safe-use-guide',
-                'body_html' => '<h2 onclick="alert(1)">すぐタチとは</h2><p><strong>すぐたちとはというメッセージがここにたくさん表示されます。</strong><script>alert(1)</script></p><img src="'.$bodyImageUrl.'" alt="本文画像"><iframe src="https://www.youtube.com/embed/example"></iframe><iframe src="javascript:alert(1)"></iframe>',
+                'body_html' => '<h2 onclick="alert(1)">すぐタチとは</h2><p><strong>すぐたちとはというメッセージがここにたくさん表示されます。</strong><script>alert(1)</script></p><a href="/register?mode=therapist" target="_blank"><img src="'.$bodyImageUrl.'" alt="本文画像"></a><a href="/blog" target="_self"><img src="'.$bodyImageUrl.'" alt="同じタブ画像"></a><iframe src="https://www.youtube.com/embed/example"></iframe><iframe src="javascript:alert(1)"></iframe>',
                 'status' => 'published',
                 'published_at' => now()->subMinute()->toISOString(),
                 'category_name' => '使い方',
@@ -62,6 +62,11 @@ class BlogFeatureTest extends TestCase
         $this->assertStringContainsString('すぐタチとは', $post->body_html);
         $this->assertStringContainsString('すぐたちとはというメッセージ', $post->body_html);
         $this->assertStringContainsString($bodyImageUrl, $post->body_html);
+        $this->assertStringContainsString('href="/register?mode=therapist"', $post->body_html);
+        $this->assertStringContainsString('target="_blank"', $post->body_html);
+        $this->assertStringContainsString('rel="nofollow noopener noreferrer"', $post->body_html);
+        $this->assertStringContainsString('href="/blog"', $post->body_html);
+        $this->assertStringNotContainsString('target="_self"', $post->body_html);
         $this->assertStringContainsString('youtube.com/embed/example', $post->body_html);
         Storage::disk('public')->assertExists($post->cover_image_path);
 
