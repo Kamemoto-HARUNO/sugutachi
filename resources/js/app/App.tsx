@@ -34,6 +34,8 @@ import { AdminDashboardPage } from './pages/AdminDashboardPage';
 import { AdminAccountsPage } from './pages/AdminAccountsPage';
 import { AdminCampaignsPage } from './pages/AdminCampaignsPage';
 import { AdminBannersPage } from './pages/AdminBannersPage';
+import { AdminBlogPostsPage } from './pages/AdminBlogPostsPage';
+import { AdminBlogPreviewPage } from './pages/AdminBlogPreviewPage';
 import { AdminLegalDocumentsPage } from './pages/AdminLegalDocumentsPage';
 import { AdminBookingsPage } from './pages/AdminBookingsPage';
 import { AdminBookingMessagesPage } from './pages/AdminBookingMessagesPage';
@@ -59,6 +61,8 @@ import { TherapistBookingNoShowPage, UserBookingNoShowPage } from './pages/Booki
 import { ContactPage } from './pages/ContactPage';
 import { FirstTimeGuidePage } from './pages/FirstTimeGuidePage';
 import { BookingMessagesPage } from './pages/BookingMessagesPage';
+import { BlogDetailPage } from './pages/BlogDetailPage';
+import { BlogIndexPage } from './pages/BlogIndexPage';
 import { NotificationsPage } from './pages/NotificationsPage';
 import { PublicHomePage } from './pages/PublicHomePage';
 import { RegisterPage } from './pages/RegisterPage';
@@ -124,6 +128,8 @@ function AppRoutes() {
                 <Route element={<PublicLayout />}>
                     <Route path="/first-time" element={<FirstTimeGuidePage />} />
                     <Route path="/help" element={<HelpPage />} />
+                    <Route path="/blog" element={<BlogIndexPage />} />
+                    <Route path="/blog/:slug" element={<BlogDetailPage />} />
                     <Route path="/terms" element={<LegalDocumentPage documentType="terms" title="利用規約" />} />
                     <Route path="/privacy" element={<LegalDocumentPage documentType="privacy" title="プライバシーポリシー" />} />
                     <Route path="/commerce" element={<LegalDocumentPage documentType="commerce" title="特定商取引法に基づく表記" />} />
@@ -323,6 +329,10 @@ function AppRoutes() {
                     <Route path="bookings/:publicId/messages" element={<AdminBookingMessagesPage />} />
                     <Route path="campaigns" element={<AdminCampaignsPage />} />
                     <Route path="banners" element={<AdminBannersPage />} />
+                    <Route path="blog-posts" element={<AdminBlogPostsPage />} />
+                    <Route path="blog-posts/new" element={<AdminBlogPostsPage />} />
+                    <Route path="blog-posts/preview" element={<AdminBlogPreviewPage />} />
+                    <Route path="blog-posts/:publicId/edit" element={<AdminBlogPostsPage />} />
                     <Route path="reports" element={<AdminReportsPage />} />
                     <Route path="reports/:publicId" element={<AdminReportsPage />} />
                     <Route path="refund-requests" element={<AdminRefundRequestsPage />} />
@@ -351,6 +361,10 @@ function AppRoutes() {
                             'bookings/:publicId',
                             'bookings/:publicId/messages',
                             'campaigns',
+                            'blog-posts',
+                            'blog-posts/new',
+                            'blog-posts/preview',
+                            'blog-posts/:publicId/edit',
                             'reports',
                             'reports/:publicId',
                             'refund-requests',

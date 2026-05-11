@@ -1,17 +1,19 @@
 <?php
 
 use App\Http\Controllers\Api\AccountBlockController;
-use App\Http\Controllers\Api\AccountWithdrawalController;
 use App\Http\Controllers\Api\AccountRoleController;
+use App\Http\Controllers\Api\AccountWithdrawalController;
 use App\Http\Controllers\Api\AdminAccountController;
 use App\Http\Controllers\Api\AdminAuditLogController;
-use App\Http\Controllers\Api\AdminBookingController;
 use App\Http\Controllers\Api\AdminBannerController;
+use App\Http\Controllers\Api\AdminBlogImageController;
+use App\Http\Controllers\Api\AdminBlogPostController;
+use App\Http\Controllers\Api\AdminBookingController;
 use App\Http\Controllers\Api\AdminCampaignController;
 use App\Http\Controllers\Api\AdminContactInquiryController;
 use App\Http\Controllers\Api\AdminDashboardController;
-use App\Http\Controllers\Api\AdminIdentityVerificationFileController;
 use App\Http\Controllers\Api\AdminIdentityVerificationController;
+use App\Http\Controllers\Api\AdminIdentityVerificationFileController;
 use App\Http\Controllers\Api\AdminLegalDocumentController;
 use App\Http\Controllers\Api\AdminPayoutRequestController;
 use App\Http\Controllers\Api\AdminPlatformFeeSettingController;
@@ -25,6 +27,7 @@ use App\Http\Controllers\Api\AdminTherapistProfileController;
 use App\Http\Controllers\Api\AdminTravelRequestController;
 use App\Http\Controllers\Api\AuthController;
 use App\Http\Controllers\Api\BannerController;
+use App\Http\Controllers\Api\BlogPostController;
 use App\Http\Controllers\Api\BookingCancellationController;
 use App\Http\Controllers\Api\BookingController;
 use App\Http\Controllers\Api\BookingMessageController;
@@ -62,8 +65,8 @@ use App\Http\Controllers\Api\TherapistPricingRuleController;
 use App\Http\Controllers\Api\TherapistProfileController;
 use App\Http\Controllers\Api\TherapistScheduledBookingSettingController;
 use App\Http\Controllers\Api\TherapistTravelRequestController;
-use App\Http\Controllers\Api\UserProfileController;
 use App\Http\Controllers\Api\UserCampaignOfferController;
+use App\Http\Controllers\Api\UserProfileController;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/webhooks/stripe', StripeWebhookController::class);
@@ -80,6 +83,14 @@ Route::get('/service-meta', [ServiceMetaController::class, 'show']);
 Route::get('/banners', [BannerController::class, 'index']);
 Route::get('/banners/{banner:public_id}/image', [BannerController::class, 'showImage'])
     ->name('banners.image');
+Route::get('/blog-posts/latest', [BlogPostController::class, 'latest']);
+Route::get('/blog-posts', [BlogPostController::class, 'index']);
+Route::get('/blog-posts/{slug}', [BlogPostController::class, 'show'])->name('blog-posts.show');
+Route::get('/blog-posts/{post:public_id}/cover-image', [BlogPostController::class, 'showCoverImage'])
+    ->name('blog-posts.cover-image');
+Route::post('/blog-posts/{post:public_id}/views', [BlogPostController::class, 'trackView']);
+Route::get('/blog-images/{image}', [AdminBlogImageController::class, 'show'])
+    ->name('blog-images.show');
 Route::post('/banners/{banner:public_id}/impressions', [BannerController::class, 'trackImpression']);
 Route::post('/banners/{banner:public_id}/clicks', [BannerController::class, 'trackClick']);
 Route::get('/help/faqs', [HelpFaqController::class, 'index']);
@@ -180,6 +191,13 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/admin/banners', [AdminBannerController::class, 'store']);
     Route::patch('/admin/banners/{banner:public_id}', [AdminBannerController::class, 'update']);
     Route::delete('/admin/banners/{banner:public_id}', [AdminBannerController::class, 'destroy']);
+    Route::get('/admin/blog-posts/meta', [AdminBlogPostController::class, 'meta']);
+    Route::get('/admin/blog-posts', [AdminBlogPostController::class, 'index']);
+    Route::post('/admin/blog-posts', [AdminBlogPostController::class, 'store']);
+    Route::get('/admin/blog-posts/{post:public_id}', [AdminBlogPostController::class, 'show']);
+    Route::post('/admin/blog-images', [AdminBlogImageController::class, 'store']);
+    Route::patch('/admin/blog-posts/{post:public_id}', [AdminBlogPostController::class, 'update']);
+    Route::delete('/admin/blog-posts/{post:public_id}', [AdminBlogPostController::class, 'destroy']);
     Route::get('/admin/accounts', [AdminAccountController::class, 'index']);
     Route::get('/admin/accounts/{account:public_id}', [AdminAccountController::class, 'show']);
     Route::post('/admin/accounts/{account:public_id}/suspend', [AdminAccountController::class, 'suspend']);

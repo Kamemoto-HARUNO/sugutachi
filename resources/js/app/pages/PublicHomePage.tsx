@@ -8,6 +8,7 @@ import { DiscoverySearchPanel } from '../components/discovery/DiscoverySearchPan
 import { DiscoverySortBar } from '../components/discovery/DiscoverySortBar';
 import { TherapistDiscoveryGrid } from '../components/discovery/TherapistDiscoveryGrid';
 import { BannerPlacementSection } from '../components/banners/BannerPlacementSection';
+import { BlogLatestSection } from '../components/blog/BlogLatestSection';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
@@ -604,6 +605,8 @@ export function PublicHomePage() {
                 </section>
 
                 {isAuthenticated ? discoveryInfoCards : null}
+
+                <BlogLatestSection />
             </div>
 
             {isFilterSheetOpen ? (
