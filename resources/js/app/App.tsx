@@ -60,6 +60,7 @@ import { TherapistBookingInterruptPage, UserBookingInterruptPage } from './pages
 import { TherapistBookingNoShowPage, UserBookingNoShowPage } from './pages/BookingNoShowPage';
 import { ContactPage } from './pages/ContactPage';
 import { FirstTimeGuidePage } from './pages/FirstTimeGuidePage';
+import { GayMassageAreaPage, GayMassageIndexPage } from './pages/GayMassageAreaPage';
 import { BookingMessagesPage } from './pages/BookingMessagesPage';
 import { BlogDetailPage } from './pages/BlogDetailPage';
 import { BlogIndexPage } from './pages/BlogIndexPage';
@@ -121,6 +122,8 @@ function AppRoutes() {
         <>
             <Routes>
                 <Route path="/" element={<PublicHomePage />} />
+                <Route path="/gay-massage" element={<GayMassageIndexPage />} />
+                <Route path="/gay-massage/:slug" element={<GayMassageAreaPage />} />
                 <Route path="/withdrawal/completed" element={<AccountWithdrawalCompletePage />} />
                 <Route path="/therapists/:publicId" element={<UserTherapistDetailPage />} />
                 <Route path="/user/therapists/:publicId" element={<LegacyUserTherapistDetailRedirect />} />

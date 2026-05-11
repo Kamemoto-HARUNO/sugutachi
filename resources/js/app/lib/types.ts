@@ -607,6 +607,24 @@ export interface TherapistSearchResult {
     photos: PublicProfilePhoto[];
 }
 
+export interface GayMassageAreaSummary {
+    slug: string;
+    name: string;
+    code: string;
+    therapist_count?: number;
+}
+
+export interface GayMassageAreaPayload {
+    areas: GayMassageAreaSummary[];
+}
+
+export interface GayMassageAreaDetailPayload {
+    area: GayMassageAreaSummary & {
+        therapist_count: number;
+    };
+    therapists: TherapistSearchResult[];
+}
+
 export interface TherapistMenu {
     public_id: string;
     name: string;
