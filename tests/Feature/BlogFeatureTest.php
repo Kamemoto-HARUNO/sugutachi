@@ -134,6 +134,10 @@ class BlogFeatureTest extends TestCase
             ->assertSee('/blog/visible', false)
             ->assertDontSee('/blog/draft', false);
 
+        $this->get('/robots.txt')
+            ->assertOk()
+            ->assertSee('/sitemap.xml', false);
+
         $this->getJson('/api/blog-posts/hidden')->assertNotFound();
         $this->getJson('/api/blog-posts/future')->assertNotFound();
     }
