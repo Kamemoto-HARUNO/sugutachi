@@ -84,8 +84,9 @@ function statusTone(status: BlogPostStatus): string {
 }
 
 const adminPageShellClass = 'rounded-[8px] bg-[#fffaf2] p-5 text-[#17202b] shadow-[0_10px_24px_rgba(23,32,43,0.08)] md:p-6';
+const selectedEditorImageClass = 'is-editor-selected-image';
 const editorContentClass = [
-    'min-h-[320px] max-h-[min(58vh,620px)] overflow-y-auto rounded-b-[8px] border-x border-b border-[#d9c9ae] bg-white p-5 text-base leading-8 text-[#17202b] outline-none [overflow-wrap:anywhere]',
+    'admin-blog-editor-content min-h-[320px] max-h-[min(58vh,620px)] overflow-y-auto rounded-b-[8px] border-x border-b border-[#d9c9ae] bg-white p-5 text-base leading-8 text-[#17202b] outline-none [overflow-wrap:anywhere]',
     '[&_a]:font-semibold [&_a]:text-[#8f5c22]',
     '[&_blockquote]:border-l-4 [&_blockquote]:border-[#d2b179] [&_blockquote]:bg-[#fff7ed] [&_blockquote]:p-4',
     '[&_code]:rounded [&_code]:bg-[#f2ebe0] [&_code]:px-1.5',
@@ -98,6 +99,21 @@ const editorContentClass = [
     '[&_table]:block [&_table]:max-w-full [&_table]:overflow-x-auto [&_table]:border-collapse [&_td]:border [&_td]:border-[#d9c9ae] [&_td]:p-3 [&_th]:border [&_th]:border-[#d9c9ae] [&_th]:bg-[#f2ebe0] [&_th]:p-3',
     '[&_ul]:list-disc [&_ul]:pl-6',
 ].join(' ');
+
+function stripEditorOnlyHtml(html: string): string {
+    const container = document.createElement('div');
+    container.innerHTML = html;
+
+    container.querySelectorAll(`img.${selectedEditorImageClass}`).forEach((image) => {
+        image.classList.remove(selectedEditorImageClass);
+
+        if (image.getAttribute('class') === '') {
+            image.removeAttribute('class');
+        }
+    });
+
+    return container.innerHTML;
+}
 
 export function AdminBlogPostsPage() {
     const { publicId } = useParams();
@@ -122,6 +138,7 @@ export function AdminBlogPostsPage() {
     const imageInputRef = useRef<HTMLInputElement | null>(null);
     const coverInputRef = useRef<HTMLInputElement | null>(null);
     const editorSelectionRef = useRef<Range | null>(null);
+    const selectedEditorImageRef = useRef<HTMLImageElement | null>(null);
     const autoFieldsRef = useRef({
         excerpt: true,
         metaTitle: true,
@@ -284,6 +301,62 @@ export function AdminBlogPostsPage() {
         selection.addRange(range);
     };
 
+    const clearSelectedEditorImage = () => {
+        editorRef.current?.querySelectorAll(`img.${selectedEditorImageClass}`).forEach((image) => {
+            image.classList.remove(selectedEditorImageClass);
+
+            if (image.getAttribute('class') === '') {
+                image.removeAttribute('class');
+            }
+        });
+        selectedEditorImageRef.current = null;
+    };
+
+    const markSelectedEditorImage = (image: HTMLImageElement) => {
+        clearSelectedEditorImage();
+        image.classList.add(selectedEditorImageClass);
+        selectedEditorImageRef.current = image;
+    };
+
+    const findEditorImage = (): HTMLImageElement | null => {
+        if (selectedEditorImageRef.current && editorRef.current?.contains(selectedEditorImageRef.current)) {
+            return selectedEditorImageRef.current;
+        }
+
+        const selection = window.getSelection();
+
+        if (!selection || selection.rangeCount === 0 || !editorRef.current) {
+            return null;
+        }
+
+        const range = selection.getRangeAt(0);
+        const containers = [range.startContainer, range.commonAncestorContainer];
+
+        for (const container of containers) {
+            const element = container instanceof Element ? container : container.parentElement;
+            const image = element?.closest('img');
+
+            if (image instanceof HTMLImageElement && editorRef.current.contains(image)) {
+                return image;
+            }
+        }
+
+        const fragment = range.cloneContents();
+        const image = fragment.querySelector('img');
+
+        if (image) {
+            const source = image.getAttribute('src');
+            const alt = image.getAttribute('alt');
+            const matchingImage = Array.from(editorRef.current.querySelectorAll('img')).find((candidate) => (
+                candidate.getAttribute('src') === source && candidate.getAttribute('alt') === alt
+            ));
+
+            return matchingImage ?? null;
+        }
+
+        return null;
+    };
+
     const syncAutoFields = (updates: Partial<BlogFormState>, nextTitle = form.title, nextBody = form.body_html) => {
         const nextExcerpt = buildBlogExcerpt(nextBody);
 
@@ -299,7 +372,8 @@ export function AdminBlogPostsPage() {
     };
 
     const updateBodyHtml = (html: string) => {
-        syncAutoFields({ body_html: html }, form.title, html);
+        const cleanHtml = stripEditorOnlyHtml(html);
+        syncAutoFields({ body_html: cleanHtml }, form.title, cleanHtml);
     };
 
     const handleTitleChange = (title: string) => {
@@ -316,6 +390,57 @@ export function AdminBlogPostsPage() {
         editorRef.current?.focus();
         document.execCommand(command, false, value);
         updateBodyHtml(editorRef.current?.innerHTML ?? '');
+    };
+
+    const applyImageLink = () => {
+        const image = findEditorImage();
+
+        if (!image || !editorRef.current) {
+            window.alert('リンクを設定したい画像を本文内で選択してください。');
+            return;
+        }
+
+        const currentAnchor = image.closest('a');
+        const currentHref = currentAnchor instanceof HTMLAnchorElement && editorRef.current.contains(currentAnchor)
+            ? currentAnchor.getAttribute('href') ?? ''
+            : '';
+        const nextHref = window.prompt('画像クリック時のリンクURLを入力してください。空欄でリンクを解除します。', currentHref);
+
+        if (nextHref === null) {
+            return;
+        }
+
+        const normalizedHref = nextHref.trim();
+        const anchor = currentAnchor instanceof HTMLAnchorElement && editorRef.current.contains(currentAnchor)
+            ? currentAnchor
+            : document.createElement('a');
+
+        if (normalizedHref === '') {
+            if (currentAnchor instanceof HTMLAnchorElement && editorRef.current.contains(currentAnchor)) {
+                currentAnchor.replaceWith(...Array.from(currentAnchor.childNodes));
+            }
+            updateBodyHtml(editorRef.current.innerHTML);
+            return;
+        }
+
+        const shouldOpenNewTab = window.confirm('別タブで開きますか？\nOK: 別タブ / キャンセル: 同じタブ');
+        anchor.setAttribute('href', normalizedHref);
+
+        if (shouldOpenNewTab) {
+            anchor.setAttribute('target', '_blank');
+            anchor.setAttribute('rel', 'nofollow noopener noreferrer');
+        } else {
+            anchor.removeAttribute('target');
+            anchor.removeAttribute('rel');
+        }
+
+        if (!currentAnchor || !editorRef.current.contains(currentAnchor)) {
+            image.replaceWith(anchor);
+            anchor.appendChild(image);
+        }
+
+        markSelectedEditorImage(image);
+        updateBodyHtml(editorRef.current.innerHTML);
     };
 
     const insertHtml = (html: string) => {
@@ -345,7 +470,7 @@ export function AdminBlogPostsPage() {
     const openDraftPreview = async () => {
         const previewWindow = window.open('', '_blank', 'noopener,noreferrer');
         const draftKey = `blog-preview-${Date.now()}`;
-        const bodyHtml = editorRef.current?.innerHTML ?? form.body_html;
+        const bodyHtml = stripEditorOnlyHtml(editorRef.current?.innerHTML ?? form.body_html);
         let coverImageUrl = coverUrl;
 
         if (coverImage) {
@@ -431,7 +556,7 @@ export function AdminBlogPostsPage() {
         setSuccessMessage(null);
 
         try {
-            const bodyHtml = editorRef.current?.innerHTML ?? form.body_html;
+            const bodyHtml = stripEditorOnlyHtml(editorRef.current?.innerHTML ?? form.body_html);
             const publishedAt = form.status === 'scheduled' && form.published_at
                 ? parseJstDateTimeLocalInput(form.published_at)?.toISOString()
                 : form.status === 'published'
@@ -632,6 +757,7 @@ export function AdminBlogPostsPage() {
                             ))}
                             <button type="button" onClick={() => applyEditorCommand('createLink', window.prompt('リンクURL') ?? '')} className="rounded-[8px] bg-white px-3 py-2 text-xs font-semibold">リンク</button>
                             <button type="button" onMouseDown={saveEditorSelection} onClick={() => imageInputRef.current?.click()} className="rounded-[8px] bg-white px-3 py-2 text-xs font-semibold">{isUploadingImage ? '画像中' : '画像'}</button>
+                            <button type="button" onClick={applyImageLink} className="rounded-[8px] bg-white px-3 py-2 text-xs font-semibold">画像リンク</button>
                             <button type="button" onClick={insertEmbed} className="rounded-[8px] bg-white px-3 py-2 text-xs font-semibold">埋め込み</button>
                             <input ref={imageInputRef} type="file" accept="image/jpeg,image/png,image/webp" onChange={(event) => void handleBodyImage(event.target.files?.[0] ?? null)} className="hidden" />
                         </div>
@@ -645,6 +771,14 @@ export function AdminBlogPostsPage() {
                             }}
                             onKeyUp={saveEditorSelection}
                             onMouseUp={saveEditorSelection}
+                            onClick={(event) => {
+                                if (event.target instanceof HTMLImageElement) {
+                                    markSelectedEditorImage(event.target);
+                                } else {
+                                    clearSelectedEditorImage();
+                                }
+                                saveEditorSelection();
+                            }}
                             onFocus={saveEditorSelection}
                             className={editorContentClass}
                         />

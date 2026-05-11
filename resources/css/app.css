@@ -116,6 +116,62 @@
         border-right: 10px solid transparent;
         border-top: 11px solid #ffc907;
     }
+
+    .admin-blog-editor-content img {
+        cursor: pointer;
+        transition:
+            box-shadow 0.16s ease,
+            outline-color 0.16s ease,
+            transform 0.16s ease;
+    }
+
+    .admin-blog-editor-content img.is-editor-selected-image {
+        outline: 3px solid #d2b179;
+        outline-offset: 4px;
+        box-shadow:
+            0 0 0 7px rgba(210, 177, 121, 0.2),
+            0 14px 32px rgba(23, 32, 43, 0.16);
+        transform: translateY(-1px);
+    }
+
+    .admin-blog-editor-content a:has(img) {
+        display: inline-block;
+        max-width: 100%;
+        color: inherit;
+        text-decoration: none;
+    }
+
+    .admin-blog-editor-content a:has(img) img {
+        display: block;
+    }
+
+    .admin-blog-editor-content a:has(img)::after {
+        content: 'リンク: ' attr(href) ' / 同じタブ';
+        display: block;
+        max-width: min(100%, 760px);
+        overflow: hidden;
+        margin-top: -0.35rem;
+        border: 1px solid #eadfce;
+        border-radius: 6px;
+        background: #fff7ed;
+        padding: 0.35rem 0.55rem;
+        color: #5b6470;
+        font-size: 11px;
+        font-weight: 700;
+        line-height: 1.4;
+        text-overflow: ellipsis;
+        white-space: nowrap;
+    }
+
+    .admin-blog-editor-content a[target='_blank']:has(img)::after {
+        content: 'リンク: ' attr(href) ' / 別タブ';
+    }
+
+    .admin-blog-editor-content a:has(img.is-editor-selected-image)::after {
+        border-color: #d2b179;
+        background: #fff2dd;
+        color: #8b5a16;
+    }
 }
 
 @media (prefers-reduced-motion: reduce) {
