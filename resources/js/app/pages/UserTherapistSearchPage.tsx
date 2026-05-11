@@ -8,6 +8,7 @@ import { DiscoverySearchPanel } from '../components/discovery/DiscoverySearchPan
 import { DiscoverySortBar } from '../components/discovery/DiscoverySortBar';
 import { TherapistDiscoveryGrid } from '../components/discovery/TherapistDiscoveryGrid';
 import { LoadingScreen } from '../components/LoadingScreen';
+import { BlogLatestSection } from '../components/blog/BlogLatestSection';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { getMyPageEntryPath } from '../lib/account';
@@ -441,6 +442,8 @@ export function UserTherapistSearchPage() {
                         </div>
                     </div>
                 </section>
+
+                <BlogLatestSection />
             </div>
 
             {isFilterSheetOpen ? (

@@ -3,6 +3,7 @@ export type BannerPlacement = 'home' | 'therapist_detail' | 'dashboard';
 export type BannerViewerSegment = 'guest' | 'user' | 'therapist';
 export type BannerStatus = 'draft' | 'hidden' | 'published';
 export type BannerPublicationState = 'draft' | 'hidden' | 'scheduled' | 'expired' | 'visible';
+export type BlogPostStatus = 'draft' | 'published' | 'hidden' | 'scheduled';
 
 export interface RoleAssignment {
     role: string;
@@ -61,6 +62,63 @@ export interface PublicBannerRecord {
     image_url: string;
     link_url: string;
     sort_order: number;
+}
+
+export interface BlogCategoryRecord {
+    id: number;
+    name: string;
+    slug: string;
+    sort_order: number;
+}
+
+export interface BlogTagRecord {
+    id: number;
+    name: string;
+    slug: string;
+}
+
+export interface BlogPostRecord {
+    public_id: string;
+    title: string;
+    slug: string;
+    url: string;
+    body_html?: string;
+    excerpt: string | null;
+    status: BlogPostStatus;
+    status_label: string;
+    publication_state: BlogPostStatus;
+    is_public: boolean;
+    published_at: string | null;
+    cover_image_url: string | null;
+    cover_image_alt: string | null;
+    cover_image_original_name: string | null;
+    cover_image_mime_type: string | null;
+    cover_image_size_bytes: number | null;
+    category: BlogCategoryRecord | null;
+    tags: BlogTagRecord[];
+    meta_title: string | null;
+    meta_description: string | null;
+    og_title: string | null;
+    og_description: string | null;
+    canonical_url: string | null;
+    noindex: boolean;
+    view_count: number;
+    search_view_count: number;
+    internal_view_count: number;
+    external_view_count: number;
+    direct_view_count: number;
+    created_by_account?: {
+        public_id: string;
+        display_name: string | null;
+        email: string;
+    } | null;
+    updated_by_account?: {
+        public_id: string;
+        display_name: string | null;
+        email: string;
+    } | null;
+    created_at: string;
+    updated_at: string;
 }
 
 export interface LegalDocumentSummary {
