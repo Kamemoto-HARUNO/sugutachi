@@ -3,6 +3,7 @@
 use App\Http\Controllers\Api\StripeWebhookController;
 use App\Models\BlogPost;
 use App\Models\BlogSlugRedirect;
+use App\Services\Seo\GayMassageAreaCatalog;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Route;
 
@@ -11,7 +12,7 @@ Route::post('/webhooks/stripe', StripeWebhookController::class)
 
 Route::get('/sitemap.xml', function () {
     $baseUrl = rtrim((string) config('app.url'), '/');
-    $staticPaths = ['/', '/first-time', '/help', '/blog'];
+    $staticPaths = ['/', '/first-time', '/help', '/blog', '/gay-massage'];
     $urls = collect($staticPaths)->map(fn (string $path) => [
         'loc' => $baseUrl.$path,
         'lastmod' => now()->toAtomString(),
@@ -33,7 +34,12 @@ Route::get('/sitemap.xml', function () {
     $writer->startElement('urlset');
     $writer->writeAttribute('xmlns', 'http://www.sitemaps.org/schemas/sitemap/0.9');
 
-    foreach ($urls->merge($posts) as $url) {
+    $gayMassageAreas = app(GayMassageAreaCatalog::class)->activeAreas()->map(fn (array $area) => [
+        'loc' => $baseUrl.'/gay-massage/'.$area['slug'],
+        'lastmod' => now()->toAtomString(),
+    ]);
+
+    foreach ($urls->merge($gayMassageAreas)->merge($posts) as $url) {
         $writer->startElement('url');
         $writer->writeElement('loc', $url['loc']);
         $writer->writeElement('lastmod', $url['lastmod']);
@@ -44,6 +50,16 @@ Route::get('/sitemap.xml', function () {
     $writer->endDocument();
 
     return response($writer->outputMemory(), 200, ['Content-Type' => 'application/xml']);
+});
+
+Route::get('/gay-massage/{slug}', function (string $slug, GayMassageAreaCatalog $catalog) {
+    $area = $catalog->findArea($slug);
+
+    if (! $area || $catalog->therapistCount($area['slug']) === 0) {
+        abort(404);
+    }
+
+    return view('app');
 });
 
 Route::get('/robots.txt', function () {

@@ -35,6 +35,7 @@ use App\Http\Controllers\Api\BookingQuoteController;
 use App\Http\Controllers\Api\BookingSafetyController;
 use App\Http\Controllers\Api\BookingStatusController;
 use App\Http\Controllers\Api\ContactController;
+use App\Http\Controllers\Api\GayMassageAreaController;
 use App\Http\Controllers\Api\HelpFaqController;
 use App\Http\Controllers\Api\IdentityVerificationController;
 use App\Http\Controllers\Api\LegalDocumentController;
@@ -95,6 +96,8 @@ Route::post('/banners/{banner:public_id}/impressions', [BannerController::class,
 Route::post('/banners/{banner:public_id}/clicks', [BannerController::class, 'trackClick']);
 Route::get('/help/faqs', [HelpFaqController::class, 'index']);
 Route::post('/contact', [ContactController::class, 'store']);
+Route::get('/gay-massage-areas', [GayMassageAreaController::class, 'index']);
+Route::get('/gay-massage-areas/{slug}', [GayMassageAreaController::class, 'show']);
 Route::get('/public-therapists', [TherapistDiscoveryController::class, 'publicIndex']);
 Route::get('/therapists/{therapistProfile:public_id}', [TherapistDiscoveryController::class, 'show']);
 Route::get('/therapists/{therapistProfile:public_id}/reviews', [ReviewController::class, 'therapistReviews']);
