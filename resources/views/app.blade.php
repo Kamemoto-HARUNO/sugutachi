@@ -3,6 +3,11 @@
     $gtmContainerId = trim((string) config('services.gtm.container_id'));
     $gtmAuth = trim((string) config('services.gtm.auth'));
     $gtmPreview = trim((string) config('services.gtm.preview'));
+    $serviceName = trim((string) config('service_meta.name', config('app.name', '')));
+    $serviceName = $serviceName !== '' ? $serviceName : 'すぐタチ';
+    $defaultOgpDescription = 'リラクゼーション / ボディケア / もみほぐしの予約・マッチングサービス';
+    $defaultOgpTitle = $serviceName.' - '.$defaultOgpDescription;
+    $defaultOgpUrl = url()->current();
     $defaultOgpImageUrl = asset('images/ogp/default.jpg');
     $hasGtmEnvironment = $gtmAuth !== '' && $gtmPreview !== '';
     $gtmQuery = http_build_query(array_filter([
@@ -22,11 +27,11 @@
         <meta name="viewport" content="width=device-width, initial-scale=1">
         <meta
             name="description"
-            content="すぐタチ - リラクゼーション / ボディケア / もみほぐしの予約・マッチングサービス"
+            content="{{ $defaultOgpTitle }}"
         >
         <meta name="theme-color" content="#17202b">
 
-        <title>{{ config('service_meta.name', config('app.name', 'すぐタチ')) }}</title>
+        <title>{{ $serviceName }}</title>
 
         <link rel="icon" href="/favicon.ico" sizes="any">
         <link rel="apple-touch-icon" href="/apple-touch-icon.png">
@@ -35,10 +40,15 @@
         <meta name="apple-mobile-web-app-capable" content="yes">
         <meta name="apple-mobile-web-app-status-bar-style" content="default">
         <meta property="og:type" content="website">
-        <meta property="og:site_name" content="{{ config('service_meta.name', config('app.name', 'すぐタチ')) }}">
+        <meta property="og:site_name" content="{{ $serviceName }}">
+        <meta property="og:title" content="{{ $defaultOgpTitle }}">
+        <meta property="og:description" content="{{ $defaultOgpDescription }}">
+        <meta property="og:url" content="{{ $defaultOgpUrl }}">
         <meta property="og:image" content="{{ $defaultOgpImageUrl }}">
         <meta property="og:image:secure_url" content="{{ $defaultOgpImageUrl }}">
         <meta name="twitter:card" content="summary_large_image">
+        <meta name="twitter:title" content="{{ $defaultOgpTitle }}">
+        <meta name="twitter:description" content="{{ $defaultOgpDescription }}">
         <meta name="twitter:image" content="{{ $defaultOgpImageUrl }}">
 
         <link rel="preconnect" href="https://fonts.bunny.net">
