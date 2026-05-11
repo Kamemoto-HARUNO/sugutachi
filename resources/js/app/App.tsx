@@ -1,4 +1,4 @@
-import { useEffect } from 'react';
+import { useEffect, useLayoutEffect, useRef } from 'react';
 import {
     BrowserRouter,
     Navigate,
@@ -6,6 +6,7 @@ import {
     Route,
     Routes,
     useLocation,
+    useNavigationType,
     useParams,
 } from 'react-router-dom';
 import { ActiveUserBookingDock } from './components/booking';
@@ -509,9 +510,43 @@ function LegacyUserTherapistDetailRedirect() {
     return <Navigate to={`/therapists/${publicId}${location.search}`} replace />;
 }
 
+function ScrollToTopOnPageChange() {
+    const location = useLocation();
+    const navigationType = useNavigationType();
+    const previousPathnameRef = useRef(location.pathname);
+
+    useLayoutEffect(() => {
+        const previousPathname = previousPathnameRef.current;
+        previousPathnameRef.current = location.pathname;
+
+        if (previousPathname === location.pathname || navigationType === 'POP') {
+            return;
+        }
+
+        if (location.hash) {
+            window.requestAnimationFrame(() => {
+                const target = document.getElementById(decodeURIComponent(location.hash.slice(1)));
+
+                if (target) {
+                    target.scrollIntoView({ block: 'start' });
+                    return;
+                }
+
+                window.scrollTo({ top: 0, left: 0 });
+            });
+            return;
+        }
+
+        window.scrollTo({ top: 0, left: 0 });
+    }, [location.hash, location.pathname, navigationType]);
+
+    return null;
+}
+
 export function App() {
     return (
         <BrowserRouter>
+            <ScrollToTopOnPageChange />
             <ToastProvider>
                 <AuthProvider>
                     <NotificationProvider>
