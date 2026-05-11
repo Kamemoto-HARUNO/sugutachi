@@ -41,6 +41,7 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
             ? availableWidth
             : Math.min(900, Math.max(260, availableWidth * 0.72))
         : Math.min(900, availableWidth || resolvedViewportWidth);
+    const bannerBorderRadius = slideWidth <= 260 ? 8 : 28;
     const sideInset = Math.max(0, (availableWidth - slideWidth) / 2);
     const translateX = viewportPadding + sideInset - activeIndex * (slideWidth + slideGap) + dragOffsetX;
 
@@ -266,12 +267,14 @@ function BannerCarousel({ banners }: { banners: PublicBannerRecord[] }) {
                                 onDragStart={(event) => {
                                     event.preventDefault();
                                 }}
-                                className="group block overflow-hidden rounded-[28px]"
+                                className="group block overflow-hidden"
+                                style={{ borderRadius: `${bannerBorderRadius}px` }}
                             >
                                 <img
                                     src={banner.image_url}
                                     alt={banner.title}
-                                    className="mx-auto block h-auto w-full rounded-[28px] object-contain"
+                                    className="mx-auto block h-auto w-full object-contain"
+                                    style={{ borderRadius: `${bannerBorderRadius}px` }}
                                     draggable={false}
                                 />
                             </a>
