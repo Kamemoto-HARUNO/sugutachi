@@ -23,6 +23,7 @@ import {
     userPlaceholderRoutes,
 } from './lib/navigation';
 import { getActiveRoles, getPostAuthPath, getRoleDashboardPath, type RoleName } from './lib/account';
+import { trackVirtualPageView } from './lib/analytics';
 import { DashboardLayout } from './layouts/DashboardLayout';
 import { BookingFlowLayout } from './layouts/BookingFlowLayout';
 import { PublicLayout } from './layouts/PublicLayout';
@@ -560,6 +561,22 @@ function ScrollToTopOnPageChange() {
     return null;
 }
 
+function AnalyticsPageViewTracker() {
+    const location = useLocation();
+    const { activeRole, isAuthenticated } = useAuth();
+
+    useEffect(() => {
+        trackVirtualPageView({
+            page_path: `${location.pathname}${location.search}`,
+            page_title: document.title,
+            user_type: activeRole,
+            is_logged_in: isAuthenticated,
+        });
+    }, [activeRole, isAuthenticated, location.pathname, location.search]);
+
+    return null;
+}
+
 export function App() {
     return (
         <BrowserRouter>
@@ -567,6 +584,7 @@ export function App() {
             <ToastProvider>
                 <AuthProvider>
                     <NotificationProvider>
+                        <AnalyticsPageViewTracker />
                         <AppRoutes />
                         <PushOptInModal />
                     </NotificationProvider>

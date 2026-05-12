@@ -5,6 +5,7 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, getFieldError, unwrapData } from '../lib/api';
 import { getRoleDashboardPath } from '../lib/account';
+import { trackContactSubmitComplete } from '../lib/analytics';
 import type {
     ApiEnvelope,
     ContactInquirySubmissionRecord,
@@ -124,6 +125,11 @@ export function ContactPage() {
             });
 
             const nextRecord = unwrapData(payload);
+            trackContactSubmitComplete({
+                inquiry_id: nextRecord.public_id,
+                category,
+                is_logged_in: isAuthenticated,
+            });
             setSuccessRecord(nextRecord);
             setLastSubmittedReplyEmail(effectiveReplyEmail);
             setSuccessMessage(`お問い合わせを受け付けました。受付番号: ${nextRecord.public_id}`);

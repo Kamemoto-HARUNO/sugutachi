@@ -6,6 +6,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { getPostAuthPath, inferRoleFromPath, sanitizeAppPath } from '../lib/account';
+import { trackSignUpComplete } from '../lib/analytics';
 import { ApiError, apiRequest, getFieldError, unwrapData } from '../lib/api';
 import { toDomesticDigits, toE164PhoneNumber } from '../lib/phone';
 import type { ApiEnvelope, LegalDocumentSummary, PublicCampaignRecord, ServiceMeta } from '../lib/types';
@@ -226,6 +227,8 @@ export function RegisterPage() {
                 is_over_18: isOver18,
                 relaxation_purpose_agreed: agreedRelaxationPurpose,
             });
+
+            trackSignUpComplete({ user_type: initialRole });
 
             if (returnTo && (!returnRole || returnRole === initialRole)) {
                 navigate(returnTo, { replace: true });
