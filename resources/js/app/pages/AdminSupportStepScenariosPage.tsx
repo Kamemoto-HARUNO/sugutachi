@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState, type FormEvent } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../hooks/useAuth';
+import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { formatJstDateTime } from '../lib/datetime';
 import { formatSupportCategory, supportCategories } from '../lib/supportTickets';
@@ -121,6 +122,8 @@ export function AdminSupportStepScenariosPage() {
     const selectedPath = selected ? `/admin/support-step-scenarios/${selected.public_id}` : '/admin/support-step-scenarios';
 
     const sortedScenarios = useMemo(() => scenarios, [scenarios]);
+
+    useToastOnMessage(notice, 'success');
 
     async function loadScenarios(nextSelectedId = publicId) {
         if (!token) return;
@@ -330,8 +333,6 @@ export function AdminSupportStepScenariosPage() {
             </section>
 
             {error ? <div className="rounded-[8px] border border-[#f0c7b8] bg-[#fff1ec] px-4 py-3 text-sm text-[#8a3d2c]">{error}</div> : null}
-            {notice ? <div className="rounded-[8px] border border-[#c8dfc0] bg-[#f2fbef] px-4 py-3 text-sm text-[#345c2a]">{notice}</div> : null}
-
             <section className="grid gap-5 xl:grid-cols-[360px_minmax(0,1fr)]">
                 <div className="space-y-3">
                     {isLoading ? <p className="text-sm text-[#68707a]">読み込み中です。</p> : null}
