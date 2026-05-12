@@ -1445,6 +1445,74 @@ export interface SupportTicketRecord {
     messages?: SupportTicketMessageRecord[];
 }
 
+export type SupportStepScenarioStatus = 'draft' | 'active' | 'archived';
+export type SupportStepTargetRole = 'user' | 'therapist' | 'both';
+export type SupportStepIdentityStatus = 'unverified' | 'approved' | 'rejected';
+export type SupportStepDeliveryType = 'scheduled' | 'manual' | 'test';
+export type SupportStepDeliveryStatus = 'sent' | 'skipped' | 'failed';
+
+export interface SupportStepScenarioRecord {
+    public_id: string;
+    name: string;
+    status: SupportStepScenarioStatus;
+    target_role: SupportStepTargetRole;
+    identity_verification_status: SupportStepIdentityStatus;
+    elapsed_days: 1 | 3 | 7;
+    send_time: string;
+    priority: number;
+    ticket_title: string;
+    ticket_category: string;
+    message_body: string;
+    internal_notes: string | null;
+    can_delete: boolean;
+    archived_at: string | null;
+    created_at: string;
+    updated_at: string;
+    created_by?: {
+        public_id: string;
+        display_name: string | null;
+        email: string | null;
+    } | null;
+    summary: {
+        sent_total: number;
+        sent_today: number;
+        sent_last_7_days: number;
+        sent_last_30_days: number;
+    };
+}
+
+export interface SupportStepPreviewRecord {
+    condition_match_count: number;
+    sendable_count: number;
+}
+
+export interface SupportStepDeliveryRecord {
+    id: number;
+    scenario_public_id?: string;
+    scenario_name?: string;
+    account: {
+        public_id: string | null;
+        display_name: string | null;
+        email: string | null;
+        status: string | null;
+    } | null;
+    requester_role: 'user' | 'therapist';
+    delivery_type: SupportStepDeliveryType;
+    status: SupportStepDeliveryStatus;
+    skip_reason: string | null;
+    error_message: string | null;
+    retry_count: number;
+    scheduled_for_date: string | null;
+    attempted_at: string | null;
+    sent_at: string | null;
+    support_ticket?: {
+        public_id: string;
+        title: string;
+        status: string;
+    } | null;
+    created_at: string;
+}
+
 export interface NotificationListMeta {
     unread_count: number;
     limit: number;

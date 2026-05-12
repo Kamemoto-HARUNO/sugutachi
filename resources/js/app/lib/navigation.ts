@@ -41,6 +41,7 @@ export const adminNavItems: NavItem[] = [
     { label: '通報', to: '/admin/reports' },
     { label: '問い合わせ', to: '/admin/contact-inquiries' },
     { label: 'サポート', to: '/admin/support-tickets' },
+    { label: 'ステップ配信', to: '/admin/support-step-scenarios' },
     { label: '料金ルール', to: '/admin/pricing-rules' },
     { label: '法務文書', to: '/admin/legal-documents' },
 ];
@@ -106,6 +107,8 @@ export const adminPlaceholderRoutes: PlaceholderRouteDefinition[] = [
     { path: 'payout-requests', title: '出金申請', description: '出金申請の保留・処理・解除を行います。', apiPath: '/api/admin/payout-requests' },
     { path: 'stripe-disputes', title: 'チャージバック管理', description: 'チャージバックや異議申し立て状況を管理します。', apiPath: '/api/admin/stripe-disputes' },
     { path: 'contact-inquiries', title: '問い合わせ管理', description: '問い合わせの確認、メモ、解決を行います。', apiPath: '/api/admin/contact-inquiries' },
+    { path: 'support-step-scenarios', title: 'サポートステップ配信', description: '条件に応じたサポートチケット自動送信を管理します。', apiPath: '/api/admin/support-step-scenarios' },
+    { path: 'support-step-scenarios/:publicId', title: 'サポートステップ配信詳細', description: 'シナリオ設定、対象人数、送信履歴を確認します。', apiPath: '/api/admin/support-step-scenarios/{public_id}' },
     { path: 'travel-requests', title: '出張リクエスト監視', description: '需要通知の監視、警告、送信制限を扱います。', apiPath: '/api/admin/travel-requests' },
     { path: 'travel-requests/:publicId', title: '出張リクエスト詳細', description: '出張リクエスト本文と運営メモを確認します。', apiPath: '/api/admin/travel-requests/{public_id}' },
     { path: 'campaigns', title: 'キャンペーン管理', description: '登録特典や予約割引キャンペーンの期間、内容、適用状況を管理します。', apiPath: '/api/admin/campaigns' },

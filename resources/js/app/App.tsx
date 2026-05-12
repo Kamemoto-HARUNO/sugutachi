@@ -50,6 +50,7 @@ import { AdminPayoutRequestsPage } from './pages/AdminPayoutRequestsPage';
 import { AdminRefundRequestsPage } from './pages/AdminRefundRequestsPage';
 import { AdminReportsPage } from './pages/AdminReportsPage';
 import { AdminStripeDisputesPage } from './pages/AdminStripeDisputesPage';
+import { AdminSupportStepScenariosPage } from './pages/AdminSupportStepScenariosPage';
 import { AdminSupportTicketsPage } from './pages/AdminSupportTicketsPage';
 import { AdminTherapistProfilesPage } from './pages/AdminTherapistProfilesPage';
 import { AdminTravelRequestsPage } from './pages/AdminTravelRequestsPage';
@@ -346,6 +347,8 @@ function AppRoutes() {
                     <Route path="contact-inquiries/:publicId" element={<AdminContactInquiriesPage />} />
                     <Route path="support-tickets" element={<AdminSupportTicketsPage />} />
                     <Route path="support-tickets/:publicId" element={<AdminSupportTicketsPage />} />
+                    <Route path="support-step-scenarios" element={<AdminSupportStepScenariosPage />} />
+                    <Route path="support-step-scenarios/:publicId" element={<AdminSupportStepScenariosPage />} />
                     <Route path="travel-requests" element={<AdminTravelRequestsPage />} />
                     <Route path="travel-requests/:publicId" element={<AdminTravelRequestsPage />} />
                     <Route path="pricing-rules" element={<AdminPricingRulesPage />} />
@@ -378,6 +381,8 @@ function AppRoutes() {
                             'contact-inquiries/:publicId',
                             'support-tickets',
                             'support-tickets/:publicId',
+                            'support-step-scenarios',
+                            'support-step-scenarios/:publicId',
                             'travel-requests',
                             'travel-requests/:publicId',
                             'pricing-rules',
