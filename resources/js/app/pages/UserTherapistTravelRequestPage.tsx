@@ -4,6 +4,7 @@ import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { trackTravelRequestComplete } from '../lib/analytics';
 import { getDefaultServiceAddress, getServiceAddressLabel } from '../lib/discovery';
 import type {
     ApiEnvelope,
@@ -165,7 +166,12 @@ export function UserTherapistTravelRequestPage() {
                 },
             );
 
-            setSuccessRequest(unwrapData(payload));
+            const createdRequest = unwrapData(payload);
+            trackTravelRequestComplete({
+                therapist_id: publicId,
+                prefecture,
+            });
+            setSuccessRequest(createdRequest);
             setMessage('');
         } catch (requestError) {
             const nextMessage = requestError instanceof ApiError
