@@ -29,7 +29,7 @@ return new class extends Migration
             $table->timestamps();
 
             $table->index(['status', 'send_time']);
-            $table->index(['target_role', 'identity_verification_status', 'elapsed_days']);
+            $table->index(['target_role', 'identity_verification_status', 'elapsed_days'], 'sss_target_identity_days_idx');
         });
     }
 
