@@ -54,6 +54,7 @@ class TherapistDiscoveryController extends Controller
                     ->orderBy('id'),
             ])
             ->withCount([
+                'favorites',
                 'photos as private_photo_count' => fn ($query) => $query
                     ->where('status', ProfilePhoto::STATUS_APPROVED)
                     ->where('visibility', ProfilePhoto::VISIBILITY_PRIVATE),
@@ -87,6 +88,7 @@ class TherapistDiscoveryController extends Controller
                 'walking_time_range' => null,
                 'estimated_total_amount' => null,
                 'photos' => $this->publicPhotos($profile->photos->take(1)),
+                'favorite_count' => (int) ($profile->favorites_count ?? 0),
             ];
         });
 
@@ -236,7 +238,8 @@ class TherapistDiscoveryController extends Controller
                     ->where('visibility', ProfilePhoto::VISIBILITY_PUBLIC)
                     ->orderBy('sort_order')
                     ->orderBy('id'),
-            ]);
+            ])
+            ->withCount('favorites');
     }
 
     private function scheduledSearchProfilesQuery(Account $viewer): Builder
@@ -259,7 +262,8 @@ class TherapistDiscoveryController extends Controller
                     ->where('visibility', ProfilePhoto::VISIBILITY_PUBLIC)
                     ->orderBy('sort_order')
                     ->orderBy('id'),
-            ]);
+            ])
+            ->withCount('favorites');
     }
 
     private function detailProfilesQuery(?Account $viewer): Builder
@@ -282,6 +286,7 @@ class TherapistDiscoveryController extends Controller
                     ->orderBy('id'),
             ])
             ->withCount([
+                'favorites',
                 'photos as private_photo_count' => fn ($query) => $query
                     ->where('status', ProfilePhoto::STATUS_APPROVED)
                     ->where('visibility', ProfilePhoto::VISIBILITY_PRIVATE),
@@ -310,6 +315,7 @@ class TherapistDiscoveryController extends Controller
                     ->orderBy('id'),
             ])
             ->withCount([
+                'favorites',
                 'photos as private_photo_count' => fn ($query) => $query
                     ->where('status', ProfilePhoto::STATUS_APPROVED)
                     ->where('visibility', ProfilePhoto::VISIBILITY_PRIVATE),
@@ -381,6 +387,7 @@ class TherapistDiscoveryController extends Controller
                     'walking_time_range' => $estimate['walking_time_range'],
                     'estimated_total_amount' => $estimate['total_amount'],
                     'photos' => $this->publicPhotos($profile->photos->take(3)),
+                    'favorite_count' => (int) ($profile->favorites_count ?? 0),
                     '_walking_time_minutes' => $estimate['walking_time_minutes'] ?? PHP_INT_MAX,
                 ];
             })
@@ -490,6 +497,10 @@ class TherapistDiscoveryController extends Controller
             'walking_time_range' => $walkingEstimate['walking_time_range'] ?? null,
             'lowest_estimated_total_amount' => $walkingEstimate['total_amount'] ?? null,
             'has_published_availability_slots' => (int) ($profile->published_availability_slots_count ?? 0) > 0,
+            'favorite_count' => (int) ($profile->favorites_count ?? 0),
+            'is_favorited' => $viewer
+                ? $profile->favorites()->where('user_account_id', $viewer->id)->exists()
+                : false,
             'pending_scheduled_request' => $this->pendingScheduledRequestSummary($viewer, $profile),
             'menus' => $menuEstimates->all(),
             'photos' => $this->publicPhotos(

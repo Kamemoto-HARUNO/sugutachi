@@ -24,6 +24,9 @@ class UserProfileResource extends JsonResource
             'sexual_orientation' => $this->sexual_orientation,
             'gender_identity' => $this->gender_identity,
             'disclose_sensitive_profile_to_therapist' => $this->disclose_sensitive_profile_to_therapist,
+            'favorite_notify_online' => (bool) ($this->favorite_notify_online ?? true),
+            'favorite_notify_availability' => (bool) ($this->favorite_notify_availability ?? true),
+            'favorite_email_notifications_enabled' => (bool) ($this->favorite_email_notifications_enabled ?? true),
             'created_at' => $this->created_at,
             'updated_at' => $this->updated_at,
         ];

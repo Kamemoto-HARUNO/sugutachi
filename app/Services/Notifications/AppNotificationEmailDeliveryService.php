@@ -23,6 +23,18 @@ class AppNotificationEmailDeliveryService
             return;
         }
 
+        if ($this->isFavoriteUserNotification($notification)) {
+            if (! $notification->account) {
+                return;
+            }
+
+            $notification->account->loadMissing('userProfile');
+
+            if (! (bool) ($notification->account->userProfile?->favorite_email_notifications_enabled ?? true)) {
+                return;
+            }
+        }
+
         $serviceName = (string) config('service_meta.name', config('app.name', 'Sugutachi'));
         $supportEmail = trim((string) config('service_meta.support_email', ''));
         $fromAddress = trim((string) config('mail.from.address', ''));
@@ -75,5 +87,13 @@ class AppNotificationEmailDeliveryService
         }
 
         return '確認する: '.rtrim((string) config('app.url', 'http://localhost'), '/').$targetPath;
+    }
+
+    private function isFavoriteUserNotification(AppNotification $notification): bool
+    {
+        return in_array($notification->notification_type, [
+            'favorite_therapist_online',
+            'favorite_therapist_availability',
+        ], true);
     }
 }

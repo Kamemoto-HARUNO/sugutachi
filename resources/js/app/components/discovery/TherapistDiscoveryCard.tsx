@@ -14,6 +14,7 @@ interface TherapistDiscoveryCardProps {
     estimatedTotalAmount: number | null | undefined;
     durationMinutes?: number | null;
     therapistCancellationCount?: number;
+    favoriteCount?: number;
     tags?: string[];
     photoUrl?: string | null;
     to?: string;
@@ -26,6 +27,10 @@ interface TherapistDiscoveryCardProps {
 
 function buildMetaLine(reviewCount: number, ratingAverage: number): string {
     return `★${ratingAverage.toFixed(1)}（${reviewCount}件）`;
+}
+
+function formatFavoriteCount(value: number): string {
+    return value >= 1000 ? `${Math.floor(value / 100) / 10}k` : String(value);
 }
 
 function buildProfileLine({
@@ -59,6 +64,7 @@ function CardBody({
     tags,
     photoUrl,
     footerHint,
+    favoriteCount = 0,
     isOnline = true,
     showOfflineStatus = false,
     hideTravelTimePlaceholder = false,
@@ -102,6 +108,12 @@ function CardBody({
 
                         <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#68707a]">
                             <span>{buildMetaLine(reviewCount, ratingAverage)}</span>
+                            <span className="inline-flex items-center gap-1 font-semibold text-[#17202b]" aria-label={`保存${favoriteCount}件`}>
+                                <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                    <path d="M6.5 4.75A2.25 2.25 0 0 1 8.75 2.5h6.5a2.25 2.25 0 0 1 2.25 2.25v16.1l-5.5-3.2-5.5 3.2V4.75Z" />
+                                </svg>
+                                {formatFavoriteCount(favoriteCount)}
+                            </span>
                             {shouldShowTravelTime ? (
                                 <span>{travelTimeLabel}</span>
                             ) : null}

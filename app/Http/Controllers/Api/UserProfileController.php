@@ -104,6 +104,38 @@ class UserProfileController extends Controller
             ->setStatusCode(200);
     }
 
+    public function updateFavoriteNotificationSettings(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'favorite_notify_online' => ['required', 'boolean'],
+            'favorite_notify_availability' => ['required', 'boolean'],
+            'favorite_email_notifications_enabled' => ['required', 'boolean'],
+        ]);
+
+        $account = $request->user();
+
+        $profile = DB::transaction(function () use ($account, $validated): UserProfile {
+            $account->roleAssignments()->firstOrCreate(
+                ['role' => 'user'],
+                ['status' => 'active', 'granted_at' => now()],
+            );
+            $account->forceFill(['last_active_role' => 'user'])->save();
+
+            $profile = $account->userProfile()->first() ?? new UserProfile([
+                'account_id' => $account->id,
+                'profile_status' => UserProfile::STATUS_INCOMPLETE,
+            ]);
+
+            $profile->forceFill($validated)->save();
+
+            return $profile->refresh();
+        });
+
+        return (new UserProfileResource($profile))
+            ->response()
+            ->setStatusCode(200);
+    }
+
     private function rules(bool $includeDisclosure): array
     {
         $rules = [

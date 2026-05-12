@@ -26,6 +26,7 @@ class PublicTherapistSearchResultResource extends JsonResource
             'travel_mode' => data_get($this->resource, 'travel_mode'),
             'walking_time_range' => data_get($this->resource, 'walking_time_range'),
             'estimated_total_amount' => data_get($this->resource, 'estimated_total_amount'),
+            'favorite_count' => (int) data_get($this->resource, 'favorite_count', 0),
             'photos' => PublicProfilePhotoResource::collection(
                 Collection::make(data_get($this->resource, 'photos', []))
             ),

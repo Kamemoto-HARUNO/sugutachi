@@ -87,6 +87,7 @@ import { TherapistReviewsPage } from './pages/TherapistReviewsPage';
 import { TherapistSettingsHubPage } from './pages/TherapistSettingsHubPage';
 import { TherapistStripeConnectPage } from './pages/TherapistStripeConnectPage';
 import { TherapistTravelRequestsPage } from './pages/TherapistTravelRequestsPage';
+import { TherapistFavoritesPage } from './pages/TherapistFavoritesPage';
 import { UserBookingDetailPage } from './pages/UserBookingDetailPage';
 import { UserBookingMessagesPage } from './pages/UserBookingMessagesPage';
 import { UserBookingCancelPage } from './pages/UserBookingCancelPage';
@@ -101,6 +102,7 @@ import { UserBookingWaitingPage } from './pages/UserBookingWaitingPage';
 import { UserIdentityVerificationPage } from './pages/UserIdentityVerificationPage';
 import { UserBlocksPage } from './pages/UserBlocksPage';
 import { UserCampaignOffersPage } from './pages/UserCampaignOffersPage';
+import { UserFavoriteTherapistsPage } from './pages/UserFavoriteTherapistsPage';
 import { UserProfilePage } from './pages/UserProfilePage';
 import { UserReportsPage } from './pages/UserReportsPage';
 import { UserServiceAddressesPage } from './pages/UserServiceAddressesPage';
@@ -193,6 +195,7 @@ function AppRoutes() {
                         }
                     />
                     <Route path="offers" element={<UserCampaignOffersPage />} />
+                    <Route path="favorites" element={<UserFavoriteTherapistsPage />} />
                     <Route path="notifications" element={<NotificationsPage />} />
                     <Route path="bookings" element={<UserBookingsPage />} />
                     <Route path="messages" element={<BookingMessagesPage />} />
@@ -225,6 +228,7 @@ function AppRoutes() {
                                 && route.path !== 'bookings/:publicId/report'
                                 && route.path !== 'identity-verification'
                                 && route.path !== 'profile'
+                                && route.path !== 'favorites'
                                 && route.path !== 'reports'
                                 && route.path !== 'blocks'
                                 && route.path !== 'service-addresses'
@@ -287,6 +291,7 @@ function AppRoutes() {
                     <Route path="notifications" element={<NotificationsPage />} />
                     <Route path="pricing" element={<TherapistPricingPage />} />
                     <Route path="availability" element={<TherapistAvailabilityPage />} />
+                    <Route path="favorites" element={<TherapistFavoritesPage />} />
                     <Route path="bases" element={<TherapistAvailabilityPage tab="bases" />} />
                     <Route path="requests" element={<Navigate to="/therapist/bookings?group=requested" replace />} />
                     <Route path="requests/:publicId" element={<TherapistRequestsPage />} />

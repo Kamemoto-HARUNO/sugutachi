@@ -5,6 +5,7 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\TherapistProfileResource;
 use App\Models\TherapistProfile;
+use App\Services\Favorites\TherapistFavoriteNotificationService;
 use App\Services\Therapists\TherapistProfilePublicationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -16,6 +17,7 @@ class TherapistProfileController extends Controller
 {
     public function __construct(
         private readonly TherapistProfilePublicationService $publicationService,
+        private readonly TherapistFavoriteNotificationService $favoriteNotificationService,
     ) {}
 
     public function show(Request $request): JsonResponse
@@ -162,10 +164,16 @@ class TherapistProfileController extends Controller
             'オンライン受付を始める前にプロフィールを公開してください。'
         );
 
+        $wasOnline = (bool) $profile->is_online;
+
         $profile->forceFill([
             'is_online' => true,
             'online_since' => $profile->online_since ?? now(),
         ])->save();
+
+        if (! $wasOnline) {
+            $this->favoriteNotificationService->notifyOnline($profile->refresh());
+        }
 
         return new TherapistProfileResource($profile->refresh()->load(['menus', 'account.latestIdentityVerification', 'location']));
     }

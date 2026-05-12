@@ -189,6 +189,16 @@ class Account extends Authenticatable
         return $this->hasMany(AppNotification::class);
     }
 
+    public function favoriteTherapists(): HasMany
+    {
+        return $this->hasMany(TherapistFavorite::class, 'user_account_id');
+    }
+
+    public function favoritedByUsers(): HasMany
+    {
+        return $this->hasMany(TherapistFavorite::class, 'therapist_account_id');
+    }
+
     public function stripeConnectedAccount(): HasOne
     {
         return $this->hasOne(StripeConnectedAccount::class);

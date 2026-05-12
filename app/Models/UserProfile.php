@@ -24,6 +24,9 @@ class UserProfile extends Model
             'preferences_json' => 'array',
             'touch_ng_json' => 'array',
             'disclose_sensitive_profile_to_therapist' => 'boolean',
+            'favorite_notify_online' => 'boolean',
+            'favorite_notify_availability' => 'boolean',
+            'favorite_email_notifications_enabled' => 'boolean',
         ];
     }
 }

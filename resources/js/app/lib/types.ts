@@ -292,6 +292,9 @@ export interface UserProfileRecord {
     sexual_orientation: string | null;
     gender_identity: string | null;
     disclose_sensitive_profile_to_therapist: boolean;
+    favorite_notify_online: boolean;
+    favorite_notify_availability: boolean;
+    favorite_email_notifications_enabled: boolean;
     created_at: string;
     updated_at: string;
 }
@@ -604,6 +607,7 @@ export interface TherapistSearchResult {
     travel_mode: 'walking' | 'bicycle' | 'transit' | 'car' | null;
     walking_time_range: string | null;
     estimated_total_amount: number | null;
+    favorite_count: number;
     photos: PublicProfilePhoto[];
 }
 
@@ -666,10 +670,37 @@ export interface TherapistDetail {
     walking_time_range: string | null;
     lowest_estimated_total_amount: number | null;
     has_published_availability_slots: boolean;
+    favorite_count: number;
+    is_favorited: boolean;
     pending_scheduled_request: PendingScheduledRequestSummary | null;
     menus: TherapistMenu[];
     photos: PublicProfilePhoto[];
     private_photo_summary: PrivatePhotoSummary | null;
+}
+
+export interface FavoriteTherapistRecord {
+    id: number;
+    created_at: string;
+    therapist: {
+        public_id: string;
+        public_name: string;
+        bio_excerpt: string | null;
+        is_online: boolean;
+        rating_average: number;
+        review_count: number;
+        favorite_count: number;
+        photo: PublicProfilePhoto | null;
+    };
+}
+
+export interface TherapistFavoriteUserRecord {
+    id: number;
+    created_at: string;
+    user: {
+        public_id: string;
+        display_name: string;
+        status: string;
+    };
 }
 
 export interface PrivatePhotoSessionPhoto {

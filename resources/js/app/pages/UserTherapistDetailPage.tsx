@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState, type KeyboardEvent as ReactKeyboardEvent, type PointerEvent as ReactPointerEvent } from 'react';
-import { Link, useParams, useSearchParams } from 'react-router-dom';
+import { Link, useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import { BannerPlacementSection } from '../components/banners/BannerPlacementSection';
 import { DiscoveryFooter } from '../components/discovery/DiscoveryFooter';
 import { StickyHeroHeader, type StickyHeroHeaderAction } from '../components/discovery/StickyHeroHeader';
@@ -119,6 +119,10 @@ function buildShareableTherapistUrl(publicId: string): string {
     return new URL(path, window.location.origin).toString();
 }
 
+function formatFavoriteCount(value: number): string {
+    return value >= 1000 ? `${Math.floor(value / 100) / 10}k` : String(value);
+}
+
 async function copyTextToClipboard(value: string): Promise<void> {
     if (typeof navigator !== 'undefined' && navigator.clipboard?.writeText) {
         await navigator.clipboard.writeText(value);
@@ -227,6 +231,7 @@ async function fetchPrivatePhotoBlob(
 export function UserTherapistDetailPage() {
     const { publicId } = useParams();
     const { account, hasRole, isAuthenticated, token } = useAuth();
+    const navigate = useNavigate();
     const { showError, showSuccess } = useToast();
     const [searchParams, setSearchParams] = useSearchParams();
     const [serviceAddresses, setServiceAddresses] = useState<ServiceAddress[]>([]);
@@ -236,6 +241,7 @@ export function UserTherapistDetailPage() {
     const [error, setError] = useState<string | null>(null);
     const [isBootstrapping, setIsBootstrapping] = useState(true);
     const [isLoadingDetail, setIsLoadingDetail] = useState(false);
+    const [isTogglingFavorite, setIsTogglingFavorite] = useState(false);
     const [activePhotoIndex, setActivePhotoIndex] = useState(0);
     const [isPhotoModalOpen, setIsPhotoModalOpen] = useState(false);
     const [isReviewModalOpen, setIsReviewModalOpen] = useState(false);
@@ -990,6 +996,45 @@ export function UserTherapistDetailPage() {
         }
     };
 
+    const handleFavoriteButtonClick = async () => {
+        if (!therapistDetail || isTogglingFavorite) {
+            return;
+        }
+
+        if (!isAuthenticated || !token) {
+            navigate('/login');
+            return;
+        }
+
+        setIsTogglingFavorite(true);
+
+        try {
+            const payload = await apiRequest<ApiEnvelope<{ is_favorited: boolean; favorite_count: number }>>(
+                `/therapists/${therapistDetail.public_id}/favorite`,
+                {
+                    method: therapistDetail.is_favorited ? 'DELETE' : 'POST',
+                    token,
+                },
+            );
+            const next = unwrapData(payload);
+
+            setTherapistDetail((current) => current
+                ? {
+                    ...current,
+                    is_favorited: next.is_favorited,
+                    favorite_count: next.favorite_count,
+                }
+                : current);
+            showSuccess(next.is_favorited ? 'お気に入りに追加しました。' : 'お気に入りから外しました。');
+        } catch (requestError) {
+            showError(requestError instanceof ApiError
+                ? requestError.message
+                : 'お気に入りの更新に失敗しました。');
+        } finally {
+            setIsTogglingFavorite(false);
+        }
+    };
+
     const handlePrivatePhotoOpen = async () => {
         if (!token || !therapistDetail?.private_photo_summary?.can_view) {
             return;
@@ -1132,6 +1177,13 @@ export function UserTherapistDetailPage() {
                                                         （{therapistDetail.review_count}）
                                                     </button>
                                                     <span className="text-[#b6a78f]">｜</span>
+                                                    <span className="inline-flex items-center gap-1 font-semibold text-[#17202b]" aria-label={`保存${therapistDetail.favorite_count}件`}>
+                                                        <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                                            <path d="M6.5 4.75A2.25 2.25 0 0 1 8.75 2.5h6.5a2.25 2.25 0 0 1 2.25 2.25v16.1l-5.5-3.2-5.5 3.2V4.75Z" />
+                                                        </svg>
+                                                        {formatFavoriteCount(therapistDetail.favorite_count)}
+                                                    </span>
+                                                    <span className="text-[#b6a78f]">｜</span>
                                                     <span>{compactTravelSummary}</span>
                                                     <span className="text-[#b6a78f]">｜</span>
                                                     <span>キャンセル{therapistDetail.therapist_cancellation_count}回</span>
@@ -1234,6 +1286,31 @@ export function UserTherapistDetailPage() {
                                                 {therapistDetail.public_name.slice(0, 1).toUpperCase()}
                                             </div>
                                         )}
+
+                                        {!therapistDetail.is_self_view ? (
+                                            <div className="rounded-[24px] bg-[#f6f1e7] p-4">
+                                                <button
+                                                    type="button"
+                                                    onClick={handleFavoriteButtonClick}
+                                                    disabled={isTogglingFavorite}
+                                                    className={[
+                                                        'inline-flex w-full min-h-12 items-center justify-center gap-2 rounded-full border px-5 py-3 text-sm font-semibold shadow-[0_10px_24px_rgba(23,32,43,0.08)] transition hover:-translate-y-0.5 focus:outline-none focus:ring-2 focus:ring-[#9a7a49] focus:ring-offset-2 focus:ring-offset-[#f6f1e7] disabled:cursor-not-allowed disabled:opacity-60',
+                                                        therapistDetail.is_favorited
+                                                            ? 'border-[#17202b] bg-[#17202b] text-white'
+                                                            : 'border-[#ddcfb4] bg-white text-[#17202b] hover:bg-[#fffaf1]',
+                                                    ].join(' ')}
+                                                    aria-label={therapistDetail.is_favorited ? 'お気に入りから外す' : 'お気に入りに追加'}
+                                                >
+                                                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill={therapistDetail.is_favorited ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                                        <path d="M6.5 4.75A2.25 2.25 0 0 1 8.75 2.5h6.5a2.25 2.25 0 0 1 2.25 2.25v16.1l-5.5-3.2-5.5 3.2V4.75Z" />
+                                                    </svg>
+                                                    {therapistDetail.is_favorited ? 'お気に入りから外す' : 'お気に入りに追加'}
+                                                </button>
+                                                <p className="mt-3 text-xs leading-5 text-[#68707a]">
+                                                    お気に入りに追加すると、このタチキャストがオンラインになった時や空き枠を公開した時に通知を受け取れます。
+                                                </p>
+                                            </div>
+                                        ) : null}
 
                                         {privatePhotoSummary ? (
                                             <article className="rounded-[28px] border border-[#e6dbc9] bg-[#fbf7f0] p-5">

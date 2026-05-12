@@ -47,6 +47,11 @@ interface TimelinePlacement {
     height: number;
 }
 
+interface FavoriteNotificationSummary {
+    recipient_count: number;
+    published_slot_count: number;
+}
+
 type DraftDragState =
     | { mode: 'resize' }
     | { mode: 'move'; pointerOffsetMinutes: number };
@@ -1106,6 +1111,11 @@ export function TherapistAvailabilityPage({ tab = 'availability' }: TherapistAva
     const [isLocatingCustom, setIsLocatingCustom] = useState(false);
     const [isLeadTimeHelpOpen, setIsLeadTimeHelpOpen] = useState(false);
     const [isStatusHelpOpen, setIsStatusHelpOpen] = useState(false);
+    const [favoriteNotificationSummary, setFavoriteNotificationSummary] = useState<FavoriteNotificationSummary>({
+        recipient_count: 0,
+        published_slot_count: 0,
+    });
+    const [isNotifyingFavorites, setIsNotifyingFavorites] = useState(false);
     const [pendingDeleteSlotId, setPendingDeleteSlotId] = useState<string | null>(null);
 
     usePageTitle(isBaseTab ? '拠点設定' : '空き枠管理');
@@ -1115,9 +1125,10 @@ export function TherapistAvailabilityPage({ tab = 'availability' }: TherapistAva
             return;
         }
 
-        const [settingPayload, slotsPayload] = await Promise.all([
+        const [settingPayload, slotsPayload, favoriteSummaryPayload] = await Promise.all([
             apiRequest<ApiEnvelope<TherapistBookingSettingRecord>>('/me/therapist/scheduled-booking-settings', { token }),
             apiRequest<ApiEnvelope<TherapistAvailabilitySlotRecord[]>>('/me/therapist/availability-slots', { token }),
+            apiRequest<ApiEnvelope<FavoriteNotificationSummary>>('/me/therapist/availability-slots/favorite-notification-summary', { token }),
         ]);
 
         const nextSetting = unwrapData(settingPayload);
@@ -1125,6 +1136,7 @@ export function TherapistAvailabilityPage({ tab = 'availability' }: TherapistAva
 
         setBookingSetting(nextSetting);
         setAvailabilitySlots(nextSlots);
+        setFavoriteNotificationSummary(unwrapData(favoriteSummaryPayload));
         setLeadTimeMinutes(String(nextSetting.booking_request_lead_time_minutes));
         setTravelMode(nextSetting.travel_mode);
         setMaxTravelMinutes(String(nextSetting.max_travel_minutes));
@@ -1544,6 +1556,34 @@ export function TherapistAvailabilityPage({ tab = 'availability' }: TherapistAva
         }
     }
 
+    async function handleNotifyFavorites() {
+        if (!token || isNotifyingFavorites) {
+            return;
+        }
+
+        setIsNotifyingFavorites(true);
+
+        try {
+            const payload = await apiRequest<ApiEnvelope<{ sent_count: number; recipient_count: number }>>('/me/therapist/availability-slots/notify-favorites', {
+                method: 'POST',
+                token,
+            });
+            const result = unwrapData(payload);
+
+            await loadData();
+            showSuccess(`${result.sent_count}件のお気に入り利用者に空き枠通知を送信しました。`);
+        } catch (requestError) {
+            const message =
+                requestError instanceof ApiError
+                    ? requestError.message
+                    : 'お気に入り利用者への通知送信に失敗しました。';
+
+            showError(message);
+        } finally {
+            setIsNotifyingFavorites(false);
+        }
+    }
+
     async function handleDeleteSlot(slot: TherapistAvailabilitySlotRecord) {
         if (!token) {
             return;
@@ -1921,7 +1961,7 @@ export function TherapistAvailabilityPage({ tab = 'availability' }: TherapistAva
             {isBaseTab ? null : (
                 <section className="grid min-w-0 gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
                     <section className="min-w-0 space-y-5 rounded-[24px] border border-white/10 bg-white/5 p-6">
-                        <div className="flex min-w-0 flex-col gap-3 md:flex-row md:items-end md:justify-between">
+                        <div className="flex min-w-0 flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
                         <div className="space-y-2">
                             <p className="text-xs font-semibold tracking-wide text-rose-200">公開カレンダー</p>
                             <h2 className="text-xl font-semibold text-white">今週の空き枠をカレンダーで確認</h2>
@@ -1930,21 +1970,48 @@ export function TherapistAvailabilityPage({ tab = 'availability' }: TherapistAva
                             </p>
                         </div>
 
-                        <div className="flex flex-nowrap items-center gap-2 self-start md:self-auto">
-                            <button
-                                type="button"
-                                onClick={() => handleShiftCalendar(-CALENDAR_DAYS)}
-                                className="inline-flex items-center whitespace-nowrap rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
-                            >
-                                前の週
-                            </button>
-                            <button
-                                type="button"
-                                onClick={() => handleShiftCalendar(CALENDAR_DAYS)}
-                                className="inline-flex items-center whitespace-nowrap rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
-                            >
-                                次の週
-                            </button>
+                        <div className="flex flex-col gap-3 2xl:items-end">
+                            <div className="rounded-2xl border border-rose-200/20 bg-[#111923] p-4 text-sm text-slate-200 2xl:w-[360px]">
+                                <div className="flex items-start justify-between gap-3">
+                                    <div>
+                                        <p className="font-semibold text-white">お気に入り利用者に通知する</p>
+                                        <p className="mt-1 text-xs leading-5 text-slate-400">
+                                            現在公開している空き枠をお知らせとして送信します。
+                                        </p>
+                                    </div>
+                                    <span className="shrink-0 rounded-full bg-rose-300 px-3 py-1 text-xs font-semibold text-slate-950">
+                                        {favoriteNotificationSummary.recipient_count}件
+                                    </span>
+                                </div>
+                                <button
+                                    type="button"
+                                    onClick={handleNotifyFavorites}
+                                    disabled={isNotifyingFavorites || favoriteNotificationSummary.recipient_count === 0 || favoriteNotificationSummary.published_slot_count === 0}
+                                    className="mt-3 inline-flex w-full items-center justify-center rounded-full bg-rose-300 px-4 py-2.5 text-sm font-semibold text-slate-950 transition hover:bg-rose-200 disabled:cursor-not-allowed disabled:opacity-60"
+                                >
+                                    {isNotifyingFavorites ? '送信中...' : `${favoriteNotificationSummary.recipient_count}件に通知を送信`}
+                                </button>
+                                <p className="mt-2 text-xs leading-5 text-slate-500">
+                                    公開中の空き枠 {favoriteNotificationSummary.published_slot_count}件が対象です。通知OFF・クールダウン中の利用者は除外されます。
+                                </p>
+                            </div>
+
+                            <div className="flex flex-nowrap items-center gap-2 self-start 2xl:self-auto">
+                                <button
+                                    type="button"
+                                    onClick={() => handleShiftCalendar(-CALENDAR_DAYS)}
+                                    className="inline-flex items-center whitespace-nowrap rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
+                                >
+                                    前の週
+                                </button>
+                                <button
+                                    type="button"
+                                    onClick={() => handleShiftCalendar(CALENDAR_DAYS)}
+                                    className="inline-flex items-center whitespace-nowrap rounded-full border border-white/10 px-4 py-2 text-sm text-slate-200 transition hover:bg-white/5"
+                                >
+                                    次の週
+                                </button>
+                            </div>
                         </div>
                     </div>
 

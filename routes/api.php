@@ -60,6 +60,7 @@ use App\Http\Controllers\Api\SupportTicketController;
 use App\Http\Controllers\Api\TempFileController;
 use App\Http\Controllers\Api\TherapistAvailabilitySlotController;
 use App\Http\Controllers\Api\TherapistDiscoveryController;
+use App\Http\Controllers\Api\TherapistFavoriteController;
 use App\Http\Controllers\Api\TherapistLedgerController;
 use App\Http\Controllers\Api\TherapistMenuController;
 use App\Http\Controllers\Api\TherapistPayoutRequestController;
@@ -135,6 +136,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me/user-profile', [UserProfileController::class, 'show']);
     Route::put('/me/user-profile', [UserProfileController::class, 'upsert']);
     Route::patch('/me/user-profile/sensitive-disclosure', [UserProfileController::class, 'updateSensitiveDisclosure']);
+    Route::patch('/me/user-profile/favorite-notifications', [UserProfileController::class, 'updateFavoriteNotificationSettings']);
 
     Route::get('/notifications', [NotificationController::class, 'index']);
     Route::post('/notifications/{notification}/read', [NotificationController::class, 'read']);
@@ -249,6 +251,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/therapists/{therapistProfile:public_id}/availability', [TherapistDiscoveryController::class, 'availability']);
     Route::post('/therapists/{therapistProfile:public_id}/travel-requests', [TherapistTravelRequestController::class, 'store']);
     Route::get('/me/reviews', [ReviewController::class, 'me']);
+    Route::get('/me/favorite-therapists', [TherapistFavoriteController::class, 'index']);
+    Route::post('/therapists/{therapistProfile:public_id}/favorite', [TherapistFavoriteController::class, 'store']);
+    Route::delete('/therapists/{therapistProfile:public_id}/favorite', [TherapistFavoriteController::class, 'destroy']);
 
     Route::post('/temp-files', [TempFileController::class, 'store']);
     Route::delete('/temp-files/{tempFile:file_id}', [TempFileController::class, 'destroy']);
@@ -277,6 +282,9 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/me/therapist/scheduled-booking-settings', [TherapistScheduledBookingSettingController::class, 'show']);
     Route::put('/me/therapist/scheduled-booking-settings', [TherapistScheduledBookingSettingController::class, 'upsert']);
     Route::get('/me/therapist/availability-slots', [TherapistAvailabilitySlotController::class, 'index']);
+    Route::get('/me/therapist/availability-slots/favorite-notification-summary', [TherapistAvailabilitySlotController::class, 'favoriteNotificationSummary']);
+    Route::post('/me/therapist/availability-slots/notify-favorites', [TherapistAvailabilitySlotController::class, 'notifyFavorites']);
+    Route::get('/me/therapist/favorites', [TherapistFavoriteController::class, 'users']);
     Route::post('/me/therapist/availability-slots', [TherapistAvailabilitySlotController::class, 'store']);
     Route::patch('/me/therapist/availability-slots/{therapistAvailabilitySlot:public_id}', [TherapistAvailabilitySlotController::class, 'update']);
     Route::delete('/me/therapist/availability-slots/{therapistAvailabilitySlot:public_id}', [TherapistAvailabilitySlotController::class, 'destroy']);

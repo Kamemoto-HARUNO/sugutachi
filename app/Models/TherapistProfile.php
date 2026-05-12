@@ -136,6 +136,11 @@ class TherapistProfile extends Model
         return $this->hasMany(TherapistTravelRequest::class);
     }
 
+    public function favorites(): HasMany
+    {
+        return $this->hasMany(TherapistFavorite::class);
+    }
+
     protected function casts(): array
     {
         return [

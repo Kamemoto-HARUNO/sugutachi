@@ -7,6 +7,7 @@ use App\Http\Resources\TherapistAvailabilitySlotResource;
 use App\Models\Booking;
 use App\Models\TherapistAvailabilitySlot;
 use App\Models\TherapistProfile;
+use App\Services\Favorites\TherapistFavoriteNotificationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -31,6 +32,10 @@ class TherapistAvailabilitySlotController extends Controller
         Booking::STATUS_THERAPIST_COMPLETED,
         Booking::STATUS_COMPLETED,
     ];
+
+    public function __construct(
+        private readonly TherapistFavoriteNotificationService $favoriteNotificationService,
+    ) {}
 
     public function index(Request $request): AnonymousResourceCollection
     {
@@ -57,6 +62,46 @@ class TherapistAvailabilitySlotController extends Controller
             ->get();
 
         return TherapistAvailabilitySlotResource::collection($slots);
+    }
+
+    public function favoriteNotificationSummary(Request $request): JsonResponse
+    {
+        $profile = $this->therapistProfile($request);
+        $this->syncExpiredSlots($profile);
+
+        return response()->json([
+            'data' => [
+                'recipient_count' => $this->favoriteNotificationService->countAvailabilityRecipients($profile),
+                'published_slot_count' => $profile->availabilitySlots()
+                    ->where('status', TherapistAvailabilitySlot::STATUS_PUBLISHED)
+                    ->where('end_at', '>', now())
+                    ->count(),
+            ],
+        ]);
+    }
+
+    public function notifyFavorites(Request $request): JsonResponse
+    {
+        $profile = $this->therapistProfile($request);
+        $this->syncExpiredSlots($profile);
+
+        abort_if(
+            ! $profile->availabilitySlots()
+                ->where('status', TherapistAvailabilitySlot::STATUS_PUBLISHED)
+                ->where('end_at', '>', now())
+                ->exists(),
+            409,
+            '通知できる公開中の空き枠がありません。'
+        );
+
+        $sentCount = $this->favoriteNotificationService->notifyCurrentAvailability($profile);
+
+        return response()->json([
+            'data' => [
+                'sent_count' => $sentCount,
+                'recipient_count' => $this->favoriteNotificationService->countAvailabilityRecipients($profile),
+            ],
+        ]);
     }
 
     public function store(Request $request): JsonResponse

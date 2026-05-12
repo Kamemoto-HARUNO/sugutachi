@@ -13,6 +13,7 @@ export const publicNavItems: NavItem[] = [
 export const userNavItems: NavItem[] = [
     { label: 'ダッシュボード', to: '/user/dashboard', exact: true },
     { label: 'オファー', to: '/user/offers' },
+    { label: 'お気に入り', to: '/user/favorites' },
     { label: '予約', to: '/user/bookings' },
     { label: 'プロフィール', to: '/user/profile' },
     { label: '住所', to: '/user/service-addresses' },
@@ -25,6 +26,7 @@ export const therapistNavItems: NavItem[] = [
     { label: 'メニュー', to: '/therapist/menus' },
     { label: '料金', to: '/therapist/pricing' },
     { label: '空き枠', to: '/therapist/availability' },
+    { label: 'お気に入り', to: '/therapist/favorites' },
     { label: '拠点', to: '/therapist/bases' },
     { label: '予約管理', to: '/therapist/bookings' },
     { label: '売上', to: '/therapist/balance' },

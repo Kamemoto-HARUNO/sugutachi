@@ -46,6 +46,7 @@ export function TherapistDiscoveryGrid({
                     estimatedTotalAmount={therapist.estimated_total_amount}
                     durationMinutes={durationMinutes}
                     therapistCancellationCount={therapist.therapist_cancellation_count}
+                    favoriteCount={therapist.favorite_count}
                     photoUrl={therapist.photos[0]?.url ?? null}
                     to={buildLink(therapist)}
                     footerHint={footerHint}
