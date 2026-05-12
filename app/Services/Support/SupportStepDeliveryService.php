@@ -71,6 +71,8 @@ class SupportStepDeliveryService
                     ->whereDate('scheduled_for_date', $now->toDateString())
                     ->where('status', SupportStepDelivery::STATUS_SENT)
                     ->where('delivery_type', '!=', SupportStepDelivery::TYPE_TEST))
+            ->whereDoesntHave('supportTickets', fn (Builder $query) => $query
+                    ->where('title', $scenario->ticket_title))
             ->count();
 
         return [
@@ -154,6 +156,10 @@ class SupportStepDeliveryService
 
             if ($deliveryType !== SupportStepDelivery::TYPE_TEST && $this->hasSentToday($account, $now)) {
                 return $this->recordSkipped($scenario, $account, $requesterRole, $deliveryType, SupportStepDelivery::SKIP_DAILY_LIMIT, $now);
+            }
+
+            if ($deliveryType !== SupportStepDelivery::TYPE_TEST && $this->hasExistingTicketTitle($scenario, $account)) {
+                return $this->recordSkipped($scenario, $account, $requesterRole, $deliveryType, SupportStepDelivery::SKIP_EXISTING_TICKET_TITLE, $now);
             }
 
             $failedCount = $deliveryType === SupportStepDelivery::TYPE_TEST
@@ -315,6 +321,15 @@ class SupportStepDeliveryService
             ->where('status', SupportStepDelivery::STATUS_SENT)
             ->where('delivery_type', '!=', SupportStepDelivery::TYPE_TEST)
             ->whereDate('scheduled_for_date', $now->toDateString())
+            ->lockForUpdate()
+            ->exists();
+    }
+
+    private function hasExistingTicketTitle(SupportStepScenario $scenario, Account $account): bool
+    {
+        return SupportTicket::query()
+            ->where('account_id', $account->id)
+            ->where('title', $scenario->ticket_title)
             ->lockForUpdate()
             ->exists();
     }

@@ -27,6 +27,8 @@ class SupportStepDelivery extends Model
 
     public const SKIP_ARCHIVED = 'scenario_archived';
 
+    public const SKIP_EXISTING_TICKET_TITLE = 'existing_ticket_title';
+
     public function scenario(): BelongsTo
     {
         return $this->belongsTo(SupportStepScenario::class, 'support_step_scenario_id');

@@ -79,6 +79,7 @@ function skipReasonLabel(value: string | null): string {
     if (value === 'already_sent') return '同一シナリオ送信済み';
     if (value === 'daily_limit') return '同日送信上限により見送り';
     if (value === 'scenario_archived') return 'シナリオがアーカイブ済み';
+    if (value === 'existing_ticket_title') return '同名チケットが既に存在';
     return value ?? '';
 }
 

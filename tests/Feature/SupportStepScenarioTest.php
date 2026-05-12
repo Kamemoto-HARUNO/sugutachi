@@ -112,7 +112,7 @@ class SupportStepScenarioTest extends TestCase
         ]);
     }
 
-    public function test_existing_completed_ticket_is_reopened_when_same_title_is_appended(): void
+    public function test_existing_same_title_ticket_is_excluded_from_delivery(): void
     {
         Mail::fake();
         $admin = $this->accountWithRole('admin');
@@ -132,17 +132,25 @@ class SupportStepScenarioTest extends TestCase
         ]);
         $scenario = $this->scenario($admin, ['ticket_title' => '本人確認のご案内']);
 
+        Sanctum::actingAs($admin);
+        $this->getJson("/api/admin/support-step-scenarios/{$scenario->public_id}/preview")
+            ->assertOk()
+            ->assertJsonPath('data.condition_match_count', 1)
+            ->assertJsonPath('data.sendable_count', 0);
+
         $result = app(SupportStepDeliveryService::class)->processDueScenarios(CarbonImmutable::parse('2026-05-12 20:00:00', 'Asia/Tokyo'));
 
-        $this->assertSame(['sent' => 1, 'skipped' => 0, 'failed' => 0], $result);
-        $this->assertSame(SupportTicket::STATUS_OPEN, $ticket->refresh()->status);
-        $this->assertNull($ticket->completed_at);
+        $this->assertSame(['sent' => 0, 'skipped' => 1, 'failed' => 0], $result);
+        $this->assertSame(SupportTicket::STATUS_COMPLETED, $ticket->refresh()->status);
+        $this->assertNotNull($ticket->completed_at);
         $this->assertDatabaseHas('support_step_deliveries', [
             'support_step_scenario_id' => $scenario->id,
-            'support_ticket_id' => $ticket->id,
-            'status' => SupportStepDelivery::STATUS_SENT,
+            'support_ticket_id' => null,
+            'status' => SupportStepDelivery::STATUS_SKIPPED,
+            'skip_reason' => SupportStepDelivery::SKIP_EXISTING_TICKET_TITLE,
         ]);
         $this->assertSame(1, SupportTicket::query()->count());
+        $this->assertSame(0, $ticket->messages()->count());
     }
 
     public function test_scenarios_with_delivery_history_are_archived_instead_of_deleted(): void
