@@ -376,8 +376,8 @@ export function AdminSupportStepScenariosPage() {
                             </div>
                             {selected ? (
                                 <div className="flex flex-wrap gap-2">
-                                    <button type="button" onClick={startEdit} disabled={isArchived} className="rounded-full border border-[#d7d5cf] px-3 py-2 text-sm font-semibold disabled:opacity-50">編集</button>
-                                    <button type="button" onClick={handleTestSend} disabled={isSaving || isArchived} className="rounded-full border border-[#d7d5cf] px-3 py-2 text-sm font-semibold disabled:opacity-50">テスト送信</button>
+                                    <button type="button" onClick={startEdit} disabled={isArchived} className="rounded-full border border-[#b5894d] bg-[#fff6e8] px-4 py-2 text-sm font-semibold text-[#7a4b15] shadow-sm transition hover:bg-[#f5e1bf] disabled:opacity-50">編集</button>
+                                    <button type="button" onClick={handleTestSend} disabled={isSaving || isArchived} className="rounded-full border border-[#2f6f73] bg-[#e8f6f4] px-4 py-2 text-sm font-semibold text-[#215457] shadow-sm transition hover:bg-[#d4eeeb] disabled:opacity-50">テスト送信</button>
                                     <button type="button" onClick={handleManualRun} disabled={isSaving || isArchived || !preview?.sendable_count} className="rounded-full bg-[#17202b] px-3 py-2 text-sm font-semibold text-white disabled:opacity-50">手動実行</button>
                                 </div>
                             ) : null}
