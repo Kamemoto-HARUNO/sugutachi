@@ -8,6 +8,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToast } from '../hooks/useToast';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
+import { getMyPageEntryPath } from '../lib/account';
 import {
     DISCOVERY_BOOKING_TYPE_LABEL,
     DISCOVERY_BOOKING_TYPE_OPTIONS,
@@ -298,6 +299,7 @@ export function UserTherapistDetailPage() {
     }, [selectedMenu]);
     const queryString = searchParams.toString();
     const detailReturnPath = publicId ? `/therapists/${publicId}${queryString ? `?${queryString}` : ''}` : '/';
+    const myPagePath = getMyPageEntryPath(account);
     const listPath = isAuthenticated ? `/user/therapists${queryString ? `?${queryString}` : ''}` : '/';
     const intendedAvailabilityPath = useMemo(() => {
         if (!therapistDetail) {
@@ -455,6 +457,31 @@ export function UserTherapistDetailPage() {
         : isAuthenticated
             ? { label: '利用モードを管理する', to: '/role-select', variant: 'secondary' as const }
         : { label: '無料登録する', to: registerAvailabilityPath, variant: 'secondary' as const };
+    const headerActions = useMemo<StickyHeroHeaderAction[]>(() => {
+        if (isAuthenticated) {
+            return [
+                {
+                    label: 'マイページ',
+                    to: myPagePath,
+                    icon: 'mypage',
+                },
+            ];
+        }
+
+        return [
+            {
+                label: 'ログイン',
+                to: `/login?return_to=${encodeURIComponent(detailReturnPath)}`,
+                icon: 'login',
+            },
+            {
+                label: '会員登録',
+                to: `/register?return_to=${encodeURIComponent(detailReturnPath)}`,
+                variant: 'secondary',
+                icon: 'register',
+            },
+        ];
+    }, [detailReturnPath, isAuthenticated, myPagePath]);
     const activeUserBookingCampaign = useMemo(
         () => serviceMeta?.campaigns.find((campaign) => (
             campaign.target_role === 'user'
@@ -1117,7 +1144,7 @@ export function UserTherapistDetailPage() {
         <div className="min-h-screen bg-[#f6f1e7] text-[#17202b]">
             <div className="mx-auto flex w-full max-w-[1280px] flex-col gap-16 px-6 py-10 md:px-10 md:py-14 xl:gap-[60px] xl:px-0">
                 <section className="rounded-[32px] bg-[linear-gradient(107deg,#17202b_3.49%,#1d2a39_53.96%,#27364a_93.62%)] px-6 py-5 shadow-[0_24px_60px_rgba(23,32,43,0.16)] md:px-8">
-                    <StickyHeroHeader actions={isSelfPreview ? [secondaryAction] : [primaryAction, secondaryAction]} />
+                    <StickyHeroHeader actions={headerActions} />
                 </section>
 
                 {therapistDetail ? (
