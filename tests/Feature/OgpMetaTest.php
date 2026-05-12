@@ -12,7 +12,7 @@ class OgpMetaTest extends TestCase
         config()->set('service_meta.name', '');
         config()->set('app.url', 'https://sugutachi.com');
 
-        $response = $this->get('/');
+        $response = $this->get('https://sugutachi.com/');
 
         $response
             ->assertOk()
@@ -20,6 +20,7 @@ class OgpMetaTest extends TestCase
             ->assertSee('<meta name="twitter:title" content="すぐタチ - リラクゼーション / ボディケア / もみほぐしの予約・マッチングサービス">', false)
             ->assertSee('<meta property="og:description" content="リラクゼーション / ボディケア / もみほぐしの予約・マッチングサービス">', false)
             ->assertSee('<meta name="twitter:description" content="リラクゼーション / ボディケア / もみほぐしの予約・マッチングサービス">', false)
+            ->assertSee('rel="canonical"', false)
             ->assertDontSee('twitter:text:title', false);
     }
 }
