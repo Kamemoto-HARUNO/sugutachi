@@ -122,6 +122,16 @@ export function RegisterPage() {
     useToastOnMessage(error, 'error');
 
     useEffect(() => {
+        if (registrationStep !== 'fill-form') {
+            return;
+        }
+
+        window.requestAnimationFrame(() => {
+            window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        });
+    }, [registrationStep]);
+
+    useEffect(() => {
         let isMounted = true;
 
         void Promise.all([
