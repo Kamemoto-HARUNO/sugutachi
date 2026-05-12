@@ -25,6 +25,7 @@ import {
     type StripeInstance,
 } from '../lib/stripe';
 import { formatJstDateTime } from '../lib/datetime';
+import { trackBookingRequestComplete } from '../lib/analytics';
 import type {
     ApiEnvelope,
     BookingDetailRecord,
@@ -476,6 +477,13 @@ export function UserBookingQuotePage() {
             }
 
             if (activeBooking.is_free_booking) {
+                trackBookingRequestComplete({
+                    booking_id: activeBooking.public_id,
+                    therapist_id: therapistId,
+                    menu_duration_minutes: durationMinutes,
+                    start_type: startType,
+                    is_free_booking: true,
+                });
                 setBooking(activeBooking);
                 setSearchParams((current) => {
                     const next = new URLSearchParams(current);
@@ -527,6 +535,13 @@ export function UserBookingQuotePage() {
                 },
             );
             const synced = unwrapData(syncPayload);
+            trackBookingRequestComplete({
+                booking_id: synced.booking.public_id,
+                therapist_id: therapistId,
+                menu_duration_minutes: durationMinutes,
+                start_type: startType,
+                is_free_booking: synced.booking.is_free_booking,
+            });
             setBooking(synced.booking);
             setSearchParams((current) => {
                 const next = new URLSearchParams(current);

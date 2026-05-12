@@ -5,6 +5,7 @@ import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
+import { trackMessageSendComplete } from '../lib/analytics';
 import { notifyBookingMessageSummaryChanged } from '../lib/bookingMessages';
 import { formatFileSize, prepareBookingMessageImage } from '../lib/bookingMessageImages';
 import { formatJstDateTime } from '../lib/datetime';
@@ -475,6 +476,11 @@ export function UserBookingMessagesPage() {
             });
 
             const createdMessage = unwrapData(payload);
+            trackMessageSendComplete({
+                booking_id: publicId,
+                message_type: isImageUpload ? 'image' : 'text',
+                user_type: 'user',
+            });
             setMessages((current) => current.some((message) => message.id === createdMessage.id)
                 ? current
                 : [...current, createdMessage]);
