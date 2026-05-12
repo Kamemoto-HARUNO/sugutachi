@@ -6,6 +6,7 @@ use App\Services\Bookings\BookingCompletionFollowupService;
 use App\Services\Bookings\BookingRequestExpirationService;
 use App\Services\Bookings\BookingStartReminderService;
 use App\Services\Legal\DefaultLegalDocumentService;
+use App\Services\Support\SupportStepDeliveryService;
 use Illuminate\Support\Facades\Crypt;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Console\Command;
@@ -54,6 +55,14 @@ Artisan::command('bookings:send-start-reminders', function (BookingStartReminder
 
     return Command::SUCCESS;
 })->purpose('Send therapist reminders before accepted bookings start');
+
+Artisan::command('support-steps:send-due', function (SupportStepDeliveryService $service): int {
+    $result = $service->processDueScenarios();
+
+    $this->info("Processed support step deliveries. sent={$result['sent']} skipped={$result['skipped']} failed={$result['failed']}");
+
+    return $result['failed'] > 0 ? Command::FAILURE : Command::SUCCESS;
+})->purpose('Send due support step scenario messages');
 
 Artisan::command('legal-documents:sync-default-drafts', function (DefaultLegalDocumentService $defaultLegalDocumentService): int {
     $result = $defaultLegalDocumentService->syncDraftTemplates();

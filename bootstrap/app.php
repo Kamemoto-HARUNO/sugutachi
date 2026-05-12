@@ -16,6 +16,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $schedule->command('ledger:release-available')->everyFifteenMinutes();
         $schedule->command('bookings:expire-pending-requests')->everyMinute();
         $schedule->command('bookings:send-start-reminders')->everyMinute();
+        $schedule->command('support-steps:send-due')->everyMinute()->withoutOverlapping();
         $schedule->command('bookings:follow-up-completion-confirmations')->everyFifteenMinutes();
         $schedule->command('identity-verifications:purge-files')->dailyAt('03:30');
     })

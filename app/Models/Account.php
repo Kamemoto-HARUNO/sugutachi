@@ -174,6 +174,11 @@ class Account extends Authenticatable
         return $this->hasMany(SupportTicketMessage::class, 'sender_account_id');
     }
 
+    public function supportStepDeliveries(): HasMany
+    {
+        return $this->hasMany(SupportStepDelivery::class);
+    }
+
     public function pushSubscriptions(): HasMany
     {
         return $this->hasMany(PushSubscription::class);
