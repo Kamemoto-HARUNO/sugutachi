@@ -4,6 +4,7 @@ use App\Http\Controllers\Api\StripeWebhookController;
 use App\Models\BlogPost;
 use App\Models\BlogSlugRedirect;
 use App\Services\Seo\GayMassageAreaCatalog;
+use App\Services\Seo\PageMetaFactory;
 use Illuminate\Foundation\Http\Middleware\PreventRequestForgery;
 use Illuminate\Support\Facades\Route;
 
@@ -52,14 +53,18 @@ Route::get('/sitemap.xml', function () {
     return response($writer->outputMemory(), 200, ['Content-Type' => 'application/xml']);
 });
 
-Route::get('/gay-massage/{slug}', function (string $slug, GayMassageAreaCatalog $catalog) {
+Route::get('/gay-massage', function (PageMetaFactory $meta) {
+    return view('app', ['seoMeta' => $meta->gayMassageIndex()]);
+});
+
+Route::get('/gay-massage/{slug}', function (string $slug, GayMassageAreaCatalog $catalog, PageMetaFactory $meta) {
     $area = $catalog->findArea($slug);
 
     if (! $area || $catalog->therapistCount($area['slug']) === 0) {
         abort(404);
     }
 
-    return view('app');
+    return view('app', ['seoMeta' => $meta->gayMassageArea($area)]);
 });
 
 Route::get('/robots.txt', function () {
@@ -68,9 +73,17 @@ Route::get('/robots.txt', function () {
     return response("User-agent: *\nAllow: /\nSitemap: {$baseUrl}/sitemap.xml\n", 200, ['Content-Type' => 'text/plain']);
 });
 
-Route::get('/blog/{slug}', function (string $slug) {
-    if (BlogPost::query()->where('slug', $slug)->exists()) {
-        return view('app');
+Route::get('/blog', function (PageMetaFactory $meta) {
+    return view('app', ['seoMeta' => $meta->blogIndex()]);
+});
+
+Route::get('/blog/{slug}', function (string $slug, PageMetaFactory $meta) {
+    $post = BlogPost::query()
+        ->where('slug', $slug)
+        ->first();
+
+    if ($post?->isVisibleToPublic()) {
+        return view('app', ['seoMeta' => $meta->blogPost($post)]);
     }
 
     $redirect = BlogSlugRedirect::query()->where('old_slug', $slug)->first();
@@ -79,7 +92,7 @@ Route::get('/blog/{slug}', function (string $slug) {
         return redirect('/blog/'.$redirect->new_slug, 301);
     }
 
-    return view('app');
+    abort(404);
 });
 
 Route::view('/{path?}', 'app')
