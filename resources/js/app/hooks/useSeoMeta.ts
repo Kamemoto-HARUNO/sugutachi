@@ -62,7 +62,7 @@ export function useSeoMeta(input: SeoMetaInput): void {
             robots?.remove();
         }
 
-        const existingJsonLd = document.getElementById('page-json-ld');
+        const existingJsonLd = document.getElementById('page-json-ld') ?? document.getElementById('server-json-ld');
         existingJsonLd?.remove();
 
         if (input.jsonLd) {

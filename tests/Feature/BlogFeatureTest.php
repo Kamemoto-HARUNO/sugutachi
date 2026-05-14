@@ -147,6 +147,33 @@ class BlogFeatureTest extends TestCase
         $this->getJson('/api/blog-posts/future')->assertNotFound();
     }
 
+    public function test_public_blog_pages_render_server_side_seo_meta(): void
+    {
+        config()->set('app.url', 'https://sugutachi.com');
+
+        $post = $this->createPost([
+            'title' => '安全に利用するための完全ガイド',
+            'slug' => 'safe-use-guide',
+            'excerpt' => '予約前に確認したい安全ポイントをまとめました。',
+            'meta_title' => '安全利用ガイド',
+            'meta_description' => 'すぐタチを安全に利用するための確認ポイントを紹介します。',
+            'published_at' => now()->subDay(),
+        ]);
+
+        $this->get('/blog')
+            ->assertOk()
+            ->assertSee('<title>すぐタチブログ | すぐタチ</title>', false)
+            ->assertSee('<link rel="canonical" href="https://sugutachi.com/blog">', false);
+
+        $this->get('/blog/'.$post->slug)
+            ->assertOk()
+            ->assertSee('<title>安全利用ガイド | すぐタチ</title>', false)
+            ->assertSee('すぐタチを安全に利用するための確認ポイントを紹介します。', false)
+            ->assertSee('<meta property="og:type" content="article">', false)
+            ->assertSee('<link rel="canonical" href="https://sugutachi.com/blog/safe-use-guide">', false)
+            ->assertSee('"@type":"BlogPosting"', false);
+    }
+
     public function test_non_admin_cannot_manage_blog_posts(): void
     {
         $user = Account::factory()->create(['public_id' => 'acc_blog_regular']);
