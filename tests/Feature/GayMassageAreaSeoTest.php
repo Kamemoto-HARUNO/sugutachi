@@ -45,6 +45,26 @@ class GayMassageAreaSeoTest extends TestCase
         $this->get('/gay-massage/tokyo')->assertNotFound();
     }
 
+    public function test_area_pages_render_server_side_seo_meta(): void
+    {
+        config()->set('app.url', 'https://sugutachi.com');
+
+        $this->createPublicTherapistAt('thp_fukuoka', 'Fukuoka Therapist', 33.5902000, 130.4017000);
+
+        $this->get('/gay-massage')
+            ->assertOk()
+            ->assertSee('<title>ゲイマッサージ・男性向け出張マッサージを探す | すぐタチ</title>', false)
+            ->assertSee('<link rel="canonical" href="https://sugutachi.com/gay-massage">', false)
+            ->assertSee('application/ld+json', false);
+
+        $this->get('/gay-massage/fukuoka')
+            ->assertOk()
+            ->assertSee('<title>福岡のゲイマッサージ・男性向け出張マッサージ | すぐタチ</title>', false)
+            ->assertSee('福岡で公開中のタチキャストを、写真・口コミ・プロフィールから確認できます。正確な拠点情報は公開せず、予約時も安心して比較できる情報に絞って掲載しています。', false)
+            ->assertSee('<link rel="canonical" href="https://sugutachi.com/gay-massage/fukuoka">', false)
+            ->assertSee('"@type":"BreadcrumbList"', false);
+    }
+
     public function test_sitemap_includes_only_active_area_pages(): void
     {
         $this->createPublicTherapistAt('thp_fukuoka', 'Fukuoka Therapist', 33.5902000, 130.4017000);
