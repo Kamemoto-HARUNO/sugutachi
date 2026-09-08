@@ -1,5 +1,10 @@
 import { useEffect, useState } from "react";
-import { useSearchParams } from "react-router-dom";
+import {
+    Link,
+    useLocation,
+    useNavigate,
+    useSearchParams,
+} from "react-router-dom";
 import { useAuth } from "../hooks/useAuth";
 import { apiRequest } from "../lib/api";
 import {
@@ -11,11 +16,20 @@ import { BookingMessagesPage } from "./BookingMessagesPage";
 import { DirectMessagesPage } from "./DirectMessagesPage";
 
 export function MessagesPage({ role }: { role: MessageRole }) {
-    const { account, token } = useAuth();
-    const [params, setParams] = useSearchParams();
+    const { account, token, hasRole, selectRole } = useAuth();
+    const location = useLocation();
+    const navigate = useNavigate();
+    const [params] = useSearchParams();
     const key = `messages-tab:${account?.public_id}:${role}`;
     const stored = localStorage.getItem(key);
-    const tab = (params.get("tab") ?? stored) === "dm" ? "dm" : "bookings";
+    const detailTab = location.pathname.includes("/direct-messages/")
+        ? "dm"
+        : location.pathname.includes("/bookings/")
+          ? "bookings"
+          : null;
+    const tab =
+        detailTab ??
+        ((params.get("tab") ?? stored ?? "dm") === "dm" ? "dm" : "bookings");
     const [counts, setCounts] = useState({ dm: 0, bookings: 0 });
     useEffect(() => {
         localStorage.setItem(key, tab);
@@ -57,12 +71,43 @@ export function MessagesPage({ role }: { role: MessageRole }) {
         };
     }, [role, token]);
     return (
-        <div className="space-y-5">
-            <h1 className="text-xl font-semibold">
-                {role === "user" ? "利用者" : "タチキャスト"}としてのメッセージ
-            </h1>
+        <div className="flex h-full min-h-0 flex-col">
+            <header className="flex min-h-[76px] shrink-0 items-center gap-2 px-4 py-3">
+                <Link
+                    to={`/${role}/dashboard`}
+                    aria-label="マイページに戻る"
+                    className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full hover:bg-slate-100"
+                >
+                    <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        className="h-5 w-5"
+                    >
+                        <path d="m12 5-7 7 7 7M5 12h15" />
+                    </svg>
+                </Link>
+                <h2 className="min-w-0 flex-1 truncate text-lg font-bold sm:text-xl">メッセージ</h2>
+                <select
+                    aria-label="メッセージの役割"
+                    value={role}
+                    onChange={(e) => {
+                        const next = e.target.value as MessageRole;
+                        selectRole(next);
+                        navigate(`/${next}/messages?tab=dm`);
+                    }}
+                    className="max-w-[105px] rounded-full border border-slate-200 bg-slate-50 px-2 py-2 text-xs font-semibold"
+                >
+                    {hasRole("user") && <option value="user">利用者</option>}
+                    {hasRole("therapist") && (
+                        <option value="therapist">タチキャスト</option>
+                    )}
+                </select>
+            </header>
             <div
-                className="flex gap-2 rounded-2xl border border-white/15 bg-white/5 p-1.5"
+                className="mx-4 mb-3 flex shrink-0 gap-1 rounded-xl bg-slate-100 p-1"
                 role="tablist"
                 aria-label="メッセージの種類"
             >
@@ -76,30 +121,44 @@ export function MessagesPage({ role }: { role: MessageRole }) {
                         key={value}
                         role="tab"
                         aria-selected={tab === value}
-                        onClick={() => setParams({ tab: value })}
-                        className={`inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e5c576] ${tab === value ? "border-[#e5c576] bg-[#f3dec0] font-bold text-[#17202b] shadow-sm" : "border-transparent bg-transparent font-medium text-slate-300 hover:bg-white/10 hover:text-white"}`}
+                        onClick={() =>
+                            navigate(`/${role}/messages?tab=${value}`)
+                        }
+                        className={`inline-flex min-h-11 flex-1 items-center justify-center gap-2 rounded-lg px-3 py-2 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-[#b5894d] ${tab === value ? "bg-white font-bold text-[#17202b] shadow-sm" : "font-medium text-slate-500 hover:text-slate-900"}`}
                     >
                         <span aria-hidden="true" className="h-4 w-4 shrink-0">
                             {tab === value && (
-                                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
-                                    <path fillRule="evenodd" d="M10 1a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm4.28 6.22a.75.75 0 0 1 0 1.06l-5 5a.75.75 0 0 1-1.06 0l-2.5-2.5a.75.75 0 1 1 1.06-1.06l1.97 1.97 4.47-4.47a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+                                <svg
+                                    viewBox="0 0 20 20"
+                                    fill="currentColor"
+                                    className="h-4 w-4"
+                                >
+                                    <path
+                                        fillRule="evenodd"
+                                        d="M10 1a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm4.28 6.22a.75.75 0 0 1 0 1.06l-5 5a.75.75 0 0 1-1.06 0l-2.5-2.5a.75.75 0 1 1 1.06-1.06l1.97 1.97 4.47-4.47a.75.75 0 0 1 1.06 0Z"
+                                        clipRule="evenodd"
+                                    />
                                 </svg>
                             )}
                         </span>
                         <span>{label}</span>
                         {counts[value] > 0 && (
-                            <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${tab === value ? "bg-[#17202b] text-white" : "bg-white/15 text-white"}`}>
+                            <span
+                                className={`rounded-full px-2 py-0.5 text-xs font-bold ${tab === value ? "bg-[#17202b] text-white" : "bg-slate-200 text-slate-700"}`}
+                            >
                                 {counts[value]}
                             </span>
                         )}
                     </button>
                 ))}
             </div>
-            {tab === "dm" ? (
-                <DirectMessagesPage key={role} role={role} />
-            ) : (
-                <BookingMessagesPage key={role} role={role} />
-            )}
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+                {tab === "dm" ? (
+                    <DirectMessagesPage key={role} role={role} />
+                ) : (
+                    <BookingMessagesPage key={role} role={role} />
+                )}
+            </div>
         </div>
     );
 }

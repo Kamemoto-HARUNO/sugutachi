@@ -64,7 +64,7 @@ import { TherapistBookingNoShowPage, UserBookingNoShowPage } from './pages/Booki
 import { ContactPage } from './pages/ContactPage';
 import { FirstTimeGuidePage } from './pages/FirstTimeGuidePage';
 import { GayMassageAreaPage, GayMassageIndexPage } from './pages/GayMassageAreaPage';
-import { MessagesPage } from './pages/MessagesPage';
+import { MessagesLayout, MessageEmptyPane } from './layouts/MessagesLayout';
 import { DirectMessagePage } from './pages/DirectMessagePage';
 import { BlogDetailPage } from './pages/BlogDetailPage';
 import { BlogIndexPage } from './pages/BlogIndexPage';
@@ -172,6 +172,12 @@ function AppRoutes() {
                     <Route path="payment" element={<UserBookingPaymentPage />} />
                     <Route path="waiting" element={<UserBookingWaitingPage />} />
                 </Route>
+                <Route element={<MessagesLayout role="user" />}>
+                    <Route path="/user/messages" element={<MessageEmptyPane />} />
+                    <Route path="/user/direct-messages/new" element={<DirectMessagePage role="user" />} />
+                    <Route path="/user/direct-messages/:publicId" element={<DirectMessagePage role="user" />} />
+                    <Route path="/user/bookings/:publicId/messages" element={<UserBookingMessagesPage />} />
+                </Route>
                 <Route
                     path="/user"
                     element={<DashboardLayout role="user" description="検索、予約、メッセージ、安全導線の入口です。" navItems={userNavItems} />}
@@ -200,11 +206,7 @@ function AppRoutes() {
                     <Route path="favorites" element={<UserFavoriteTherapistsPage />} />
                     <Route path="notifications" element={<NotificationsPage />} />
                     <Route path="bookings" element={<UserBookingsPage />} />
-                    <Route path="messages" element={<MessagesPage role="user" />} />
-                    <Route path="direct-messages/new" element={<DirectMessagePage role="user" />} />
-                    <Route path="direct-messages/:publicId" element={<DirectMessagePage role="user" />} />
                     <Route path="bookings/:publicId" element={<UserBookingDetailPage />} />
-                    <Route path="bookings/:publicId/messages" element={<UserBookingMessagesPage />} />
                     <Route path="bookings/:publicId/review" element={<UserBookingReviewPage />} />
                     <Route path="bookings/:publicId/interrupt" element={<UserBookingInterruptPage />} />
                     <Route path="bookings/:publicId/cancel" element={<UserBookingCancelPage />} />
@@ -257,6 +259,11 @@ function AppRoutes() {
             <Route
                 element={<RoleRoute role="therapist" hasRole={hasRole} isAuthenticated={isAuthenticated} activeRole={activeRole} selectRole={selectRole} />}
             >
+                <Route element={<MessagesLayout role="therapist" />}>
+                    <Route path="/therapist/messages" element={<MessageEmptyPane />} />
+                    <Route path="/therapist/direct-messages/:publicId" element={<DirectMessagePage role="therapist" />} />
+                    <Route path="/therapist/bookings/:publicId/messages" element={<TherapistBookingMessagesPage />} />
+                </Route>
                 <Route
                     path="/therapist"
                     element={
@@ -301,13 +308,10 @@ function AppRoutes() {
                     <Route path="requests/:publicId" element={<TherapistRequestsPage />} />
                     <Route path="reviews" element={<TherapistReviewsPage />} />
                     <Route path="bookings" element={<TherapistBookingsPage />} />
-                    <Route path="messages" element={<MessagesPage role="therapist" />} />
-                    <Route path="direct-messages/:publicId" element={<DirectMessagePage role="therapist" />} />
                     <Route path="bookings/:publicId" element={<TherapistBookingDetailPage />} />
                     <Route path="bookings/:publicId/review" element={<TherapistBookingReviewPage />} />
                     <Route path="bookings/:publicId/interrupt" element={<TherapistBookingInterruptPage />} />
                     <Route path="bookings/:publicId/no-show" element={<TherapistBookingNoShowPage />} />
-                    <Route path="bookings/:publicId/messages" element={<TherapistBookingMessagesPage />} />
                     <Route path="bookings/:publicId/report" element={<TherapistBookingReportPage />} />
                     <Route path="travel-requests" element={<TherapistTravelRequestsPage />} />
                     <Route path="travel-requests/:publicId" element={<TherapistTravelRequestsPage />} />

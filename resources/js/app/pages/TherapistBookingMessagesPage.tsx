@@ -1,3 +1,4 @@
+import { ConversationHeader } from '../components/messages/ConversationHeader';
 import { MessageComposer } from '../components/messages/MessageComposer';
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
@@ -168,6 +169,14 @@ export function TherapistBookingMessagesPage() {
     const [isClosingThread, setIsClosingThread] = useState(false);
     const isTypingRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const messageListRef = useRef<HTMLDivElement>(null);
+    const followLatest = useRef(true);
+    const newestMessageId = messages[messages.length - 1]?.id;
+    useEffect(() => {
+        const list = messageListRef.current;
+        if (list && followLatest.current) list.scrollTop = list.scrollHeight;
+    }, [newestMessageId]);
+
     const imagePreparationRequestRef = useRef(0);
 
     usePageTitle(
@@ -633,7 +642,7 @@ export function TherapistBookingMessagesPage() {
                 <div className="flex flex-wrap gap-3">
                     <Link
                         to="/therapist/bookings"
-                        className="inline-flex items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/6"
+                        className="inline-flex items-center rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
                     >
                         予約一覧へ戻る
                     </Link>
@@ -643,35 +652,8 @@ export function TherapistBookingMessagesPage() {
     }
 
     return (
-        <div className="space-y-6">
-            <section className="rounded-[32px] bg-[linear-gradient(117deg,#17202b_0%,#243447_52%,#2b4158_100%)] p-7 text-white shadow-[0_24px_60px_rgba(15,23,42,0.22)]">
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-                    <div className="space-y-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
-                                {statusLabel(booking.status)}
-                            </span>
-                            {isThreadClosed ? (
-                                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
-                                    チャットクローズ済み
-                                </span>
-                            ) : null}
-                            {canSendMessages && meta?.counterparty_typing ? (
-                                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
-                                    {counterpartyName}が入力中...
-                                </span>
-                            ) : null}
-                        </div>
-                        <div className="space-y-2">
-                            <h1 className="text-3xl font-semibold">{counterpartyName}とのメッセージ</h1>
-                            <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                                {booking.therapist_menu
-                                    ? `${booking.therapist_menu.name} / ${booking.therapist_menu.duration_minutes}分`
-                                    : 'メニュー情報を確認中'} ・ {buildPrimaryTime(booking)}
-                            </p>
-                        </div>
-                    </div>
-
+        <div className="flex h-full min-h-0 flex-col bg-white text-[#17202b]">
+            <ConversationHeader role="therapist" kind="bookings" name={counterpartyName} subtitle={statusLabel(booking.status)}>
                     <div className="flex flex-wrap gap-3">
                         {canCloseThread ? (
                             <button
@@ -691,19 +673,73 @@ export function TherapistBookingMessagesPage() {
                                 void loadData({ refresh: true });
                             }}
                             disabled={isRefreshing}
-                            className="inline-flex items-center rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-60"
+                            className="inline-flex items-center rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
                         >
                             {isRefreshing ? '更新中...' : '更新'}
                         </button>
                         <Link
                             to={`/therapist/bookings/${booking.public_id}`}
-                            className="inline-flex items-center rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8"
+                            className="inline-flex items-center rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
                         >
                             予約詳細へ戻る
                         </Link>
                     </div>
-                </div>
-            </section>
+
+                <aside className="space-y-5">
+                    <section className="text-sm">
+                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予約情報</p>
+                        <div className="mt-4 space-y-4 text-sm text-[#48505a]">
+                            <div>
+                                <p className="text-xs font-semibold text-[#7d6852]">予約状況</p>
+                                <p className="mt-1">
+                                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
+                                        {statusLabel(booking.status)}
+                                    </span>
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold text-[#7d6852]">利用者</p>
+                                <p className="mt-1 font-semibold text-[#17202b]">{counterpartyName}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold text-[#7d6852]">日時</p>
+                                <p className="mt-1 font-semibold text-[#17202b]">{buildPrimaryTime(booking)}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold text-[#7d6852]">待ち合わせ場所</p>
+                                <p className="mt-1 font-semibold text-[#17202b]">
+                                    {booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
+                                </p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold text-[#7d6852]">運用メモ</p>
+                                <p className="mt-1 text-sm leading-7 text-[#48505a]">{stageHint(booking.status)}</p>
+                            </div>
+                            <div>
+                                <p className="text-xs font-semibold text-[#7d6852]">チャット状態</p>
+                                <p className="mt-1 font-semibold text-[#17202b]">
+                                    {isThreadClosed ? `クローズ済み${closedAtLabel ? `（${closedAtLabel}）` : ''}` : '送受信可能'}
+                                </p>
+                            </div>
+                        </div>
+
+                        <div className="mt-6 space-y-3">
+                            <Link
+                                to={`/therapist/bookings/${booking.public_id}`}
+                                className="inline-flex w-full items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243447]"
+                            >
+                                予約詳細へ戻る
+                            </Link>
+                            <Link
+                                to="/therapist/bookings"
+                                className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
+                            >
+                                予約一覧へ戻る
+                            </Link>
+                        </div>
+                    </section>
+                </aside>
+            </ConversationHeader>
 
             {pageError ? (
                 <section className="rounded-[24px] border border-[#f1d4b5] bg-[#fff4e8] px-5 py-4 text-sm text-[#9a4b35]">
@@ -722,9 +758,9 @@ export function TherapistBookingMessagesPage() {
             ) : null}
 
 
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-                <section className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                    <div className="space-y-4">
+            <div className="flex min-h-0 flex-1 flex-col">
+                <section className="flex min-h-0 flex-1 flex-col">
+                    <div ref={messageListRef} onScroll={(event) => { const el = event.currentTarget; followLatest.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100; }} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
                         {messages.length > 0 ? messages.map((message) => {
                             const isPendingRead = pendingReadIds.includes(message.id);
                             const isDeletingImage = deletingImageMessageIds.includes(message.id);
@@ -838,11 +874,11 @@ export function TherapistBookingMessagesPage() {
                     </div>
 
                     {canSendMessages ? (
-                        <form onSubmit={handleSendMessage} className="mt-6 space-y-3 border-t border-[#efe5d7] pt-5">
+                        <form onSubmit={handleSendMessage} className="shrink-0 space-y-2 border-t border-slate-200 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5">
                             <MessageComposer
                                 draft={draft}
                                 onDraftChange={setDraft}
-                                placeholder="到着予定や入室方法などを入力"
+                                placeholder="メッセージを入力"
                                 fileInputRef={fileInputRef}
                                 handleImageChange={handleImageChange}
                                 selectedImage={selectedImage}
@@ -854,12 +890,12 @@ export function TherapistBookingMessagesPage() {
                                 isPreparingImage={isPreparingImage}
                             />
 
-                            <div className="flex items-start gap-2 px-1 text-xs text-[#68707a]">
+                            <details className="px-1 text-xs text-[#68707a]"><summary className="cursor-pointer">メッセージのご利用について</summary><div className="mt-2 flex items-start gap-2">
                                 <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#f1e7d8] text-[10px] font-bold text-[#8b6a3e]">
                                     !
                                 </span>
                                 <span>連絡先交換につながる文言は送れません。待ち合わせや進行確認に必要な連絡だけに絞って使います。</span>
-                            </div>
+                            </div></details>
 
                             {composeError ? (
                                 <p className="text-sm text-[#9a4b35]">{composeError}</p>
@@ -876,60 +912,7 @@ export function TherapistBookingMessagesPage() {
                     )}
                 </section>
 
-                <aside className="space-y-5">
-                    <section className="rounded-[28px] bg-[#fffcf7] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.1)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予約情報</p>
-                        <div className="mt-4 space-y-4 text-sm text-[#48505a]">
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">予約状況</p>
-                                <p className="mt-1">
-                                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
-                                        {statusLabel(booking.status)}
-                                    </span>
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">利用者</p>
-                                <p className="mt-1 font-semibold text-[#17202b]">{counterpartyName}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">日時</p>
-                                <p className="mt-1 font-semibold text-[#17202b]">{buildPrimaryTime(booking)}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">待ち合わせ場所</p>
-                                <p className="mt-1 font-semibold text-[#17202b]">
-                                    {booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">運用メモ</p>
-                                <p className="mt-1 text-sm leading-7 text-[#48505a]">{stageHint(booking.status)}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">チャット状態</p>
-                                <p className="mt-1 font-semibold text-[#17202b]">
-                                    {isThreadClosed ? `クローズ済み${closedAtLabel ? `（${closedAtLabel}）` : ''}` : '送受信可能'}
-                                </p>
-                            </div>
-                        </div>
 
-                        <div className="mt-6 space-y-3">
-                            <Link
-                                to={`/therapist/bookings/${booking.public_id}`}
-                                className="inline-flex w-full items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243447]"
-                            >
-                                予約詳細へ戻る
-                            </Link>
-                            <Link
-                                to="/therapist/bookings"
-                                className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
-                            >
-                                予約一覧へ戻る
-                            </Link>
-                        </div>
-                    </section>
-                </aside>
             </div>
 
             {expandedImage?.attachment_url ? (

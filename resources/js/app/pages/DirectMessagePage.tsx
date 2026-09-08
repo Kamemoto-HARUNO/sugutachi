@@ -1,3 +1,4 @@
+import { ConversationHeader } from "../components/messages/ConversationHeader";
 import { MessageComposer } from "../components/messages/MessageComposer";
 import { prepareBookingMessageImage } from "../lib/bookingMessageImages";
 import type { ChangeEvent } from "react";
@@ -61,7 +62,15 @@ function CounterpartyAvatar({ participant }: { participant: DmParticipant }) {
     );
 }
 
-function PrivateImage({ url, token }: { url: string; token: string }) {
+function PrivateImage({
+    url,
+    token,
+    onLoad,
+}: {
+    url: string;
+    token: string;
+    onLoad: () => void;
+}) {
     const [blob, setBlob] = useState<string | null>(null);
     const [error, setError] = useState(false);
     useEffect(() => {
@@ -94,6 +103,7 @@ function PrivateImage({ url, token }: { url: string; token: string }) {
             <img
                 src={blob}
                 alt="送信された画像"
+                onLoad={onLoad}
                 className="max-h-80 max-w-full rounded-xl object-contain"
             />
         </a>
@@ -110,12 +120,14 @@ function MessageBubble({
     onRead,
     onDelete,
     onReport,
+    onImageLoad,
 }: {
     message: DmMessage;
     token: string;
     onRead: (id: string) => void;
     onDelete: (m: DmMessage) => void;
     onReport: (m: DmMessage) => void;
+    onImageLoad: () => void;
 }) {
     const element = useRef<HTMLDivElement>(null);
     useEffect(() => {
@@ -163,7 +175,7 @@ function MessageBubble({
             className={`flex ${message.is_own ? "justify-end" : "justify-start"}`}
         >
             <div
-                className={`max-w-[88%] rounded-2xl px-4 py-3 ${message.is_own ? "bg-[#f3e5d1]" : "border border-[#eadfd0] bg-white"}`}
+                className={`max-w-[88%] rounded-2xl px-4 py-3 ${message.is_own ? "bg-[#17202b] text-white" : "bg-[#f3f4f6] text-slate-900"}`}
             >
                 {message.is_deleted ? (
                     <p className="text-sm text-slate-500">
@@ -172,13 +184,19 @@ function MessageBubble({
                             : "メッセージは削除されました"}
                     </p>
                 ) : message.image_url ? (
-                    <PrivateImage url={message.image_url} token={token} />
+                    <PrivateImage
+                        url={message.image_url}
+                        token={token}
+                        onLoad={onImageLoad}
+                    />
                 ) : (
                     <p className="whitespace-pre-wrap break-words text-sm leading-7">
                         {message.body}
                     </p>
                 )}
-                <p className="mt-2 text-xs text-slate-500">
+                <p
+                    className={`mt-2 text-[11px] ${message.is_own ? "text-white/60" : "text-slate-400"}`}
+                >
                     {new Date(message.sent_at).toLocaleString("ja-JP")}
                     {message.is_own && message.is_read ? "・既読" : ""}
                 </p>
@@ -270,6 +288,11 @@ function DirectMessageConversation({
     >(null);
     const [reportDetail, setReportDetail] = useState("");
     const end = useRef<HTMLDivElement>(null);
+    const followLatest = useRef(true);
+    const newestMessageId = messages[messages.length - 1]?.public_id;
+    useEffect(() => {
+        if (followLatest.current) end.current?.scrollIntoView({ block: "end" });
+    }, [newestMessageId]);
     const latest = useRef(0);
     const reading = useRef(new Set<string>());
     const loadedMessages = useRef<DmMessage[]>([]);
@@ -592,31 +615,23 @@ function DirectMessageConversation({
     const participants = thread ?? draftParticipants;
     if (!token) return null;
     return (
-        <section className="mx-auto max-w-3xl space-y-4 text-slate-900">
-            <Link
-                to={`/${role}/messages?tab=dm`}
-                className="inline-flex min-h-11 items-center text-sm text-white underline"
-            >
-                DM一覧へ
-            </Link>
-            <header className="rounded-2xl border border-[#eadfd0] bg-white p-5">
-                <p className="text-xs font-semibold text-[#8a6516]">
-                    {role === "user"
-                        ? "利用者として送信"
-                        : "タチキャストとして返信"}
-                </p>
-                <div className="mt-3 flex items-center gap-3">
-                    {participants && (
+        <section className="flex h-full min-h-0 flex-col bg-white text-slate-900">
+            <ConversationHeader
+                key={threadId ?? targetId}
+                role={role}
+                kind="dm"
+                name={
+                    participants?.counterparty.display_name ?? "DMを読み込み中…"
+                }
+                avatar={
+                    participants ? (
                         <CounterpartyAvatar
                             participant={participants.counterparty}
                         />
-                    )}
-                    <h1 className="min-w-0 break-words text-xl font-semibold">
-                        {participants
-                            ? `${participants.counterparty.display_name}とのDM`
-                            : "DMを読み込み中…"}
-                    </h1>
-                </div>
+                    ) : undefined
+                }
+                subtitle={participants?.self.display_name}
+            >
                 {participants && (
                     <div className="mt-3 flex items-center gap-2 text-sm">
                         {participants.self.avatar_url && (
@@ -643,61 +658,61 @@ function DirectMessageConversation({
                 <p className="mt-3 text-xs text-slate-500">
                     予約の連絡は予約ごとのチャットをご利用ください。DM本文・画像は送信から1年間保存されます。
                 </p>
-            </header>
-            {thread && (
-                <div className="flex flex-wrap items-center gap-4 rounded-xl bg-white p-4 text-sm">
-                    <button
-                        onClick={() =>
-                            void preferences({
-                                muted: !thread.preferences.muted,
-                            })
-                        }
-                        className="min-h-11 underline"
-                    >
-                        {thread.preferences.muted
-                            ? "通知を再開"
-                            : "このDMをミュート"}
-                    </button>
-                    <button
-                        onClick={() =>
-                            void preferences({
-                                archived: !thread.preferences.archived,
-                            })
-                        }
-                        className="min-h-11 underline"
-                    >
-                        {thread.preferences.archived
-                            ? "アーカイブ解除"
-                            : "アーカイブ"}
-                    </button>
-                    <button
-                        onClick={() =>
-                            void preferences({
-                                paused: !thread.preferences.paused,
-                            })
-                        }
-                        className="min-h-11 underline"
-                    >
-                        {thread.preferences.paused
-                            ? "DMを再開"
-                            : "このDMを停止"}
-                    </button>
-                    <RelationshipBlockButton
-                        role={role}
-                        relationshipId={thread.relationship_id}
-                        onChange={() => {
-                            void refresh();
-                            dmChanged();
-                        }}
-                    />
-                    <button
-                        onClick={() => setReportMessage("thread")}
-                        className="min-h-11 underline"
-                    >
-                        運営へ通報
-                    </button>
-                </div>
-            )}
+                {thread && (
+                    <div className="flex flex-wrap items-center gap-4 rounded-xl bg-white p-4 text-sm">
+                        <button
+                            onClick={() =>
+                                void preferences({
+                                    muted: !thread.preferences.muted,
+                                })
+                            }
+                            className="min-h-11 underline"
+                        >
+                            {thread.preferences.muted
+                                ? "通知を再開"
+                                : "このDMをミュート"}
+                        </button>
+                        <button
+                            onClick={() =>
+                                void preferences({
+                                    archived: !thread.preferences.archived,
+                                })
+                            }
+                            className="min-h-11 underline"
+                        >
+                            {thread.preferences.archived
+                                ? "アーカイブ解除"
+                                : "アーカイブ"}
+                        </button>
+                        <button
+                            onClick={() =>
+                                void preferences({
+                                    paused: !thread.preferences.paused,
+                                })
+                            }
+                            className="min-h-11 underline"
+                        >
+                            {thread.preferences.paused
+                                ? "DMを再開"
+                                : "このDMを停止"}
+                        </button>
+                        <RelationshipBlockButton
+                            role={role}
+                            relationshipId={thread.relationship_id}
+                            onChange={() => {
+                                void refresh();
+                                dmChanged();
+                            }}
+                        />
+                        <button
+                            onClick={() => setReportMessage("thread")}
+                            className="min-h-11 underline"
+                        >
+                            運営へ通報
+                        </button>
+                    </div>
+                )}
+            </ConversationHeader>
             {error && (
                 <p
                     role="alert"
@@ -706,7 +721,14 @@ function DirectMessageConversation({
                     {error}
                 </p>
             )}
-            <div className="space-y-4 rounded-2xl bg-[#faf7f2] p-4">
+            <div
+                className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6"
+                onScroll={(event) => {
+                    const el = event.currentTarget;
+                    followLatest.current =
+                        el.scrollHeight - el.scrollTop - el.clientHeight < 100;
+                }}
+            >
                 {hasMore && (
                     <button
                         className="min-h-11 underline"
@@ -730,6 +752,10 @@ function DirectMessageConversation({
                         onRead={markRead}
                         onDelete={(m) => void removeImage(m)}
                         onReport={setReportMessage}
+                        onImageLoad={() => {
+                            if (followLatest.current)
+                                end.current?.scrollIntoView({ block: "end" });
+                        }}
                     />
                 ))}
                 {thread?.typing && (
@@ -738,7 +764,7 @@ function DirectMessageConversation({
                 <div ref={end} />
             </div>
             {thread && !thread.can_send ? (
-                <p className="rounded-xl bg-slate-100 p-4 text-sm">
+                <p className="shrink-0 border-t border-slate-200 bg-slate-50 p-4 text-sm">
                     現在このDMには送信できません。予約の確認や運営への相談は引き続きご利用いただけます。
                 </p>
             ) : (
@@ -748,12 +774,12 @@ function DirectMessageConversation({
                             e.preventDefault();
                             void send();
                         }}
-                        className="space-y-3 rounded-2xl border bg-white p-4"
+                        className="shrink-0 space-y-2 border-t border-slate-200 bg-white px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5"
                     >
                         <MessageComposer
                             draft={body}
                             onDraftChange={changeBody}
-                            placeholder="予約前に確認したいことなどを入力"
+                            placeholder="メッセージを入力"
                             fileInputRef={fileInputRef}
                             handleImageChange={handleImageChange}
                             selectedImage={file}
@@ -773,7 +799,7 @@ function DirectMessageConversation({
                         e.preventDefault();
                         void report();
                     }}
-                    className="rounded-2xl border bg-white p-5"
+                    className="max-h-[45dvh] shrink-0 overflow-y-auto border-t border-slate-200 bg-white p-4"
                 >
                     <h2 className="font-semibold">運営へ通報</h2>
                     <label className="mt-3 block text-sm">
