@@ -7,6 +7,7 @@ use App\Models\DirectMessage;
 use App\Models\DirectMessageThread;
 use App\Models\Report;
 use App\Models\TherapistProfile;
+use App\Services\DirectMessages\ConversationSearch;
 use App\Services\DirectMessages\DirectMessageRetention;
 use App\Services\DirectMessages\DirectMessageService;
 use App\Services\DirectMessages\ParticipantPresenter;
@@ -26,16 +27,21 @@ class DirectMessageController extends Controller
     public function index(Request $request, string $role)
     {
         $this->policy->authorizeRole($request->user(), $role);
-        $v = $request->validate(['cursor' => 'nullable|string|max:500', 'filter' => 'nullable|in:all,unread,archived']);
+        $v = $request->validate(['q' => 'nullable|string|max:100', 'cursor' => 'nullable|string|max:500', 'filter' => 'nullable|in:all,unread,archived']);
         $query = DirectMessageThread::query()->with(['relationship.userAccount', 'relationship.therapistAccount', 'therapistProfile', 'latestMessage'])
             ->whereHas('relationship', fn ($q) => $q->where($role.'_account_id', $request->user()->id))
             ->where($role.'_archived', ($v['filter'] ?? '') === 'archived');
         if (($v['filter'] ?? '') === 'unread') {
             $query->whereHas('messages', fn ($q) => $q->where('sender_role', '!=', $role)->whereNull('read_at')->visibleContent());
         }
+        $term = trim($v['q'] ?? '');
+        $matches = $term !== '' ? app(ConversationSearch::class)->directMessages($query, $role, $term) : [];
+        if ($term !== '') {
+            $query->whereIn('id', array_keys($matches));
+        }
         $threads = $query->orderByDesc('last_message_at')->orderByDesc('id')->cursorPaginate(30);
 
-        return response()->json(['data' => collect($threads->items())->map(fn ($t) => $this->messages->threadData($t, $role)), 'meta' => ['next_cursor' => $threads->nextCursor()?->encode(), 'enabled' => (bool) config('direct_messages.enabled')]]);
+        return response()->json(['data' => collect($threads->items())->map(fn ($t) => [...$this->messages->threadData($t, $role), 'search_preview' => $matches[$t->id] ?? null]), 'meta' => ['next_cursor' => $threads->nextCursor()?->encode(), 'enabled' => (bool) config('direct_messages.enabled')]]);
     }
 
     public function summary(Request $request, string $role)

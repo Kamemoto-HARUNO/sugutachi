@@ -19,6 +19,7 @@ export interface DmThread {
     preferences: { muted: boolean; archived: boolean; paused: boolean };
     unread_count: number;
     preview: string | null;
+    search_preview?: string | null;
     last_message_at: string | null;
     first_reply_at: string | null;
 }

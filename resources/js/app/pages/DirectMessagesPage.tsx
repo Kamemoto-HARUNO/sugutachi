@@ -1,3 +1,5 @@
+import { MessageSelect } from "../components/messages/MessageSelect";
+import { useConversationSearch } from "../hooks/useConversationSearch";
 import { RoleBlocks } from "../components/messages/RoleBlocks";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { Link, useLocation } from "react-router-dom";
@@ -52,7 +54,9 @@ function DmSettingSwitch({
 export function DirectMessagesPage({ role }: { role: MessageRole }) {
     const { token } = useAuth();
     const location = useLocation();
-    const [search, setSearch] = useState("");
+    const { search, setSearch, query, pending } = useConversationSearch();
+    const requestAbort = useRef<AbortController | null>(null);
+    const [loadingMore, setLoadingMore] = useState(false);
     const [settingsOpen, setSettingsOpen] = useState(false);
     const expanded = useRef(false);
     const [threads, setThreads] = useState<DmThread[]>([]);
@@ -65,13 +69,14 @@ export function DirectMessagesPage({ role }: { role: MessageRole }) {
     const load = useCallback(
         async (signal?: AbortSignal, next?: string) => {
             if (!token) return;
+            if (next) setLoadingMore(true);
             try {
                 const [inbox, config] = await Promise.all([
                     apiRequest<{
                         data: DmThread[];
                         meta: { next_cursor: string | null };
                     }>(
-                        `${dmBase(role)}?filter=${filter}${next ? `&cursor=${encodeURIComponent(next)}` : ""}`,
+                        `${dmBase(role)}?filter=${filter}&q=${encodeURIComponent(query)}${next ? `&cursor=${encodeURIComponent(next)}` : ""}`,
                         { token, signal },
                     ),
                     apiRequest<{ data: DmSettings }>(
@@ -111,13 +116,19 @@ export function DirectMessagesPage({ role }: { role: MessageRole }) {
             } catch (e) {
                 if (!signal?.aborted) setError(dmError(e));
             } finally {
-                if (!signal?.aborted) setLoading(false);
+                if (!signal?.aborted) {
+                    setLoading(false);
+                    setLoadingMore(false);
+                }
             }
         },
-        [token, role, filter],
+        [token, role, filter, query],
     );
     useEffect(() => {
         const abort = new AbortController();
+        requestAbort.current = abort;
+        setCursor(null);
+        setLoadingMore(false);
         expanded.current = false;
         setThreads([]);
         setLoading(true);
@@ -162,6 +173,7 @@ export function DirectMessagesPage({ role }: { role: MessageRole }) {
                 <input
                     aria-label="会話を検索"
                     type="search"
+                    maxLength={100}
                     value={search}
                     onChange={(e) => setSearch(e.target.value)}
                     placeholder="会話を検索"
@@ -170,15 +182,15 @@ export function DirectMessagesPage({ role }: { role: MessageRole }) {
                 <div className="flex items-center justify-between gap-3">
                     <label className="flex items-center gap-2 text-sm">
                         <span className="sr-only">表示</span>
-                        <select
+                        <MessageSelect
                             value={filter}
                             onChange={(e) => setFilter(e.target.value)}
-                            className="min-h-10 rounded-full border border-slate-200 bg-white px-3 text-xs text-slate-600"
+                            className="bg-white text-slate-600"
                         >
                             <option value="all">すべて</option>
                             <option value="unread">未読</option>
                             <option value="archived">アーカイブ</option>
-                        </select>
+                        </MessageSelect>
                     </label>{" "}
                     <button
                         type="button"
@@ -253,8 +265,20 @@ export function DirectMessagesPage({ role }: { role: MessageRole }) {
                     {error}
                 </p>
             )}
-            {loading ? (
-                <p>DMを読み込み中…</p>
+            {loading || pending ? (
+                <p
+                    role="status"
+                    className="p-6 text-center text-sm text-slate-500"
+                >
+                    {search.trim() ? "検索中…" : "DMを読み込み中…"}
+                </p>
+            ) : threads.length === 0 && query ? (
+                <p
+                    role="status"
+                    className="p-6 text-center text-sm text-slate-500"
+                >
+                    一致する会話がありません。
+                </p>
             ) : threads.length === 0 ? (
                 <div className="rounded-xl bg-slate-50 p-6 text-center">
                     <p>まだDMはありません。</p>
@@ -266,96 +290,80 @@ export function DirectMessagesPage({ role }: { role: MessageRole }) {
                 </div>
             ) : (
                 <div className="divide-y divide-slate-100">
-                    {search &&
-                        !threads.some((t) =>
-                            t.counterparty.display_name
-                                .toLowerCase()
-                                .includes(search.toLowerCase()),
-                        ) && (
-                            <p className="p-6 text-center text-sm text-slate-500">
-                                一致する会話がありません。
-                            </p>
-                        )}
-                    {threads
-                        .filter((t) =>
-                            t.counterparty.display_name
-                                .toLowerCase()
-                                .includes(search.toLowerCase()),
-                        )
-                        .map((t) => (
-                            <Link
-                                key={t.public_id}
-                                to={`${dmBase(role)}/${t.public_id}`}
-                                aria-current={
-                                    location.pathname.endsWith(
-                                        `/${t.public_id}`,
-                                    )
-                                        ? "page"
-                                        : undefined
-                                }
-                                className={`flex gap-3 border-l-2 px-4 py-4 transition ${location.pathname.endsWith(`/${t.public_id}`) ? "border-[#b5894d] bg-[#faf5ee]" : "border-transparent hover:bg-slate-50"}`}
-                            >
-                                {t.counterparty.avatar_url ? (
-                                    <img
-                                        src={t.counterparty.avatar_url}
-                                        alt=""
-                                        className="h-12 w-12 shrink-0 rounded-full object-cover"
-                                    />
-                                ) : (
-                                    <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#f3e5d1]">
-                                        {t.counterparty.display_name.slice(
-                                            0,
-                                            1,
-                                        )}
-                                    </span>
+                    {threads.map((t) => (
+                        <Link
+                            key={t.public_id}
+                            to={`${dmBase(role)}/${t.public_id}`}
+                            aria-current={
+                                location.pathname.endsWith(`/${t.public_id}`)
+                                    ? "page"
+                                    : undefined
+                            }
+                            className={`flex gap-3 border-l-2 px-4 py-4 transition ${location.pathname.endsWith(`/${t.public_id}`) ? "border-[#b5894d] bg-[#faf5ee]" : "border-transparent hover:bg-slate-50"}`}
+                        >
+                            {t.counterparty.avatar_url ? (
+                                <img
+                                    src={t.counterparty.avatar_url}
+                                    alt=""
+                                    className="h-12 w-12 shrink-0 rounded-full object-cover"
+                                />
+                            ) : (
+                                <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-full bg-[#f3e5d1]">
+                                    {t.counterparty.display_name.slice(0, 1)}
+                                </span>
+                            )}
+                            <div className="min-w-0 flex-1">
+                                <p className="font-semibold">
+                                    {t.counterparty.display_name}{" "}
+                                    {t.unread_count > 0 && (
+                                        <span className="text-sm text-red-700">
+                                            未読 {t.unread_count}
+                                        </span>
+                                    )}
+                                </p>
+                                <p
+                                    className={`${t.search_preview ? "line-clamp-2" : "truncate"} text-sm text-slate-600`}
+                                >
+                                    {t.search_preview ??
+                                        t.preview ??
+                                        "メッセージは削除されました"}
+                                </p>
+                                {!t.can_send && (
+                                    <p className="text-xs text-slate-500">
+                                        現在送信できません
+                                    </p>
                                 )}
-                                <div className="min-w-0 flex-1">
-                                    <p className="font-semibold">
-                                        {t.counterparty.display_name}{" "}
-                                        {t.unread_count > 0 && (
-                                            <span className="text-sm text-red-700">
-                                                未読 {t.unread_count}
-                                            </span>
-                                        )}
-                                    </p>
-                                    <p className="truncate text-sm text-slate-600">
-                                        {t.preview ??
-                                            "メッセージは削除されました"}
-                                    </p>
-                                    {!t.can_send && (
-                                        <p className="text-xs text-slate-500">
-                                            現在送信できません
+                                {role === "therapist" &&
+                                    !t.first_reply_at &&
+                                    t.last_message_at &&
+                                    Date.now() - Date.parse(t.last_message_at) >
+                                        86400000 && (
+                                        <p className="text-xs text-amber-700">
+                                            初回の返信をお待ちです
                                         </p>
                                     )}
-                                    {role === "therapist" &&
-                                        !t.first_reply_at &&
-                                        t.last_message_at &&
-                                        Date.now() -
-                                            Date.parse(t.last_message_at) >
-                                            86400000 && (
-                                            <p className="text-xs text-amber-700">
-                                                初回の返信をお待ちです
-                                            </p>
-                                        )}
-                                </div>
-                                <time className="shrink-0 text-[11px] text-slate-400">
-                                    {t.last_message_at
-                                        ? new Date(
-                                              t.last_message_at,
-                                          ).toLocaleDateString("ja-JP")
-                                        : ""}
-                                </time>
-                            </Link>
-                        ))}
+                            </div>
+                            <time className="shrink-0 text-[11px] text-slate-400">
+                                {t.last_message_at
+                                    ? new Date(
+                                          t.last_message_at,
+                                      ).toLocaleDateString("ja-JP")
+                                    : ""}
+                            </time>
+                        </Link>
+                    ))}
                 </div>
             )}
-            {cursor && (
+            {cursor && !pending && !loading && (
                 <button
                     type="button"
-                    onClick={() => void load(undefined, cursor)}
+                    disabled={loadingMore}
+                    onClick={() =>
+                        void load(requestAbort.current?.signal, cursor)
+                    }
                     className="min-h-11 underline"
                 >
-                    さらに表示
+                    {loadingMore ? "読み込み中…" : "さらに表示"}
                 </button>
             )}
         </section>

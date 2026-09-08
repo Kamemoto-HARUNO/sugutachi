@@ -26,9 +26,18 @@ class ParticipantPresenter
         return [
             'role' => $role,
             'public_id' => $profile?->public_id,
-            'display_name' => $withdrawn ? '退会済み' : ($role === 'user' ? ($account->display_name ?: '利用者') : ($profile?->public_name ?: 'タチキャスト')),
+            'display_name' => $this->displayName($account, $role),
             'avatar_url' => $photo ? URL::temporarySignedRoute('profile-photos.signed-file', now()->addMinutes(5), ['profilePhoto' => $photo->id]) : null,
             'profile_url' => ! $withdrawn && $role === 'therapist' && $profile ? '/therapists/'.$profile->public_id : null,
         ];
+    }
+
+    public function displayName(?Account $account, string $role): string
+    {
+        if (! $account || $account->status === Account::STATUS_WITHDRAWN) {
+            return '退会済み';
+        }
+
+        return $role === 'user' ? ($account->display_name ?: '利用者') : ($account->therapistProfile?->public_name ?: 'タチキャスト');
     }
 }

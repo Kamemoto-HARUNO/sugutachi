@@ -110,6 +110,7 @@ class BookingResource extends JsonResource
             'consents' => $this->whenLoaded('consents', fn () => BookingConsentResource::collection($this->consents)),
             'health_checks' => $this->whenLoaded('healthChecks', fn () => BookingHealthCheckResource::collection($this->healthChecks)),
             'message_thread' => $messageThread,
+            'search_preview' => $this->whenHas('search_preview', fn () => $messageThread['can_view'] ? $this->search_preview : null),
             'unread_message_count' => $this->when(
                 isset($this->unread_message_count),
                 fn () => $messageThread['can_view'] ? $this->unread_message_count : 0

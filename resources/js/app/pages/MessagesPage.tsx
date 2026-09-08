@@ -1,3 +1,4 @@
+import { MessageSelect } from "../components/messages/MessageSelect";
 import { useEffect, useState } from "react";
 import {
     Link,
@@ -72,7 +73,7 @@ export function MessagesPage({ role }: { role: MessageRole }) {
     }, [role, token]);
     return (
         <div className="flex h-full min-h-0 flex-col">
-            <header className="flex min-h-[76px] shrink-0 items-center gap-2 px-4 py-3">
+            <header className="flex min-h-[76px] shrink-0 items-center gap-2 px-3 py-2 sm:px-5">
                 <Link
                     to={`/${role}/dashboard`}
                     aria-label="マイページに戻る"
@@ -89,8 +90,10 @@ export function MessagesPage({ role }: { role: MessageRole }) {
                         <path d="m12 5-7 7 7 7M5 12h15" />
                     </svg>
                 </Link>
-                <h2 className="min-w-0 flex-1 truncate text-lg font-bold sm:text-xl">メッセージ</h2>
-                <select
+                <h2 className="min-w-0 flex-1 truncate text-lg font-bold sm:text-xl">
+                    メッセージ
+                </h2>
+                <MessageSelect
                     aria-label="メッセージの役割"
                     value={role}
                     onChange={(e) => {
@@ -98,13 +101,13 @@ export function MessagesPage({ role }: { role: MessageRole }) {
                         selectRole(next);
                         navigate(`/${next}/messages?tab=dm`);
                     }}
-                    className="max-w-[105px] rounded-full border border-slate-200 bg-slate-50 px-2 py-2 text-xs font-semibold"
+                    className="bg-slate-50 font-semibold"
                 >
                     {hasRole("user") && <option value="user">利用者</option>}
                     {hasRole("therapist") && (
                         <option value="therapist">タチキャスト</option>
                     )}
-                </select>
+                </MessageSelect>
             </header>
             <div
                 className="mx-4 mb-3 flex shrink-0 gap-1 rounded-xl bg-slate-100 p-1"
