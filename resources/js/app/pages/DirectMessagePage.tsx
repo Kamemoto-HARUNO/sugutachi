@@ -565,7 +565,10 @@ function DirectMessageConversation({
                 `${dmBase(role)}/${threadId}/preferences`,
                 { token, method: "PATCH", body: change },
             );
-            if (alive.current) setThread(r.data);
+            if (alive.current) {
+                setThread(r.data);
+                dmChanged();
+            }
         } catch (e) {
             setError(dmError(e));
         }
@@ -688,27 +691,18 @@ function DirectMessageConversation({
                                     : "アーカイブ"}
                             </span>
                         </button>
-                        <button
-                            type="button"
-                            onClick={() =>
-                                void preferences({
-                                    paused: !thread.preferences.paused,
-                                })
-                            }
-                            className={conversationActionClass}
-                        >
-                            <ConversationActionIcon kind="pause" />
-                            <span className="flex-1">
-                                {thread.preferences.paused
-                                    ? "DMを再開"
-                                    : "このDMを停止"}
-                            </span>
-                            {thread.preferences.paused && (
-                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">
-                                    停止中
-                                </span>
-                            )}
-                        </button>
+                        {thread.preferences.paused && (
+                            <button
+                                type="button"
+                                onClick={() =>
+                                    void preferences({ paused: false })
+                                }
+                                className={conversationActionClass}
+                            >
+                                <ConversationActionIcon kind="resume" />
+                                <span>DMを再開</span>
+                            </button>
+                        )}
                         <div className="my-1 border-t border-slate-100" />
                         <RelationshipBlockButton
                             role={role}

@@ -4,7 +4,7 @@ export const conversationActionClass =
 export function ConversationActionIcon({
     kind,
 }: {
-    kind: 'profile' | 'mute' | 'archive' | 'pause' | 'block' | 'report';
+    kind: 'profile' | 'mute' | 'archive' | 'resume' | 'block' | 'report';
 }) {
     return (
         <svg
@@ -34,10 +34,10 @@ export function ConversationActionIcon({
                     <path d="M5 8v12h14V8M10 12h4" />
                 </>
             )}
-            {kind === 'pause' && (
+            {kind === 'resume' && (
                 <>
                     <circle cx="12" cy="12" r="9" />
-                    <path d="M9 8v8M15 8v8" />
+                    <path d="m10 8 6 4-6 4V8Z" />
                 </>
             )}
             {kind === 'block' && (
