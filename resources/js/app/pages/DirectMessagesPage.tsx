@@ -11,6 +11,44 @@ import {
     type MessageRole,
 } from "../lib/directMessages";
 
+function DmSettingSwitch({
+    label,
+    checked,
+    disabled,
+    onChange,
+}: {
+    label: string;
+    checked: boolean;
+    disabled: boolean;
+    onChange: (checked: boolean) => void;
+}) {
+    return (
+        <label className="flex min-h-14 cursor-pointer items-center justify-between gap-4 py-3 has-[:disabled]:cursor-not-allowed">
+            <span className="min-w-0 text-sm font-semibold text-[#17202b]">
+                {label}
+            </span>
+            <span className="relative inline-flex shrink-0 items-center">
+                <input
+                    type="checkbox"
+                    role="switch"
+                    checked={checked}
+                    disabled={disabled}
+                    onChange={(event) => onChange(event.target.checked)}
+                    className="peer sr-only"
+                />
+                <span
+                    aria-hidden="true"
+                    className="h-7 w-12 rounded-full bg-[#ded4c5] transition peer-checked:bg-[#17202b] peer-disabled:opacity-50 peer-focus-visible:outline peer-focus-visible:outline-2 peer-focus-visible:outline-offset-2 peer-focus-visible:outline-[#b5894d]"
+                />
+                <span
+                    aria-hidden="true"
+                    className="pointer-events-none absolute left-1 h-5 w-5 rounded-full bg-white shadow-[0_2px_8px_rgba(23,32,43,0.22)] transition peer-checked:translate-x-5 peer-disabled:opacity-50"
+                />
+            </span>
+        </label>
+    );
+}
+
 export function DirectMessagesPage({ role }: { role: MessageRole }) {
     const { token } = useAuth();
     const location = useLocation();
@@ -153,75 +191,57 @@ export function DirectMessagesPage({ role }: { role: MessageRole }) {
                 </div>
                 {settingsOpen && (
                     <div className="space-y-3 border-t border-slate-100 pt-3">
-                        <p className="text-sm text-slate-600">
-                            {role === "user"
-                                ? "予約前の質問などを、キャストとやり取りできます。"
-                                : "利用者から届いた相談に、キャストとして返信できます。"}
-                        </p>
                         {settings && (
-                            <div className="rounded-xl bg-[#faf5ee] p-4 text-sm">
+                            <div className="rounded-2xl border border-slate-200 bg-white px-4">
                                 {!settings.enabled && (
-                                    <p>
+                                    <p className="pt-3 text-xs leading-5 text-slate-500">
                                         DMの新規受付・送信は現在停止しています。
                                     </p>
                                 )}
                                 {role === "therapist" && (
-                                    <label className="mb-3 flex min-h-11 items-center gap-3">
-                                        <input
-                                            type="checkbox"
+                                    <div className="border-b border-[#efe5d7] pb-3">
+                                        <DmSettingSwitch
+                                            label="新しいDMの受付"
                                             checked={
                                                 !!settings.consultation_enabled
                                             }
                                             disabled={
                                                 saving || !settings.enabled
                                             }
-                                            onChange={(e) =>
+                                            onChange={(checked) =>
                                                 void updateSettings({
                                                     consultation_enabled:
-                                                        e.target.checked,
+                                                        checked,
                                                 })
                                             }
                                         />
-                                        新しいDMの受付：
-                                        {settings.consultation_enabled
-                                            ? "ON"
-                                            : "OFF"}
-                                    </label>
+                                        <p className="text-xs leading-5 text-[#68707a]">
+                                            予約の受付とは別の設定です。オフにしても、開始済みのDMは続けられます。
+                                        </p>
+                                    </div>
                                 )}
-                                {role === "therapist" && (
-                                    <p className="mb-3 text-xs text-slate-600">
-                                        予約の受付とは別の設定です。OFFに戻しても、開始済みのDMは続けられます。
-                                    </p>
-                                )}
-                                <label className="flex min-h-10 items-center gap-2">
-                                    <input
-                                        type="checkbox"
+                                <div className="divide-y divide-[#efe5d7]">
+                                    <DmSettingSwitch
+                                        label="メール通知"
                                         checked={settings.email_enabled}
                                         disabled={saving}
-                                        onChange={(e) =>
+                                        onChange={(checked) =>
                                             void updateSettings({
-                                                email_enabled: e.target.checked,
+                                                email_enabled: checked,
                                             })
                                         }
                                     />
-                                    この役割のDMをメールで知らせる
-                                </label>
-                                <label className="flex min-h-10 items-center gap-2">
-                                    <input
-                                        type="checkbox"
+                                    <DmSettingSwitch
+                                        label="プッシュ通知"
                                         checked={settings.push_enabled}
                                         disabled={saving}
-                                        onChange={(e) =>
+                                        onChange={(checked) =>
                                             void updateSettings({
-                                                push_enabled: e.target.checked,
+                                                push_enabled: checked,
                                             })
                                         }
                                     />
-                                    この役割のDMをプッシュ通知する
-                                </label>
-                                <p className="mt-1 text-xs text-slate-500">
-                                    通知に相手の名前・文章・画像は表示されません。
-                                </p>
+                                </div>
                             </div>
                         )}
                         <RoleBlocks role={role} />
