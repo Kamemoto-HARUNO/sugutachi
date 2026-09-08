@@ -62,7 +62,7 @@ export function MessagesPage({ role }: { role: MessageRole }) {
                 {role === "user" ? "利用者" : "タチキャスト"}としてのメッセージ
             </h1>
             <div
-                className="flex gap-2"
+                className="flex gap-2 rounded-2xl border border-white/15 bg-white/5 p-1.5"
                 role="tablist"
                 aria-label="メッセージの種類"
             >
@@ -77,10 +77,21 @@ export function MessagesPage({ role }: { role: MessageRole }) {
                         role="tab"
                         aria-selected={tab === value}
                         onClick={() => setParams({ tab: value })}
-                        className={`min-h-11 rounded-full px-5 py-2 text-sm font-semibold ${tab === value ? "bg-[#17202b] text-white" : "border border-[#ddcfb4] bg-white text-slate-900"}`}
+                        className={`inline-flex min-h-12 flex-1 items-center justify-center gap-2 rounded-xl border px-3 py-3 text-sm transition-colors focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e5c576] ${tab === value ? "border-[#e5c576] bg-[#f3dec0] font-bold text-[#17202b] shadow-sm" : "border-transparent bg-transparent font-medium text-slate-300 hover:bg-white/10 hover:text-white"}`}
                     >
-                        {label}
-                        {counts[value] > 0 ? `（${counts[value]}）` : ""}
+                        <span aria-hidden="true" className="h-4 w-4 shrink-0">
+                            {tab === value && (
+                                <svg viewBox="0 0 20 20" fill="currentColor" className="h-4 w-4">
+                                    <path fillRule="evenodd" d="M10 1a9 9 0 1 0 0 18 9 9 0 0 0 0-18Zm4.28 6.22a.75.75 0 0 1 0 1.06l-5 5a.75.75 0 0 1-1.06 0l-2.5-2.5a.75.75 0 1 1 1.06-1.06l1.97 1.97 4.47-4.47a.75.75 0 0 1 1.06 0Z" clipRule="evenodd" />
+                                </svg>
+                            )}
+                        </span>
+                        <span>{label}</span>
+                        {counts[value] > 0 && (
+                            <span className={`rounded-full px-2 py-0.5 text-xs font-bold ${tab === value ? "bg-[#17202b] text-white" : "bg-white/15 text-white"}`}>
+                                {counts[value]}
+                            </span>
+                        )}
                     </button>
                 ))}
             </div>
