@@ -1,3 +1,6 @@
+import { MessageComposer } from "../components/messages/MessageComposer";
+import { prepareBookingMessageImage } from "../lib/bookingMessageImages";
+import type { ChangeEvent } from "react";
 import { usePageTitle } from "../hooks/usePageTitle";
 import {
     getDirectMessageDraft,
@@ -245,6 +248,13 @@ function DirectMessageConversation({
     const [file, setFile] = useState<File | null>(
         () => getDirectMessageDraft(draftKey)?.file ?? null,
     );
+    const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const imagePreparationRequest = useRef(0);
+    const [isPreparingImage, setIsPreparingImage] = useState(false);
+    const [imageOriginalSize, setImageOriginalSize] = useState<number | null>(
+        null,
+    );
+    const [imageWasOptimized, setImageWasOptimized] = useState(false);
     const [imagePreview, setImagePreview] = useState<string | null>(null);
     const [sendKey, setSendKey] = useState(
         () => getDirectMessageDraft(draftKey)?.sendKey ?? crypto.randomUUID(),
@@ -419,8 +429,67 @@ function DirectMessageConversation({
         },
         [token, threadId, role],
     );
+    function clearSelectedImage() {
+        imagePreparationRequest.current += 1;
+        setFile(null);
+        setImageOriginalSize(null);
+        setImageWasOptimized(false);
+        setIsPreparingImage(false);
+        setSendKey(crypto.randomUUID());
+        if (fileInputRef.current) fileInputRef.current.value = "";
+    }
+    async function handleImageChange(event: ChangeEvent<HTMLInputElement>) {
+        const selected = event.target.files?.[0];
+        event.target.value = "";
+        if (!selected || busy || (thread && !thread.can_send)) return;
+        clearSelectedImage();
+        const requestId = imagePreparationRequest.current;
+        setError("");
+        setIsPreparingImage(true);
+        try {
+            const prepared = await prepareBookingMessageImage(selected);
+            if (!alive.current || imagePreparationRequest.current !== requestId)
+                return;
+            setFile(prepared.file);
+            setImageOriginalSize(prepared.originalSizeBytes);
+            setImageWasOptimized(prepared.wasOptimized);
+        } catch (e) {
+            if (alive.current && imagePreparationRequest.current === requestId)
+                setError(
+                    e instanceof Error
+                        ? e.message
+                        : "画像の準備に失敗しました。",
+                );
+        } finally {
+            if (alive.current && imagePreparationRequest.current === requestId)
+                setIsPreparingImage(false);
+        }
+    }
+    function changeBody(value: string) {
+        setBody(value);
+        setSendKey(crypto.randomUUID());
+        if (threadId && Date.now() - typingAt.current > 3000) {
+            typingAt.current = Date.now();
+            void apiRequest(`${dmBase(role)}/${threadId}/typing`, {
+                token,
+                method: "POST",
+                body: { is_typing: !!value },
+            }).catch(() => {});
+        }
+    }
     async function send() {
-        if (!token || busy || (!body.trim() && !file)) return;
+        if (
+            !token ||
+            busy ||
+            isPreparingImage ||
+            (thread && !thread.can_send) ||
+            (!body.trim() && !file)
+        )
+            return;
+        if (body.trim() && file) {
+            setError("画像とテキストは別々に送信してください。");
+            return;
+        }
         setBusy(true);
         setError("");
         const form = new FormData();
@@ -445,8 +514,7 @@ function DirectMessageConversation({
                 sendKey: "",
             });
             setBody("");
-            setFile(null);
-            setSendKey(crypto.randomUUID());
+            clearSelectedImage();
             dmChanged();
             if (!threadId)
                 navigate(`${dmBase(role)}/${sent.data.thread.public_id}`, {
@@ -539,7 +607,9 @@ function DirectMessageConversation({
                 </p>
                 <div className="mt-3 flex items-center gap-3">
                     {participants && (
-                        <CounterpartyAvatar participant={participants.counterparty} />
+                        <CounterpartyAvatar
+                            participant={participants.counterparty}
+                        />
                     )}
                     <h1 className="min-w-0 break-words text-xl font-semibold">
                         {participants
@@ -680,97 +750,20 @@ function DirectMessageConversation({
                         }}
                         className="space-y-3 rounded-2xl border bg-white p-4"
                     >
-                        <p className="text-xs font-semibold">
-                            {role === "user" ? "利用者" : "タチキャスト"}「
-                            {participants.self.display_name}」として送信
-                        </p>
-                        <label className="block text-sm">
-                            メッセージ
-                            <textarea
-                                rows={3}
-                                maxLength={1000}
-                                disabled={busy || !!file}
-                                value={body}
-                                onChange={(e) => {
-                                    setBody(e.target.value);
-                                    setSendKey(crypto.randomUUID());
-                                    if (
-                                        threadId &&
-                                        Date.now() - typingAt.current > 3000
-                                    ) {
-                                        typingAt.current = Date.now();
-                                        void apiRequest(
-                                            `${dmBase(role)}/${threadId}/typing`,
-                                            {
-                                                token,
-                                                method: "POST",
-                                                body: {
-                                                    is_typing: !!e.target.value,
-                                                },
-                                            },
-                                        ).catch(() => {});
-                                    }
-                                }}
-                                placeholder="予約前に確認したいことなど"
-                                className="mt-2 w-full rounded-xl border p-3"
-                            />
-                        </label>
-                        {imagePreview && (
-                            <div>
-                                <img
-                                    src={imagePreview}
-                                    alt="送信前の画像プレビュー"
-                                    className="max-h-48 rounded-xl"
-                                />
-                                <button
-                                    type="button"
-                                    disabled={busy}
-                                    onClick={() => {
-                                        setFile(null);
-                                        setSendKey(crypto.randomUUID());
-                                    }}
-                                    className="min-h-11 text-sm underline"
-                                >
-                                    画像を外す
-                                </button>
-                            </div>
-                        )}
-                        <div className="flex flex-wrap items-center justify-between gap-3">
-                            <label className="min-h-11 cursor-pointer rounded-full border px-4 py-3 text-sm">
-                                画像を選ぶ
-                                <input
-                                    type="file"
-                                    accept="image/jpeg,image/png,image/webp"
-                                    disabled={busy || !!body.trim()}
-                                    className="sr-only"
-                                    onChange={(e) => {
-                                        const selected = e.target.files?.[0];
-                                        if (
-                                            selected &&
-                                            selected.size > 10 * 1024 * 1024
-                                        ) {
-                                            setError(
-                                                "画像は10MB以下にしてください。",
-                                            );
-                                            return;
-                                        }
-                                        setFile(selected ?? null);
-                                        setSendKey(crypto.randomUUID());
-                                        e.target.value = "";
-                                    }}
-                                />
-                            </label>
-                            <button
-                                type="submit"
-                                disabled={busy || (!body.trim() && !file)}
-                                className="min-h-11 rounded-full bg-[#17202b] px-7 py-3 text-sm text-white disabled:opacity-50"
-                            >
-                                {busy ? "送信中…" : "送信する"}
-                            </button>
-                        </div>
-                        <p className="text-xs text-slate-500">
-                            画像は1枚10MBまで。文章と画像は別々に送信できます。
-                        </p>
+                        <MessageComposer
+                            draft={body}
+                            onDraftChange={changeBody}
+                            placeholder="予約前に確認したいことなどを入力"
+                            fileInputRef={fileInputRef}
+                            handleImageChange={handleImageChange}
+                            selectedImage={file}
+                            selectedImagePreviewUrl={imagePreview}
+                            selectedImageOriginalSizeBytes={imageOriginalSize}
+                            selectedImageWasOptimized={imageWasOptimized}
+                            clearSelectedImage={clearSelectedImage}
+                            isSending={busy}
+                            isPreparingImage={isPreparingImage}
+                        />
                     </form>
                 )
             )}

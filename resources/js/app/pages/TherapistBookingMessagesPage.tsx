@@ -1,3 +1,4 @@
+import { MessageComposer } from '../components/messages/MessageComposer';
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
@@ -6,7 +7,7 @@ import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { notifyBookingMessageSummaryChanged } from '../lib/bookingMessages';
-import { formatFileSize, prepareBookingMessageImage } from '../lib/bookingMessageImages';
+import { prepareBookingMessageImage } from '../lib/bookingMessageImages';
 import { formatJstDateTime } from '../lib/datetime';
 import { getServiceAddressLabel } from '../lib/discovery';
 import type {
@@ -117,24 +118,6 @@ function stageHint(status: string): string {
         default:
             return '予約状況に応じた連絡履歴を確認できます。';
     }
-}
-
-function PhotoIcon() {
-    return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-            <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h2.2l1.1 1.4c.28.36.71.56 1.16.56h6.6A2.5 2.5 0 0 1 20 9.5v8A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5v-10Z" />
-            <path d="M9.5 13a2.5 2.5 0 1 0 5 0a2.5 2.5 0 0 0-5 0Z" />
-        </svg>
-    );
-}
-
-function SendIcon() {
-    return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-            <path d="m4 20 16-8L4 4l3.4 8L20 12" />
-            <path d="M7.4 12H20" />
-        </svg>
-    );
 }
 
 function CloseIcon() {
@@ -856,92 +839,20 @@ export function TherapistBookingMessagesPage() {
 
                     {canSendMessages ? (
                         <form onSubmit={handleSendMessage} className="mt-6 space-y-3 border-t border-[#efe5d7] pt-5">
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
-                                className="hidden"
-                                onChange={handleImageChange}
+                            <MessageComposer
+                                draft={draft}
+                                onDraftChange={setDraft}
+                                placeholder="到着予定や入室方法などを入力"
+                                fileInputRef={fileInputRef}
+                                handleImageChange={handleImageChange}
+                                selectedImage={selectedImage}
+                                selectedImagePreviewUrl={selectedImagePreviewUrl}
+                                selectedImageOriginalSizeBytes={selectedImageOriginalSizeBytes}
+                                selectedImageWasOptimized={selectedImageWasOptimized}
+                                clearSelectedImage={clearSelectedImage}
+                                isSending={isSending}
+                                isPreparingImage={isPreparingImage}
                             />
-
-                            {isPreparingImage ? (
-                                <div className="flex items-center gap-3 rounded-[20px] bg-[#fff7ea] px-3 py-3 text-sm text-[#48505a]">
-                                    <span className="h-10 w-10 animate-spin rounded-full border-2 border-[#d2b179]/35 border-t-[#b5894d]" />
-                                    <div>
-                                        <p className="font-semibold text-[#17202b]">画像を送信向けに調整しています</p>
-                                        <p className="text-xs text-[#7a7066]">サイズが大きい画像は自動で縮小・圧縮します。</p>
-                                    </div>
-                                </div>
-                            ) : null}
-
-                            {selectedImage && selectedImagePreviewUrl ? (
-                                <div className="flex items-center gap-3 rounded-[20px] bg-[#fff7ea] px-3 py-3 text-sm text-[#48505a]">
-                                    <img src={selectedImagePreviewUrl} alt={selectedImage.name} className="h-14 w-14 rounded-[14px] object-cover" />
-                                    <div className="min-w-0 flex-1">
-                                        <p className="truncate font-semibold text-[#17202b]">{selectedImage.name}</p>
-                                        <p className="text-xs text-[#7a7066]">
-                                            {selectedImageWasOptimized && selectedImageOriginalSizeBytes
-                                                ? `${formatFileSize(selectedImageOriginalSizeBytes)} → ${formatFileSize(selectedImage.size)} に自動圧縮`
-                                                : `${formatFileSize(selectedImage.size)} / 画像は1枚ずつ送信`}
-                                        </p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={clearSelectedImage}
-                                        className="rounded-full border border-[#d9c9ae] px-3 py-1 text-xs font-semibold text-[#17202b] transition hover:bg-[#fff1df]"
-                                    >
-                                        取り消す
-                                    </button>
-                                </div>
-                            ) : null}
-
-                            <div className="flex items-end gap-3 rounded-[24px] border border-[#e4d7c2] bg-[#fffaf3] px-3 py-3">
-                                <button
-                                    type="button"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    disabled={isSending || isPreparingImage}
-                                    className={[
-                                        'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition',
-                                        selectedImage
-                                            ? 'bg-[#d2b179] text-[#17202b]'
-                                            : 'bg-[#f1e7d8] text-[#6f5a43] hover:bg-[#e8dcc9]',
-                                    ].join(' ')}
-                                    aria-label="画像を選択"
-                                >
-                                    <PhotoIcon />
-                                </button>
-
-                                <div className="min-w-0 flex-1">
-                                    <textarea
-                                        id="therapist-message-body"
-                                        value={draft}
-                                        onChange={(event) => {
-                                            setDraft(event.target.value);
-                                        }}
-                                        rows={1}
-                                        maxLength={1000}
-                                        placeholder="到着予定や入室方法などを入力"
-                                        className="min-h-11 w-full resize-none bg-transparent px-1 py-2 text-sm leading-6 text-[#17202b] outline-none placeholder:text-[#9b8c78]"
-                                    />
-                                </div>
-
-                                <button
-                                    type="submit"
-                                    disabled={isSending || isPreparingImage || (!draft.trim() && !selectedImage)}
-                                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#17202b] text-white transition hover:bg-[#243447] disabled:cursor-not-allowed disabled:opacity-60"
-                                    aria-label="送信"
-                                >
-                                    {isSending ? (
-                                        <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                                    ) : (
-                                        <SendIcon />
-                                    )}
-                                </button>
-                            </div>
-
-                            <div className="px-1 text-right text-xs text-[#68707a]">
-                                {draft.length}/1000
-                            </div>
 
                             <div className="flex items-start gap-2 px-1 text-xs text-[#68707a]">
                                 <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#f1e7d8] text-[10px] font-bold text-[#8b6a3e]">
