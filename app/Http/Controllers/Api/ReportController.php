@@ -108,6 +108,7 @@ class ReportController extends Controller
         if ($booking) {
             $this->authorizeBookingParticipant($booking, $request->user());
             $this->assertReportTargetBelongsToBooking($booking, $target);
+            $target ??= $booking->user_account_id === $request->user()->id ? $booking->therapistAccount : $booking->userAccount;
         }
 
         abort_if($target && $target->id === $request->user()->id, 422, '自分自身を通報することはできません。');
@@ -116,6 +117,7 @@ class ReportController extends Controller
             'public_id' => 'rep_'.Str::ulid(),
             'booking_id' => $booking?->id,
             'reporter_account_id' => $request->user()->id,
+            'reporter_role' => $booking?->messageParticipantRoleForAccountId($request->user()->id),
             'target_account_id' => $target?->id,
             'category' => $validated['category'],
             'severity' => $validated['severity'] ?? Report::SEVERITY_MEDIUM,

@@ -113,7 +113,7 @@ class BookingSafetyTest extends TestCase
             ->assertJsonPath('data.booking.interruption_reason_code', 'safety_concern')
             ->assertJsonPath('data.booking.current_payment_intent.status', PaymentIntent::STRIPE_STATUS_CANCELED)
             ->assertJsonPath('data.report.category', 'booking_interrupted')
-            ->assertJsonPath('data.report.target_account_id', $user->public_id)
+            ->assertJsonPath('data.report.target_profile.public_id', $user->userProfile->public_id)
             ->assertJsonPath('data.interruption.payment_action', 'void_authorization');
 
         $this->assertDatabaseHas('bookings', [
@@ -367,6 +367,7 @@ class BookingSafetyTest extends TestCase
         bool $withPaymentIntent = false,
     ): array {
         $user = Account::factory()->create(['public_id' => 'acc_user_safety_'.fake()->unique()->numerify('###')]);
+        $user->userProfile()->firstOrCreate(['account_id' => $user->id]);
         $therapist = Account::factory()->create(['public_id' => 'acc_therapist_safety_'.fake()->unique()->numerify('###')]);
 
         $therapistProfile = TherapistProfile::create([
@@ -471,8 +472,7 @@ class BookingSafetyTest extends TestCase
                 ?int $amountToCapture = null,
                 ?int $applicationFeeAmount = null,
                 ?int $transferAmount = null,
-            ): string
-            {
+            ): string {
                 $this->gatewayState->capturedStripeIds[] = $paymentIntent->stripe_payment_intent_id;
 
                 return PaymentIntent::STRIPE_STATUS_SUCCEEDED;

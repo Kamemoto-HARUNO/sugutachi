@@ -101,7 +101,7 @@ class BookingCancellationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.booking.status', Booking::STATUS_CANCELED)
             ->assertJsonPath('data.booking.canceled_by_role', 'user')
-            ->assertJsonPath('data.booking.canceled_by_account.public_id', $user->public_id)
+            ->assertJsonPath('data.booking.canceled_by_profile.public_id', $user->userProfile->public_id)
             ->assertJsonPath('data.booking.current_payment_intent.status', PaymentIntent::STRIPE_STATUS_SUCCEEDED)
             ->assertJsonPath('data.booking.refund_breakdown.refund_count', 1)
             ->assertJsonPath('data.booking.refund_breakdown.auto_refund_count', 1)
@@ -235,7 +235,7 @@ class BookingCancellationTest extends TestCase
             ->assertJsonPath('data.booking.cancel_reason_code', 'therapist_unavailable')
             ->assertJsonPath('data.booking.cancel_reason_note', '急な体調不良のため、本日のご案内が難しくなりました。')
             ->assertJsonPath('data.booking.canceled_by_role', 'therapist')
-            ->assertJsonPath('data.booking.canceled_by_account.public_id', $therapist->public_id)
+            ->assertJsonPath('data.booking.canceled_by_profile.public_id', $therapist->therapistProfile->public_id)
             ->assertJsonPath('data.booking.current_payment_intent.status', PaymentIntent::STRIPE_STATUS_CANCELED)
             ->assertJsonPath('data.booking.refund_breakdown.refund_count', 0);
 
@@ -282,7 +282,7 @@ class BookingCancellationTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.cancel_reason_note', '急な体調不良のため、本日のご案内が難しくなりました。')
             ->assertJsonPath('data.canceled_by_role', 'therapist')
-            ->assertJsonPath('data.canceled_by_account.public_id', $therapist->public_id)
+            ->assertJsonPath('data.canceled_by_profile.public_id', $therapist->therapistProfile->public_id)
             ->assertJsonPath('data.current_payment_intent.status', PaymentIntent::STRIPE_STATUS_CANCELED)
             ->assertJsonPath('data.refund_breakdown.refund_count', 0);
     }
@@ -337,6 +337,7 @@ class BookingCancellationTest extends TestCase
         bool $withPaymentIntent = false,
     ): array {
         $user = Account::factory()->create(['public_id' => 'acc_user_cancel']);
+        $user->userProfile()->firstOrCreate(['account_id' => $user->id]);
         $therapist = Account::factory()->create(['public_id' => 'acc_therapist_cancel']);
 
         $therapistProfile = TherapistProfile::create([
@@ -430,8 +431,7 @@ class BookingCancellationTest extends TestCase
                 ?int $amountToCapture = null,
                 ?int $applicationFeeAmount = null,
                 ?int $transferAmount = null,
-            ): string
-            {
+            ): string {
                 $this->gatewayState->capturedStripeIds[] = $paymentIntent->stripe_payment_intent_id;
 
                 return PaymentIntent::STRIPE_STATUS_SUCCEEDED;

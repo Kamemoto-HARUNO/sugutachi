@@ -7,8 +7,9 @@ use App\Http\Resources\BookingResource;
 use App\Http\Resources\PaymentIntentResource;
 use App\Models\Booking;
 use App\Models\PaymentIntent;
-use App\Services\Campaigns\CampaignService;
 use App\Services\Bookings\ScheduledBookingPolicy;
+use App\Services\Campaigns\CampaignService;
+use App\Services\DirectMessages\RelationshipPolicy;
 use App\Services\Notifications\BookingNotificationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
@@ -81,7 +82,8 @@ class PaymentSyncController extends Controller
 
         $status = (string) ($stripePaymentIntent->status ?? $currentPaymentIntent->status);
 
-        DB::transaction(function () use ($booking, $status, $scheduledBookingPolicy, $bookingNotificationService): void {
+        DB::transaction(function () use ($booking, $status, $scheduledBookingPolicy, $bookingNotificationService, $campaignService): void {
+            app(RelationshipPolicy::class)->lock($booking->user_account_id, $booking->therapist_account_id);
             $lockedBooking = Booking::query()
                 ->whereKey($booking->id)
                 ->lockForUpdate()

@@ -87,6 +87,7 @@ function MobileMenuButton({
 export function DashboardLayout({ role, description, navItems }: DashboardLayoutProps) {
     const { logout, token } = useAuth();
     const location = useLocation();
+    const isMessagesPage = /^\/(user|therapist)\/(messages|direct-messages)(\/|$)/.test(location.pathname);
     const [therapistPublicId, setTherapistPublicId] = useState<string | null>(null);
     const [therapistDashboardCampaigns, setTherapistDashboardCampaigns] = useState<PublicCampaignRecord[]>([]);
     const headerRef = useRef<HTMLElement | null>(null);
@@ -389,10 +390,10 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
 
                                     <div className="space-y-3">
                                         <h1 className="max-w-[16ch] text-[2.2rem] font-semibold leading-[1.4] text-white sm:max-w-[20ch] sm:text-[2.5rem] xl:max-w-none xl:whitespace-nowrap">
-                                            ダッシュボード
+                                            {isMessagesPage ? 'メッセージ' : 'ダッシュボード'}
                                         </h1>
                                         <p className="max-w-3xl text-sm leading-7 text-slate-300 sm:text-[0.95rem]">
-                                            {description}
+                                            {isMessagesPage ? `${role === 'therapist' ? 'タチキャスト' : '利用者'}としてのDMと予約の連絡を確認できます。` : description}
                                         </p>
                                     </div>
                                 </div>

@@ -27,7 +27,8 @@ class StripeRefundGateway implements RefundGateway
                 'booking_id' => (string) $refund->booking_id,
                 'payment_intent_id' => (string) $paymentIntent->id,
             ],
-        ]);
+            ...($refund->reason_code === 'therapist_relationship_block' && $paymentIntent->stripe_connected_account_id ? ['reverse_transfer' => true, 'refund_application_fee' => true] : []),
+        ], ['idempotency_key' => 'refund:'.$refund->public_id]);
 
         return new CreatedRefund(
             id: $stripeRefund->id,

@@ -11,6 +11,7 @@ use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class RefundRequestController extends Controller
@@ -37,6 +38,7 @@ class RefundRequestController extends Controller
     {
         abort_unless($booking->user_account_id === $request->user()->id, 404);
         abort_unless(in_array($booking->status, self::REFUNDABLE_BOOKING_STATUSES, true), 409, 'この予約は、まだ返金申請を受け付けられません。');
+        abort_if(DB::table('block_booking_actions')->where('booking_id', $booking->id)->where('status', '!=', 'resolved')->exists(), 409, 'この予約の精算は運営が確認しています。');
         abort_if($booking->isFreeBooking(), 409, '無料予約では返金申請は利用できません。');
 
         $validated = $request->validate([

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\DirectMessages\ParticipantPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Crypt;
@@ -17,10 +18,7 @@ class TherapistTravelRequestResource extends JsonResource
             'status' => $this->status,
             'read_at' => $this->read_at,
             'archived_at' => $this->archived_at,
-            'sender' => $this->whenLoaded('userAccount', fn () => [
-                'public_id' => $this->userAccount?->public_id,
-                'display_name' => $this->userAccount?->display_name,
-            ]),
+            'sender' => $this->userAccount ? app(ParticipantPresenter::class)->present($this->userAccount, 'user') : null,
             'therapist_profile_id' => $this->whenLoaded('therapistProfile', fn () => $this->therapistProfile?->public_id),
             'created_at' => $this->created_at,
         ];

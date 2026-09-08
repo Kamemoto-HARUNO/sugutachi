@@ -12,7 +12,7 @@ class BookingConsentResource extends JsonResource
         return [
             'id' => $this->id,
             'booking_public_id' => $this->whenLoaded('booking', fn () => $this->booking?->public_id),
-            'account_id' => $this->whenLoaded('account', fn () => $this->account?->public_id),
+            'account_id' => $this->when($this->account_id === $request->user()?->id, fn () => $request->user()->public_id),
             'consent_type' => $this->consent_type,
             'legal_document_public_id' => $this->whenLoaded('legalDocument', fn () => $this->legalDocument?->public_id),
             'legal_document_type' => $this->whenLoaded('legalDocument', fn () => $this->legalDocument?->document_type),

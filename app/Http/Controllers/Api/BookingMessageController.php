@@ -8,12 +8,15 @@ use App\Models\Account;
 use App\Models\Booking;
 use App\Models\BookingMessage;
 use App\Services\Bookings\BookingMessageTypingService;
+use App\Services\DirectMessages\ParticipantPresenter;
+use App\Services\DirectMessages\RelationshipPolicy;
 use App\Services\Notifications\BookingNotificationService;
 use App\Support\ContactExchangeDetector;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -26,8 +29,7 @@ class BookingMessageController extends Controller
         Request $request,
         Booking $booking,
         BookingMessageTypingService $bookingMessageTypingService,
-    ): AnonymousResourceCollection
-    {
+    ): AnonymousResourceCollection {
         $actor = $this->authenticatedActor($request);
         $this->authorizeMessageThreadView($booking, $actor);
         $validated = $request->validate([
@@ -77,8 +79,7 @@ class BookingMessageController extends Controller
         ContactExchangeDetector $detector,
         BookingMessageTypingService $bookingMessageTypingService,
         BookingNotificationService $bookingNotificationService,
-    ): JsonResponse
-    {
+    ): JsonResponse {
         $actor = $this->authenticatedActor($request);
         $this->authorizeMessageThreadWrite($booking, $actor);
 
@@ -218,8 +219,7 @@ class BookingMessageController extends Controller
         Request $request,
         Booking $booking,
         BookingMessageTypingService $bookingMessageTypingService,
-    ): JsonResponse
-    {
+    ): JsonResponse {
         $actor = $this->authenticatedActor($request);
         $this->authorizeMessageThreadWrite($booking, $actor);
 
@@ -247,9 +247,13 @@ class BookingMessageController extends Controller
         $this->authorizeMessageThreadView($booking, $actor);
         abort_unless($message->booking_id === $booking->id, 404);
 
-        if (! $message->read_at && $message->sender_account_id !== $actor->id) {
-            $message->forceFill(['read_at' => now()])->save();
-        }
+        DB::transaction(function () use ($booking, $actor, $message) {
+            $policy = app(RelationshipPolicy::class);
+            $policy->lock($booking->user_account_id, $booking->therapist_account_id);
+            if (! $policy->blocked($booking->user_account_id, $booking->therapist_account_id) && ! $message->read_at && $message->sender_account_id !== $actor->id) {
+                $message->forceFill(['read_at' => now()])->save();
+            }
+        });
 
         $message = $message->refresh()->load(['booking', 'sender']);
         $message->setAttribute('viewer_account_id', $actor->id);
@@ -309,31 +313,10 @@ class BookingMessageController extends Controller
 
     private function counterparty(Booking $booking, Account $actor): ?array
     {
-        if ($booking->user_account_id === $actor->id) {
-            return $booking->therapistAccount
-                ? [
-                    'role' => 'therapist',
-                    'public_id' => $booking->therapistAccount->public_id,
-                    'display_name' => $booking->therapistProfile?->public_name ?? $booking->therapistAccount->display_name,
-                    'account_status' => $booking->therapistAccount->status,
-                    'therapist_profile_public_id' => $booking->therapistProfile?->public_id,
-                ]
-                : null;
-        }
+        $role = $booking->user_account_id === $actor->id ? 'therapist' : 'user';
+        $account = $role === 'therapist' ? $booking->therapistAccount : $booking->userAccount;
 
-        if ($booking->therapist_account_id === $actor->id) {
-            return $booking->userAccount
-                ? [
-                    'role' => 'user',
-                    'public_id' => $booking->userAccount->public_id,
-                    'display_name' => $booking->userAccount->display_name,
-                    'account_status' => $booking->userAccount->status,
-                    'therapist_profile_public_id' => null,
-                ]
-                : null;
-        }
-
-        return null;
+        return $account ? app(ParticipantPresenter::class)->present($account, $role) : null;
     }
 
     private function attachmentResponse(BookingMessage $message, string $cacheControl): StreamedResponse

@@ -13,7 +13,7 @@ class BookingHealthCheckResource extends JsonResource
         return [
             'id' => $this->id,
             'booking_public_id' => $this->whenLoaded('booking', fn () => $this->booking?->public_id),
-            'account_id' => $this->whenLoaded('account', fn () => $this->account?->public_id),
+            'account_id' => $this->when($this->account_id === $request->user()?->id, fn () => $request->user()->public_id),
             'role' => $this->role,
             'drinking_status' => $this->drinking_status,
             'has_injury' => $this->has_injury,

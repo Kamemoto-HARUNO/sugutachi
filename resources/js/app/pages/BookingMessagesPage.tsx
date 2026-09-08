@@ -4,13 +4,12 @@ import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
-import { formatRoleLabel, getActiveRoles } from '../lib/account';
+import { formatRoleLabel } from '../lib/account';
 import { ApiError } from '../lib/api';
 import {
     type BookingInboxRecord,
     buildBookingMessagesDetailPath,
     fetchBookingInboxThreads,
-    getBookingInboxRoles,
 } from '../lib/bookingMessages';
 import { formatJstDateTime } from '../lib/datetime';
 import { getServiceAddressLabel } from '../lib/discovery';
@@ -104,15 +103,15 @@ function latestMessagePreview(
     return excerpt;
 }
 
-export function BookingMessagesPage() {
-    const { account, token } = useAuth();
+export function BookingMessagesPage({role}: {role: 'user' | 'therapist'}) {
+    const { token } = useAuth();
     const [bookings, setBookings] = useState<BookingInboxRecord[]>([]);
     const [error, setError] = useState<string | null>(null);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
     const availableInboxRoles = useMemo(
-        () => getBookingInboxRoles(getActiveRoles(account)),
-        [account],
+        () => [role],
+        [role],
     );
     const showRoleBadge = availableInboxRoles.length > 1;
 
@@ -171,7 +170,7 @@ export function BookingMessagesPage() {
         });
 
     if (isLoading) {
-        return <LoadingScreen title="メッセージ一覧を読み込み中" message="利用者・タチキャスト両方の連絡履歴を確認しています。" />;
+        return <LoadingScreen title="メッセージ一覧を読み込み中" message="この役割の予約の連絡を確認しています。" />;
     }
 
     return (

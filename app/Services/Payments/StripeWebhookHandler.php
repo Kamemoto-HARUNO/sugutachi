@@ -10,8 +10,9 @@ use App\Models\StripeConnectedAccount;
 use App\Models\StripeDispute;
 use App\Models\StripeWebhookEvent;
 use App\Models\TherapistLedgerEntry;
-use App\Services\Campaigns\CampaignService;
 use App\Services\Bookings\ScheduledBookingPolicy;
+use App\Services\Campaigns\CampaignService;
+use App\Services\DirectMessages\RelationshipPolicy;
 use App\Services\Notifications\BookingNotificationService;
 use Carbon\CarbonImmutable;
 use Illuminate\Support\Facades\DB;
@@ -135,7 +136,6 @@ class StripeWebhookHandler
         $paymentIntent = PaymentIntent::query()
             ->with('booking')
             ->where('stripe_payment_intent_id', (string) $stripePaymentIntent['id'])
-            ->lockForUpdate()
             ->first();
 
         if (! $paymentIntent) {
@@ -146,6 +146,9 @@ class StripeWebhookHandler
             throw new RuntimeException("PaymentIntent [{$stripePaymentIntent['id']}] was not found.");
         }
 
+        app(RelationshipPolicy::class)->lock($paymentIntent->booking->user_account_id, $paymentIntent->booking->therapist_account_id);
+        Booking::whereKey($paymentIntent->booking_id)->lockForUpdate()->firstOrFail();
+        $paymentIntent = PaymentIntent::whereKey($paymentIntent->id)->lockForUpdate()->firstOrFail();
         $this->assertPaymentIntentMatches($paymentIntent, $stripePaymentIntent);
 
         $status = (string) ($stripePaymentIntent['status'] ?? $this->fallbackPaymentIntentStatus($eventType));
@@ -229,7 +232,7 @@ class StripeWebhookHandler
             $amount = (int) ($stripeRefund['amount'] ?? $charge['amount_refunded'] ?? 0);
             $refund = Refund::query()
                 ->where('stripe_refund_id', (string) $stripeRefund['id'])
-                ->first() ?? new Refund([
+                ->first() ?? (filled($stripeRefund['metadata']['refund_public_id'] ?? null) ? Refund::where('public_id', $stripeRefund['metadata']['refund_public_id'])->where('payment_intent_id', $paymentIntent->id)->first() : null) ?? new Refund([
                     'public_id' => 'ref_'.Str::ulid(),
                     'booking_id' => $paymentIntent->booking_id,
                     'payment_intent_id' => $paymentIntent->id,

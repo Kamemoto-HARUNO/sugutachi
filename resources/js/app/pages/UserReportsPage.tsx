@@ -515,7 +515,7 @@ export function UserReportsPage() {
                                         <div className="space-y-1">
                                             <h3 className="text-xl font-semibold text-[#17202b]">{categoryLabel(report.category)}</h3>
                                             <p className="text-sm text-[#68707a]">
-                                                対象: {report.target_account?.display_name ?? report.target_account_id ?? '未設定'}
+                                                対象: {report.target_profile?.display_name ?? report.target_account_id ?? '未設定'}
                                             </p>
                                         </div>
                                     </div>
@@ -582,7 +582,7 @@ export function UserReportsPage() {
                                 <div>
                                     <p className="text-xs font-semibold text-[#7d6852]">対象アカウント</p>
                                     <p className="mt-1 font-semibold text-[#17202b]">
-                                        {selectedReport.target_account?.display_name ?? selectedReport.target_account_id ?? '未設定'}
+                                        {selectedReport.target_profile?.display_name ?? selectedReport.target_account_id ?? '未設定'}
                                     </p>
                                 </div>
                                 <div>

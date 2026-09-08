@@ -1,3 +1,4 @@
+import {clearDirectMessageDrafts} from '../lib/directMessageDrafts';
 import {
     createContext,
     useCallback,
@@ -76,6 +77,7 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const [isBootstrapping, setIsBootstrapping] = useState(true);
 
     const clearSession = useCallback(() => {
+        clearDirectMessageDrafts();
         setToken(null);
         setAccount(null);
         setActiveRole(null);

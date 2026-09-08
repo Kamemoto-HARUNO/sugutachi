@@ -4,9 +4,11 @@ namespace App\Http\Resources;
 
 use App\Models\BookingMessage;
 use App\Models\Refund;
+use App\Services\DirectMessages\ParticipantPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Crypt;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class BookingResource extends JsonResource
@@ -81,12 +83,9 @@ class BookingResource extends JsonResource
                 ? rescue(fn () => Crypt::decryptString($this->cancel_reason_note_encrypted), null, false)
                 : null,
             'canceled_by_role' => $this->canceledByRole(),
-            'canceled_by_account' => $this->whenLoaded('canceledBy', fn () => $this->canceledBy
-                ? [
-                    'public_id' => $this->canceledBy->public_id,
-                    'display_name' => $this->canceledBy->display_name,
-                ]
-                : null),
+            'canceled_by_profile' => $this->canceledBy && in_array($this->canceledByRole(), ['user', 'therapist'], true)
+                ? app(ParticipantPresenter::class)->present($this->canceledBy, $this->canceledByRole()) : null,
+            'block_cancellation' => DB::table('block_booking_actions')->where('booking_id', $this->id)->first(['status', 'completed_at']),
             'total_amount' => $this->total_amount,
             'therapist_net_amount' => $this->therapist_net_amount,
             'platform_fee_amount' => $this->platform_fee_amount,
@@ -163,6 +162,9 @@ class BookingResource extends JsonResource
 
     private function therapistProfileSummary(): ?array
     {
+        if ($this->therapistAccount?->withdrawn_at || $this->therapistAccount?->status === 'withdrawn') {
+            return ['public_id' => null, 'public_name' => '退会済み'];
+        }
         if ($this->relationLoaded('therapistProfile') && $this->therapistProfile) {
             return [
                 'public_id' => $this->therapistProfile->public_id,
@@ -236,45 +238,27 @@ class BookingResource extends JsonResource
     private function counterparty(Request $request): ?array
     {
         $viewer = $request->user();
-
-        if (! $viewer) {
+        if (! $viewer || ! in_array($viewer->id, [$this->user_account_id, $this->therapist_account_id], true)) {
+            return null;
+        }
+        $role = $viewer->id === $this->user_account_id ? 'therapist' : 'user';
+        $account = $role === 'therapist' ? $this->therapistAccount : $this->userAccount;
+        if (! $account) {
             return null;
         }
 
-        if ($viewer->id === $this->user_account_id) {
-            if (! $this->relationLoaded('therapistAccount') || ! $this->therapistAccount) {
-                return null;
-            }
-
-            return [
-                'role' => 'therapist',
-                'public_id' => $this->therapistAccount->public_id,
-                'display_name' => $this->therapistProfile?->public_name ?? $this->therapistAccount->display_name,
-                'account_status' => $this->therapistAccount->status,
-                'therapist_profile_public_id' => $this->therapistProfile?->public_id,
-            ];
-        }
-
-        if ($viewer->id === $this->therapist_account_id) {
-            if (! $this->relationLoaded('userAccount') || ! $this->userAccount) {
-                return null;
-            }
-
-            return [
-                'role' => 'user',
-                'public_id' => $this->userAccount->public_id,
-                'display_name' => $this->userAccount->display_name,
-                'account_status' => $this->userAccount->status,
-                'therapist_profile_public_id' => null,
-                'user_profile' => $this->counterpartyUserProfile(),
-            ];
-        }
-
-        return null;
+        return [
+            ...app(ParticipantPresenter::class)->present($account, $role),
+            'therapist_profile_public_id' => $role === 'therapist' ? $this->therapistProfile?->public_id : null,
+            'user_profile' => $role === 'user' ? $this->counterpartyUserProfile() : null,
+        ];
     }
 
     private function counterpartyUserProfile(): ?array
     {
+        if ($this->userAccount?->withdrawn_at || $this->userAccount?->status === 'withdrawn') {
+            return null;
+        }
         if (! $this->relationLoaded('userAccount') || ! $this->userAccount || ! $this->userAccount->relationLoaded('userProfile')) {
             return null;
         }

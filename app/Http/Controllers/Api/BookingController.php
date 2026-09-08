@@ -13,9 +13,10 @@ use App\Models\ServiceAddress;
 use App\Models\TherapistAvailabilitySlot;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
-use App\Services\Campaigns\CampaignService;
 use App\Services\Bookings\BookingRequestExpirationService;
 use App\Services\Bookings\ScheduledBookingPolicy;
+use App\Services\Campaigns\CampaignService;
+use App\Services\DirectMessages\RelationshipPolicy;
 use App\Services\Notifications\BookingNotificationService;
 use App\Services\Scheduling\PublicAvailabilityWindowCalculator;
 use Carbon\CarbonImmutable;
@@ -111,8 +112,7 @@ class BookingController extends Controller
     public function therapistRequests(
         Request $request,
         BookingRequestExpirationService $bookingRequestExpirationService,
-    ): AnonymousResourceCollection
-    {
+    ): AnonymousResourceCollection {
         $bookingRequestExpirationService->expireDueScheduledRequests();
 
         return TherapistBookingRequestResource::collection(
@@ -156,8 +156,12 @@ class BookingController extends Controller
             $request,
             $scheduledBookingPolicy,
             $serviceAddress,
-            $validated
+            $validated,
+            $quoteSnapshot
         ): Booking {
+            $policy = app(RelationshipPolicy::class);
+            $policy->lock($request->user()->id, $quoteSnapshot->therapistProfile->account_id);
+            $policy->assertAllowed($request->user()->id, $quoteSnapshot->therapistProfile->account_id);
             $quote = BookingQuote::query()
                 ->with(['therapistProfile.account', 'therapistProfile.bookingSetting', 'therapistMenu'])
                 ->where('public_id', $validated['quote_id'])
@@ -282,8 +286,7 @@ class BookingController extends Controller
         Request $request,
         Booking $booking,
         BookingRequestExpirationService $bookingRequestExpirationService,
-    ): BookingResource
-    {
+    ): BookingResource {
         $bookingRequestExpirationService->expireDueScheduledRequests();
         $booking->refresh();
 

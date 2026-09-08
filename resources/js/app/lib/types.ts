@@ -317,6 +317,9 @@ export interface ReportSourceBookingMessage {
 }
 
 export interface ReportRecord {
+    reporter_profile?: ReportAccountSummary | null;
+    target_profile?: ReportAccountSummary | null;
+    direct_message_thread_id?: string | null;
     public_id: string;
     booking_public_id: string | null;
     source_booking_message: ReportSourceBookingMessage | null;
@@ -361,6 +364,7 @@ export interface ReportActionRecord {
 }
 
 export interface AdminReportRecord {
+    direct_message_thread_id?: string | null;
     public_id: string;
     booking_public_id: string | null;
     source_booking_message: AdminReportSourceBookingMessage | null;
@@ -653,6 +657,8 @@ export interface PendingScheduledRequestSummary {
 }
 
 export interface TherapistDetail {
+    consultation_enabled?: boolean;
+    existing_direct_message_id?: string | null;
     public_id: string;
     public_name: string;
     bio: string | null;
@@ -1358,7 +1364,8 @@ export interface BookingHealthCheckRecord {
 export interface BookingDetailRecord extends BookingListRecord {
     cancel_reason_note: string | null;
     canceled_by_role: string | null;
-    canceled_by_account: BookingCanceledByAccount | null;
+    canceled_by_profile: BookingCanceledByAccount | null;
+    block_cancellation?: {status: string; completed_at: string | null} | null;
     current_quote: BookingQuoteRecord | null;
     refund_breakdown: BookingRefundBreakdown | null;
     refunds: BookingRefundRecord[];
@@ -1373,6 +1380,8 @@ export interface AccountBlockAccountSummary {
 }
 
 export interface AccountBlockRecord {
+    scope?: string;
+    label?: string;
     id: number;
     blocker_account_id: string | null;
     blocker_account: AccountBlockAccountSummary | null;
@@ -1391,7 +1400,7 @@ export interface BookingMessageSender {
 export interface BookingMessageRecord {
     id: number;
     booking_public_id: string | null;
-    sender_account_id: string | null;
+    sender_profile_id: string | null;
     sender: BookingMessageSender | null;
     sender_role: string | null;
     message_type: string;

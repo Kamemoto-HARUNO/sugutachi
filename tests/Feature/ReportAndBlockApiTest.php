@@ -39,8 +39,8 @@ class ReportAndBlockApiTest extends TestCase
             ])
             ->assertCreated()
             ->assertJsonPath('data.booking_public_id', $booking->public_id)
-            ->assertJsonPath('data.reporter_account_id', $user->public_id)
-            ->assertJsonPath('data.target_account_id', $therapist->public_id)
+            ->assertJsonPath('data.reporter_profile.public_id', $user->userProfile->public_id)
+            ->assertJsonPath('data.target_profile.public_id', $therapist->therapistProfile->public_id)
             ->assertJsonPath('data.category', 'prohibited_request')
             ->assertJsonPath('data.severity', Report::SEVERITY_HIGH)
             ->assertJsonPath('data.status', Report::STATUS_OPEN)
@@ -70,8 +70,8 @@ class ReportAndBlockApiTest extends TestCase
             ->assertOk()
             ->assertJsonPath('data.public_id', $reportId)
             ->assertJsonPath('data.detail', 'The participant asked to move outside platform rules.')
-            ->assertJsonPath('data.target_account.public_id', $therapist->public_id)
-            ->assertJsonPath('data.target_account.display_name', $therapist->display_name);
+            ->assertJsonPath('data.target_profile.public_id', $therapist->therapistProfile->public_id)
+            ->assertJsonPath('data.target_profile.display_name', $therapist->therapistProfile->public_name);
     }
 
     public function test_reporter_can_list_filtered_report_history(): void
@@ -122,8 +122,8 @@ class ReportAndBlockApiTest extends TestCase
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.public_id', 'rep_history_open')
-            ->assertJsonPath('data.0.target_account.public_id', $therapist->public_id)
-            ->assertJsonPath('data.0.target_account.display_name', $therapist->display_name)
+            ->assertJsonPath('data.0.target_profile.public_id', $therapist->therapistProfile->public_id)
+            ->assertJsonPath('data.0.target_profile.display_name', $therapist->therapistProfile->public_name)
             ->assertJsonPath('meta.total_count', 2)
             ->assertJsonPath('meta.open_count', 1)
             ->assertJsonPath('meta.resolved_count', 1)
@@ -160,48 +160,21 @@ class ReportAndBlockApiTest extends TestCase
             ->assertUnprocessable();
     }
 
-    public function test_account_can_block_update_and_unblock_another_account(): void
+    public function test_legacy_blocks_are_not_created_and_existing_block_can_be_removed_by_owner(): void
     {
-        $user = Account::factory()->create(['public_id' => 'acc_block_user']);
-        $target = Account::factory()->create(['public_id' => 'acc_block_target']);
-        $token = $user->createToken('api')->plainTextToken;
-
-        $blockId = $this->withToken($token)
-            ->postJson("/api/accounts/{$target->public_id}/block", [
-                'reason_code' => 'unsafe',
-            ])
-            ->assertCreated()
-            ->assertJsonPath('data.blocker_account_id', $user->public_id)
-            ->assertJsonPath('data.blocked_account_id', $target->public_id)
-            ->assertJsonPath('data.blocked_account.public_id', $target->public_id)
-            ->assertJsonPath('data.reason_code', 'unsafe')
-            ->json('data.id');
-
-        $this->withToken($token)
-            ->postJson("/api/accounts/{$target->public_id}/block", [
-                'reason_code' => 'external_contact',
-            ])
-            ->assertOk()
-            ->assertJsonPath('data.id', $blockId)
-            ->assertJsonPath('data.reason_code', 'external_contact');
-
-        $this->assertDatabaseHas('account_blocks', [
-            'id' => $blockId,
-            'blocker_account_id' => $user->id,
-            'blocked_account_id' => $target->id,
-            'reason_code' => 'external_contact',
-        ]);
-
-        $this->withToken($token)
-            ->deleteJson("/api/accounts/{$target->public_id}/block")
-            ->assertNoContent();
-
-        $this->assertFalse(AccountBlock::query()->whereKey($blockId)->exists());
+        $user = Account::factory()->create();
+        $target = Account::factory()->create();
+        $block = AccountBlock::create(['blocker_account_id' => $user->id, 'blocked_account_id' => $target->id]);
+        $this->withToken($user->createToken('api')->plainTextToken)->postJson('/api/accounts/'.$target->public_id.'/block')->assertUnprocessable();
+        $this->assertDatabaseCount('account_blocks', 1);
+        $this->deleteJson('/api/accounts/blocks/'.$block->id)->assertNoContent();
+        $this->assertDatabaseCount('account_blocks', 0);
     }
 
     public function test_account_can_list_own_blocks_with_filters(): void
     {
         $user = Account::factory()->create(['public_id' => 'acc_block_list_user']);
+        $user->userProfile()->firstOrCreate(['account_id' => $user->id]);
         $targetA = Account::factory()->create([
             'public_id' => 'acc_block_target_a',
             'display_name' => 'Target Alpha',
@@ -232,8 +205,8 @@ class ReportAndBlockApiTest extends TestCase
             ->getJson('/api/accounts/blocks?reason_code=unsafe&q=Alpha')
             ->assertOk()
             ->assertJsonCount(1, 'data')
-            ->assertJsonPath('data.0.blocked_account.public_id', $targetA->public_id)
-            ->assertJsonPath('data.0.blocked_account.display_name', 'Target Alpha')
+            ->assertJsonMissingPath('data.0.blocked_account')
+            ->assertJsonPath('data.0.scope', 'legacy_account')
             ->assertJsonPath('meta.total_count', 2)
             ->assertJsonPath('meta.filters.reason_code', 'unsafe')
             ->assertJsonPath('meta.filters.q', 'Alpha');
@@ -242,6 +215,7 @@ class ReportAndBlockApiTest extends TestCase
     private function createReportFixture(): array
     {
         $user = Account::factory()->create(['public_id' => 'acc_user_report']);
+        $user->userProfile()->firstOrCreate(['account_id' => $user->id]);
         $therapist = Account::factory()->create(['public_id' => 'acc_therapist_report']);
 
         $therapistProfile = TherapistProfile::create([

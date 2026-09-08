@@ -62,6 +62,7 @@ class AdminRefundRequestController extends Controller
     ): RefundResource {
         $admin = $request->user();
         $this->authorizeAdmin($admin);
+        abort_if($refund->reason_code === 'therapist_relationship_block', 409, 'DM・精算確認画面から処理してください。');
         $refund->load(['booking.currentPaymentIntent', 'paymentIntent']);
 
         abort_unless($refund->status === Refund::STATUS_REQUESTED, 409, 'Only requested refunds can be approved.');
@@ -99,6 +100,7 @@ class AdminRefundRequestController extends Controller
     {
         $admin = $request->user();
         $this->authorizeAdmin($admin);
+        abort_if($refund->reason_code === 'therapist_relationship_block', 409, 'DM・精算確認画面から処理してください。');
 
         abort_unless($refund->status === Refund::STATUS_REQUESTED, 409, 'Only requested refunds can be rejected.');
 

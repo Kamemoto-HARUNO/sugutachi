@@ -8,6 +8,8 @@ use App\Models\Booking;
 use App\Models\BookingQuote;
 use App\Models\PaymentIntent;
 use App\Models\StripeConnectedAccount;
+use App\Services\DirectMessages\RelationshipPolicy;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 use Stripe\StripeClient;
 
@@ -60,8 +62,22 @@ class StripePaymentIntentGateway implements PaymentIntentGateway
         ?int $amountToCapture = null,
         ?int $applicationFeeAmount = null,
         ?int $transferAmount = null,
-    ): string
-    {
+    ): string {
+        return DB::transaction(function () use ($paymentIntent, $amountToCapture, $applicationFeeAmount, $transferAmount) {
+            $booking = $paymentIntent->booking;
+            app(RelationshipPolicy::class)->lock($booking->user_account_id, $booking->therapist_account_id);
+            abort_if(DB::table('block_booking_actions')->where('booking_id', $booking->id)->whereIn('status', ['pending', 'processing', 'review'])->exists(), 409, 'ブロックに伴う精算を確認中です。');
+
+            return $this->captureAuthorized($paymentIntent, $amountToCapture, $applicationFeeAmount, $transferAmount);
+        });
+    }
+
+    private function captureAuthorized(
+        PaymentIntent $paymentIntent,
+        ?int $amountToCapture,
+        ?int $applicationFeeAmount,
+        ?int $transferAmount,
+    ): string {
         $secret = config('services.stripe.secret');
 
         if (! $secret) {

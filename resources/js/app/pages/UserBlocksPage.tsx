@@ -103,7 +103,7 @@ export function UserBlocksPage() {
     }), [blocks]);
 
     async function handleUnblock(block: AccountBlockRecord) {
-        if (!token || !block.blocked_account_id) {
+        if (!token) {
             return;
         }
 
@@ -112,7 +112,7 @@ export function UserBlocksPage() {
         setError(null);
 
         try {
-            await apiRequest<null>(`/accounts/${block.blocked_account_id}/block`, {
+            await apiRequest<null>(`/accounts/blocks/${block.id}`, {
                 method: 'DELETE',
                 token,
             });
@@ -247,7 +247,7 @@ export function UserBlocksPage() {
                                 <div className="space-y-2">
                                     <div className="flex flex-wrap items-center gap-2">
                                         <p className="text-lg font-semibold text-[#17202b]">
-                                            {block.blocked_account?.display_name ?? block.blocked_account_id ?? '相手を確認中'}
+                                            {block.label ?? '既存のブロック設定'}
                                         </p>
                                         <span className="rounded-full bg-[#f1efe8] px-3 py-1 text-xs font-semibold text-[#48505a]">
                                             {blockReasonLabel(block.reason_code)}
