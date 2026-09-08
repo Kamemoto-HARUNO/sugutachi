@@ -1,4 +1,5 @@
-import { useEffect, useRef, useState } from 'react';
+import { useState } from 'react';
+import { MobileHeaderMenu } from '../navigation/MobileHeaderMenu';
 import { Link } from 'react-router-dom';
 import { BrandMark } from '../brand/BrandMark';
 import { BookingMessagesLink } from '../messages/BookingMessagesLink';
@@ -94,45 +95,6 @@ function ActionIcon({ icon }: { icon: NonNullable<PublicHeaderAction['icon']> })
     }
 }
 
-function MobileMenuButton({
-    isOpen,
-    onToggle,
-}: {
-    isOpen: boolean;
-    onToggle: () => void;
-}) {
-    return (
-        <button
-            type="button"
-            onClick={onToggle}
-            aria-label={isOpen ? 'グローバルメニューを閉じる' : 'グローバルメニューを開く'}
-            aria-expanded={isOpen}
-            className="inline-flex h-12 w-12 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition hover:bg-white/15 md:hidden"
-        >
-            <span className="relative block h-4 w-5">
-                <span
-                    className={[
-                        'absolute left-0 top-0 h-0.5 w-5 rounded-full bg-current transition',
-                        isOpen ? 'translate-y-[7px] rotate-45' : '',
-                    ].join(' ')}
-                />
-                <span
-                    className={[
-                        'absolute left-0 top-[7px] h-0.5 w-5 rounded-full bg-current transition',
-                        isOpen ? 'opacity-0' : '',
-                    ].join(' ')}
-                />
-                <span
-                    className={[
-                        'absolute left-0 top-[14px] h-0.5 w-5 rounded-full bg-current transition',
-                        isOpen ? '-translate-y-[7px] -rotate-45' : '',
-                    ].join(' ')}
-                />
-            </span>
-        </button>
-    );
-}
-
 interface PublicHeaderBarProps {
     actions: PublicHeaderAction[];
     sticky?: boolean;
@@ -145,34 +107,10 @@ export function PublicHeaderBar({
     const { activeRole, isAuthenticated } = useAuth();
     const [isMenuOpen, setIsMenuOpen] = useState(false);
     const [isSupportCenterOpen, setIsSupportCenterOpen] = useState(false);
-    const containerRef = useRef<HTMLDivElement | null>(null);
     const canUseSupportCenter = isAuthenticated && (activeRole === 'user' || activeRole === 'therapist');
-
-    useEffect(() => {
-        if (!isMenuOpen) {
-            return;
-        }
-
-        const handlePointerDown = (event: PointerEvent) => {
-            if (!(event.target instanceof Node)) {
-                return;
-            }
-
-            if (!containerRef.current?.contains(event.target)) {
-                setIsMenuOpen(false);
-            }
-        };
-
-        document.addEventListener('pointerdown', handlePointerDown);
-
-        return () => {
-            document.removeEventListener('pointerdown', handlePointerDown);
-        };
-    }, [isMenuOpen]);
 
     return (
         <div
-            ref={containerRef}
             className={[
                 'relative flex w-full items-center justify-between gap-4',
                 sticky
@@ -182,7 +120,7 @@ export function PublicHeaderBar({
         >
             <BrandMark inverse />
 
-            {actions.length > 0 ? (
+            {actions.length > 0 || isAuthenticated ? (
                 <>
                     <div className="hidden items-center gap-3 md:flex">
                         {isAuthenticated ? <NotificationBellLink className="border-white/15 bg-white/10 hover:bg-white/15" /> : null}
@@ -212,21 +150,19 @@ export function PublicHeaderBar({
                         ))}
                     </div>
 
-                    <div className="flex items-center gap-2 md:hidden">
-                        {isAuthenticated ? <NotificationBellLink compact className="border-white/15 bg-white/10 hover:bg-white/15" /> : null}
+                    <MobileHeaderMenu
+                        isOpen={isMenuOpen}
+                        onToggle={() => setIsMenuOpen((value) => !value)}
+                        onClose={() => setIsMenuOpen(false)}
+                    >
+                        {isAuthenticated ? <NotificationBellLink className="w-full border-white/15 bg-white/10 hover:bg-white/15" /> : null}
                         {canUseSupportCenter ? (
                             <SupportCenterButton
-                                compact
-                                className="border-white/15 bg-white/10 hover:bg-white/15"
-                                onClick={() => setIsSupportCenterOpen(true)}
+                                className="w-full border-white/15 bg-white/10 hover:bg-white/15"
+                                onClick={() => { setIsMenuOpen(false); setIsSupportCenterOpen(true); }}
                             />
                         ) : null}
-                        {isAuthenticated ? <BookingMessagesLink compact className="border-white/15 bg-white/10 hover:bg-white/15" /> : null}
-                        <MobileMenuButton isOpen={isMenuOpen} onToggle={() => setIsMenuOpen((value) => !value)} />
-                    </div>
-
-                    {isMenuOpen ? (
-                        <div className="absolute right-0 top-full z-20 mt-3 flex w-[min(18rem,calc(100vw-2rem))] flex-col gap-2 rounded-[24px] border border-white/12 bg-[rgba(23,32,43,0.96)] p-3 shadow-[0_18px_45px_rgba(23,32,43,0.28)] backdrop-blur md:hidden">
+                        {isAuthenticated ? <BookingMessagesLink className="w-full border-white/15 bg-white/10 hover:bg-white/15" /> : null}
                             {actions.map((action) => action.onClick ? (
                                 <button
                                     key={`${action.label}-${action.to}-mobile`}
@@ -252,8 +188,7 @@ export function PublicHeaderBar({
                                     {action.label}
                                 </Link>
                             ))}
-                        </div>
-                    ) : null}
+                    </MobileHeaderMenu>
                 </>
             ) : null}
             {canUseSupportCenter ? (
