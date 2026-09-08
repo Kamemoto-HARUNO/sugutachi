@@ -1,3 +1,7 @@
+import {
+    ConversationActionIcon,
+    conversationActionClass,
+} from "../components/messages/ConversationActionIcon";
 import { ConversationHeader } from "../components/messages/ConversationHeader";
 import { MessageComposer } from "../components/messages/MessageComposer";
 import { prepareBookingMessageImage } from "../lib/bookingMessageImages";
@@ -630,72 +634,82 @@ function DirectMessageConversation({
                         />
                     ) : undefined
                 }
-                subtitle={participants?.self.display_name}
+                profileUrl={participants?.counterparty.profile_url}
             >
-                {participants && (
-                    <div className="mt-3 flex items-center gap-2 text-sm">
-                        {participants.self.avatar_url && (
-                            <img
-                                src={participants.self.avatar_url}
-                                alt=""
-                                className="h-8 w-8 rounded-full object-cover"
-                            />
-                        )}
-                        <span>
-                            送信するプロフィール：
-                            {participants.self.display_name}
-                        </span>
-                    </div>
-                )}
                 {role === "user" && participants?.counterparty.profile_url && (
                     <Link
                         to={participants.counterparty.profile_url}
-                        className="mt-3 inline-flex min-h-11 items-center rounded-full bg-[#17202b] px-5 text-sm text-white"
+                        className={conversationActionClass}
                     >
-                        予約する
+                        <ConversationActionIcon kind="profile" />
+                        <span className="flex-1">予約する</span>
+                        <span aria-hidden="true" className="text-slate-400">
+                            →
+                        </span>
                     </Link>
                 )}
-                <p className="mt-3 text-xs text-slate-500">
-                    予約の連絡は予約ごとのチャットをご利用ください。DM本文・画像は送信から1年間保存されます。
-                </p>
                 {thread && (
-                    <div className="flex flex-wrap items-center gap-4 rounded-xl bg-white p-4 text-sm">
+                    <>
+                        <div className="my-1 border-t border-slate-100" />
                         <button
+                            type="button"
                             onClick={() =>
                                 void preferences({
                                     muted: !thread.preferences.muted,
                                 })
                             }
-                            className="min-h-11 underline"
+                            className={conversationActionClass}
                         >
-                            {thread.preferences.muted
-                                ? "通知を再開"
-                                : "このDMをミュート"}
+                            <ConversationActionIcon kind="mute" />
+                            <span className="flex-1">
+                                {thread.preferences.muted
+                                    ? "通知を再開"
+                                    : "このDMをミュート"}
+                            </span>
+                            {thread.preferences.muted && (
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">
+                                    ミュート中
+                                </span>
+                            )}
                         </button>
                         <button
+                            type="button"
                             onClick={() =>
                                 void preferences({
                                     archived: !thread.preferences.archived,
                                 })
                             }
-                            className="min-h-11 underline"
+                            className={conversationActionClass}
                         >
-                            {thread.preferences.archived
-                                ? "アーカイブ解除"
-                                : "アーカイブ"}
+                            <ConversationActionIcon kind="archive" />
+                            <span>
+                                {thread.preferences.archived
+                                    ? "アーカイブ解除"
+                                    : "アーカイブ"}
+                            </span>
                         </button>
                         <button
+                            type="button"
                             onClick={() =>
                                 void preferences({
                                     paused: !thread.preferences.paused,
                                 })
                             }
-                            className="min-h-11 underline"
+                            className={conversationActionClass}
                         >
-                            {thread.preferences.paused
-                                ? "DMを再開"
-                                : "このDMを停止"}
+                            <ConversationActionIcon kind="pause" />
+                            <span className="flex-1">
+                                {thread.preferences.paused
+                                    ? "DMを再開"
+                                    : "このDMを停止"}
+                            </span>
+                            {thread.preferences.paused && (
+                                <span className="rounded-full bg-slate-100 px-2 py-0.5 text-[10px] text-slate-500">
+                                    停止中
+                                </span>
+                            )}
                         </button>
+                        <div className="my-1 border-t border-slate-100" />
                         <RelationshipBlockButton
                             role={role}
                             relationshipId={thread.relationship_id}
@@ -703,15 +717,25 @@ function DirectMessageConversation({
                                 void refresh();
                                 dmChanged();
                             }}
-                        />
-                        <button
-                            onClick={() => setReportMessage("thread")}
-                            className="min-h-11 underline"
+                            className={conversationActionClass}
                         >
-                            運営へ通報
+                            <ConversationActionIcon kind="block" />
+                            <span>ブロック設定</span>
+                        </RelationshipBlockButton>
+                        <button
+                            type="button"
+                            data-close-conversation-menu
+                            onClick={() => setReportMessage("thread")}
+                            className={`${conversationActionClass} !text-red-700 hover:!bg-red-50`}
+                        >
+                            <ConversationActionIcon kind="report" />
+                            <span>運営へ通報</span>
                         </button>
-                    </div>
+                    </>
                 )}
+                <p className="mt-1 border-t border-slate-100 px-3 pb-2 pt-3 text-[11px] leading-5 text-slate-400">
+                    予約の連絡は予約ごとのチャットへ。DM本文・画像の保存期間は1年間です。
+                </p>
             </ConversationHeader>
             {error && (
                 <p

@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, type ReactNode } from "react";
 import { useAuth } from "../../hooks/useAuth";
 import { apiRequest } from "../../lib/api";
 import {
@@ -12,10 +12,14 @@ export function RelationshipBlockButton({
     role,
     relationshipId,
     onChange,
+    className,
+    children,
 }: {
     role: MessageRole;
     relationshipId: string;
     onChange: () => void;
+    className?: string;
+    children?: ReactNode;
 }) {
     const { token } = useAuth();
     const dialog = useRef<HTMLDialogElement>(null);
@@ -63,9 +67,9 @@ export function RelationshipBlockButton({
                 type="button"
                 disabled={busy}
                 onClick={() => void open()}
-                className="min-h-11 text-sm underline"
+                className={className ?? "min-h-11 text-sm underline"}
             >
-                ブロック設定
+                {children ?? "ブロック設定"}
             </button>
             {error && (
                 <p role="alert" className="text-sm text-red-700">
