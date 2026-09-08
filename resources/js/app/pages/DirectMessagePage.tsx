@@ -24,6 +24,40 @@ import {
 } from "../lib/directMessages";
 import { RelationshipBlockButton } from "../components/messages/RelationshipBlockButton";
 
+function CounterpartyAvatar({ participant }: { participant: DmParticipant }) {
+    const [failedUrl, setFailedUrl] = useState<string | null>(null);
+    const url = participant.avatar_url;
+
+    return (
+        <span
+            aria-hidden="true"
+            className="flex h-12 w-12 shrink-0 items-center justify-center overflow-hidden rounded-full border border-[#eadfd0] bg-[#f5efe4] text-[#8a6516]"
+        >
+            {url && url !== failedUrl ? (
+                <img
+                    src={url}
+                    alt=""
+                    className="h-full w-full object-cover"
+                    onError={() => setFailedUrl(url)}
+                />
+            ) : (
+                <svg
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    className="h-7 w-7"
+                >
+                    <circle cx="12" cy="8" r="3.5" />
+                    <path d="M5 21v-2a7 7 0 0 1 14 0v2" />
+                </svg>
+            )}
+        </span>
+    );
+}
+
 function PrivateImage({ url, token }: { url: string; token: string }) {
     const [blob, setBlob] = useState<string | null>(null);
     const [error, setError] = useState(false);
@@ -503,11 +537,16 @@ function DirectMessageConversation({
                         ? "利用者として送信"
                         : "タチキャストとして返信"}
                 </p>
-                <h1 className="mt-2 text-xl font-semibold">
-                    {participants
-                        ? `${participants.counterparty.display_name}とのDM`
-                        : "DMを読み込み中…"}
-                </h1>
+                <div className="mt-3 flex items-center gap-3">
+                    {participants && (
+                        <CounterpartyAvatar participant={participants.counterparty} />
+                    )}
+                    <h1 className="min-w-0 break-words text-xl font-semibold">
+                        {participants
+                            ? `${participants.counterparty.display_name}とのDM`
+                            : "DMを読み込み中…"}
+                    </h1>
+                </div>
                 {participants && (
                     <div className="mt-3 flex items-center gap-2 text-sm">
                         {participants.self.avatar_url && (
