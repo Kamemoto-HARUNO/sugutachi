@@ -23,6 +23,7 @@ export function MobileHeaderMenu({
 }: MobileHeaderMenuProps) {
     const triggerRef = useRef<HTMLButtonElement>(null);
     const panelRef = useRef<HTMLElement>(null);
+    const openedWithKeyboardRef = useRef(false);
     const id = useId();
     const [position, setPosition] = useState<{
         left: number;
@@ -83,6 +84,7 @@ export function MobileHeaderMenu({
     useEffect(() => {
         if (!isOpen) return;
         const focusFrame = window.requestAnimationFrame(() => {
+            if (!openedWithKeyboardRef.current) return;
             panelRef.current
                 ?.querySelector<HTMLElement>('a, button')
                 ?.focus({ preventScroll: true });
@@ -116,11 +118,14 @@ export function MobileHeaderMenu({
             <button
                 ref={triggerRef}
                 type="button"
-                onClick={onToggle}
+                onClick={(event) => {
+                    openedWithKeyboardRef.current = event.detail === 0;
+                    onToggle();
+                }}
                 aria-label={isOpen ? 'メニューを閉じる' : 'メニューを開く'}
                 aria-expanded={isOpen}
                 aria-controls={id}
-                className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e5c576] md:hidden"
+                className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white outline-none transition [-webkit-tap-highlight-color:transparent] hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e5c576] md:hidden"
             >
                 <svg
                     viewBox="0 0 24 24"
@@ -144,7 +149,7 @@ export function MobileHeaderMenu({
                             ...position,
                             visibility: position ? 'visible' : 'hidden',
                         }}
-                        className="fixed z-[100] flex flex-col gap-3 overflow-y-auto overscroll-contain rounded-2xl border border-white/15 bg-[#17202b] p-3 text-white shadow-[0_12px_32px_rgba(0,0,0,0.3)]"
+                        className="mobile-header-menu fixed z-[100] flex flex-col gap-3 overflow-y-auto overscroll-contain rounded-2xl border border-white/15 bg-[#17202b] p-3 text-white shadow-[0_12px_32px_rgba(0,0,0,0.3)]"
                         onClick={(event) => {
                             if (
                                 event.target instanceof Element &&

@@ -46,6 +46,19 @@
 }
 
 @layer components {
+    .mobile-header-menu :is(a, button) {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .mobile-header-menu :is(a, button):focus {
+        outline: none;
+    }
+
+    .mobile-header-menu :is(a, button):focus-visible {
+        outline: 2px solid #e5c576;
+        outline-offset: 3px;
+    }
+
     /* Only messaging owns the viewport. Other pages keep their normal document scrolling. */
     html.message-viewport-active,
     html.message-viewport-active body,
