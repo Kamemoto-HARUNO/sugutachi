@@ -251,9 +251,8 @@ export function BookingMessagesPage({ role }: { role: 'user' | 'therapist' }) {
                                             {buildCounterpartyName(booking)}
                                         </p>
                                         {booking.unread_message_count > 0 && (
-                                            <span className="shrink-0 text-xs font-semibold text-red-700">
-                                                未読{' '}
-                                                {booking.unread_message_count}
+                                            <span className="h-2 w-2 shrink-0 rounded-full bg-[#d67c7c]">
+                                                <span className="sr-only">未読 {booking.unread_message_count}件</span>
                                             </span>
                                         )}
                                     </div>
