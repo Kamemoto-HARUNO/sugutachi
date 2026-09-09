@@ -291,8 +291,22 @@ class DirectMessageSafetyTest extends TestCase
         AccountBlock::create(['blocker_account_id' => $b->id, 'blocked_account_id' => $a->id]);
         $before = DB::table('booking_messages')->where('id', $message->id)->first();
         $migration = require database_path('migrations/2026_09_08_000001_create_direct_messaging.php');
-        $migration->down();
-        $migration->up();
+        $mysql = DB::connection()->getDriverName() === 'mysql';
+        $canSetSessionDefaults = $mysql && ! str_contains(DB::selectOne('select version() as v')->v, 'MariaDB');
+        $previousDefaults = $canSetSessionDefaults
+            ? (int) DB::selectOne('select @@session.explicit_defaults_for_timestamp as value')->value
+            : null;
+        try {
+            if ($canSetSessionDefaults) {
+                DB::statement('set session explicit_defaults_for_timestamp = 0');
+            }
+            $migration->down();
+            $migration->up();
+        } finally {
+            if ($canSetSessionDefaults) {
+                DB::statement('set session explicit_defaults_for_timestamp = '.$previousDefaults);
+            }
+        }
         $this->assertEquals($before, DB::table('booking_messages')->where('id', $message->id)->first());
         $this->assertNotNull($booking->fresh()->messages_closed_at);
         $this->assertDatabaseCount('account_blocks', 1);
