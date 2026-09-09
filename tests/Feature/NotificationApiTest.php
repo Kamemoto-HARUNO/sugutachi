@@ -44,10 +44,11 @@ class NotificationApiTest extends TestCase
             'sent_at' => now(),
         ]);
 
+        $account->roleAssignments()->create(['role' => 'therapist', 'status' => 'active']);
         $token = $account->createToken('api')->plainTextToken;
 
         $this->withToken($token)
-            ->getJson('/api/notifications')
+            ->getJson('/api/notifications?role=therapist')
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $notification->id)
@@ -57,7 +58,7 @@ class NotificationApiTest extends TestCase
             ->assertJsonPath('meta.unread_count', 1);
 
         $this->withToken($token)
-            ->postJson("/api/notifications/{$notification->id}/read")
+            ->postJson("/api/notifications/{$notification->id}/read?role=therapist")
             ->assertOk()
             ->assertJsonPath('status', 'read')
             ->assertJsonPath('is_read', true);
@@ -69,6 +70,7 @@ class NotificationApiTest extends TestCase
     public function test_account_can_filter_notifications_and_get_unread_count(): void
     {
         $account = Account::factory()->create(['public_id' => 'acc_notify_filter']);
+        $account->roleAssignments()->create(['role' => 'therapist', 'status' => 'active']);
         $token = $account->createToken('api')->plainTextToken;
 
         AppNotification::create([
@@ -84,6 +86,7 @@ class NotificationApiTest extends TestCase
         $target = AppNotification::create([
             'account_id' => $account->id,
             'notification_type' => 'booking_canceled',
+            'data_json' => ['target_role' => 'therapist'],
             'channel' => 'in_app',
             'title' => 'Canceled',
             'body' => 'A booking was canceled.',
@@ -94,6 +97,7 @@ class NotificationApiTest extends TestCase
         AppNotification::create([
             'account_id' => $account->id,
             'notification_type' => 'booking_refunded',
+            'data_json' => ['target_role' => 'therapist'],
             'channel' => 'in_app',
             'title' => 'Refunded',
             'body' => 'A refund was processed.',
@@ -103,7 +107,7 @@ class NotificationApiTest extends TestCase
         ]);
 
         $this->withToken($token)
-            ->getJson('/api/notifications?notification_type=booking_canceled&status=sent&read_status=unread&limit=10')
+            ->getJson('/api/notifications?role=therapist&notification_type=booking_canceled&status=sent&read_status=unread&limit=10')
             ->assertOk()
             ->assertJsonCount(1, 'data')
             ->assertJsonPath('data.0.id', $target->id)
@@ -118,6 +122,7 @@ class NotificationApiTest extends TestCase
     public function test_account_can_mark_all_notifications_as_read(): void
     {
         $account = Account::factory()->create(['public_id' => 'acc_notify_all_read']);
+        $account->roleAssignments()->create(['role' => 'therapist', 'status' => 'active']);
         $token = $account->createToken('api')->plainTextToken;
 
         AppNotification::create([
@@ -133,6 +138,7 @@ class NotificationApiTest extends TestCase
         AppNotification::create([
             'account_id' => $account->id,
             'notification_type' => 'booking_refunded',
+            'data_json' => ['target_role' => 'therapist'],
             'channel' => 'in_app',
             'title' => 'Refunded',
             'body' => 'A refund was processed.',
@@ -141,7 +147,7 @@ class NotificationApiTest extends TestCase
         ]);
 
         $this->withToken($token)
-            ->postJson('/api/notifications/read-all')
+            ->postJson('/api/notifications/read-all?role=therapist')
             ->assertOk()
             ->assertJsonPath('data.updated_count', 2)
             ->assertJsonPath('data.unread_count', 0);
@@ -227,12 +233,18 @@ class NotificationApiTest extends TestCase
         Mail::shouldReceive('raw')
             ->once()
             ->withArgs(function (string $body, $callback) use ($account): bool {
-                $message = new class {
+                $message = new class
+                {
                     public ?string $to = null;
+
                     public ?string $subject = null;
+
                     public ?string $fromAddress = null;
+
                     public ?string $fromName = null;
+
                     public ?string $replyToAddress = null;
+
                     public ?string $replyToName = null;
 
                     public function to(string $value): self

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\Notifications\NotificationInbox;
 use Illuminate\Database\Eloquent\Attributes\Guarded;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -25,6 +26,13 @@ class AppNotification extends Model
         self::STATUS_FAILED,
         self::STATUS_READ,
     ];
+
+    protected static function booted(): void
+    {
+        static::creating(function (self $notification) {
+            $notification->forceFill(app(NotificationInbox::class)->metadata($notification));
+        });
+    }
 
     public function account(): BelongsTo
     {

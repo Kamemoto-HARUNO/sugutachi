@@ -1421,6 +1421,8 @@ export interface BookingMessageRecord {
 }
 
 export interface AppNotificationRecord {
+    conversation_key?: string | null;
+    unread_message_count?: number | null;
     id: number;
     notification_type: string;
     channel: string;
@@ -1555,6 +1557,7 @@ export interface SupportStepDeliveryRecord {
 }
 
 export interface NotificationListMeta {
+    snapshot_id?: number;
     unread_count: number;
     limit: number;
     filters: {
