@@ -157,6 +157,8 @@ rsync -a \
   --exclude 'storage/framework/sessions/*' \
   --exclude 'storage/framework/views/*' \
   --exclude 'storage/framework/testing/*' \
+  --exclude '/storage/framework/down' \
+  --exclude '/storage/framework/maintenance.php' \
   --exclude 'storage/pail' \
   --exclude 'public/hot' \
   --exclude 'public/storage' \
@@ -182,6 +184,8 @@ rsync -az --delete \
   --exclude 'storage/framework/sessions/*' \
   --exclude 'storage/framework/views/*' \
   --exclude 'storage/framework/testing/*' \
+  --exclude '/storage/framework/down' \
+  --exclude '/storage/framework/maintenance.php' \
   --exclude 'storage/pail' \
   --exclude 'public/hot' \
   --exclude 'public/storage' \

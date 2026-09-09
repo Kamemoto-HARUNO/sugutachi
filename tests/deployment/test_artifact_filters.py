@@ -48,6 +48,7 @@ class DeploymentArtifactFiltersTest(unittest.TestCase):
             ".env", ".env.prod", "database/dm-preview.sqlite", "database/dm-preview.sqlite-wal",
             "database/dm-preview.sqlite-shm", "database/database.sqlite", "bootstrap/cache/config.php",
             "bootstrap/cache/routes-v7.php", "bootstrap/cache/packages.php", "storage/app/private/photo.jpg",
+            "storage/framework/down", "storage/framework/maintenance.php",
         ]
         for name in private_files:
             self.put("source", name)
@@ -60,7 +61,7 @@ class DeploymentArtifactFiltersTest(unittest.TestCase):
         self.assertTrue((self.root / "artifact/bootstrap/cache/.gitignore").exists())
 
     def test_application_sync_protects_runtime_data_and_replaces_stale_cache(self):
-        protected = [".env", "database/database.sqlite", "storage/app/private/photo.jpg", "storage/logs/laravel.log"]
+        protected = [".env", "database/database.sqlite", "storage/app/private/photo.jpg", "storage/logs/laravel.log", "storage/framework/down", "storage/framework/maintenance.php"]
         for name in protected:
             self.put("remote", name, "keep")
         self.put("artifact", "database/dm-preview.sqlite", "never upload")
