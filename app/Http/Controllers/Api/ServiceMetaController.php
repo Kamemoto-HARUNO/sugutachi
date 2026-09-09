@@ -38,6 +38,7 @@ class ServiceMetaController extends Controller
                 ],
                 'payment' => [
                     'stripe_publishable_key' => config('services.stripe.publishable_key'),
+                    'local_simulation_enabled' => app(\App\Services\Payments\LocalPaymentSimulation::class)->enabled(),
                 ],
                 'push' => [
                     'web_push_public_key' => config('services.web_push.public_key'),

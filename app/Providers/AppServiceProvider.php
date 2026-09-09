@@ -9,6 +9,9 @@ use App\Contracts\Payments\PayoutGateway;
 use App\Contracts\Payments\RefundGateway;
 use App\Models\AppNotification;
 use App\Observers\AppNotificationObserver;
+use App\Services\Payments\LocalPaymentIntentGateway;
+use App\Services\Payments\LocalPaymentSimulation;
+use App\Services\Payments\LocalRefundGateway;
 use App\Services\Payments\StripeConnectGateway;
 use App\Services\Payments\StripePaymentIntentGateway;
 use App\Services\Payments\StripePaymentStateGateway;
@@ -26,10 +29,16 @@ class AppServiceProvider extends ServiceProvider
      */
     public function register(): void
     {
-        $this->app->bind(PaymentStateGateway::class, StripePaymentStateGateway::class);
+        $this->app->bind(PaymentStateGateway::class, fn ($app) => $app->make(
+            $app->make(LocalPaymentSimulation::class)->enabled() ? LocalPaymentIntentGateway::class : StripePaymentStateGateway::class
+        ));
         $this->app->bind(ConnectGateway::class, StripeConnectGateway::class);
-        $this->app->bind(PaymentIntentGateway::class, StripePaymentIntentGateway::class);
-        $this->app->bind(RefundGateway::class, StripeRefundGateway::class);
+        $this->app->bind(PaymentIntentGateway::class, fn ($app) => $app->make(
+            $app->make(LocalPaymentSimulation::class)->enabled() ? LocalPaymentIntentGateway::class : StripePaymentIntentGateway::class
+        ));
+        $this->app->bind(RefundGateway::class, fn ($app) => $app->make(
+            $app->make(LocalPaymentSimulation::class)->enabled() ? LocalRefundGateway::class : StripeRefundGateway::class
+        ));
         $this->app->bind(PayoutGateway::class, StripePayoutGateway::class);
     }
 

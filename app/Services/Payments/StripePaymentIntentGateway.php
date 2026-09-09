@@ -72,7 +72,7 @@ class StripePaymentIntentGateway implements PaymentIntentGateway
         });
     }
 
-    private function captureAuthorized(
+    protected function captureAuthorized(
         PaymentIntent $paymentIntent,
         ?int $amountToCapture,
         ?int $applicationFeeAmount,

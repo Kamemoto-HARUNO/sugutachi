@@ -159,6 +159,7 @@ export interface ServiceMeta {
     };
     payment?: {
         stripe_publishable_key: string | null;
+        local_simulation_enabled?: boolean;
     };
     push?: {
         web_push_public_key: string | null;
