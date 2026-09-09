@@ -15,6 +15,10 @@ class TherapistProfile extends Model
 {
     use UsesPublicIdRouteKey;
 
+    protected $attributes = [
+        'consultation_enabled' => true,
+    ];
+
     public const STATUS_APPROVED = 'approved';
 
     public const STATUS_DRAFT = 'draft';
