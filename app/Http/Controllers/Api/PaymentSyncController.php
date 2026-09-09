@@ -89,7 +89,7 @@ class PaymentSyncController extends Controller
             return;
         }
 
-        DB::transaction(function () use ($booking, $status, $scheduledBookingPolicy, $bookingNotificationService, $campaignService): void {
+        DB::transaction(function () use ($booking, $currentPaymentIntent, $status, $scheduledBookingPolicy, $bookingNotificationService, $campaignService): void {
             app(RelationshipPolicy::class)->lock($booking->user_account_id, $booking->therapist_account_id);
             $lockedBooking = Booking::query()
                 ->whereKey($booking->id)
@@ -102,7 +102,13 @@ class PaymentSyncController extends Controller
                 ->lockForUpdate()
                 ->first();
 
-            if (! $lockedPaymentIntent) {
+            // The Stripe response belongs to the snapshot read before the network
+            // request. A retry, cancellation, or webhook may have advanced it.
+            if (! $lockedPaymentIntent
+                || $lockedBooking->status !== Booking::STATUS_PAYMENT_AUTHORIZING
+                || $lockedPaymentIntent->id !== $currentPaymentIntent->id
+                || $lockedPaymentIntent->status !== $currentPaymentIntent->status
+                || $lockedPaymentIntent->last_stripe_event_id !== $currentPaymentIntent->last_stripe_event_id) {
                 return;
             }
 

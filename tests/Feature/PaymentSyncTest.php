@@ -9,6 +9,9 @@ use App\Models\ServiceAddress;
 use App\Models\TherapistMenu;
 use App\Models\TherapistProfile;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Stripe\ApiRequestor;
+use Stripe\HttpClient\ClientInterface;
+use Stripe\HttpClient\CurlClient;
 use Tests\TestCase;
 
 class PaymentSyncTest extends TestCase
@@ -39,6 +42,78 @@ class PaymentSyncTest extends TestCase
         $this->withToken($therapist->createToken('api')->plainTextToken)
             ->postJson("/api/bookings/{$booking->public_id}/payment-sync")
             ->assertNotFound();
+    }
+
+    public function test_sync_does_not_apply_old_result_to_replacement_payment(): void
+    {
+        [$user, , $booking, $payment] = $this->createAuthorizingFixture();
+        $replacement = null;
+        $this->stubStripeStatus(function () use ($payment, &$replacement): void {
+            $payment->update(['is_current' => false]);
+            $replacement = $payment->replicate();
+            $replacement->forceFill(['stripe_payment_intent_id' => 'pi_replacement', 'is_current' => true])->save();
+        });
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/payment-sync")->assertOk()
+            ->assertJsonPath('data.booking.status', 'payment_authorizing')
+            ->assertJsonPath('data.payment_intent.status', 'requires_payment_method');
+        $this->assertNull($replacement->fresh()->authorized_at);
+        $this->assertSame(0, $booking->statusLogs()->count());
+    }
+
+    public function test_sync_does_not_overwrite_cancellation_completed_while_stripe_was_responding(): void
+    {
+        [$user, , $booking, $payment] = $this->createAuthorizingFixture();
+        $this->stubStripeStatus(function () use ($booking, $payment): void {
+            $booking->update(['status' => 'payment_canceled']);
+            $payment->update(['status' => 'canceled', 'canceled_at' => now()]);
+        });
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/payment-sync")->assertOk()
+            ->assertJsonPath('data.booking.status', 'payment_canceled')
+            ->assertJsonPath('data.payment_intent.status', 'canceled');
+        $this->assertNull($payment->fresh()->authorized_at);
+    }
+
+    public function test_stripe_sync_returns_fresh_requested_state_and_only_transitions_once(): void
+    {
+        [$user, , $booking, $payment] = $this->createAuthorizingFixture();
+        $this->stubStripeStatus(fn () => null);
+        $this->withToken($user->createToken('api')->plainTextToken)
+            ->postJson("/api/bookings/{$booking->public_id}/payment-sync")->assertOk()
+            ->assertJsonPath('data.booking.status', 'requested');
+        $this->postJson("/api/bookings/{$booking->public_id}/payment-sync")->assertOk();
+        $this->assertSame(1, $booking->statusLogs()->where('to_status', 'requested')->count());
+        $this->assertNotNull($payment->fresh()->authorized_at);
+    }
+
+    private function createAuthorizingFixture(): array
+    {
+        $fixture = $this->createPaymentSyncFixture();
+        $fixture[2]->update(['status' => 'payment_authorizing', 'is_on_demand' => true]);
+        $fixture[3]->update(['status' => 'requires_payment_method', 'authorized_at' => null]);
+
+        return $fixture;
+    }
+
+    private function stubStripeStatus(\Closure $duringRetrieval): void
+    {
+        config(['services.stripe.secret' => 'sk_test_local_stub', 'services.stripe.local_simulation' => false]);
+        $client = $this->createMock(ClientInterface::class);
+        $client->expects($this->once())->method('request')->willReturnCallback(function ($method, $url) use ($duringRetrieval): array {
+            $this->assertSame('get', $method);
+            $this->assertStringEndsWith('/v1/payment_intents/pi_sync', $url);
+            $duringRetrieval();
+
+            return [json_encode(['id' => 'pi_sync', 'object' => 'payment_intent', 'status' => 'requires_capture']), 200, []];
+        });
+        ApiRequestor::setHttpClient($client);
+    }
+
+    protected function tearDown(): void
+    {
+        ApiRequestor::setHttpClient(CurlClient::instance());
+        parent::tearDown();
     }
 
     private function createPaymentSyncFixture(): array

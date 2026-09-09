@@ -141,10 +141,14 @@ path.write_text("\n".join(normalized) + "\n", encoding="utf-8")
 PY
 
 echo "Preparing production-ready artifact locally ..."
+# Keep local preview data and cached environment/routes out of the artifact.
+# Composer below regenerates package discovery for the production dependencies.
 rsync -a \
   --exclude '.git' \
   --exclude '.env' \
   --exclude '.env.*' \
+  --exclude '/database/*.sqlite*' \
+  --exclude '/bootstrap/cache/*.php' \
   --exclude 'node_modules' \
   --exclude 'vendor' \
   --exclude 'storage/logs/*' \
@@ -171,6 +175,7 @@ rsync -az --delete \
   --exclude '.git' \
   --exclude '.env' \
   --exclude '.env.*' \
+  --exclude '/database/*.sqlite*' \
   --exclude 'storage/logs/*' \
   --exclude 'storage/app/*' \
   --exclude 'storage/framework/cache/*' \
@@ -201,7 +206,11 @@ ssh -p "$REMOTE_PORT" "$REMOTE_HOST" "
 "
 
 echo "Syncing public assets to docroot ..."
+# Production's docroot contains the staging site and certificate challenge files.
+# Excludes also protect these paths from --delete.
 rsync -az --delete \
+  --exclude '/dev.sugutachi.com/' \
+  --exclude '/.well-known/' \
   --exclude '.user.ini' \
   --exclude 'index.php' \
   --exclude '.htaccess' \
