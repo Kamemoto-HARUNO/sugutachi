@@ -664,7 +664,6 @@ export function UserTherapistDetailPage() {
             return;
         }
 
-        const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         const previousOverflow = document.body.style.overflow;
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
@@ -677,7 +676,6 @@ export function UserTherapistDetailPage() {
 
         return () => {
             document.body.style.overflow = previousOverflow;
-            if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
             window.removeEventListener('keydown', handleKeyDown);
         };
     }, [isPhotoModalOpen]);
@@ -687,7 +685,6 @@ export function UserTherapistDetailPage() {
             return;
         }
 
-        const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         const previousOverflow = document.body.style.overflow;
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key === 'Escape') {
@@ -700,7 +697,6 @@ export function UserTherapistDetailPage() {
 
         return () => {
             document.body.style.overflow = previousOverflow;
-            if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
             window.removeEventListener('keydown', handleKeyDown);
         };
     }, [isReviewModalOpen]);
@@ -787,7 +783,6 @@ export function UserTherapistDetailPage() {
             return;
         }
 
-        const previousFocus = document.activeElement instanceof HTMLElement ? document.activeElement : null;
         const previousOverflow = document.body.style.overflow;
         const handleKeyDown = (event: KeyboardEvent) => {
             if (event.key !== 'Escape') {
@@ -819,7 +814,6 @@ export function UserTherapistDetailPage() {
 
         return () => {
             document.body.style.overflow = previousOverflow;
-            if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
             window.removeEventListener('keydown', handleKeyDown);
             document.removeEventListener('visibilitychange', handleVisibilityChange);
             window.removeEventListener('pagehide', handlePageHide);
