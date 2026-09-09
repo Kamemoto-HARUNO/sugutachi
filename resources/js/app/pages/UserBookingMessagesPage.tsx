@@ -1,3 +1,4 @@
+import { ReadVisibleMessage } from '../components/messages/ReadVisibleMessage';
 import { BookingConversationDetails } from '../components/messages/BookingConversationDetails';
 import { ConversationHeader } from '../components/messages/ConversationHeader';
 import { MessageComposer } from '../components/messages/MessageComposer';
@@ -142,7 +143,6 @@ export function UserBookingMessagesPage() {
     const [pageError, setPageError] = useState<string | null>(null);
     const [composeError, setComposeError] = useState<string | null>(null);
     const [successMessage, setSuccessMessage] = useState<string | null>(null);
-    const [pendingReadIds, setPendingReadIds] = useState<number[]>([]);
     const [deletingImageMessageIds, setDeletingImageMessageIds] = useState<number[]>([]);
     const [isLoading, setIsLoading] = useState(true);
     const [isRefreshing, setIsRefreshing] = useState(false);
@@ -494,32 +494,18 @@ export function UserBookingMessagesPage() {
         }
     }
 
-    async function markAsRead(messageId: number) {
-        if (!token || !publicId) {
-            return;
-        }
-
-        setPendingReadIds((current) => [...current, messageId]);
-        setPageError(null);
-        setSuccessMessage(null);
-
+    async function markAsRead(messageId: number): Promise<boolean> {
+        if (!token || !publicId) return false;
         try {
-            await apiRequest<ApiEnvelope<BookingMessageRecord>>(`/bookings/${publicId}/messages/${messageId}/read`, {
-                method: 'POST',
-                token,
+            const payload = await apiRequest<ApiEnvelope<BookingMessageRecord>>(`/bookings/${publicId}/messages/${messageId}/read`, {
+                method: 'POST', token,
             });
-
-            await loadData({ refresh: true, silent: true, preserveSuccess: true });
-            notifyBookingMessageSummaryChanged();
-        } catch (requestError) {
-            const message =
-                requestError instanceof ApiError
-                    ? requestError.message
-                    : '既読更新に失敗しました。';
-
-            setPageError(message);
-        } finally {
-            setPendingReadIds((current) => current.filter((id) => id !== messageId));
+            const readMessage = unwrapData(payload);
+            setMessages((current) => current.map((message) => message.id === messageId ? readMessage : message));
+            if (readMessage.is_read) notifyBookingMessageSummaryChanged();
+            return readMessage.is_read;
+        } catch {
+            return false;
         }
     }
 
@@ -644,14 +630,15 @@ export function UserBookingMessagesPage() {
                 <section className="flex min-h-0 flex-1 flex-col">
                     <div ref={messageListRef} onScroll={(event) => { const el = event.currentTarget; followLatest.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100; }} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
                         {canViewMessages && messages.length > 0 ? messages.map((message) => {
-                            const isPendingRead = pendingReadIds.includes(message.id);
                             const isDeletingImage = deletingImageMessageIds.includes(message.id);
                             const isDeletedImageMessage = message.message_type === 'image' && message.is_deleted;
                             const isImageMessage = message.message_type === 'image' && Boolean(message.attachment_url);
 
                             return (
-                                <article
+                                <ReadVisibleMessage
                                     key={message.id}
+                                    unread={!message.is_own && !message.is_read && !message.is_deleted}
+                                    onRead={() => markAsRead(message.id)}
                                     className={[
                                         'flex',
                                         message.is_own ? 'justify-end' : 'justify-start',
@@ -709,21 +696,9 @@ export function UserBookingMessagesPage() {
                                                     <span>{isDeletingImage ? '削除中...' : '画像を削除'}</span>
                                                 </button>
                                             ) : null}
-                                            {!message.is_own && !message.is_read ? (
-                                                <button
-                                                    type="button"
-                                                    onClick={() => {
-                                                        void markAsRead(message.id);
-                                                    }}
-                                                    disabled={isPendingRead}
-                                                    className="rounded-full border border-[#d7c7ab] px-3 py-1 font-semibold text-[#17202b] transition hover:bg-[#fff8ee] disabled:cursor-not-allowed disabled:opacity-60"
-                                                >
-                                                    {isPendingRead ? '更新中...' : '既読にする'}
-                                                </button>
-                                            ) : null}
                                         </div>
                                     </div>
-                                </article>
+                                </ReadVisibleMessage>
                             );
                         }) : !meta?.counterparty_typing ? (
                             <div className="rounded-[24px] bg-[#f8f4ed] px-5 py-6 text-sm leading-7 text-[#68707a]">

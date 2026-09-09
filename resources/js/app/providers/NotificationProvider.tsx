@@ -59,6 +59,7 @@ export function NotificationProvider({ children }: PropsWithChildren) {
     const [isPushConfigReady, setIsPushConfigReady] = useState(false);
     const pushConfigPromiseRef = useRef<Promise<string | null> | null>(null);
 
+    const summarySequence = useRef(0);
     const notificationScope = `${account?.public_id}:${activeRole}`;
     const currentScope = useRef(notificationScope);
     currentScope.current = notificationScope;
@@ -70,20 +71,22 @@ export function NotificationProvider({ children }: PropsWithChildren) {
             return;
         }
 
+        const sequence = ++summarySequence.current;
         setIsLoading(true);
 
         try {
             const payload = await apiRequest<NotificationSummaryResponse>(`/notifications?limit=1&role=${activeRole ?? ""}`, { token });
 
-            if (currentScope.current !== notificationScope) return;
+            if (currentScope.current !== notificationScope || sequence !== summarySequence.current) return;
             setSummaryScope(notificationScope);
             setUnreadCount(payload.meta?.unread_count ?? 0);
         } catch (error) {
+            if (currentScope.current !== notificationScope || sequence !== summarySequence.current) return;
             if (error instanceof ApiError && error.status === 401) {
                 setUnreadCount(0);
             }
         } finally {
-            setIsLoading(false);
+            if (sequence === summarySequence.current) setIsLoading(false);
         }
     }, [isAuthenticated, token, activeRole, notificationScope]);
 
@@ -236,10 +239,13 @@ export function NotificationProvider({ children }: PropsWithChildren) {
         };
 
         window.addEventListener('focus', handleFocus);
+        const messageRead = () => { void refreshNotificationSummary(); };
+        window.addEventListener('booking-message-summary:refresh', messageRead);
 
         return () => {
             window.clearInterval(intervalId);
             window.removeEventListener('focus', handleFocus);
+            window.removeEventListener('booking-message-summary:refresh', messageRead);
         };
     }, [isAuthenticated, refreshNotificationSummary, refreshPushSubscription, token]);
 

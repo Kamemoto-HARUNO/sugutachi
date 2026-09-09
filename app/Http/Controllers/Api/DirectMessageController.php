@@ -13,6 +13,7 @@ use App\Services\DirectMessages\DirectMessageService;
 use App\Services\DirectMessages\ParticipantPresenter;
 use App\Services\DirectMessages\RelationshipPolicy;
 use App\Services\DirectMessages\SystemNotice;
+use App\Services\Notifications\NotificationInbox;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Cache;
 use Illuminate\Support\Facades\Crypt;
@@ -137,6 +138,8 @@ class DirectMessageController extends Controller
             $this->policy->lock($thread->relationship->user_account_id, $thread->relationship->therapist_account_id);
             if (! $this->policy->blocked($thread->relationship->user_account_id, $thread->relationship->therapist_account_id)) {
                 $thread->messages()->whereIn('public_id', $v['message_ids'])->where('sender_role', '!=', $role)->whereNull('read_at')->visibleContent()->update(['read_at' => now()]);
+                $readIds = $thread->messages()->whereIn('public_id', $v['message_ids'])->where('sender_role', '!=', $role)->whereNotNull('read_at')->pluck('public_id')->all();
+                app(NotificationInbox::class)->readMessage($thread->relationship->accountId($role), $role, 'direct_message_received', 'direct_message_id', $readIds);
             }
         });
 

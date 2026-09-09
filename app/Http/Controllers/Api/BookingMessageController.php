@@ -11,6 +11,7 @@ use App\Services\Bookings\BookingMessageTypingService;
 use App\Services\DirectMessages\ParticipantPresenter;
 use App\Services\DirectMessages\RelationshipPolicy;
 use App\Services\Notifications\BookingNotificationService;
+use App\Services\Notifications\NotificationInbox;
 use App\Support\ContactExchangeDetector;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -252,6 +253,8 @@ class BookingMessageController extends Controller
             $policy->lock($booking->user_account_id, $booking->therapist_account_id);
             if (! $policy->blocked($booking->user_account_id, $booking->therapist_account_id) && ! $message->read_at && $message->sender_account_id !== $actor->id) {
                 $message->forceFill(['read_at' => now()])->save();
+                $role = $booking->user_account_id === $actor->id ? 'user' : 'therapist';
+                app(NotificationInbox::class)->readMessage($actor->id, $role, 'booking_message_received', 'message_id', [$message->id]);
             }
         });
 
