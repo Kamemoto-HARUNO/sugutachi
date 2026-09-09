@@ -71,6 +71,7 @@ use App\Http\Controllers\Api\TherapistPricingRuleController;
 use App\Http\Controllers\Api\TherapistProfileController;
 use App\Http\Controllers\Api\TherapistScheduledBookingSettingController;
 use App\Http\Controllers\Api\TherapistTravelRequestController;
+use App\Http\Controllers\Api\UnreadSummaryController;
 use App\Http\Controllers\Api\UserCampaignOfferController;
 use App\Http\Controllers\Api\UserProfileController;
 use App\Http\Middleware\RelationshipWriteGuard;
@@ -149,6 +150,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     });
 
     Route::get('/me', [AuthController::class, 'me']);
+    Route::get('/me/unread-summary', UnreadSummaryController::class);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/me/banners', [BannerController::class, 'indexForAuthenticated']);
     Route::post('/me/roles', [AccountRoleController::class, 'store']);

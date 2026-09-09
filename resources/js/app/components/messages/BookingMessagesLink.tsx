@@ -1,13 +1,6 @@
-import { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
-import { apiRequest } from '../../lib/api';
-import {
-    bookingMessageSummaryRefreshEvent,
-    countUnreadBookingInboxMessages,
-    fetchBookingInboxThreads,
-} from '../../lib/bookingMessages';
-import type { MessageRole } from '../../lib/directMessages';
+import { useNotifications } from '../../hooks/useNotifications';
 
 interface BookingMessagesLinkProps {
     className?: string;
@@ -20,63 +13,11 @@ export function BookingMessagesLink({
     compact = false,
     adaptive = false,
 }: BookingMessagesLinkProps) {
-    const { isAuthenticated, token, activeRole, hasRole } = useAuth();
-    const selected = activeRole;
-    const role: MessageRole | null =
-        selected === 'user' || selected === 'therapist' ? selected : null;
-    const [summary, setSummary] = useState<{
-        role: MessageRole | null;
-        count: number;
-    }>({ role: null, count: 0 });
-    useEffect(() => {
-        if (!isAuthenticated || !token || !role) return;
-        let active = true;
-        let loading = false;
-        const update = async () => {
-            if (document.hidden || loading) return;
-            loading = true;
-            try {
-                const [bookings, dm] = await Promise.allSettled([
-                    fetchBookingInboxThreads(token, [role]),
-                    apiRequest<{ data: { unread_count: number } }>(
-                        `/${role}/direct-messages/summary`,
-                        { token },
-                    ),
-                ]);
-                if (active)
-                    setSummary({
-                        role,
-                        count:
-                            (bookings.status === 'fulfilled'
-                                ? countUnreadBookingInboxMessages(
-                                      bookings.value,
-                                  )
-                                : 0) +
-                            (dm.status === 'fulfilled'
-                                ? dm.value.data.unread_count
-                                : 0),
-                    });
-            } finally {
-                loading = false;
-            }
-        };
-        void update();
-        const timer = setInterval(() => void update(), 30000);
-        window.addEventListener(bookingMessageSummaryRefreshEvent, update);
-        window.addEventListener('focus', update);
-        return () => {
-            active = false;
-            clearInterval(timer);
-            window.removeEventListener(
-                bookingMessageSummaryRefreshEvent,
-                update,
-            );
-            window.removeEventListener('focus', update);
-        };
-    }, [token, role, isAuthenticated]);
-    if (!isAuthenticated || (!hasRole('user') && !hasRole('therapist')))
-        return null;
-    const unread = role && summary.role === role ? summary.count : 0;
+    const { isAuthenticated, activeRole, hasRole } = useAuth();
+    const { messageUnreadCount } = useNotifications();
+    const role = activeRole === 'user' || activeRole === 'therapist' ? activeRole : null;
+    if (!isAuthenticated || (!hasRole('user') && !hasRole('therapist'))) return null;
+    const unread = messageUnreadCount;
     return (
         <Link
             to={role ? `/${role}/messages` : '/messages'}
