@@ -57,9 +57,9 @@ return new class extends Migration
             $table->text('attachment_key')->nullable();
             $table->string('attachment_mime', 50)->nullable();
             $table->unsignedInteger('attachment_size')->nullable();
-            $table->timestamp('sent_at')->index();
+            $table->dateTime('sent_at')->index();
             $table->timestamp('read_at')->nullable();
-            $table->timestamp('expires_at')->index();
+            $table->dateTime('expires_at')->index();
             $table->timestamp('deleted_at')->nullable();
             $table->timestamps();
             $table->unique(['thread_id', 'sender_role', 'client_message_id'], 'dm_send_key');
@@ -83,7 +83,7 @@ return new class extends Migration
             $table->string('channel', 20);
             $table->string('status', 20)->default('pending');
             $table->unsignedSmallInteger('attempts')->default(0);
-            $table->timestamp('due_at')->index();
+            $table->dateTime('due_at')->index();
             $table->timestamp('sent_at')->nullable();
             $table->timestamps();
             $table->unique(['message_id', 'channel']);
@@ -103,14 +103,14 @@ return new class extends Migration
             $table->string('channel', 20);
             $table->string('status', 20)->default('pending');
             $table->unsignedSmallInteger('attempts')->default(0);
-            $table->timestamp('due_at');
+            $table->dateTime('due_at');
             $table->unique(['notification_id', 'channel']);
         });
         Schema::create('dm_deletions', function (Blueprint $table) {
             $table->id();
             $table->string('subject_type', 20);
             $table->string('subject_public_id', 36);
-            $table->timestamp('deleted_at');
+            $table->dateTime('deleted_at');
             $table->unique(['subject_type', 'subject_public_id']);
         });
         Schema::create('block_booking_actions', function (Blueprint $table) {

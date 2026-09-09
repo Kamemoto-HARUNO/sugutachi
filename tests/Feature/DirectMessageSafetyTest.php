@@ -293,6 +293,14 @@ class DirectMessageSafetyTest extends TestCase
         $migration = require database_path('migrations/2026_09_08_000001_create_direct_messaging.php');
         $migration->down();
         $migration->up();
+        foreach (['direct_messages' => ['sent_at', 'expires_at'], 'direct_message_deliveries' => ['due_at'], 'dm_system_deliveries' => ['due_at'], 'dm_deletions' => ['deleted_at']] as $table => $names) {
+            $columns = collect(\Illuminate\Support\Facades\Schema::getColumns($table))->keyBy('name');
+            foreach ($names as $name) {
+                $this->assertSame('datetime', strtolower($columns[$name]['type_name']));
+                $this->assertFalse($columns[$name]['nullable']);
+                $this->assertNull($columns[$name]['default']);
+            }
+        }
         $this->assertEquals($before, DB::table('booking_messages')->where('id', $message->id)->first());
         $this->assertNotNull($booking->fresh()->messages_closed_at);
         $this->assertDatabaseCount('account_blocks', 1);
