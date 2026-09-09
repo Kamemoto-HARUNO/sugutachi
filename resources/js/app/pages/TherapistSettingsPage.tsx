@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
 import { useAuth } from '../hooks/useAuth';
+import { useNotifications } from '../hooks/useNotifications';
 import { usePageTitle } from '../hooks/usePageTitle';
 import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
@@ -95,6 +96,7 @@ function formatTravelMode(value: TherapistBookingSettingRecord['travel_mode'] | 
 
 export function TherapistSettingsPage() {
     const { token } = useAuth();
+    const { refreshNotificationSummary } = useNotifications();
     const [profile, setProfile] = useState<TherapistProfileRecord | null>(null);
     const [reviewStatus, setReviewStatus] = useState<TherapistReviewStatus | null>(null);
     const [stripeStatus, setStripeStatus] = useState<StripeConnectedAccountStatus | null>(null);
@@ -131,7 +133,7 @@ export function TherapistSettingsPage() {
                 apiRequest<ApiEnvelope<TherapistReviewStatus>>('/me/therapist-profile/review-status', { token }),
                 apiRequest<ApiEnvelope<StripeConnectedAccountStatus>>('/me/stripe-connect', { token }),
                 apiRequest<ApiEnvelope<TherapistBookingSettingRecord>>('/me/therapist/scheduled-booking-settings', { token }),
-                apiRequest<{ data: AppNotificationRecord[]; meta: NotificationListMeta }>('/notifications?limit=8', { token }),
+                apiRequest<{ data: AppNotificationRecord[]; meta: NotificationListMeta }>('/notifications?limit=8&role=therapist', { token }),
             ]);
 
             setProfile(unwrapData(profilePayload));
@@ -297,12 +299,13 @@ export function TherapistSettingsPage() {
         setError(null);
 
         try {
-            await apiRequest<ApiEnvelope<AppNotificationRecord>>(`/notifications/${notification.id}/read`, {
+            await apiRequest<ApiEnvelope<AppNotificationRecord>>(`/notifications/${notification.id}/read?role=therapist`, {
                 method: 'POST',
                 token,
             });
 
             await loadData(true);
+            await refreshNotificationSummary();
         } catch (requestError) {
             const message = requestError instanceof ApiError
                 ? requestError.message

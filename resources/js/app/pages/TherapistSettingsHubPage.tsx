@@ -16,7 +16,7 @@ export function TherapistSettingsHubPage() {
                 { label: 'レビュー', to: '/therapist/reviews', description: '届いたレビューや評価の見え方を確認します。' },
                 { label: '受取設定', to: '/therapist/stripe-connect', description: '受取口座の登録と出金準備状況を確認します。' },
                 { label: '売上と出金', to: '/therapist/balance', description: '売上残高、出金可能額、出金申請を確認します。' },
-                { label: '通知一覧', to: '/notifications', description: '利用者、タチキャスト、運営向けの通知をまとめて確認します。' },
+                { label: '通知一覧', to: '/notifications', description: '現在のモード宛ての通知と、アカウント共通のお知らせを確認します。' },
                 { label: 'アカウント設定', to: '/profile', description: 'ログイン情報や共通プロフィールを見直します。' },
                 { label: '出張リクエスト', to: '/therapist/travel-requests', description: '需要通知の確認と整理を行います。' },
             ]}
