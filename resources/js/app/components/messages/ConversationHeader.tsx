@@ -158,7 +158,7 @@ export function ConversationHeader({
                             triggerRef.current?.focus({ preventScroll: true });
                         }
                     }}
-                    className="absolute right-3 top-[calc(100%+8px)] z-30 max-h-[calc(100dvh-100px)] w-[288px] max-w-[calc(100vw-32px)] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-1.5 text-sm shadow-[0_12px_40px_rgba(15,23,42,0.16)] sm:right-5"
+                    className="absolute right-3 top-[calc(100%+8px)] z-30 max-h-[calc(var(--message-viewport-height,100dvh)-100px)] w-[288px] max-w-[calc(100vw-32px)] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-1.5 text-sm shadow-[0_12px_40px_rgba(15,23,42,0.16)] sm:right-5"
                 >
                     {children}
                 </section>

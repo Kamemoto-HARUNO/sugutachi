@@ -291,11 +291,12 @@ function DirectMessageConversation({
         DmMessage | "thread" | null
     >(null);
     const [reportDetail, setReportDetail] = useState("");
-    const end = useRef<HTMLDivElement>(null);
+    const messageListRef = useRef<HTMLDivElement>(null);
     const followLatest = useRef(true);
     const newestMessageId = messages[messages.length - 1]?.public_id;
     useEffect(() => {
-        if (followLatest.current) end.current?.scrollIntoView({ block: "end" });
+        const list = messageListRef.current;
+        if (list && followLatest.current) list.scrollTop = list.scrollHeight;
     }, [newestMessageId]);
     const latest = useRef(0);
     const reading = useRef(new Set<string>());
@@ -549,8 +550,8 @@ function DirectMessageConversation({
                 });
             else {
                 setThread(sent.data.thread);
+                followLatest.current = true;
                 await refresh();
-                end.current?.scrollIntoView({ behavior: "smooth" });
             }
         } catch (e) {
             if (alive.current) setError(dmError(e));
@@ -740,6 +741,7 @@ function DirectMessageConversation({
                 </p>
             )}
             <div
+                ref={messageListRef}
                 className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6"
                 onScroll={(event) => {
                     const el = event.currentTarget;
@@ -771,15 +773,15 @@ function DirectMessageConversation({
                         onDelete={(m) => void removeImage(m)}
                         onReport={setReportMessage}
                         onImageLoad={() => {
-                            if (followLatest.current)
-                                end.current?.scrollIntoView({ block: "end" });
+                            const list = messageListRef.current;
+                            if (list && followLatest.current)
+                                list.scrollTop = list.scrollHeight;
                         }}
                     />
                 ))}
                 {thread?.typing && (
                     <p className="text-xs text-slate-500">相手が入力中…</p>
                 )}
-                <div ref={end} />
             </div>
             {thread && !thread.can_send ? (
                 <p className="shrink-0 border-t border-slate-200 bg-slate-50 p-4 text-sm">
