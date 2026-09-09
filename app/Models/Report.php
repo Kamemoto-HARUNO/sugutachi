@@ -25,6 +25,16 @@ class Report extends Model
 
     public const SEVERITY_CRITICAL = 'critical';
 
+    public function directMessageThread(): BelongsTo
+    {
+        return $this->belongsTo(DirectMessageThread::class);
+    }
+
+    public function sourceDirectMessage(): BelongsTo
+    {
+        return $this->belongsTo(DirectMessage::class);
+    }
+
     public function booking(): BelongsTo
     {
         return $this->belongsTo(Booking::class);
@@ -58,7 +68,7 @@ class Report extends Model
     protected function casts(): array
     {
         return [
-            'resolved_at' => 'datetime',
+            'resolved_at' => 'datetime', 'evidence_review_at' => 'datetime', 'evidence_expires_at' => 'datetime',
         ];
     }
 }

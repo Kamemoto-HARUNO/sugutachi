@@ -7,9 +7,12 @@ use App\Http\Resources\BookingResource;
 use App\Http\Resources\PaymentIntentResource;
 use App\Models\Booking;
 use App\Models\PaymentIntent;
-use App\Services\Campaigns\CampaignService;
 use App\Services\Bookings\ScheduledBookingPolicy;
+use App\Services\Campaigns\CampaignService;
+use App\Services\DirectMessages\RelationshipPolicy;
 use App\Services\Notifications\BookingNotificationService;
+use App\Services\Payments\LocalPaymentIntentGateway;
+use App\Services\Payments\LocalPaymentSimulation;
 use Carbon\CarbonImmutable;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -36,7 +39,7 @@ class PaymentSyncController extends Controller
             bookingNotificationService: $bookingNotificationService,
         );
 
-        $this->loadBookingRelations($booking);
+        $this->loadBookingRelations($booking->refresh());
 
         return response()->json([
             'data' => [
@@ -61,14 +64,21 @@ class PaymentSyncController extends Controller
         $currentPaymentIntent = $booking->currentPaymentIntent()->first();
         $secret = config('services.stripe.secret');
 
-        if (! $currentPaymentIntent || blank($secret)) {
+        $localSimulation = app(LocalPaymentSimulation::class)->enabled();
+
+        if (! $currentPaymentIntent || (! $localSimulation && blank($secret))) {
             return;
         }
 
         try {
-            $stripePaymentIntent = (new StripeClient($secret))
-                ->paymentIntents
-                ->retrieve($currentPaymentIntent->stripe_payment_intent_id, []);
+            if ($localSimulation) {
+                $status = app(LocalPaymentIntentGateway::class)->retrieve($currentPaymentIntent)['status'];
+            } else {
+                $stripePaymentIntent = (new StripeClient($secret))
+                    ->paymentIntents
+                    ->retrieve($currentPaymentIntent->stripe_payment_intent_id, []);
+                $status = (string) ($stripePaymentIntent->status ?? $currentPaymentIntent->status);
+            }
         } catch (Throwable $exception) {
             Log::warning('Failed to sync PaymentIntent state from Stripe.', [
                 'booking_public_id' => $booking->public_id,
@@ -79,9 +89,8 @@ class PaymentSyncController extends Controller
             return;
         }
 
-        $status = (string) ($stripePaymentIntent->status ?? $currentPaymentIntent->status);
-
-        DB::transaction(function () use ($booking, $status, $scheduledBookingPolicy, $bookingNotificationService): void {
+        DB::transaction(function () use ($booking, $currentPaymentIntent, $status, $scheduledBookingPolicy, $bookingNotificationService, $campaignService): void {
+            app(RelationshipPolicy::class)->lock($booking->user_account_id, $booking->therapist_account_id);
             $lockedBooking = Booking::query()
                 ->whereKey($booking->id)
                 ->lockForUpdate()
@@ -93,7 +102,13 @@ class PaymentSyncController extends Controller
                 ->lockForUpdate()
                 ->first();
 
-            if (! $lockedPaymentIntent) {
+            // The Stripe response belongs to the snapshot read before the network
+            // request. A retry, cancellation, or webhook may have advanced it.
+            if (! $lockedPaymentIntent
+                || $lockedBooking->status !== Booking::STATUS_PAYMENT_AUTHORIZING
+                || $lockedPaymentIntent->id !== $currentPaymentIntent->id
+                || $lockedPaymentIntent->status !== $currentPaymentIntent->status
+                || $lockedPaymentIntent->last_stripe_event_id !== $currentPaymentIntent->last_stripe_event_id) {
                 return;
             }
 

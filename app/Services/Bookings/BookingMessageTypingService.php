@@ -4,6 +4,7 @@ namespace App\Services\Bookings;
 
 use App\Models\Account;
 use App\Models\Booking;
+use App\Services\DirectMessages\RelationshipPolicy;
 use Illuminate\Support\Facades\Cache;
 
 class BookingMessageTypingService
@@ -36,7 +37,7 @@ class BookingMessageTypingService
             ? $booking->therapist_account_id
             : ($booking->therapist_account_id === $actor->id ? $booking->user_account_id : null);
 
-        if (! $counterpartyId) {
+        if (! $counterpartyId || app(RelationshipPolicy::class)->blocked($booking->user_account_id, $booking->therapist_account_id)) {
             return [
                 'is_typing' => false,
                 'updated_at' => null,

@@ -32,6 +32,7 @@ class TherapistTravelRequestApiTest extends TestCase
             'public_id' => 'acc_travel_user',
             'display_name' => 'Travel User',
         ]);
+        $user->userProfile()->firstOrCreate(['account_id' => $user->id]);
         [$therapist, $profile] = $this->createTravelRequestableTherapist();
 
         $requestId = $this->withToken($user->createToken('api')->plainTextToken)
@@ -43,7 +44,7 @@ class TherapistTravelRequestApiTest extends TestCase
             ->assertJsonPath('data.prefecture', '福岡県')
             ->assertJsonPath('data.message', '来月に博多へ行く予定があるのでお願いしたいです。')
             ->assertJsonPath('data.status', TherapistTravelRequest::STATUS_UNREAD)
-            ->assertJsonPath('data.sender.public_id', $user->public_id)
+            ->assertJsonPath('data.sender.public_id', $user->userProfile->public_id)
             ->json('data.public_id');
 
         $this->assertDatabaseHas('therapist_travel_requests', [
@@ -68,6 +69,7 @@ class TherapistTravelRequestApiTest extends TestCase
     public function test_user_cannot_send_duplicate_recent_travel_request_or_contact_exchange(): void
     {
         $user = Account::factory()->create(['public_id' => 'acc_travel_dup_user']);
+        $user->userProfile()->firstOrCreate(['account_id' => $user->id]);
         [, $profile] = $this->createTravelRequestableTherapist();
 
         $this->withToken($user->createToken('api')->plainTextToken)
@@ -95,6 +97,7 @@ class TherapistTravelRequestApiTest extends TestCase
     public function test_user_cannot_send_when_blocked_or_rate_limited(): void
     {
         $user = Account::factory()->create(['public_id' => 'acc_travel_blocked_user']);
+        $user->userProfile()->firstOrCreate(['account_id' => $user->id]);
         [$therapist, $profile] = $this->createTravelRequestableTherapist();
 
         AccountBlock::create([
@@ -108,7 +111,7 @@ class TherapistTravelRequestApiTest extends TestCase
                 'prefecture' => '福岡県',
                 'message' => 'blocked case',
             ])
-            ->assertNotFound();
+            ->assertConflict();
 
         AccountBlock::query()->delete();
 
@@ -141,6 +144,7 @@ class TherapistTravelRequestApiTest extends TestCase
             'travel_request_restricted_until' => now()->addDays(3),
             'travel_request_restriction_reason' => 'policy_warning',
         ]);
+        $user->userProfile()->firstOrCreate(['account_id' => $user->id]);
         [, $profile] = $this->createTravelRequestableTherapist();
 
         $this->withToken($user->createToken('api')->plainTextToken)

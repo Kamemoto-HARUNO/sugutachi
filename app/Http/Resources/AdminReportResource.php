@@ -12,6 +12,10 @@ class AdminReportResource extends JsonResource
     {
         return [
             'public_id' => $this->public_id,
+            'direct_message_thread_id' => $this->directMessageThread?->public_id,
+            'reporter_role' => $this->reporter_role,
+            'evidence_review_at' => $this->evidence_review_at,
+            'evidence_expires_at' => $this->evidence_expires_at,
             'booking_public_id' => $this->whenLoaded('booking', fn () => $this->booking?->public_id),
             'source_booking_message' => $this->whenLoaded('sourceBookingMessage', fn () => $this->sourceBookingMessage ? [
                 'id' => $this->sourceBookingMessage->id,

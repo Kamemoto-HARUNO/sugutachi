@@ -4,12 +4,14 @@ namespace App\Http\Controllers\Api;
 
 use App\Contracts\Payments\PaymentIntentGateway;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\BookingResource;
 use App\Http\Resources\PaymentIntentResource;
 use App\Models\Booking;
 use App\Models\BookingQuote;
 use App\Models\PaymentIntent;
-use App\Services\Campaigns\CampaignService;
 use App\Services\Bookings\BookingSettlementCalculator;
+use App\Services\Campaigns\CampaignService;
+use App\Services\DirectMessages\RelationshipPolicy;
 use App\Services\Payments\BookingPaymentIntentCancellationService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -22,14 +24,15 @@ class PaymentIntentController extends Controller
         Booking $booking,
         PaymentIntentGateway $gateway,
         BookingSettlementCalculator $bookingSettlementCalculator,
-    ): JsonResponse
-    {
+    ): JsonResponse {
         abort_unless($booking->user_account_id === $request->user()->id, 404);
         abort_unless(
             $booking->status === Booking::STATUS_PAYMENT_AUTHORIZING,
             409,
             'カード確認は、予約リクエスト送信前にだけ開始できます。'
         );
+
+        app(RelationshipPolicy::class)->assertAllowed($booking->user_account_id, $booking->therapist_account_id);
 
         $booking->load(['currentQuote', 'userAccount', 'therapistAccount', 'therapistProfile.stripeConnectedAccount']);
         $quote = $booking->currentQuote;
@@ -160,6 +163,7 @@ class PaymentIntentController extends Controller
             ]);
 
             $campaignService->restoreBookingCampaignApplication($lockedBooking->refresh(), 'payment_authorization_failed');
+
             return $lockedBooking->refresh()->load([
                 'currentPaymentIntent',
                 'currentQuote',
@@ -169,7 +173,7 @@ class PaymentIntentController extends Controller
         });
 
         return response()->json([
-            'data' => (new \App\Http\Resources\BookingResource($abandonedBooking))->resolve($request),
+            'data' => (new BookingResource($abandonedBooking))->resolve($request),
         ]);
     }
 }

@@ -32,13 +32,6 @@ class AccountBlockController extends Controller
                 $validated['reason_code'] ?? null,
                 fn ($query, string $reasonCode) => $query->where('reason_code', $reasonCode)
             )
-            ->when(
-                $validated['q'] ?? null,
-                fn ($query, string $keyword) => $query->whereHas(
-                    'blocked',
-                    fn ($blockedQuery) => $blockedQuery->where('display_name', 'like', '%'.$keyword.'%')
-                )
-            )
             ->orderBy($sort, $direction)
             ->orderBy('id', $direction)
             ->get();
@@ -60,25 +53,15 @@ class AccountBlockController extends Controller
 
     public function store(Request $request, Account $account): JsonResponse
     {
-        abort_if($account->id === $request->user()->id, 422, 'You cannot block yourself.');
+        abort(422, '役割別のブロック画面をご利用ください。');
+    }
 
-        $validated = $request->validate([
-            'reason_code' => ['nullable', 'string', 'max:100'],
-        ]);
+    public function destroyLegacy(Request $request, AccountBlock $block): JsonResponse
+    {
+        abort_unless($block->blocker_account_id === $request->user()->id, 404);
+        $block->delete();
 
-        $block = AccountBlock::query()->updateOrCreate(
-            [
-                'blocker_account_id' => $request->user()->id,
-                'blocked_account_id' => $account->id,
-            ],
-            [
-                'reason_code' => $validated['reason_code'] ?? null,
-            ],
-        );
-
-        return (new AccountBlockResource($block->load(['blocker', 'blocked'])))
-            ->response()
-            ->setStatusCode($block->wasRecentlyCreated ? 201 : 200);
+        return response()->json(status: 204);
     }
 
     public function destroy(Request $request, Account $account): JsonResponse

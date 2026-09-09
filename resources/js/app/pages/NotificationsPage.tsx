@@ -33,6 +33,11 @@ function filterButtonClass(isActive: boolean, tone: 'dark' | 'role' = 'dark'): s
 }
 
 export function NotificationsPage() {
+    const {account, activeRole} = useAuth();
+    return <RoleNotificationsPage key={`${account?.public_id}:${activeRole}`} />;
+}
+
+function RoleNotificationsPage() {
     const { account, activeRole, token } = useAuth();
     const {
         disablePushNotifications,
@@ -77,7 +82,7 @@ export function NotificationsPage() {
                 ? '/notifications?limit=100&read_status=unread'
                 : '/notifications?limit=100';
 
-            const payload = await apiRequest<{ data: AppNotificationRecord[]; meta?: NotificationListMeta }>(query, { token });
+            const payload = await apiRequest<{ data: AppNotificationRecord[]; meta?: NotificationListMeta }>(`${query}&role=${activeRole ?? ''}`, { token });
 
             setNotifications(payload.data);
             setMeta(payload.meta ?? null);
@@ -92,7 +97,7 @@ export function NotificationsPage() {
             setIsLoading(false);
             setIsRefreshing(false);
         }
-    }, [readFilter, token]);
+    }, [readFilter, token, activeRole]);
 
     useEffect(() => {
         void loadNotifications();
@@ -158,7 +163,7 @@ export function NotificationsPage() {
         setMarkingId(notification.id);
 
         try {
-            await apiRequest<ApiEnvelope<AppNotificationRecord>>(`/notifications/${notification.id}/read`, {
+            await apiRequest<ApiEnvelope<AppNotificationRecord>>(`/notifications/${notification.id}/read?role=${activeRole ?? ""}`, {
                 method: 'POST',
                 token,
             });
@@ -200,7 +205,7 @@ export function NotificationsPage() {
         setIsMarkingAllRead(true);
 
         try {
-            await apiRequest<{ data: { updated_count: number; unread_count: number } }>('/notifications/read-all', {
+            await apiRequest<{ data: { updated_count: number; unread_count: number } }>(`/notifications/read-all?role=${activeRole ?? ""}`, {
                 method: 'POST',
                 token,
             });
@@ -263,7 +268,7 @@ export function NotificationsPage() {
                         <div className="space-y-2">
                             <h1 className="text-[2rem] font-semibold leading-[1.4] text-white sm:text-[2.3rem]">通知一覧</h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                                利用者・タチキャスト・運営の役割に関係なく、このアカウントに届いた通知をまとめて確認できます。
+                                現在の役割に届いた通知を確認できます。別の役割の通知は、役割を切り替えてご確認ください。
                             </p>
                         </div>
                     </div>
@@ -356,21 +361,7 @@ export function NotificationsPage() {
                                     未読のみ
                                 </button>
                             </div>
-                            <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-xs font-semibold tracking-[0.14em] text-[#8f7a58]">対象ロール</span>
-                                <button type="button" onClick={() => setRoleFilter('all')} className={filterButtonClass(roleFilter === 'all', 'role')}>
-                                    すべて
-                                </button>
-                                <button type="button" onClick={() => setRoleFilter('user')} className={filterButtonClass(roleFilter === 'user', 'role')}>
-                                    利用者
-                                </button>
-                                <button type="button" onClick={() => setRoleFilter('therapist')} className={filterButtonClass(roleFilter === 'therapist', 'role')}>
-                                    タチキャスト
-                                </button>
-                                <button type="button" onClick={() => setRoleFilter('admin')} className={filterButtonClass(roleFilter === 'admin', 'role')}>
-                                    運営
-                                </button>
-                            </div>
+
                         </div>
                         <p className="text-sm text-[#5b6879]">{pageSummary}</p>
                     </div>

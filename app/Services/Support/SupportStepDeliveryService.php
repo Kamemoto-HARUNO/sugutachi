@@ -23,8 +23,7 @@ class SupportStepDeliveryService
 
     public function __construct(
         private readonly SupportTicketNotificationService $notificationService,
-    ) {
-    }
+    ) {}
 
     /**
      * @return array{sent: int, skipped: int, failed: int}
@@ -38,7 +37,11 @@ class SupportStepDeliveryService
 
         SupportStepScenario::query()
             ->where('status', SupportStepScenario::STATUS_ACTIVE)
-            ->whereIn('send_time', [$sendTime, $sendTimeShort])
+            // Compare each time directly so MySQL applies TIME coercion to bound
+            // values; SQLite may retain the original HH:mm representation.
+            ->where(fn (Builder $query) => $query
+                ->where('send_time', $sendTime)
+                ->orWhere('send_time', $sendTimeShort))
             ->orderBy('priority')
             ->orderBy('created_at')
             ->orderBy('id')
@@ -64,15 +67,15 @@ class SupportStepDeliveryService
 
         $sendableCount = (clone $this->eligibleAccountsQuery($scenario, $now))
             ->whereDoesntHave('supportStepDeliveries', fn (Builder $query) => $query
-                    ->where('support_step_scenario_id', $scenario->id)
-                    ->where('status', SupportStepDelivery::STATUS_SENT)
-                    ->where('delivery_type', '!=', SupportStepDelivery::TYPE_TEST))
+                ->where('support_step_scenario_id', $scenario->id)
+                ->where('status', SupportStepDelivery::STATUS_SENT)
+                ->where('delivery_type', '!=', SupportStepDelivery::TYPE_TEST))
             ->whereDoesntHave('supportStepDeliveries', fn (Builder $query) => $query
-                    ->whereDate('scheduled_for_date', $now->toDateString())
-                    ->where('status', SupportStepDelivery::STATUS_SENT)
-                    ->where('delivery_type', '!=', SupportStepDelivery::TYPE_TEST))
+                ->whereDate('scheduled_for_date', $now->toDateString())
+                ->where('status', SupportStepDelivery::STATUS_SENT)
+                ->where('delivery_type', '!=', SupportStepDelivery::TYPE_TEST))
             ->whereDoesntHave('supportTickets', fn (Builder $query) => $query
-                    ->where('title', $scenario->ticket_title))
+                ->where('title', $scenario->ticket_title))
             ->count();
 
         return [

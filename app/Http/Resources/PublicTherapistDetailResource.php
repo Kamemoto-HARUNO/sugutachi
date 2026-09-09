@@ -12,6 +12,8 @@ class PublicTherapistDetailResource extends JsonResource
     {
         return [
             'public_id' => data_get($this->resource, 'public_id'),
+            'consultation_enabled' => (bool) data_get($this->resource, 'consultation_enabled', false),
+            'existing_direct_message_id' => data_get($this->resource, 'existing_direct_message_id'),
             'public_name' => data_get($this->resource, 'public_name'),
             'bio' => data_get($this->resource, 'bio'),
             'is_self_view' => (bool) data_get($this->resource, 'is_self_view', false),

@@ -257,7 +257,8 @@ export function ActiveUserBookingDock() {
         return null;
     }, [activeRole, hasRole, isAuthenticated]);
 
-    const shouldShow = mode !== null;
+    const isMessageScreen = /^\/(user|therapist)\/(?:messages(?:\/|$)|direct-messages(?:\/|$)|bookings\/[^/]+\/messages(?:\/|$))/.test(location.pathname);
+    const shouldShow = mode !== null && !isMessageScreen;
 
     const loadItems = useCallback(async () => {
         if (!token || !shouldShow || !mode) {

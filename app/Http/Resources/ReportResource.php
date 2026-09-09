@@ -2,6 +2,8 @@
 
 namespace App\Http\Resources;
 
+use App\Models\DirectMessageThread;
+use App\Services\DirectMessages\ParticipantPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Crypt;
@@ -12,32 +14,23 @@ class ReportResource extends JsonResource
     {
         $includeDetail = (bool) $this->resource->getAttribute('include_detail');
 
+        $reporterRole = $this->reporter_role ?: ($this->booking ? $this->booking->messageParticipantRoleForAccountId($this->reporter_account_id) : null);
+        $targetRole = $reporterRole === 'user' ? 'therapist' : ($reporterRole === 'therapist' ? 'user' : null);
+        $presenter = app(ParticipantPresenter::class);
+
         return [
             'public_id' => $this->public_id,
-            'booking_public_id' => $this->whenLoaded('booking', fn () => $this->booking?->public_id),
-            'source_booking_message' => $this->whenLoaded('sourceBookingMessage', fn () => $this->sourceBookingMessage ? [
+            'booking_public_id' => $this->booking?->public_id,
+            'direct_message_thread_id' => $this->direct_message_thread_id ? DirectMessageThread::find($this->direct_message_thread_id)?->public_id : null,
+            'source_booking_message' => $this->sourceBookingMessage ? [
                 'id' => $this->sourceBookingMessage->id,
-                'sender' => $this->sourceBookingMessage->relationLoaded('sender') ? [
-                    'public_id' => $this->sourceBookingMessage->sender?->public_id,
-                    'display_name' => $this->sourceBookingMessage->sender?->display_name,
-                ] : null,
+                'sender' => $this->sourceBookingMessage->sender && $this->booking ? $presenter->present($this->sourceBookingMessage->sender, $this->booking->messageParticipantRoleForAccountId($this->sourceBookingMessage->sender_account_id)) : null,
                 'moderation_status' => $this->sourceBookingMessage->moderation_status,
                 'detected_contact_exchange' => $this->sourceBookingMessage->detected_contact_exchange,
                 'sent_at' => $this->sourceBookingMessage->sent_at,
-            ] : null),
-            'reporter_account_id' => $this->reporter?->public_id,
-            'reporter_account' => $this->whenLoaded('reporter', fn () => $this->reporter ? [
-                'public_id' => $this->reporter->public_id,
-                'display_name' => $this->reporter->display_name,
-                'status' => $this->reporter->status,
-            ] : null),
-            'target_account_id' => $this->target?->public_id,
-            'target_account' => $this->whenLoaded('target', fn () => $this->target ? [
-                'public_id' => $this->target->public_id,
-                'display_name' => $this->target->display_name,
-                'status' => $this->target->status,
-            ] : null),
-            'assigned_admin_account_id' => $this->assignedAdmin?->public_id,
+            ] : null,
+            'reporter_profile' => $this->reporter && $reporterRole ? $presenter->present($this->reporter, $reporterRole) : null,
+            'target_profile' => $this->target && $targetRole ? $presenter->present($this->target, $targetRole) : null,
             'category' => $this->category,
             'severity' => $this->severity,
             'status' => $this->status,

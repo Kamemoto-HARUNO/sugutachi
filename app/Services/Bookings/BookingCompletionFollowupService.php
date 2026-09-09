@@ -10,8 +10,7 @@ class BookingCompletionFollowupService
     public function __construct(
         private readonly BookingCompletionService $bookingCompletionService,
         private readonly BookingNotificationService $bookingNotificationService,
-    ) {
-    }
+    ) {}
 
     public function processPendingConfirmations(): array
     {
@@ -26,6 +25,7 @@ class BookingCompletionFollowupService
         $bookings = Booking::query()
             ->with(['userAccount', 'therapistAccount', 'therapistProfile'])
             ->where('status', Booking::STATUS_THERAPIST_COMPLETED)
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('block_booking_actions')->whereColumn('booking_id', 'bookings.id')->whereIn('status', ['review', 'pending', 'processing']))
             ->whereNotNull('ended_at')
             ->where('ended_at', '<=', now()->subHours(24))
             ->where('ended_at', '>', now()->subHours(72))
@@ -51,6 +51,7 @@ class BookingCompletionFollowupService
         $bookings = Booking::query()
             ->with(['userAccount', 'therapistAccount', 'therapistProfile'])
             ->where('status', Booking::STATUS_THERAPIST_COMPLETED)
+            ->whereNotExists(fn ($q) => $q->selectRaw('1')->from('block_booking_actions')->whereColumn('booking_id', 'bookings.id')->whereIn('status', ['review', 'pending', 'processing']))
             ->whereNotNull('ended_at')
             ->where('ended_at', '<=', now()->subHours(72))
             ->whereDoesntHave('refunds')

@@ -52,6 +52,7 @@ class WebPushDeliveryService
         $webPush->setReuseVAPIDHeaders(true);
 
         $endpointHashMap = [];
+        $failed = false;
 
         foreach ($subscriptions as $subscription) {
             try {
@@ -64,6 +65,7 @@ class WebPushDeliveryService
                     'account_id' => $subscription->account_id,
                     'exception' => $exception->getMessage(),
                 ]);
+
                 continue;
             }
 
@@ -103,6 +105,7 @@ class WebPushDeliveryService
                 $subscription->forceFill([
                     'last_used_at' => now(),
                 ])->save();
+
                 continue;
             }
 
@@ -113,12 +116,18 @@ class WebPushDeliveryService
                 'reason' => $report->getReason(),
             ]);
 
+            if (! $report->isSubscriptionExpired()) {
+                $failed = true;
+            }
             if ($report->isSubscriptionExpired()) {
                 $subscription->forceFill([
                     'permission_status' => 'denied',
                     'revoked_at' => now(),
                 ])->save();
             }
+        }
+        if ($failed && in_array($notification->notification_type, ['direct_message_received', 'dm_system_notice'], true)) {
+            throw new \RuntimeException('Push delivery failed.');
         }
     }
 

@@ -2,6 +2,7 @@
 
 namespace App\Http\Resources;
 
+use App\Services\DirectMessages\ParticipantPresenter;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\JsonResource;
 use Illuminate\Support\Facades\Crypt;
@@ -16,6 +17,8 @@ class BookingMessageResource extends JsonResource
         $viewerRole = $this->relationLoaded('booking') && $this->booking
             ? $this->booking->messageParticipantRoleForAccountId($viewerAccountId)
             : null;
+        $senderRole = $this->booking?->messageParticipantRoleForAccountId($this->sender_account_id);
+        $sender = $senderRole && $this->sender ? app(ParticipantPresenter::class)->present($this->sender, $senderRole) : null;
         $canDeleteImage = ! $isDeleted
             && $this->message_type === 'image'
             && $viewerAccountId !== null
@@ -29,12 +32,8 @@ class BookingMessageResource extends JsonResource
         return [
             'id' => $this->id,
             'booking_public_id' => $this->whenLoaded('booking', fn () => $this->booking->public_id),
-            'sender_account_id' => $this->sender?->public_id,
-            'sender' => $this->whenLoaded('sender', fn () => $this->sender ? [
-                'public_id' => $this->sender->public_id,
-                'display_name' => $this->sender->display_name,
-                'status' => $this->sender->status,
-            ] : null),
+            'sender_profile_id' => $sender['public_id'] ?? null,
+            'sender' => $sender,
             'sender_role' => $this->whenLoaded('booking', fn () => match ($this->sender_account_id) {
                 $this->booking?->user_account_id => 'user',
                 $this->booking?->therapist_account_id => 'therapist',
@@ -50,7 +49,7 @@ class BookingMessageResource extends JsonResource
                     'viewer_role' => $viewerRole,
                 ]),
             ),
-            'attachment_original_name' => $this->attachment_original_name,
+            'attachment_original_name' => $this->attachment_storage_key_encrypted ? 'image' : null,
             'attachment_mime_type' => $this->attachment_mime_type,
             'attachment_size_bytes' => $this->attachment_size_bytes,
             'is_deleted' => $isDeleted,

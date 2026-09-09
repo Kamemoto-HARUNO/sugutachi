@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Models\Concerns\UsesPublicIdRouteKey;
+use App\Services\DirectMessages\RelationshipPolicy;
 use Illuminate\Database\Eloquent\Attributes\Guarded;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -103,7 +104,8 @@ class Booking extends Model
     public function canSendMessagesForRole(?string $role): bool
     {
         return ! $this->isMessageThreadClosed()
-            && in_array($role, ['user', 'therapist'], true);
+            && in_array($role, ['user', 'therapist'], true)
+            && ! app(RelationshipPolicy::class)->blocked($this->user_account_id, $this->therapist_account_id);
     }
 
     public function canCloseMessageThreadForRole(?string $role): bool
