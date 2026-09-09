@@ -313,11 +313,11 @@ export function DirectMessagesPage({ role }: { role: MessageRole }) {
                                 </span>
                             )}
                             <div className="min-w-0 flex-1">
-                                <p className="font-semibold">
-                                    {t.counterparty.display_name}{" "}
+                                <p className="flex items-center gap-2 font-semibold">
+                                    <span className="truncate">{t.counterparty.display_name}</span>
                                     {t.unread_count > 0 && (
-                                        <span className="text-sm text-red-700">
-                                            未読 {t.unread_count}
+                                        <span className="h-2 w-2 shrink-0 rounded-full bg-[#d67c7c]">
+                                            <span className="sr-only">未読 {t.unread_count}件</span>
                                         </span>
                                     )}
                                 </p>

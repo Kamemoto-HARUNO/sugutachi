@@ -7,6 +7,8 @@ import {
     type ReactNode,
 } from 'react';
 import { createPortal } from 'react-dom';
+import { useNotifications } from '../../hooks/useNotifications';
+import { UnreadBadge } from './UnreadBadge';
 
 interface MobileHeaderMenuProps {
     isOpen: boolean;
@@ -21,6 +23,7 @@ export function MobileHeaderMenu({
     onClose,
     children,
 }: MobileHeaderMenuProps) {
+    const { totalUnreadCount, refreshNotificationSummary } = useNotifications();
     const triggerRef = useRef<HTMLButtonElement>(null);
     const panelRef = useRef<HTMLElement>(null);
     const openedWithKeyboardRef = useRef(false);
@@ -120,12 +123,13 @@ export function MobileHeaderMenu({
                 type="button"
                 onClick={(event) => {
                     openedWithKeyboardRef.current = event.detail === 0;
+                    if (!isOpen) void refreshNotificationSummary();
                     onToggle();
                 }}
-                aria-label={isOpen ? 'メニューを閉じる' : 'メニューを開く'}
+                aria-label={`${isOpen ? 'メニューを閉じる' : 'メニューを開く'}${totalUnreadCount > 0 ? ` 未読${totalUnreadCount}件` : ''}`}
                 aria-expanded={isOpen}
                 aria-controls={id}
-                className="inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white outline-none transition [-webkit-tap-highlight-color:transparent] hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e5c576] md:hidden"
+                className="relative inline-flex h-12 w-12 shrink-0 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white outline-none transition [-webkit-tap-highlight-color:transparent] hover:bg-white/15 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-[#e5c576] md:hidden"
             >
                 <svg
                     viewBox="0 0 24 24"
@@ -138,6 +142,7 @@ export function MobileHeaderMenu({
                 >
                     <path d="M4 6h16M4 12h16M4 18h16" />
                 </svg>
+                <UnreadBadge count={totalUnreadCount} className="absolute -right-1 -top-1 ring-2 ring-[#17202b]" />
             </button>
             {isOpen &&
                 createPortal(
