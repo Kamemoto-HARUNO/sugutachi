@@ -58,7 +58,7 @@ class SupportTicketController extends Controller
                     ->where('public_id', $term)
                     ->orWhere('title', 'like', "%{$term}%");
             }))
-            ->orderByRaw("case when status = ? then 0 else 1 end", [SupportTicket::STATUS_OPEN])
+            ->orderByRaw('case when status = ? then 0 else 1 end', [SupportTicket::STATUS_OPEN])
             ->orderBy($sort, $direction)
             ->orderBy('id', $direction)
             ->get();
@@ -71,12 +71,15 @@ class SupportTicketController extends Controller
     public function store(Request $request, SupportTicketNotificationService $notificationService): SupportTicketResource
     {
         $account = $this->supportAccount($request);
-        $requesterRole = $this->supportRole($account);
         $validated = $request->validate([
+            'requester_role' => ['sometimes', Rule::in(['user', 'therapist'])],
             'title' => ['required', 'string', 'max:160'],
             'category' => ['required', Rule::in(SupportTicket::CATEGORIES)],
             'message' => ['required', 'string', 'min:2', 'max:5000'],
         ]);
+
+        $requesterRole = $validated['requester_role'] ?? $this->supportRole($account);
+        abort_unless($account->roleAssignments()->where('role', $requesterRole)->where('status', 'active')->whereNull('revoked_at')->exists(), 403);
 
         $ticket = DB::transaction(function () use ($account, $requesterRole, $validated): SupportTicket {
             $ticket = SupportTicket::create([

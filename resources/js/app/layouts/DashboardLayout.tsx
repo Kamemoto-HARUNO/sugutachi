@@ -1,7 +1,6 @@
 import { MobileHeaderMenu } from '../components/navigation/MobileHeaderMenu';
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
-import { RoleModeSwitcher } from '../components/account/RoleModeSwitcher';
 import { BrandMark } from '../components/brand/BrandMark';
 import { BookingMessagesLink } from '../components/messages/BookingMessagesLink';
 import { NotificationBellLink } from '../components/notifications/NotificationBellLink';
@@ -9,13 +8,11 @@ import { SupportCenterButton } from '../components/support/SupportCenterButton';
 import { SupportCenterDrawer } from '../components/support/SupportCenterDrawer';
 import { BannerPlacementSection } from '../components/banners/BannerPlacementSection';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
-import { formatRoleLabel } from '../lib/account';
 import type { ApiEnvelope, NavItem, PublicCampaignRecord, RoleName, ServiceMeta } from '../lib/types';
 import { useAuth } from '../hooks/useAuth';
 
 interface DashboardLayoutProps {
     role: RoleName;
-    description: string;
     navItems: NavItem[];
 }
 
@@ -35,18 +32,8 @@ function headerActionClass(fullWidth = false): string {
     ].join(' ').trim();
 }
 
-function modeBannerClass(role: RoleName): string {
-    switch (role) {
-        case 'user':
-            return 'border-[#d6b35a] bg-[#f3dec0] text-[#17202b]';
-        case 'therapist':
-            return 'border-[#4aa36d] bg-[#dff1e5] text-[#1f5e3b]';
-        case 'admin':
-            return 'border-[#5c8ed9] bg-[#dfeeff] text-[#244f87]';
-    }
-}
 
-export function DashboardLayout({ role, description, navItems }: DashboardLayoutProps) {
+export function DashboardLayout({ role, navItems }: DashboardLayoutProps) {
     const { logout, token } = useAuth();
     const location = useLocation();
     const [therapistPublicId, setTherapistPublicId] = useState<string | null>(null);
@@ -57,7 +44,6 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
     const [canScrollRight, setCanScrollRight] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
     const [isSupportCenterOpen, setIsSupportCenterOpen] = useState(false);
-    const [showModeBanner, setShowModeBanner] = useState(false);
 
     useEffect(() => {
         if (role !== 'therapist' || !token) {
@@ -157,27 +143,6 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
         }
     }, [location.search]);
 
-    useEffect(() => {
-        const headerElement = headerRef.current;
-
-        if (!headerElement) {
-            return;
-        }
-
-        const updateModeBannerVisibility = () => {
-            setShowModeBanner(headerElement.getBoundingClientRect().bottom <= 0);
-        };
-
-        updateModeBannerVisibility();
-        window.addEventListener('scroll', updateModeBannerVisibility, { passive: true });
-        window.addEventListener('resize', updateModeBannerVisibility);
-
-        return () => {
-            window.removeEventListener('scroll', updateModeBannerVisibility);
-            window.removeEventListener('resize', updateModeBannerVisibility);
-        };
-    }, [location.pathname, location.search]);
-
     const scrollTabs = (direction: 'left' | 'right') => {
         const container = navScrollRef.current;
 
@@ -195,23 +160,12 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
 
     return (
         <div className="min-h-screen">
-            {showModeBanner ? (
-                <div className="pointer-events-none fixed inset-x-0 top-0 z-40">
-                    <div className={['border-b backdrop-blur', modeBannerClass(role)].join(' ')}>
-                        <div className="mx-auto w-full max-w-[1380px] px-4 sm:px-6 lg:px-8">
-                            <p className="py-2 text-xs font-semibold tracking-wide">
-                                {formatRoleLabel(role)}モード
-                            </p>
-                        </div>
-                    </div>
-                </div>
-            ) : null}
             <div className="mx-auto flex w-full max-w-[1380px] flex-col gap-8 px-4 py-5 sm:px-6 sm:py-6 lg:px-8 lg:py-8">
                 <header ref={headerRef} className="overflow-hidden rounded-[32px] border border-white/10 bg-[linear-gradient(118deg,rgba(23,32,43,0.96)_0%,rgba(31,45,61,0.94)_52%,rgba(42,59,79,0.96)_100%)] shadow-[0_30px_70px_rgba(2,6,23,0.34)]">
                     <div className="space-y-6 p-6 sm:p-7 lg:p-8">
                         <div className="flex flex-col gap-5 xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start xl:gap-8">
                             <div className="min-w-0 flex-1">
-                                <div className="min-w-0 flex-1 space-y-4">
+                                <div className="min-w-0 flex-1">
                                     <div className="flex items-start justify-between gap-3">
                                         <BrandMark inverse compact />
                                         <div className="relative flex shrink-0 items-center gap-2 md:gap-3">
@@ -295,25 +249,10 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
                                         </div>
                                     </div>
 
-                                    <div className="flex flex-wrap items-center gap-3">
-                                        <span className="text-sm font-semibold text-slate-200">
-                                            モード切り替え
-                                        </span>
-                                        <RoleModeSwitcher />
-                                    </div>
-
-                                    <div className="space-y-3">
-                                        <h1 className="max-w-[16ch] text-[2.2rem] font-semibold leading-[1.4] text-white sm:max-w-[20ch] sm:text-[2.5rem] xl:max-w-none xl:whitespace-nowrap">
-                                            ダッシュボード
-                                        </h1>
-                                        <p className="max-w-3xl text-sm leading-7 text-slate-300 sm:text-[0.95rem]">
-                                            {description}
-                                        </p>
-                                    </div>
                                 </div>
 
                                 {role === 'therapist' && therapistDashboardCampaigns.length > 0 ? (
-                                    <div className="grid gap-3">
+                                    <div className="mt-5 grid gap-3">
                                         {therapistDashboardCampaigns.map((campaign, index) => (
                                             <article
                                                 key={campaign.id}

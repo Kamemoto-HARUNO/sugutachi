@@ -9,6 +9,9 @@ import {
     useNavigationType,
     useParams,
 } from 'react-router-dom';
+import { ModeBar } from './components/account/ModeBar';
+import { TherapistBrowsePage } from './pages/TherapistBrowsePage';
+import { RoleAccessPrompt } from './components/account/RoleAccessPrompt';
 import { ActiveUserBookingDock } from './components/booking';
 import { LoadingScreen } from './components/LoadingScreen';
 import { PushOptInModal } from './components/notifications/PushOptInModal';
@@ -127,11 +130,15 @@ function AppRoutes() {
 
     return (
         <>
+            <ModeBar />
+            <div className="mode-page-content" key={`${account?.public_id}:${activeRole}`}>
             <Routes>
                 <Route path="/" element={<PublicHomePage />} />
                 <Route path="/gay-massage" element={<GayMassageIndexPage />} />
                 <Route path="/gay-massage/:slug" element={<GayMassageAreaPage />} />
                 <Route path="/withdrawal/completed" element={<AccountWithdrawalCompletePage />} />
+                <Route path="/therapists" element={activeRole === "user" ? <UserTherapistSearchPage /> : <TherapistBrowsePage />} />
+                <Route path="/user/therapists" element={<TherapistSearchRedirect />} />
                 <Route path="/therapists/:publicId" element={<UserTherapistDetailPage />} />
                 <Route path="/user/therapists/:publicId" element={<LegacyUserTherapistDetailRedirect />} />
 
@@ -165,7 +172,6 @@ function AppRoutes() {
                 </Route>
 
             <Route element={<RoleRoute role="user" hasRole={hasRole} isAuthenticated={isAuthenticated} activeRole={activeRole} selectRole={selectRole} />}>
-                <Route path="/user/therapists" element={<UserTherapistSearchPage />} />
                 <Route path="/user/therapists/:publicId/availability" element={<UserTherapistAvailabilityPage />} />
                 <Route path="/user/booking-request" element={<BookingFlowLayout />}>
                     <Route index element={<UserBookingRequestPage />} />
@@ -181,7 +187,7 @@ function AppRoutes() {
                 </Route>
                 <Route
                     path="/user"
-                    element={<DashboardLayout role="user" description="検索、予約、メッセージ、安全導線の入口です。" navItems={userNavItems} />}
+                    element={<DashboardLayout role="user" navItems={userNavItems} />}
                 >
                     <Route
                         index
@@ -270,7 +276,6 @@ function AppRoutes() {
                     element={
                         <DashboardLayout
                             role="therapist"
-                            description="公開準備、空き枠、予約依頼、売上確認の入口です。"
                             navItems={therapistNavItems}
                         />
                     }
@@ -335,7 +340,7 @@ function AppRoutes() {
             <Route element={<RoleRoute role="admin" hasRole={hasRole} isAuthenticated={isAuthenticated} activeRole={activeRole} selectRole={selectRole} />}>
                 <Route
                     path="/admin"
-                    element={<DashboardLayout role="admin" description="監視、審査、法務、料金運用の入口です。" navItems={adminNavItems} />}
+                    element={<DashboardLayout role="admin" navItems={adminNavItems} />}
                 >
                     <Route index element={<AdminDashboardPage />} />
                     <Route path="notifications" element={<NotificationsPage />} />
@@ -422,8 +427,14 @@ function AppRoutes() {
                 <Route path="*" element={<NotFoundPage />} />
             </Routes>
             <ActiveUserBookingDock />
+            </div>
         </>
     );
+}
+
+function TherapistSearchRedirect() {
+    const location = useLocation();
+    return <Navigate to={`/therapists${location.search}`} replace />;
 }
 
 function GuestOnlyRoute({
@@ -464,14 +475,6 @@ function RoleRoute({
     selectRole: (role: RoleName) => void;
 }) {
     const location = useLocation();
-    const isMessageRoute = /\/(messages|direct-messages)(\/|$)/.test(location.pathname);
-
-    useEffect(() => {
-        if (!isMessageRoute && isAuthenticated && hasRole(role) && activeRole !== role) {
-            selectRole(role);
-        }
-    }, [activeRole, hasRole, isAuthenticated, role, selectRole, isMessageRoute]);
-
     if (!isAuthenticated) {
         return <Navigate to={role === 'admin' ? '/admin/login' : '/login'} replace state={{ from: `${location.pathname}${location.search}` }} />;
     }
@@ -479,8 +482,8 @@ function RoleRoute({
     if (!hasRole(role)) {
         return <Navigate to="/role-select" replace state={{ from: `${location.pathname}${location.search}` }} />;
     }
-    if (isMessageRoute && activeRole !== role) {
-        return <div className="mx-auto max-w-lg p-8"><h1 className="text-xl font-semibold">{role === 'user' ? '利用者' : 'タチキャスト'}としてメッセージを開きます</h1><p className="my-4">表示・送信に使うプロフィールが切り替わります。</p><button className="min-h-11 rounded-full bg-slate-900 px-5 py-3 text-white" onClick={() => selectRole(role)}>この役割で開く</button></div>;
+    if (activeRole !== role) {
+        return <RoleAccessPrompt role={role} onContinue={() => selectRole(role)} />;
     }
     return <Outlet />;
 }
@@ -494,7 +497,7 @@ function RoleEntryRedirect({
 }) {
     const activeRoles = getActiveRoles(account);
 
-    if (activeRoles.length === 1 && activeRoles[0] === role) {
+    if (activeRoles.includes(role)) {
         return <Navigate to={getRoleDashboardPath(role)} replace />;
     }
 

@@ -79,10 +79,10 @@
 
     .message-viewport {
         position: fixed;
-        top: var(--message-viewport-top, 0px);
+        top: calc(var(--message-viewport-top, 0px) + var(--mode-bar-height, 0px));
         left: 0;
         width: 100%;
-        height: var(--message-viewport-height, 100dvh);
+        height: calc(var(--message-viewport-height, 100dvh) - var(--mode-bar-height, 0px));
     }
 
     .public-layout-nav,
@@ -226,3 +226,9 @@
         font-size: 16px;
     }
 }
+
+.mode-bar { position: fixed; top: var(--mode-viewport-top, 0px); inset-inline: 0; z-index: 55; height: 44px; border-bottom: 1px solid rgb(0 0 0 / 8%); }
+.mode-page-content { padding-top: var(--mode-bar-height, 0px); }
+.mode-sticky-header { top: var(--mode-bar-height, 0px); }
+.mode-booking-header { top: calc(var(--mode-bar-height, 0px) + 1rem); }
+html { scroll-padding-top: calc(var(--mode-bar-height, 0px) + 1rem); }

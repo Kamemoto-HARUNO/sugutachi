@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { Link, useLocation } from 'react-router-dom';
+import { Link } from 'react-router-dom';
 import { useAuth } from '../../hooks/useAuth';
 import { apiRequest } from '../../lib/api';
 import {
@@ -21,13 +21,7 @@ export function BookingMessagesLink({
     adaptive = false,
 }: BookingMessagesLinkProps) {
     const { isAuthenticated, token, activeRole, hasRole } = useAuth();
-    const location = useLocation();
-    const pathRole = location.pathname.startsWith('/therapist/')
-        ? 'therapist'
-        : location.pathname.startsWith('/user/')
-          ? 'user'
-          : null;
-    const selected = pathRole ?? activeRole;
+    const selected = activeRole;
     const role: MessageRole | null =
         selected === 'user' || selected === 'therapist' ? selected : null;
     const [summary, setSummary] = useState<{

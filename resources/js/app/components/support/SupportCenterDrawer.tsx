@@ -36,7 +36,7 @@ function messageBubbleClass(message: SupportTicketMessageRecord): string {
 }
 
 export function SupportCenterDrawer({ isOpen, initialTicketPublicId = null, onClose }: SupportCenterDrawerProps) {
-    const { token } = useAuth();
+    const { token, activeRole } = useAuth();
     const navigate = useNavigate();
     const fileInputRef = useRef<HTMLInputElement | null>(null);
     const [viewMode, setViewMode] = useState<ViewMode>('home');
@@ -147,6 +147,7 @@ export function SupportCenterDrawer({ isOpen, initialTicketPublicId = null, onCl
                 method: 'POST',
                 token,
                 body: {
+                    requester_role: activeRole === 'user' || activeRole === 'therapist' ? activeRole : undefined,
                     title: title.trim(),
                     category,
                     message: message.trim(),

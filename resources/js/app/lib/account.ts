@@ -55,7 +55,9 @@ export function getRoleDashboardPath(role: RoleName): string {
     return ROLE_DASHBOARD_PATHS[role];
 }
 
-export function getMyPageEntryPath(account: Account | null): string {
+export function getMyPageEntryPath(account: Account | null, selectedRole?: RoleName | null): string {
+    const role = selectedRole ?? getPreferredRole(account);
+    if (role && hasActiveRole(account, role)) return getRoleDashboardPath(role);
     const activeRoles = getActiveRoles(account);
 
     if (activeRoles.length === 1) {
@@ -110,9 +112,10 @@ export function getPostAuthPath(account: Account | null, requestedRole?: RoleNam
         return getRoleDashboardPath(activeRoles[0]);
     }
 
-    const preferredRole = getPreferredRole(account);
+    const stored = typeof window !== 'undefined' ? window.localStorage.getItem(`sugutachi.active-role.${account.public_id}`) : null;
+    const preferredRole = isRoleName(stored) && hasActiveRole(account, stored) ? stored : getPreferredRole(account);
 
-    return preferredRole ? '/role-select' : '/login';
+    return preferredRole ? getRoleDashboardPath(preferredRole) : '/role-select';
 }
 
 export function formatRoleLabel(role: RoleName): string {

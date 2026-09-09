@@ -8,8 +8,8 @@ import { getMyPageEntryPath } from '../lib/account';
 export function SupportTicketPage() {
     const { publicId } = useParams();
     const navigate = useNavigate();
-    const { account } = useAuth();
-    const myPagePath = getMyPageEntryPath(account);
+    const { account, activeRole } = useAuth();
+    const myPagePath = getMyPageEntryPath(account, activeRole);
 
     usePageTitle('サポートチケット | サポートセンター');
 
