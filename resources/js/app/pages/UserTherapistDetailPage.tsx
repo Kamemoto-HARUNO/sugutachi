@@ -1735,7 +1735,6 @@ export function UserTherapistDetailPage() {
                                                 </p>
                                             </div>
                                         ) : null}
-                                        {needsUserMode && !isSelfPreview && <p className="rounded-2xl bg-[#eff9f2] p-4 text-sm leading-7 text-[#2d7048]">現在は{activeRole === 'therapist' ? 'タチキャスト' : '運営'}モードで閲覧しています。予約や事前の質問は、利用者プロフィールで行います。</p>}
                                         {isSelfPreview ? (
                                             <>
                                                 <span className={disabledActionClass()}>
