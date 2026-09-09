@@ -6,8 +6,8 @@ use App\Http\Controllers\Api\Concerns\AuthorizesAdminRequests;
 use App\Http\Controllers\Api\Concerns\RecordsAdminAuditLogs;
 use App\Http\Controllers\Api\Concerns\ResolvesAdminFilterIds;
 use App\Http\Controllers\Controller;
+use App\Http\Resources\AdminReportListResource;
 use App\Http\Resources\AdminReportResource;
-use App\Http\Resources\ReportResource;
 use App\Models\Report;
 use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
@@ -50,7 +50,7 @@ class AdminReportController extends Controller
         $sort = $validated['sort'] ?? 'created_at';
         $direction = $validated['direction'] ?? 'desc';
 
-        return ReportResource::collection(
+        return AdminReportListResource::collection(
             Report::query()
                 ->with(['booking', 'sourceBookingMessage', 'reporter', 'target', 'assignedAdmin'])
                 ->when($bookingId, fn ($query, int $id) => $query->where('booking_id', $id))

@@ -1,3 +1,4 @@
+import { MobileHeaderMenu } from '../components/navigation/MobileHeaderMenu';
 import { useEffect, useRef, useState } from 'react';
 import { Link, NavLink, Outlet, useLocation } from 'react-router-dom';
 import { RoleModeSwitcher } from '../components/account/RoleModeSwitcher';
@@ -45,45 +46,6 @@ function modeBannerClass(role: RoleName): string {
     }
 }
 
-function MobileMenuButton({
-    isOpen,
-    onToggle,
-}: {
-    isOpen: boolean;
-    onToggle: () => void;
-}) {
-    return (
-        <button
-            type="button"
-            onClick={onToggle}
-            aria-label={isOpen ? 'グローバルメニューを閉じる' : 'グローバルメニューを開く'}
-            aria-expanded={isOpen}
-            className="inline-flex h-11 w-11 items-center justify-center rounded-full border border-white/15 bg-white/10 text-white transition hover:bg-white/15 md:hidden"
-        >
-            <span className="relative block h-4 w-5">
-                <span
-                    className={[
-                        'absolute left-0 top-0 h-0.5 w-5 rounded-full bg-current transition',
-                        isOpen ? 'translate-y-[7px] rotate-45' : '',
-                    ].join(' ')}
-                />
-                <span
-                    className={[
-                        'absolute left-0 top-[7px] h-0.5 w-5 rounded-full bg-current transition',
-                        isOpen ? 'opacity-0' : '',
-                    ].join(' ')}
-                />
-                <span
-                    className={[
-                        'absolute left-0 top-[14px] h-0.5 w-5 rounded-full bg-current transition',
-                        isOpen ? '-translate-y-[7px] -rotate-45' : '',
-                    ].join(' ')}
-                />
-            </span>
-        </button>
-    );
-}
-
 export function DashboardLayout({ role, description, navItems }: DashboardLayoutProps) {
     const { logout, token } = useAuth();
     const location = useLocation();
@@ -91,7 +53,6 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
     const [therapistDashboardCampaigns, setTherapistDashboardCampaigns] = useState<PublicCampaignRecord[]>([]);
     const headerRef = useRef<HTMLElement | null>(null);
     const navScrollRef = useRef<HTMLDivElement | null>(null);
-    const mobileMenuRef = useRef<HTMLDivElement | null>(null);
     const [canScrollLeft, setCanScrollLeft] = useState(false);
     const [canScrollRight, setCanScrollRight] = useState(false);
     const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
@@ -197,36 +158,6 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
     }, [location.search]);
 
     useEffect(() => {
-        if (!isMobileMenuOpen) {
-            return;
-        }
-
-        const handlePointerDown = (event: PointerEvent) => {
-            if (!(event.target instanceof Node)) {
-                return;
-            }
-
-            if (!mobileMenuRef.current?.contains(event.target)) {
-                setIsMobileMenuOpen(false);
-            }
-        };
-
-        const handleKeyDown = (event: KeyboardEvent) => {
-            if (event.key === 'Escape') {
-                setIsMobileMenuOpen(false);
-            }
-        };
-
-        document.addEventListener('pointerdown', handlePointerDown);
-        window.addEventListener('keydown', handleKeyDown);
-
-        return () => {
-            document.removeEventListener('pointerdown', handlePointerDown);
-            window.removeEventListener('keydown', handleKeyDown);
-        };
-    }, [isMobileMenuOpen]);
-
-    useEffect(() => {
         const headerElement = headerRef.current;
 
         if (!headerElement) {
@@ -283,36 +214,16 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
                                 <div className="min-w-0 flex-1 space-y-4">
                                     <div className="flex items-start justify-between gap-3">
                                         <BrandMark inverse compact />
-                                        <div ref={mobileMenuRef} className="relative flex shrink-0 items-center gap-2 md:gap-3">
-                                            <div className="md:hidden">
-                                                <NotificationBellLink compact className="border-white/15 bg-white/10 hover:bg-white/15" />
-                                            </div>
-                                            <div className="hidden md:block">
+                                        <div className="relative flex shrink-0 items-center gap-2 md:gap-3">
+                                            <div className="hidden items-center gap-3 md:flex">
                                                 <NotificationBellLink className="border-white/15 bg-white/10 hover:bg-white/15" />
+                                                {role === 'user' || role === 'therapist' ? (
+                                                    <>
+                                                        <SupportCenterButton className="border-white/15 bg-white/10 hover:bg-white/15" onClick={() => setIsSupportCenterOpen(true)} />
+                                                        <BookingMessagesLink className="border-white/15 bg-white/10 hover:bg-white/15" />
+                                                    </>
+                                                ) : null}
                                             </div>
-                                            {role === 'user' || role === 'therapist' ? (
-                                                <>
-                                                    <div className="md:hidden">
-                                                        <SupportCenterButton
-                                                            compact
-                                                            className="border-white/15 bg-white/10 hover:bg-white/15"
-                                                            onClick={() => setIsSupportCenterOpen(true)}
-                                                        />
-                                                    </div>
-                                                    <div className="hidden md:block">
-                                                        <SupportCenterButton
-                                                            className="border-white/15 bg-white/10 hover:bg-white/15"
-                                                            onClick={() => setIsSupportCenterOpen(true)}
-                                                        />
-                                                    </div>
-                                                </>
-                                            ) : null}
-                                            {role === 'user' || role === 'therapist' ? (
-                                                <BookingMessagesLink
-                                                    adaptive
-                                                    className="border-white/15 bg-white/10 hover:bg-white/15"
-                                                />
-                                            ) : null}
 
                                             <div className="hidden items-center gap-3 md:flex">
                                                 {role === 'therapist' && therapistPublicId ? (
@@ -340,15 +251,20 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
                                                 </button>
                                             </div>
 
-                                            <MobileMenuButton
+                                            <MobileHeaderMenu
                                                 isOpen={isMobileMenuOpen}
+                                                onClose={() => setIsMobileMenuOpen(false)}
                                                 onToggle={() => {
                                                     setIsMobileMenuOpen((current) => !current);
                                                 }}
-                                            />
-
-                                            {isMobileMenuOpen ? (
-                                                <div className="absolute right-0 top-full z-20 mt-3 flex w-[min(18rem,calc(100vw-2rem))] flex-col gap-2 rounded-[24px] border border-white/12 bg-[rgba(23,32,43,0.96)] p-3 shadow-[0_18px_45px_rgba(23,32,43,0.28)] backdrop-blur md:hidden">
+                                            >
+                                                <NotificationBellLink className="w-full border-white/15 bg-white/10 hover:bg-white/15" />
+                                                {role === 'user' || role === 'therapist' ? (
+                                                    <>
+                                                        <SupportCenterButton className="w-full border-white/15 bg-white/10 hover:bg-white/15" onClick={() => { setIsMobileMenuOpen(false); setIsSupportCenterOpen(true); }} />
+                                                        <BookingMessagesLink className="w-full border-white/15 bg-white/10 hover:bg-white/15" />
+                                                    </>
+                                                ) : null}
                                                     {role === 'therapist' && therapistPublicId ? (
                                                         <Link
                                                             to={`/therapists/${therapistPublicId}`}
@@ -375,8 +291,7 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
                                                     >
                                                         ログアウト
                                                     </button>
-                                                </div>
-                                            ) : null}
+                                            </MobileHeaderMenu>
                                         </div>
                                     </div>
 

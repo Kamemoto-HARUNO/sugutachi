@@ -14,6 +14,7 @@ import { LoadingScreen } from './components/LoadingScreen';
 import { PushOptInModal } from './components/notifications/PushOptInModal';
 import { PlaceholderScreen } from './components/PlaceholderScreen';
 import { useAuth } from './hooks/useAuth';
+import { useInitialPageScroll } from './hooks/useInitialPageScroll';
 import {
     adminNavItems,
     adminPlaceholderRoutes,
@@ -48,6 +49,7 @@ import { AdminPricingRulesPage } from './pages/AdminPricingRulesPage';
 import { AdminProfilePhotosPage } from './pages/AdminProfilePhotosPage';
 import { AdminPayoutRequestsPage } from './pages/AdminPayoutRequestsPage';
 import { AdminRefundRequestsPage } from './pages/AdminRefundRequestsPage';
+import { AdminMessageOperationsPage } from './pages/AdminMessageOperationsPage';
 import { AdminReportsPage } from './pages/AdminReportsPage';
 import { AdminStripeDisputesPage } from './pages/AdminStripeDisputesPage';
 import { AdminSupportStepScenariosPage } from './pages/AdminSupportStepScenariosPage';
@@ -63,7 +65,8 @@ import { TherapistBookingNoShowPage, UserBookingNoShowPage } from './pages/Booki
 import { ContactPage } from './pages/ContactPage';
 import { FirstTimeGuidePage } from './pages/FirstTimeGuidePage';
 import { GayMassageAreaPage, GayMassageIndexPage } from './pages/GayMassageAreaPage';
-import { BookingMessagesPage } from './pages/BookingMessagesPage';
+import { MessagesLayout, MessageEmptyPane } from './layouts/MessagesLayout';
+import { DirectMessagePage } from './pages/DirectMessagePage';
 import { BlogDetailPage } from './pages/BlogDetailPage';
 import { BlogIndexPage } from './pages/BlogIndexPage';
 import { NotificationsPage } from './pages/NotificationsPage';
@@ -170,6 +173,12 @@ function AppRoutes() {
                     <Route path="payment" element={<UserBookingPaymentPage />} />
                     <Route path="waiting" element={<UserBookingWaitingPage />} />
                 </Route>
+                <Route element={<MessagesLayout role="user" />}>
+                    <Route path="/user/messages" element={<MessageEmptyPane />} />
+                    <Route path="/user/direct-messages/new" element={<DirectMessagePage role="user" />} />
+                    <Route path="/user/direct-messages/:publicId" element={<DirectMessagePage role="user" />} />
+                    <Route path="/user/bookings/:publicId/messages" element={<UserBookingMessagesPage />} />
+                </Route>
                 <Route
                     path="/user"
                     element={<DashboardLayout role="user" description="検索、予約、メッセージ、安全導線の入口です。" navItems={userNavItems} />}
@@ -198,9 +207,7 @@ function AppRoutes() {
                     <Route path="favorites" element={<UserFavoriteTherapistsPage />} />
                     <Route path="notifications" element={<NotificationsPage />} />
                     <Route path="bookings" element={<UserBookingsPage />} />
-                    <Route path="messages" element={<BookingMessagesPage />} />
                     <Route path="bookings/:publicId" element={<UserBookingDetailPage />} />
-                    <Route path="bookings/:publicId/messages" element={<UserBookingMessagesPage />} />
                     <Route path="bookings/:publicId/review" element={<UserBookingReviewPage />} />
                     <Route path="bookings/:publicId/interrupt" element={<UserBookingInterruptPage />} />
                     <Route path="bookings/:publicId/cancel" element={<UserBookingCancelPage />} />
@@ -253,6 +260,11 @@ function AppRoutes() {
             <Route
                 element={<RoleRoute role="therapist" hasRole={hasRole} isAuthenticated={isAuthenticated} activeRole={activeRole} selectRole={selectRole} />}
             >
+                <Route element={<MessagesLayout role="therapist" />}>
+                    <Route path="/therapist/messages" element={<MessageEmptyPane />} />
+                    <Route path="/therapist/direct-messages/:publicId" element={<DirectMessagePage role="therapist" />} />
+                    <Route path="/therapist/bookings/:publicId/messages" element={<TherapistBookingMessagesPage />} />
+                </Route>
                 <Route
                     path="/therapist"
                     element={
@@ -297,12 +309,10 @@ function AppRoutes() {
                     <Route path="requests/:publicId" element={<TherapistRequestsPage />} />
                     <Route path="reviews" element={<TherapistReviewsPage />} />
                     <Route path="bookings" element={<TherapistBookingsPage />} />
-                    <Route path="messages" element={<BookingMessagesPage />} />
                     <Route path="bookings/:publicId" element={<TherapistBookingDetailPage />} />
                     <Route path="bookings/:publicId/review" element={<TherapistBookingReviewPage />} />
                     <Route path="bookings/:publicId/interrupt" element={<TherapistBookingInterruptPage />} />
                     <Route path="bookings/:publicId/no-show" element={<TherapistBookingNoShowPage />} />
-                    <Route path="bookings/:publicId/messages" element={<TherapistBookingMessagesPage />} />
                     <Route path="bookings/:publicId/report" element={<TherapistBookingReportPage />} />
                     <Route path="travel-requests" element={<TherapistTravelRequestsPage />} />
                     <Route path="travel-requests/:publicId" element={<TherapistTravelRequestsPage />} />
@@ -310,7 +320,8 @@ function AppRoutes() {
                     <Route path="payouts" element={<Navigate to="/therapist/balance" replace />} />
                     <Route path="settings" element={<TherapistSettingsHubPage />} />
                     {therapistPlaceholderRoutes
-                        .filter((route) => !['onboarding', 'identity-verification', 'stripe-connect', 'photos', 'profile', 'menus', 'pricing', 'availability', 'bases', 'requests', 'requests/:publicId', 'reviews', 'bookings', 'bookings/:publicId', 'bookings/:publicId/review', 'bookings/:publicId/interrupt', 'bookings/:publicId/no-show', 'bookings/:publicId/messages', 'bookings/:publicId/report', 'travel-requests', 'travel-requests/:publicId', 'balance', 'payouts', 'settings'].includes(route.path))
+                        .filter((route) => !['onboarding', 'identity-verification', 'stripe-connect', 'photos', 'profile', 'menus', 'pricing', 'availability', 'bases', 'requests', 'requests/:publicId', 'reviews', 'bookings', 'bookings/:publicId', 'bookings/:publicId/review', 'bookings/:publicId/interrupt', 'bookings/:publicId/no-show', 'bookings/:publicId/messages',
+                            'messages', 'direct-messages/new', 'direct-messages/:publicId', 'bookings/:publicId/report', 'travel-requests', 'travel-requests/:publicId', 'balance', 'payouts', 'settings'].includes(route.path))
                         .map((route) => (
                         <Route
                             key={route.path}
@@ -343,6 +354,7 @@ function AppRoutes() {
                     <Route path="blog-posts/new" element={<AdminBlogPostsPage />} />
                     <Route path="blog-posts/preview" element={<AdminBlogPreviewPage />} />
                     <Route path="blog-posts/:publicId/edit" element={<AdminBlogPostsPage />} />
+                    <Route path="message-operations" element={<AdminMessageOperationsPage />} />
                     <Route path="reports" element={<AdminReportsPage />} />
                     <Route path="reports/:publicId" element={<AdminReportsPage />} />
                     <Route path="refund-requests" element={<AdminRefundRequestsPage />} />
@@ -372,6 +384,7 @@ function AppRoutes() {
                             'bookings',
                             'bookings/:publicId',
                             'bookings/:publicId/messages',
+                            'messages', 'direct-messages/new', 'direct-messages/:publicId',
                             'campaigns',
                             'blog-posts',
                             'blog-posts/new',
@@ -451,21 +464,24 @@ function RoleRoute({
     selectRole: (role: RoleName) => void;
 }) {
     const location = useLocation();
+    const isMessageRoute = /\/(messages|direct-messages)(\/|$)/.test(location.pathname);
 
     useEffect(() => {
-        if (isAuthenticated && hasRole(role) && activeRole !== role) {
+        if (!isMessageRoute && isAuthenticated && hasRole(role) && activeRole !== role) {
             selectRole(role);
         }
-    }, [activeRole, hasRole, isAuthenticated, role, selectRole]);
+    }, [activeRole, hasRole, isAuthenticated, role, selectRole, isMessageRoute]);
 
     if (!isAuthenticated) {
         return <Navigate to={role === 'admin' ? '/admin/login' : '/login'} replace state={{ from: `${location.pathname}${location.search}` }} />;
     }
 
     if (!hasRole(role)) {
-        return <Navigate to="/role-select" replace />;
+        return <Navigate to="/role-select" replace state={{ from: `${location.pathname}${location.search}` }} />;
     }
-
+    if (isMessageRoute && activeRole !== role) {
+        return <div className="mx-auto max-w-lg p-8"><h1 className="text-xl font-semibold">{role === 'user' ? '利用者' : 'タチキャスト'}としてメッセージを開きます</h1><p className="my-4">表示・送信に使うプロフィールが切り替わります。</p><button className="min-h-11 rounded-full bg-slate-900 px-5 py-3 text-white" onClick={() => selectRole(role)}>この役割で開く</button></div>;
+    }
     return <Outlet />;
 }
 
@@ -499,6 +515,8 @@ function MessagesEntryRedirect({
     if (activeRole === 'user' || activeRole === 'therapist') {
         return <Navigate to={`/${activeRole}/messages`} replace />;
     }
+
+    if (availableInboxRoles.length > 1) return <Navigate to="/role-select?return_to=%2Fmessages" replace />;
 
     if (availableInboxRoles.length > 0) {
         return <Navigate to={`/${availableInboxRoles[0]}/messages`} replace />;
@@ -539,6 +557,7 @@ function LegacyUserTherapistDetailRedirect() {
 }
 
 function ScrollToTopOnPageChange() {
+    useInitialPageScroll();
     const location = useLocation();
     const navigationType = useNavigationType();
     const previousPathnameRef = useRef(location.pathname);

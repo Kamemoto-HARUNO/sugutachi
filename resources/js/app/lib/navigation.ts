@@ -41,6 +41,7 @@ export const adminNavItems: NavItem[] = [
     { label: 'バナー', to: '/admin/banners' },
     { label: 'ブログ', to: '/admin/blog-posts' },
     { label: '通報', to: '/admin/reports' },
+    { label: 'DM・精算確認', to: '/admin/message-operations' },
     { label: '問い合わせ', to: '/admin/contact-inquiries' },
     { label: 'サポート', to: '/admin/support-tickets' },
     { label: 'ステップ配信', to: '/admin/support-step-scenarios' },
@@ -49,6 +50,9 @@ export const adminNavItems: NavItem[] = [
 ];
 
 export const userPlaceholderRoutes: PlaceholderRouteDefinition[] = [
+    { path: 'messages', title: 'メッセージ', description: 'DMと予約の連絡を確認できます。', apiPath: '/api/user/direct-messages' },
+    { path: 'direct-messages/new', title: '予約前の相談', description: '利用者プロフィールで質問できます。', apiPath: '/api/user/direct-messages/draft' },
+    { path: 'direct-messages/:publicId', title: 'DM', description: 'この役割のプロフィールでやり取りします。', apiPath: '/api/user/direct-messages/{public_id}' },
     { path: 'profile', title: '利用者プロフィール', description: '基本プロフィールと公開設定を整える画面です。', apiPath: '/api/me/profile' },
     { path: 'service-addresses', title: '待ち合わせ場所', description: '来てほしい場所やデフォルト住所を管理します。', apiPath: '/api/me/service-addresses' },
     { path: 'therapists', title: 'タチキャスト検索', description: '近くのタチキャストや公開中の条件を探す画面です。', apiPath: '/api/therapists' },
@@ -71,6 +75,9 @@ export const userPlaceholderRoutes: PlaceholderRouteDefinition[] = [
 ];
 
 export const therapistPlaceholderRoutes: PlaceholderRouteDefinition[] = [
+    { path: 'messages', title: 'メッセージ', description: 'DMと予約の連絡を確認できます。', apiPath: '/api/therapist/direct-messages' },
+    { path: 'direct-messages/new', title: '予約前の相談', description: '利用者プロフィールで質問できます。', apiPath: '/api/therapist/direct-messages/draft' },
+    { path: 'direct-messages/:publicId', title: 'DM', description: 'この役割のプロフィールでやり取りします。', apiPath: '/api/therapist/direct-messages/{public_id}' },
     { path: 'onboarding', title: 'オンボーディング', description: '本人確認、規約同意、公開準備の入口です。', apiPath: '/api/me/therapist-profile/review-status' },
     { path: 'identity-verification', title: '本人確認', description: '本人確認と年齢確認の提出・再提出を行います。', apiPath: '/api/me/identity-verification' },
     { path: 'stripe-connect', title: '受取設定', description: '受取口座の登録と出金準備状況を管理します。', apiPath: '/api/me/stripe-connect' },

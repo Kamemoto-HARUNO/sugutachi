@@ -46,6 +46,45 @@
 }
 
 @layer components {
+    .mobile-header-menu :is(a, button) {
+        -webkit-tap-highlight-color: transparent;
+    }
+
+    .mobile-header-menu :is(a, button):focus {
+        outline: none;
+    }
+
+    .mobile-header-menu :is(a, button):focus-visible {
+        outline: 2px solid #e5c576;
+        outline-offset: 3px;
+    }
+
+    /* Only messaging owns the viewport. Other pages keep their normal document scrolling. */
+    html.message-viewport-active,
+    html.message-viewport-active body,
+    html.message-viewport-active #app {
+        height: 100%;
+        min-height: 0;
+        overflow: hidden;
+        overscroll-behavior: none;
+        background: #fff;
+        color-scheme: light;
+    }
+
+    html.message-viewport-active body {
+        position: fixed;
+        inset: 0;
+        width: 100%;
+    }
+
+    .message-viewport {
+        position: fixed;
+        top: var(--message-viewport-top, 0px);
+        left: 0;
+        width: 100%;
+        height: var(--message-viewport-height, 100dvh);
+    }
+
     .public-layout-nav,
     .public-layout-nav::before,
     .public-layout-nav::after {

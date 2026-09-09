@@ -136,7 +136,8 @@ export function UserBookingQuotePage() {
     }, [durationMinutes, therapistDetail, therapistMenuId]);
 
     const isFreeFlow = booking?.is_free_booking ?? quote?.is_free ?? isFreeMenu(selectedMenu);
-    const requiresCardAuthorization = !isFreeFlow;
+    const isLocalPaymentSimulation = serviceMeta?.payment?.local_simulation_enabled === true && !isFreeFlow;
+    const requiresCardAuthorization = !isFreeFlow && !isLocalPaymentSimulation;
 
     usePageTitle(requiresCardAuthorization ? '見積もり確認とカード入力' : '見積もり確認');
     useToastOnMessage(error, 'error');
@@ -498,10 +499,6 @@ export function UserBookingQuotePage() {
             const stripe = stripeRef.current;
             const cardElement = cardElementRef.current;
 
-            if (!stripe || !cardElement) {
-                throw new Error('カード入力の準備がまだ完了していません。');
-            }
-
             const paymentIntentPayload = await apiRequest<ApiEnvelope<PaymentIntentRecord>>(
                 `/bookings/${activeBooking.public_id}/payment-intents`,
                 {
@@ -511,18 +508,16 @@ export function UserBookingQuotePage() {
             );
             const nextPaymentIntent = unwrapData(paymentIntentPayload);
 
-            if (!nextPaymentIntent.client_secret) {
-                throw new Error('カード確認を開始できませんでした。');
-            }
-
-            const confirmation = await stripe.confirmCardPayment(nextPaymentIntent.client_secret, {
-                payment_method: {
-                    card: cardElement,
-                },
-            });
-
-            if (confirmation.error?.message) {
-                throw new Error(confirmation.error.message);
+            if (!isLocalPaymentSimulation) {
+                if (!stripe || !cardElement || !nextPaymentIntent.client_secret) {
+                    throw new Error('カード確認を開始できませんでした。');
+                }
+                const confirmation = await stripe.confirmCardPayment(nextPaymentIntent.client_secret, {
+                    payment_method: { card: cardElement },
+                });
+                if (confirmation.error?.message) {
+                    throw new Error(confirmation.error.message);
+                }
             }
 
             authorizationConfirmed = true;
@@ -600,7 +595,9 @@ export function UserBookingQuotePage() {
                         <div className="space-y-2">
                             <h1 className="text-3xl font-semibold">{requiresCardAuthorization ? '見積もり確認とカード入力' : '見積もり確認'}</h1>
                             <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                                {requiresCardAuthorization
+                                {isLocalPaymentSimulation
+                                    ? '内容を確認したあと、模擬決済で依頼を送れます。実際の請求は発生しません。'
+                                    : requiresCardAuthorization
                                     ? '金額を確認したあと、この画面のままカード情報を入力して依頼を送れます。'
                                     : '内容を確認したあと、この画面のまま無料で依頼を送れます。'}
                                 {isOnDemandRequest
@@ -721,19 +718,25 @@ export function UserBookingQuotePage() {
                     <article className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
                         <div className="space-y-3">
                             <div>
-                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">{requiresCardAuthorization ? 'カード情報' : '無料メニュー'}</p>
+                                <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">{isLocalPaymentSimulation ? 'ローカル確認用' : requiresCardAuthorization ? 'カード情報' : '無料メニュー'}</p>
                                 <h2 className="mt-2 text-2xl font-semibold text-[#17202b]">
-                                    {requiresCardAuthorization ? 'カード情報を入力' : 'カード決済なしで依頼できます'}
+                                    {isLocalPaymentSimulation ? '模擬決済で依頼できます' : requiresCardAuthorization ? 'カード情報を入力' : 'カード決済なしで依頼できます'}
                                 </h2>
                                 <p className="mt-2 text-sm leading-7 text-[#68707a]">
-                                    {requiresCardAuthorization
+                                    {isLocalPaymentSimulation
+                                        ? 'ローカル環境専用です。カード入力や実際の請求なしで、依頼送信後の流れを確認できます。'
+                                        : requiresCardAuthorization
                                         ? '依頼を送るときに、このカードへ与信を確保します。承諾前は仮押さえ扱いで、辞退や期限切れなら取消対象です。'
                                         : '無料メニューのため、カード情報の入力や与信確認はありません。そのまま予約リクエストを送信できます。'}
                                 </p>
                             </div>
                         </div>
 
-                        {!requiresCardAuthorization ? (
+                        {isLocalPaymentSimulation ? (
+                            <p className="mt-5 rounded-[22px] border border-[#d9c9ae] bg-[#fffaf2] px-5 py-5 text-sm leading-7 text-[#68707a]">
+                                表示金額で決済が成功した状態を再現します。承諾・予約の連絡・キャンセル・完了を確認できます。
+                            </p>
+                        ) : !requiresCardAuthorization ? (
                             <div className="mt-5 rounded-[22px] border border-[#d9c9ae] bg-[#fffaf2] px-5 py-5 text-sm leading-7 text-[#68707a]">
                                 この予約では決済処理を行いません。タチキャストに承諾されると、そのまま予約が進みます。
                             </div>
@@ -844,8 +847,8 @@ export function UserBookingQuotePage() {
                                     className="inline-flex min-h-11 w-full items-center justify-center rounded-full bg-[linear-gradient(168deg,#d2b179_0%,#b5894d_100%)] px-5 py-3 text-sm font-bold text-[#1a2430] transition hover:brightness-105 disabled:cursor-not-allowed disabled:opacity-60"
                                 >
                                     {isSubmitting
-                                        ? (requiresCardAuthorization ? 'カード確認と依頼送信を進めています...' : '無料の依頼を送信しています...')
-                                        : (requiresCardAuthorization ? 'カードを確認して依頼を送る' : '無料で依頼を送る')}
+                                        ? (isLocalPaymentSimulation ? '依頼を送信しています...' : requiresCardAuthorization ? 'カード確認と依頼送信を進めています...' : '無料の依頼を送信しています...')
+                                        : (isLocalPaymentSimulation ? '模擬決済で依頼を送る' : requiresCardAuthorization ? 'カードを確認して依頼を送る' : '無料で依頼を送る')}
                                 </button>
                             )}
                             <p className="text-xs leading-6 text-[#7d6852]">

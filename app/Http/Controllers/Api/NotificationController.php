@@ -5,13 +5,24 @@ namespace App\Http\Controllers\Api;
 use App\Http\Controllers\Controller;
 use App\Http\Resources\AppNotificationResource;
 use App\Models\AppNotification;
-use Illuminate\Http\Request;
 use Illuminate\Http\JsonResponse;
+use Illuminate\Http\Request;
 use Illuminate\Http\Resources\Json\AnonymousResourceCollection;
 use Illuminate\Validation\Rule;
 
 class NotificationController extends Controller
 {
+    private function scoped(Request $request)
+    {
+        $v = $request->validate(['role' => 'nullable|in:user,therapist,admin']);
+        $role = $v['role'] ?? null;
+        if ($role) {
+            abort_unless($request->user()->roleAssignments()->where('role', $role)->where('status', 'active')->exists(), 403);
+        }
+
+        return $request->user()->appNotifications()->where(fn ($q) => $q->whereNull('data_json->target_role')->when($role, fn ($q) => $q->orWhere('data_json->target_role', $role)));
+    }
+
     public function index(Request $request): AnonymousResourceCollection
     {
         $validated = $request->validate([
@@ -24,7 +35,7 @@ class NotificationController extends Controller
         $account = $request->user();
         $limit = (int) ($validated['limit'] ?? 50);
 
-        $query = $account->appNotifications()->latest();
+        $query = $this->scoped($request)->latest();
 
         if (filled($validated['notification_type'] ?? null)) {
             $query->where('notification_type', $validated['notification_type']);
@@ -45,7 +56,7 @@ class NotificationController extends Controller
         };
 
         $notifications = $query->limit($limit)->get();
-        $unreadCount = $account->appNotifications()->whereNull('read_at')->count();
+        $unreadCount = $this->scoped($request)->whereNull('read_at')->count();
 
         return AppNotificationResource::collection($notifications)->additional([
             'meta' => [
@@ -62,7 +73,7 @@ class NotificationController extends Controller
 
     public function read(Request $request, AppNotification $notification): AppNotificationResource
     {
-        abort_unless($notification->account_id === $request->user()->id, 404);
+        abort_unless($this->scoped($request)->whereKey($notification->id)->exists(), 404);
 
         if (! $notification->read_at || $notification->status !== AppNotification::STATUS_READ) {
             $notification->forceFill([
@@ -78,7 +89,7 @@ class NotificationController extends Controller
     {
         $account = $request->user();
 
-        $updatedCount = $account->appNotifications()
+        $updatedCount = $this->scoped($request)
             ->whereNull('read_at')
             ->update([
                 'read_at' => now(),

@@ -2,11 +2,13 @@
 
 namespace App\Services\Bookings;
 
+use App\Contracts\Payments\PaymentIntentGateway;
 use App\Models\Account;
 use App\Models\Booking;
 use App\Models\PaymentIntent;
 use App\Models\TherapistLedgerEntry;
-use App\Contracts\Payments\PaymentIntentGateway;
+use App\Services\DirectMessages\RelationshipPolicy;
+use Illuminate\Support\Facades\DB;
 
 class BookingCompletionService
 {
@@ -14,8 +16,7 @@ class BookingCompletionService
         private readonly BookingStatusTransitionService $transition,
         private readonly PaymentIntentGateway $paymentIntentGateway,
         private readonly BookingSettlementCalculator $bookingSettlementCalculator,
-    ) {
-    }
+    ) {}
 
     public function complete(
         Booking $booking,
@@ -23,6 +24,17 @@ class BookingCompletionService
         string $actorRole,
         string $reasonCode,
     ): Booking {
+        return DB::transaction(function () use ($booking, $actor, $actorRole, $reasonCode) {
+            app(RelationshipPolicy::class)->lock($booking->user_account_id, $booking->therapist_account_id);
+            $booking = Booking::whereKey($booking->id)->lockForUpdate()->firstOrFail();
+            abort_if(DB::table('block_booking_actions')->where('booking_id', $booking->id)->whereIn('status', ['review', 'pending', 'processing'])->exists(), 409, '運営がこの予約を確認しています。');
+
+            return $this->completeLocked($booking, $actor, $actorRole, $reasonCode);
+        });
+    }
+
+    private function completeLocked(Booking $booking, ?Account $actor, string $actorRole, string $reasonCode): Booking
+    {
         $booking->loadMissing('currentPaymentIntent');
         $this->captureFinalAmount($booking);
 

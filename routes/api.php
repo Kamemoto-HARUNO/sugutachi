@@ -15,6 +15,7 @@ use App\Http\Controllers\Api\AdminDashboardController;
 use App\Http\Controllers\Api\AdminIdentityVerificationController;
 use App\Http\Controllers\Api\AdminIdentityVerificationFileController;
 use App\Http\Controllers\Api\AdminLegalDocumentController;
+use App\Http\Controllers\Api\AdminMessageOperationsController;
 use App\Http\Controllers\Api\AdminPayoutRequestController;
 use App\Http\Controllers\Api\AdminPlatformFeeSettingController;
 use App\Http\Controllers\Api\AdminPricingRuleController;
@@ -36,6 +37,7 @@ use App\Http\Controllers\Api\BookingQuoteController;
 use App\Http\Controllers\Api\BookingSafetyController;
 use App\Http\Controllers\Api\BookingStatusController;
 use App\Http\Controllers\Api\ContactController;
+use App\Http\Controllers\Api\DirectMessageController;
 use App\Http\Controllers\Api\GayMassageAreaController;
 use App\Http\Controllers\Api\HelpFaqController;
 use App\Http\Controllers\Api\IdentityVerificationController;
@@ -52,6 +54,7 @@ use App\Http\Controllers\Api\PushSubscriptionController;
 use App\Http\Controllers\Api\RefundRequestController;
 use App\Http\Controllers\Api\ReportController;
 use App\Http\Controllers\Api\ReviewController;
+use App\Http\Controllers\Api\RoleRelationshipController;
 use App\Http\Controllers\Api\ServiceAddressController;
 use App\Http\Controllers\Api\ServiceMetaController;
 use App\Http\Controllers\Api\StripeConnectController;
@@ -70,6 +73,7 @@ use App\Http\Controllers\Api\TherapistScheduledBookingSettingController;
 use App\Http\Controllers\Api\TherapistTravelRequestController;
 use App\Http\Controllers\Api\UserCampaignOfferController;
 use App\Http\Controllers\Api\UserProfileController;
+use App\Http\Middleware\RelationshipWriteGuard;
 use Illuminate\Support\Facades\Route;
 
 Route::post('/webhooks/stripe', StripeWebhookController::class);
@@ -116,6 +120,34 @@ Route::get('/admin/identity-verifications/{identityVerification}/signed-selfie',
     ->name('admin.identity-verifications.signed-selfie');
 
 Route::middleware('auth:sanctum')->group(function (): void {
+    Route::prefix('{role}/relationships')->whereIn('role', ['user', 'therapist'])->group(function (): void {
+        $controller = RoleRelationshipController::class;
+        Route::get('/', [$controller, 'index']);
+        Route::get('/for-booking/{booking:public_id}', [$controller, 'forBooking']);
+        Route::get('/{relationship:public_id}', [$controller, 'preview']);
+        Route::post('/{relationship:public_id}/block', [$controller, 'block']);
+        Route::delete('/{relationship:public_id}/block', [$controller, 'unblock']);
+    });
+
+    Route::prefix('{role}/direct-messages')->whereIn('role', ['user', 'therapist'])->group(function (): void {
+        $controller = DirectMessageController::class;
+        Route::get('/', [$controller, 'index']);
+        Route::post('/', [$controller, 'store']);
+        Route::get('/summary', [$controller, 'summary']);
+        Route::get('/draft', [$controller, 'draft']);
+        Route::get('/settings', [$controller, 'settings']);
+        Route::patch('/settings', [$controller, 'settings']);
+        Route::get('/{thread:public_id}', [$controller, 'show']);
+        Route::post('/{thread:public_id}/messages', [$controller, 'send']);
+        Route::post('/{thread:public_id}/states', [$controller, 'states']);
+        Route::post('/{thread:public_id}/read', [$controller, 'read']);
+        Route::post('/{thread:public_id}/typing', [$controller, 'typing']);
+        Route::patch('/{thread:public_id}/preferences', [$controller, 'preferences']);
+        Route::post('/{thread:public_id}/reports', [$controller, 'report']);
+        Route::get('/{thread:public_id}/messages/{message:public_id}/image', [$controller, 'image']);
+        Route::delete('/{thread:public_id}/messages/{message:public_id}/image', [$controller, 'destroyImage']);
+    });
+
     Route::get('/me', [AuthController::class, 'me']);
     Route::post('/auth/logout', [AuthController::class, 'logout']);
     Route::get('/me/banners', [BannerController::class, 'indexForAuthenticated']);
@@ -149,6 +181,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::delete('/push-subscriptions/current', [PushSubscriptionController::class, 'destroyCurrent']);
     Route::delete('/push-subscriptions/{pushSubscription}', [PushSubscriptionController::class, 'destroy']);
     Route::get('/accounts/blocks', [AccountBlockController::class, 'index']);
+    Route::delete('/accounts/blocks/{block}', [AccountBlockController::class, 'destroyLegacy']);
     Route::post('/accounts/{account:public_id}/block', [AccountBlockController::class, 'store']);
     Route::delete('/accounts/{account:public_id}/block', [AccountBlockController::class, 'destroy']);
     Route::post('/reports', [ReportController::class, 'store']);
@@ -180,6 +213,10 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/admin/profile-photos/{profilePhoto}/approve', [AdminProfilePhotoController::class, 'approve']);
     Route::post('/admin/profile-photos/{profilePhoto}/reject', [AdminProfilePhotoController::class, 'reject']);
     Route::delete('/admin/profile-photos/{profilePhoto}', [AdminProfilePhotoController::class, 'destroy']);
+    Route::get('/admin/message-operations', [AdminMessageOperationsController::class, 'index']);
+    Route::post('/admin/message-operations/{booking:public_id}', [AdminMessageOperationsController::class, 'resolve']);
+    Route::get('/admin/reports/{report:public_id}/dm-evidence', [AdminMessageOperationsController::class, 'evidence']);
+    Route::post('/admin/reports/{report:public_id}/dm-evidence/retain', [AdminMessageOperationsController::class, 'retainEvidence']);
     Route::get('/admin/reports', [AdminReportController::class, 'index']);
     Route::get('/admin/reports/{report:public_id}', [AdminReportController::class, 'show']);
     Route::post('/admin/reports/{report:public_id}/actions', [AdminReportController::class, 'action']);
@@ -249,7 +286,7 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/admin/travel-requests/{travelRequest:public_id}/suspend-sender', [AdminTravelRequestController::class, 'suspendSender']);
     Route::get('/therapists', [TherapistDiscoveryController::class, 'index'])->middleware('throttle:therapist-search');
     Route::get('/therapists/{therapistProfile:public_id}/availability', [TherapistDiscoveryController::class, 'availability']);
-    Route::post('/therapists/{therapistProfile:public_id}/travel-requests', [TherapistTravelRequestController::class, 'store']);
+    Route::post('/therapists/{therapistProfile:public_id}/travel-requests', [TherapistTravelRequestController::class, 'store'])->middleware(RelationshipWriteGuard::class);
     Route::get('/me/reviews', [ReviewController::class, 'me']);
     Route::get('/me/favorite-therapists', [TherapistFavoriteController::class, 'index']);
     Route::post('/therapists/{therapistProfile:public_id}/favorite', [TherapistFavoriteController::class, 'store']);
@@ -311,12 +348,12 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::post('/me/stripe-connect/account-link', [StripeConnectController::class, 'createAccountLink']);
     Route::post('/me/stripe-connect/refresh', [StripeConnectController::class, 'refresh']);
 
-    Route::post('/booking-quotes', [BookingQuoteController::class, 'store']);
+    Route::post('/booking-quotes', [BookingQuoteController::class, 'store'])->middleware(RelationshipWriteGuard::class);
     Route::get('/me/therapist/booking-requests', [BookingController::class, 'therapistRequests']);
     Route::get('/bookings', [BookingController::class, 'index']);
-    Route::post('/bookings', [BookingController::class, 'store']);
+    Route::post('/bookings', [BookingController::class, 'store'])->middleware(RelationshipWriteGuard::class);
     Route::get('/bookings/{booking:public_id}', [BookingController::class, 'show']);
-    Route::post('/bookings/{booking:public_id}/payment-intents', [PaymentIntentController::class, 'store']);
+    Route::post('/bookings/{booking:public_id}/payment-intents', [PaymentIntentController::class, 'store'])->middleware(RelationshipWriteGuard::class);
     Route::post('/bookings/{booking:public_id}/payment-abandon', [PaymentIntentController::class, 'abandon']);
     Route::post('/bookings/{booking:public_id}/payment-sync', [PaymentSyncController::class, 'store']);
     Route::post('/bookings/{booking:public_id}/cancel-preview', [BookingCancellationController::class, 'preview']);
@@ -329,21 +366,21 @@ Route::middleware('auth:sanctum')->group(function (): void {
     Route::get('/bookings/{booking:public_id}/refund-requests', [RefundRequestController::class, 'index']);
     Route::post('/bookings/{booking:public_id}/refund-requests', [RefundRequestController::class, 'store']);
     Route::get('/bookings/{booking:public_id}/messages', [BookingMessageController::class, 'index']);
-    Route::post('/bookings/{booking:public_id}/messages', [BookingMessageController::class, 'store']);
+    Route::post('/bookings/{booking:public_id}/messages', [BookingMessageController::class, 'store'])->middleware(RelationshipWriteGuard::class);
     Route::post('/bookings/{booking:public_id}/messages/close', [BookingMessageController::class, 'close']);
-    Route::post('/bookings/{booking:public_id}/messages/typing', [BookingMessageController::class, 'typing']);
+    Route::post('/bookings/{booking:public_id}/messages/typing', [BookingMessageController::class, 'typing'])->middleware(RelationshipWriteGuard::class);
     Route::post('/bookings/{booking:public_id}/messages/{message}/read', [BookingMessageController::class, 'read']);
     Route::delete('/bookings/{booking:public_id}/messages/{message}/image', [BookingMessageController::class, 'destroyImage']);
     Route::post('/bookings/{booking:public_id}/reviews', [ReviewController::class, 'store']);
     Route::get('/refund-requests/{refund:public_id}', [RefundRequestController::class, 'show']);
-    Route::post('/bookings/{booking:public_id}/accept', [BookingStatusController::class, 'accept']);
-    Route::post('/bookings/{booking:public_id}/adjustment-proposal', [BookingStatusController::class, 'proposeAdjustment']);
-    Route::post('/bookings/{booking:public_id}/adjustment-accept', [BookingStatusController::class, 'acceptAdjustment']);
+    Route::post('/bookings/{booking:public_id}/accept', [BookingStatusController::class, 'accept'])->middleware(RelationshipWriteGuard::class);
+    Route::post('/bookings/{booking:public_id}/adjustment-proposal', [BookingStatusController::class, 'proposeAdjustment'])->middleware(RelationshipWriteGuard::class);
+    Route::post('/bookings/{booking:public_id}/adjustment-accept', [BookingStatusController::class, 'acceptAdjustment'])->middleware(RelationshipWriteGuard::class);
     Route::post('/bookings/{booking:public_id}/adjustment-reject', [BookingStatusController::class, 'rejectAdjustment']);
     Route::post('/bookings/{booking:public_id}/reject', [BookingStatusController::class, 'reject']);
-    Route::post('/bookings/{booking:public_id}/moving', [BookingStatusController::class, 'moving']);
-    Route::post('/bookings/{booking:public_id}/arrived', [BookingStatusController::class, 'arrived']);
-    Route::post('/bookings/{booking:public_id}/start', [BookingStatusController::class, 'start']);
+    Route::post('/bookings/{booking:public_id}/moving', [BookingStatusController::class, 'moving'])->middleware(RelationshipWriteGuard::class);
+    Route::post('/bookings/{booking:public_id}/arrived', [BookingStatusController::class, 'arrived'])->middleware(RelationshipWriteGuard::class);
+    Route::post('/bookings/{booking:public_id}/start', [BookingStatusController::class, 'start'])->middleware(RelationshipWriteGuard::class);
     Route::post('/bookings/{booking:public_id}/complete', [BookingStatusController::class, 'complete']);
     Route::patch('/bookings/{booking:public_id}/completion-window', [BookingStatusController::class, 'updateCompletionWindow']);
     Route::post('/bookings/{booking:public_id}/user-complete-confirmation', [BookingStatusController::class, 'userCompleteConfirmation']);

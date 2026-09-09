@@ -13,6 +13,8 @@ return Application::configure(basePath: dirname(__DIR__))
         health: '/up',
     )
     ->withSchedule(function (Schedule $schedule): void {
+        $schedule->command('direct-messages:process')->everyMinute()->withoutOverlapping();
+        $schedule->command('direct-messages:process --purge')->dailyAt('03:45')->withoutOverlapping();
         $schedule->command('ledger:release-available')->everyFifteenMinutes();
         $schedule->command('bookings:expire-pending-requests')->everyMinute();
         $schedule->command('bookings:send-start-reminders')->everyMinute();

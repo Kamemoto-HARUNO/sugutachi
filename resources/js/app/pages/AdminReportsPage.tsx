@@ -1,3 +1,4 @@
+import {AdminDmEvidence} from '../components/messages/AdminDmEvidence';
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from 'react';
 import { Link, useLocation, useParams, useSearchParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
@@ -642,6 +643,7 @@ export function AdminReportsPage() {
                                     </p>
                                 </article>
 
+                                {activeDetail.direct_message_thread_id && <AdminDmEvidence key={activeDetail.public_id} reportId={activeDetail.public_id}/>}
                                 {activeDetail.source_booking_message ? (
                                     <article className="mt-4 rounded-[22px] bg-[#101720] p-5">
                                         <p className="text-xs font-semibold tracking-wide text-[#d2b179]">起点メッセージ</p>

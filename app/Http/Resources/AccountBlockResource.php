@@ -11,18 +11,8 @@ class AccountBlockResource extends JsonResource
     {
         return [
             'id' => $this->id,
-            'blocker_account_id' => $this->blocker?->public_id,
-            'blocker_account' => $this->whenLoaded('blocker', fn () => $this->blocker ? [
-                'public_id' => $this->blocker->public_id,
-                'display_name' => $this->blocker->display_name,
-                'status' => $this->blocker->status,
-            ] : null),
-            'blocked_account_id' => $this->blocked?->public_id,
-            'blocked_account' => $this->whenLoaded('blocked', fn () => $this->blocked ? [
-                'public_id' => $this->blocked->public_id,
-                'display_name' => $this->blocked->display_name,
-                'status' => $this->blocked->status,
-            ] : null),
+            'scope' => 'legacy_account',
+            'label' => '既存のブロック設定',
             'reason_code' => $this->reason_code,
             'created_at' => $this->created_at,
         ];

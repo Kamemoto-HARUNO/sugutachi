@@ -1,3 +1,6 @@
+import { BookingConversationDetails } from '../components/messages/BookingConversationDetails';
+import { ConversationHeader } from '../components/messages/ConversationHeader';
+import { MessageComposer } from '../components/messages/MessageComposer';
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
@@ -7,7 +10,7 @@ import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
 import { trackMessageSendComplete } from '../lib/analytics';
 import { notifyBookingMessageSummaryChanged } from '../lib/bookingMessages';
-import { formatFileSize, prepareBookingMessageImage } from '../lib/bookingMessageImages';
+import { prepareBookingMessageImage } from '../lib/bookingMessageImages';
 import { formatJstDateTime } from '../lib/datetime';
 import { getServiceAddressLabel } from '../lib/discovery';
 import type {
@@ -101,24 +104,6 @@ function buildPrimaryTime(booking: BookingDetailRecord): string {
     return `${formatDateTime(booking.scheduled_start_at)} - ${formatDateTime(booking.scheduled_end_at)}`;
 }
 
-function PhotoIcon() {
-    return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-            <path d="M4 7.5A2.5 2.5 0 0 1 6.5 5h2.2l1.1 1.4c.28.36.71.56 1.16.56h6.6A2.5 2.5 0 0 1 20 9.5v8A2.5 2.5 0 0 1 17.5 20h-11A2.5 2.5 0 0 1 4 17.5v-10Z" />
-            <path d="M9.5 13a2.5 2.5 0 1 0 5 0a2.5 2.5 0 0 0-5 0Z" />
-        </svg>
-    );
-}
-
-function SendIcon() {
-    return (
-        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
-            <path d="m4 20 16-8L4 4l3.4 8L20 12" />
-            <path d="M7.4 12H20" />
-        </svg>
-    );
-}
-
 function CloseIcon() {
     return (
         <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" className="h-5 w-5">
@@ -165,6 +150,14 @@ export function UserBookingMessagesPage() {
     const [isSending, setIsSending] = useState(false);
     const isTypingRef = useRef(false);
     const fileInputRef = useRef<HTMLInputElement | null>(null);
+    const messageListRef = useRef<HTMLDivElement>(null);
+    const followLatest = useRef(true);
+    const newestMessageId = messages[messages.length - 1]?.id;
+    useEffect(() => {
+        const list = messageListRef.current;
+        if (list && followLatest.current) list.scrollTop = list.scrollHeight;
+    }, [newestMessageId]);
+
     const imagePreparationRequestRef = useRef(0);
 
     usePageTitle(
@@ -604,7 +597,7 @@ export function UserBookingMessagesPage() {
                 <div className="flex flex-wrap gap-3">
                     <Link
                         to="/user/bookings"
-                        className="inline-flex items-center rounded-full border border-white/10 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/6"
+                        className="inline-flex items-center rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
                     >
                         予約一覧へ戻る
                     </Link>
@@ -614,55 +607,21 @@ export function UserBookingMessagesPage() {
     }
 
     return (
-        <div className="space-y-6">
-            <section className="rounded-[32px] bg-[linear-gradient(117deg,#17202b_0%,#243447_52%,#2b4158_100%)] p-7 text-white shadow-[0_24px_60px_rgba(15,23,42,0.22)]">
-                <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
-                    <div className="space-y-3">
-                        <div className="flex flex-wrap items-center gap-2">
-                            <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
-                                {statusLabel(booking.status)}
-                            </span>
-                            {isThreadClosed ? (
-                                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
-                                    チャットクローズ済み
-                                </span>
-                            ) : null}
-                            {canSendMessages && meta?.counterparty_typing ? (
-                                <span className="rounded-full bg-white/10 px-3 py-1 text-xs font-semibold text-white/90">
-                                    {counterpartyName}が入力中...
-                                </span>
-                            ) : null}
-                        </div>
-                        <div className="space-y-2">
-                            <h1 className="text-3xl font-semibold">{counterpartyName}とのメッセージ</h1>
-                            <p className="max-w-3xl text-sm leading-7 text-slate-300">
-                                {booking.therapist_menu
-                                    ? `${booking.therapist_menu.name} / ${booking.therapist_menu.duration_minutes}分`
-                                    : 'メニュー情報を確認中'} ・ {buildPrimaryTime(booking)}
-                            </p>
-                        </div>
-                    </div>
-
-                    <div className="flex flex-wrap gap-3">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                void loadData({ refresh: true });
-                            }}
-                            disabled={isRefreshing}
-                            className="inline-flex items-center rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                            {isRefreshing ? '更新中...' : '更新'}
-                        </button>
-                        <Link
-                            to={`/user/bookings/${booking.public_id}`}
-                            className="inline-flex items-center rounded-full border border-white/15 px-5 py-3 text-sm font-semibold text-white transition hover:bg-white/8"
-                        >
-                            予約詳細へ戻る
-                        </Link>
-                    </div>
-                </div>
-            </section>
+        <div className="flex h-full min-h-0 flex-col bg-white text-[#17202b]">
+            <ConversationHeader role="user" kind="bookings" name={counterpartyName} subtitle={statusLabel(booking.status)}>
+                <BookingConversationDetails
+                    role="user"
+                    bookingId={booking.public_id}
+                    time={buildPrimaryTime(booking)}
+                    place={booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
+                    status={statusLabel(booking.status)}
+                    statusClass={statusTone(booking.status)}
+                    chatStatus={isThreadClosed ? `クローズ済み${closedAtLabel ? `（${closedAtLabel}）` : ''}` : '送受信可能'}
+                    onRefresh={() => { void loadData({ refresh: true }); }}
+                    isRefreshing={isRefreshing}
+                    unreadCount={meta?.unread_count ?? unreadIncomingCount}
+                />
+            </ConversationHeader>
 
             {pageError ? (
                 <section className="rounded-[24px] border border-[#f1d4b5] bg-[#fff4e8] px-5 py-4 text-sm text-[#9a4b35]">
@@ -681,9 +640,9 @@ export function UserBookingMessagesPage() {
             ) : null}
 
 
-            <div className="grid gap-6 xl:grid-cols-[minmax(0,1fr)_340px]">
-                <section className="rounded-[28px] bg-white p-6 shadow-[0_18px_36px_rgba(23,32,43,0.12)]">
-                    <div className="space-y-4">
+            <div className="flex min-h-0 flex-1 flex-col">
+                <section className="flex min-h-0 flex-1 flex-col">
+                    <div ref={messageListRef} onScroll={(event) => { const el = event.currentTarget; followLatest.current = el.scrollHeight - el.scrollTop - el.clientHeight < 100; }} className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain px-4 py-5 sm:px-6">
                         {canViewMessages && messages.length > 0 ? messages.map((message) => {
                             const isPendingRead = pendingReadIds.includes(message.id);
                             const isDeletingImage = deletingImageMessageIds.includes(message.id);
@@ -797,97 +756,25 @@ export function UserBookingMessagesPage() {
                     </div>
 
                     {canSendMessages ? (
-                        <form onSubmit={handleSendMessage} className="mt-6 space-y-3 border-t border-[#efe5d7] pt-5">
-                            <input
-                                ref={fileInputRef}
-                                type="file"
-                                accept="image/jpeg,image/png,image/webp,image/heic,image/heif,.heic,.heif"
-                                className="hidden"
-                                onChange={handleImageChange}
+                        <form onSubmit={handleSendMessage} className="shrink-0 space-y-2 border-t border-slate-200 px-3 pt-3 pb-[max(0.75rem,env(safe-area-inset-bottom))] sm:px-5">
+                            <MessageComposer
+                                draft={draft}
+                                onDraftChange={setDraft}
+                                placeholder="メッセージを入力"
+                                fileInputRef={fileInputRef}
+                                handleImageChange={handleImageChange}
+                                selectedImage={selectedImage}
+                                selectedImagePreviewUrl={selectedImagePreviewUrl}
+                                selectedImageOriginalSizeBytes={selectedImageOriginalSizeBytes}
+                                selectedImageWasOptimized={selectedImageWasOptimized}
+                                clearSelectedImage={clearSelectedImage}
+                                isSending={isSending}
+                                isPreparingImage={isPreparingImage}
                             />
 
-                            {isPreparingImage ? (
-                                <div className="flex items-center gap-3 rounded-[20px] bg-[#fff7ea] px-3 py-3 text-sm text-[#48505a]">
-                                    <span className="h-10 w-10 animate-spin rounded-full border-2 border-[#d2b179]/35 border-t-[#b5894d]" />
-                                    <div>
-                                        <p className="font-semibold text-[#17202b]">画像を送信向けに調整しています</p>
-                                        <p className="text-xs text-[#7a7066]">サイズが大きい画像は自動で縮小・圧縮します。</p>
-                                    </div>
-                                </div>
-                            ) : null}
-
-                            {selectedImage && selectedImagePreviewUrl ? (
-                                <div className="flex items-center gap-3 rounded-[20px] bg-[#fff7ea] px-3 py-3 text-sm text-[#48505a]">
-                                    <img src={selectedImagePreviewUrl} alt={selectedImage.name} className="h-14 w-14 rounded-[14px] object-cover" />
-                                    <div className="min-w-0 flex-1">
-                                        <p className="truncate font-semibold text-[#17202b]">{selectedImage.name}</p>
-                                        <p className="text-xs text-[#7a7066]">
-                                            {selectedImageWasOptimized && selectedImageOriginalSizeBytes
-                                                ? `${formatFileSize(selectedImageOriginalSizeBytes)} → ${formatFileSize(selectedImage.size)} に自動圧縮`
-                                                : `${formatFileSize(selectedImage.size)} / 画像は1枚ずつ送信`}
-                                        </p>
-                                    </div>
-                                    <button
-                                        type="button"
-                                        onClick={clearSelectedImage}
-                                        className="rounded-full border border-[#d9c9ae] px-3 py-1 text-xs font-semibold text-[#17202b] transition hover:bg-[#fff1df]"
-                                    >
-                                        取り消す
-                                    </button>
-                                </div>
-                            ) : null}
-
-                            <div className="flex items-end gap-3 rounded-[24px] border border-[#e4d7c2] bg-[#fffaf3] px-3 py-3">
-                                <button
-                                    type="button"
-                                    onClick={() => fileInputRef.current?.click()}
-                                    disabled={isSending || isPreparingImage}
-                                    className={[
-                                        'inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full transition',
-                                        selectedImage
-                                            ? 'bg-[#d2b179] text-[#17202b]'
-                                            : 'bg-[#f1e7d8] text-[#6f5a43] hover:bg-[#e8dcc9]',
-                                    ].join(' ')}
-                                    aria-label="画像を選択"
-                                >
-                                    <PhotoIcon />
-                                </button>
-
-                                <div className="min-w-0 flex-1">
-                                    <textarea
-                                        value={draft}
-                                        onChange={(event) => setDraft(event.target.value)}
-                                        rows={1}
-                                        maxLength={1000}
-                                        className="min-h-11 w-full resize-none bg-transparent px-1 py-2 text-sm leading-6 text-[#17202b] outline-none placeholder:text-[#9b8c78]"
-                                        placeholder="待ち合わせや到着予定などを入力"
-                                    />
-                                </div>
-
-                                <button
-                                    type="submit"
-                                    disabled={isSending || isPreparingImage || (!draft.trim() && !selectedImage)}
-                                    className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-[#17202b] text-white transition hover:bg-[#243447] disabled:cursor-not-allowed disabled:opacity-60"
-                                    aria-label="送信"
-                                >
-                                    {isSending ? (
-                                        <span className="h-5 w-5 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-                                    ) : (
-                                        <SendIcon />
-                                    )}
-                                </button>
-                            </div>
-
-                            <div className="px-1 text-right text-xs text-[#7a7066]">
-                                {draft.length}/1000
-                            </div>
-
-                            <div className="flex items-start gap-2 px-1 text-xs text-[#7a7066]">
-                                <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#f1e7d8] text-[10px] font-bold text-[#8b6a3e]">
-                                    !
-                                </span>
-                                <span>連絡先交換につながる文言は送れません。待ち合わせや進行確認に必要な連絡だけに絞って使います。</span>
-                            </div>
+                            <p className="px-1 text-center text-xs leading-5 text-slate-500">
+                                連絡先交換につながる文言が送れません。
+                            </p>
 
                             {composeError ? (
                                 <div className="rounded-[20px] border border-[#f1d4b5] bg-[#fff4e8] px-4 py-3 text-sm text-[#9a4b35]">
@@ -906,52 +793,7 @@ export function UserBookingMessagesPage() {
                     )}
                 </section>
 
-                <aside className="space-y-5">
-                    <section className="rounded-[28px] bg-[#fffcf7] p-6 shadow-[0_18px_36px_rgba(23,32,43,0.1)]">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予約情報</p>
-                        <div className="mt-4 space-y-4 text-sm text-[#48505a]">
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">予約日時</p>
-                                <p className="mt-1 font-semibold text-[#17202b]">{buildPrimaryTime(booking)}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">待ち合わせ場所</p>
-                                <p className="mt-1 font-semibold text-[#17202b]">
-                                    {booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">ステータス</p>
-                                <p className="mt-1 font-semibold text-[#17202b]">{statusLabel(booking.status)}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">受信未読</p>
-                                <p className="mt-1 font-semibold text-[#17202b]">{meta?.unread_count ?? unreadIncomingCount}件</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">チャット状態</p>
-                                <p className="mt-1 font-semibold text-[#17202b]">
-                                    {isThreadClosed ? `クローズ済み${closedAtLabel ? `（${closedAtLabel}）` : ''}` : '送受信可能'}
-                                </p>
-                            </div>
-                        </div>
 
-                        <div className="mt-6 space-y-3">
-                            <Link
-                                to={`/user/bookings/${booking.public_id}`}
-                                className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
-                            >
-                                予約詳細を見る
-                            </Link>
-                            <Link
-                                to={`/user/bookings/${booking.public_id}/report`}
-                                className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
-                            >
-                                通報する
-                            </Link>
-                        </div>
-                    </section>
-                </aside>
             </div>
 
             {expandedImage?.attachment_url ? (

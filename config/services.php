@@ -36,6 +36,7 @@ return [
     ],
 
     'stripe' => [
+        'local_simulation' => env('LOCAL_PAYMENT_SIMULATION', false),
         'secret' => env('STRIPE_SECRET'),
         'publishable_key' => env('STRIPE_PUBLISHABLE_KEY'),
         'webhook_secret' => env('STRIPE_WEBHOOK_SECRET'),

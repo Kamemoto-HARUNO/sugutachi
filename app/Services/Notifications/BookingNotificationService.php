@@ -2,11 +2,12 @@
 
 namespace App\Services\Notifications;
 
-use App\Models\AppNotification;
 use App\Models\Account;
+use App\Models\AppNotification;
 use App\Models\Booking;
 use App\Models\BookingMessage;
 use App\Models\Refund;
+use App\Services\DirectMessages\RelationshipPolicy;
 use Illuminate\Support\Facades\Crypt;
 
 class BookingNotificationService
@@ -432,6 +433,10 @@ class BookingNotificationService
 
     public function notifyMessageReceived(Booking $booking, Account $sender, BookingMessage $message): void
     {
+        if (app(RelationshipPolicy::class)->blocked($booking->user_account_id, $booking->therapist_account_id)) {
+            return;
+        }
+
         $booking->loadMissing(['userAccount', 'therapistAccount', 'therapistProfile']);
 
         [$recipientAccountId, $targetPath, $targetRole, $senderRole] = match ($sender->id) {

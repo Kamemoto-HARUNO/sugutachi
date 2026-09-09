@@ -4,6 +4,7 @@ namespace App\Services\Bookings;
 
 use App\Models\Account;
 use App\Models\Booking;
+use App\Services\DirectMessages\RelationshipPolicy;
 use Illuminate\Support\Facades\DB;
 
 class BookingStatusTransitionService
@@ -28,6 +29,11 @@ class BookingStatusTransitionService
             $reasonCode,
             $toStatus
         ): Booking {
+            $relationshipPolicy = app(RelationshipPolicy::class);
+            $relationshipPolicy->lock($booking->user_account_id, $booking->therapist_account_id);
+            if (in_array($toStatus, [Booking::STATUS_ACCEPTED, Booking::STATUS_MOVING, Booking::STATUS_ARRIVED, Booking::STATUS_IN_PROGRESS], true)) {
+                $relationshipPolicy->assertAllowed($booking->user_account_id, $booking->therapist_account_id);
+            }
             $lockedBooking = Booking::query()
                 ->whereKey($booking->id)
                 ->lockForUpdate()

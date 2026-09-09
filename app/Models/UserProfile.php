@@ -5,10 +5,18 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Guarded;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Str;
 
 #[Guarded(['id'])]
 class UserProfile extends Model
 {
+    protected static function booted(): void
+    {
+        static::creating(function (self $profile): void {
+            $profile->public_id ??= 'usp_'.Str::ulid();
+        });
+    }
+
     public const STATUS_ACTIVE = 'active';
 
     public const STATUS_INCOMPLETE = 'incomplete';

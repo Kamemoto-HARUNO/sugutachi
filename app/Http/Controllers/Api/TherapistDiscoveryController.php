@@ -8,6 +8,7 @@ use App\Http\Resources\PublicTherapistDetailResource;
 use App\Http\Resources\PublicTherapistSearchResultResource;
 use App\Models\Account;
 use App\Models\Booking;
+use App\Models\DirectMessageThread;
 use App\Models\IdentityVerification;
 use App\Models\LocationSearchLog;
 use App\Models\PrivatePhotoViewSession;
@@ -484,6 +485,8 @@ class TherapistDiscoveryController extends Controller
             'public_name' => $profile->public_name,
             'bio' => $profile->bio,
             'is_self_view' => $viewer?->id === $profile->account_id,
+            'consultation_enabled' => (bool) config('direct_messages.enabled') && (bool) $profile->consultation_enabled,
+            'existing_direct_message_id' => $viewer ? DirectMessageThread::query()->where('therapist_profile_id', $profile->id)->whereHas('relationship', fn ($q) => $q->where('user_account_id', $viewer->id))->value('public_id') : null,
             'age' => $identityVerification?->resolvedAge(),
             'height_cm' => $profile->height_cm === null ? null : (int) $profile->height_cm,
             'weight_kg' => $profile->weight_kg === null ? null : (int) $profile->weight_kg,

@@ -4,8 +4,8 @@ namespace Tests\Feature;
 
 use App\Models\Account;
 use App\Models\Booking;
-use App\Models\BookingQuote;
 use App\Models\BookingMessage;
+use App\Models\BookingQuote;
 use App\Models\PaymentIntent;
 use App\Models\Refund;
 use App\Models\Report;
@@ -32,7 +32,7 @@ class BookingListApiTest extends TestCase
             ->assertJsonPath('data.0.public_id', $scheduledBooking->public_id)
             ->assertJsonPath('data.0.request_type', 'scheduled')
             ->assertJsonPath('data.0.counterparty.role', 'therapist')
-            ->assertJsonPath('data.0.counterparty.public_id', $therapist->public_id)
+            ->assertJsonPath('data.0.counterparty.public_id', $therapist->therapistProfile->public_id)
             ->assertJsonPath('data.0.therapist_profile.public_id', 'thp_booking_list')
             ->assertJsonPath('data.0.therapist_menu.public_id', 'menu_booking_list_90')
             ->assertJsonPath('data.0.service_address.public_id', 'addr_booking_list')
@@ -58,7 +58,7 @@ class BookingListApiTest extends TestCase
             ->assertJsonPath('data.0.public_id', $onDemandBooking->public_id)
             ->assertJsonPath('data.0.request_type', 'on_demand')
             ->assertJsonPath('data.0.counterparty.role', 'user')
-            ->assertJsonPath('data.0.counterparty.public_id', $user->public_id)
+            ->assertJsonPath('data.0.counterparty.public_id', $user->userProfile->public_id)
             ->assertJsonPath('data.0.unread_message_count', 1);
 
         $this->withToken($therapist->createToken('api')->plainTextToken)
@@ -147,6 +147,7 @@ class BookingListApiTest extends TestCase
             'public_id' => 'acc_booking_list_user',
             'display_name' => 'Booking List User',
         ]);
+        $user->userProfile()->firstOrCreate(['account_id' => $user->id]);
         $therapist = Account::factory()->create([
             'public_id' => 'acc_booking_list_therapist',
             'display_name' => 'Booking List Therapist',

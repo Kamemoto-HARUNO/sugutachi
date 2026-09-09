@@ -1653,6 +1653,7 @@ export function UserTherapistDetailPage() {
                                     </div>
 
                                     <div className="space-y-3">
+                                        {!isSelfPreview && (therapistDetail.consultation_enabled || therapistDetail.existing_direct_message_id) && <Link to={therapistDetail.existing_direct_message_id ? `/user/direct-messages/${therapistDetail.existing_direct_message_id}` : `/user/direct-messages/new?therapist_id=${encodeURIComponent(therapistDetail.public_id)}`} className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]">{therapistDetail.existing_direct_message_id ? 'DMを開く' : '予約前に質問する'}</Link>}
                                         {isSelfPreview ? (
                                             <div className="rounded-[20px] border border-[#d8ccb9] bg-[#f7f1e7] p-4 text-sm leading-7 text-[#5d6774]">
                                                 <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">自分のページを確認中です</p>

@@ -47,6 +47,10 @@ class TherapistProfile extends Model
 
         return $query
             ->where('account_id', '!=', $viewer->id)
+            ->whereNotExists(fn ($blocked) => $blocked->selectRaw('1')->from('role_relationships')
+                ->whereColumn('role_relationships.therapist_account_id', 'therapist_profiles.account_id')
+                ->where('role_relationships.user_account_id', $viewer->id)
+                ->where(fn ($q) => $q->whereNotNull('user_blocked_at')->orWhereNotNull('therapist_blocked_at')))
             ->whereHas('account', function (Builder $query) use ($viewer): void {
                 $query
                     ->whereDoesntHave('blockedByAccounts', fn (Builder $blockedBy) => $blockedBy
@@ -147,6 +151,7 @@ class TherapistProfile extends Model
             'height_cm' => 'integer',
             'weight_kg' => 'integer',
             'p_size_cm' => 'integer',
+            'consultation_enabled' => 'boolean',
             'is_online' => 'boolean',
             'is_listed' => 'boolean',
             'online_since' => 'datetime',

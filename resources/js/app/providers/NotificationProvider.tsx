@@ -49,7 +49,7 @@ interface ServiceMetaResponse {
 export const NotificationContext = createContext<NotificationContextValue | undefined>(undefined);
 
 export function NotificationProvider({ children }: PropsWithChildren) {
-    const { account, isAuthenticated, token } = useAuth();
+    const { account, activeRole, isAuthenticated, token } = useAuth();
     const [unreadCount, setUnreadCount] = useState(0);
     const [isLoading, setIsLoading] = useState(false);
     const [pushPermission, setPushPermission] = useState<BrowserPushPermission>(getPushPermission());
@@ -58,6 +58,11 @@ export function NotificationProvider({ children }: PropsWithChildren) {
     const [pushPublicKey, setPushPublicKey] = useState<string | null>(null);
     const [isPushConfigReady, setIsPushConfigReady] = useState(false);
     const pushConfigPromiseRef = useRef<Promise<string | null> | null>(null);
+
+    const notificationScope = `${account?.public_id}:${activeRole}`;
+    const currentScope = useRef(notificationScope);
+    currentScope.current = notificationScope;
+    const [summaryScope, setSummaryScope] = useState(notificationScope);
 
     const refreshNotificationSummary = useCallback(async () => {
         if (!isAuthenticated || !token) {
@@ -68,8 +73,10 @@ export function NotificationProvider({ children }: PropsWithChildren) {
         setIsLoading(true);
 
         try {
-            const payload = await apiRequest<NotificationSummaryResponse>('/notifications?limit=1', { token });
+            const payload = await apiRequest<NotificationSummaryResponse>(`/notifications?limit=1&role=${activeRole ?? ""}`, { token });
 
+            if (currentScope.current !== notificationScope) return;
+            setSummaryScope(notificationScope);
             setUnreadCount(payload.meta?.unread_count ?? 0);
         } catch (error) {
             if (error instanceof ApiError && error.status === 401) {
@@ -78,7 +85,7 @@ export function NotificationProvider({ children }: PropsWithChildren) {
         } finally {
             setIsLoading(false);
         }
-    }, [isAuthenticated, token]);
+    }, [isAuthenticated, token, activeRole, notificationScope]);
 
     const loadPushConfig = useCallback(async (): Promise<string | null> => {
         if (isPushConfigReady) {
@@ -237,7 +244,7 @@ export function NotificationProvider({ children }: PropsWithChildren) {
     }, [isAuthenticated, refreshNotificationSummary, refreshPushSubscription, token]);
 
     const value = useMemo<NotificationContextValue>(() => ({
-        unreadCount,
+        unreadCount: summaryScope === notificationScope ? unreadCount : 0,
         isLoading,
         refreshNotificationSummary,
         isPushSupported: isWebPushSupported(),
@@ -260,7 +267,7 @@ export function NotificationProvider({ children }: PropsWithChildren) {
         pushPermission,
         refreshNotificationSummary,
         refreshPushSubscription,
-        unreadCount,
+        unreadCount, summaryScope, notificationScope,
     ]);
 
     return (

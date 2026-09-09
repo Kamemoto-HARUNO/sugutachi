@@ -1,3 +1,4 @@
+import {BlockCancellationStatus} from '../components/messages/BlockCancellationStatus';
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { LoadingScreen } from '../components/LoadingScreen';
@@ -939,6 +940,7 @@ export function TherapistBookingDetailPage() {
 
     return (
         <div className="space-y-6">
+            <BlockCancellationStatus status={booking.block_cancellation?.status}/>
             <section className="rounded-[32px] bg-[linear-gradient(117deg,#17202b_0%,#243447_52%,#2b4158_100%)] p-7 text-white shadow-[0_24px_60px_rgba(15,23,42,0.22)]">
                 <div className="flex flex-col gap-5 lg:flex-row lg:items-end lg:justify-between">
                     <div className="space-y-3">

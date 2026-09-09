@@ -105,7 +105,7 @@ class TherapistDiscoveryApiTest extends TestCase
     {
         [$user, $address] = $this->createDiscoveryFixture();
 
-        $offlineTherapist = Account::factory()->create(['public_id' => 'acc_therapist_offline_hidden_location']);
+        $offlineTherapist = Account::factory()->create();
         $offlineProfile = TherapistProfile::create([
             'account_id' => $offlineTherapist->id,
             'public_id' => 'thp_offline_hidden_location',
