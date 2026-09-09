@@ -13,7 +13,6 @@ import { useAuth } from '../hooks/useAuth';
 
 interface DashboardLayoutProps {
     role: RoleName;
-    description: string;
     navItems: NavItem[];
 }
 
@@ -34,7 +33,7 @@ function headerActionClass(fullWidth = false): string {
 }
 
 
-export function DashboardLayout({ role, description, navItems }: DashboardLayoutProps) {
+export function DashboardLayout({ role, navItems }: DashboardLayoutProps) {
     const { logout, token } = useAuth();
     const location = useLocation();
     const [therapistPublicId, setTherapistPublicId] = useState<string | null>(null);
@@ -166,7 +165,7 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
                     <div className="space-y-6 p-6 sm:p-7 lg:p-8">
                         <div className="flex flex-col gap-5 xl:grid xl:grid-cols-[minmax(0,1fr)_auto] xl:items-start xl:gap-8">
                             <div className="min-w-0 flex-1">
-                                <div className="min-w-0 flex-1 space-y-4">
+                                <div className="min-w-0 flex-1">
                                     <div className="flex items-start justify-between gap-3">
                                         <BrandMark inverse compact />
                                         <div className="relative flex shrink-0 items-center gap-2 md:gap-3">
@@ -250,18 +249,10 @@ export function DashboardLayout({ role, description, navItems }: DashboardLayout
                                         </div>
                                     </div>
 
-                                    <div className="space-y-3">
-                                        <h1 className="max-w-[16ch] text-[2.2rem] font-semibold leading-[1.4] text-white sm:max-w-[20ch] sm:text-[2.5rem] xl:max-w-none xl:whitespace-nowrap">
-                                            ダッシュボード
-                                        </h1>
-                                        <p className="max-w-3xl text-sm leading-7 text-slate-300 sm:text-[0.95rem]">
-                                            {description}
-                                        </p>
-                                    </div>
                                 </div>
 
                                 {role === 'therapist' && therapistDashboardCampaigns.length > 0 ? (
-                                    <div className="grid gap-3">
+                                    <div className="mt-5 grid gap-3">
                                         {therapistDashboardCampaigns.map((campaign, index) => (
                                             <article
                                                 key={campaign.id}
