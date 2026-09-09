@@ -14,6 +14,7 @@ import { LoadingScreen } from './components/LoadingScreen';
 import { PushOptInModal } from './components/notifications/PushOptInModal';
 import { PlaceholderScreen } from './components/PlaceholderScreen';
 import { useAuth } from './hooks/useAuth';
+import { useInitialPageScroll } from './hooks/useInitialPageScroll';
 import {
     adminNavItems,
     adminPlaceholderRoutes,
@@ -556,6 +557,7 @@ function LegacyUserTherapistDetailRedirect() {
 }
 
 function ScrollToTopOnPageChange() {
+    useInitialPageScroll();
     const location = useLocation();
     const navigationType = useNavigationType();
     const previousPathnameRef = useRef(location.pathname);
