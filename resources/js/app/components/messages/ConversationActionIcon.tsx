@@ -4,7 +4,15 @@ export const conversationActionClass =
 export function ConversationActionIcon({
     kind,
 }: {
-    kind: 'profile' | 'mute' | 'archive' | 'resume' | 'block' | 'report';
+    kind:
+        | 'profile'
+        | 'mute'
+        | 'archive'
+        | 'resume'
+        | 'block'
+        | 'report'
+        | 'refresh'
+        | 'list';
 }) {
     return (
         <svg
@@ -45,6 +53,12 @@ export function ConversationActionIcon({
                     <circle cx="12" cy="12" r="9" />
                     <path d="m6 6 12 12" />
                 </>
+            )}
+            {kind === 'refresh' && (
+                <path d="M20 7v5h-5M4 17v-5h5M6.1 6a8 8 0 0 1 13.5 3M4.4 15a8 8 0 0 0 13.5 3" />
+            )}
+            {kind === 'list' && (
+                <path d="M9 6h11M9 12h11M9 18h11M4 6h.01M4 12h.01M4 18h.01" />
             )}
             {kind === 'report' && (
                 <>

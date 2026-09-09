@@ -1,3 +1,4 @@
+import { BookingConversationDetails } from '../components/messages/BookingConversationDetails';
 import { ConversationHeader } from '../components/messages/ConversationHeader';
 import { MessageComposer } from '../components/messages/MessageComposer';
 import { useCallback, useEffect, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
@@ -654,91 +655,20 @@ export function TherapistBookingMessagesPage() {
     return (
         <div className="flex h-full min-h-0 flex-col bg-white text-[#17202b]">
             <ConversationHeader role="therapist" kind="bookings" name={counterpartyName} subtitle={statusLabel(booking.status)}>
-                    <div className="flex flex-wrap gap-3">
-                        {canCloseThread ? (
-                            <button
-                                type="button"
-                                onClick={() => {
-                                    setIsCloseDialogOpen(true);
-                                }}
-                                disabled={isClosingThread}
-                                className="inline-flex items-center rounded-full border border-[#f7d7ab] bg-[#fff4e8] px-5 py-3 text-sm font-semibold text-[#9a4b35] transition hover:bg-[#ffebd7] disabled:cursor-not-allowed disabled:opacity-60"
-                            >
-                                {isClosingThread ? 'クローズ中...' : 'チャットをクローズ'}
-                            </button>
-                        ) : null}
-                        <button
-                            type="button"
-                            onClick={() => {
-                                void loadData({ refresh: true });
-                            }}
-                            disabled={isRefreshing}
-                            className="inline-flex items-center rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                            {isRefreshing ? '更新中...' : '更新'}
-                        </button>
-                        <Link
-                            to={`/therapist/bookings/${booking.public_id}`}
-                            className="inline-flex items-center rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-                        >
-                            予約詳細へ戻る
-                        </Link>
-                    </div>
-
-                <aside className="space-y-5">
-                    <section className="text-sm">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予約情報</p>
-                        <div className="mt-4 space-y-4 text-sm text-[#48505a]">
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">予約状況</p>
-                                <p className="mt-1">
-                                    <span className={`rounded-full px-3 py-1 text-xs font-semibold ${statusTone(booking.status)}`}>
-                                        {statusLabel(booking.status)}
-                                    </span>
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">利用者</p>
-                                <p className="mt-1 font-semibold text-[#17202b]">{counterpartyName}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">日時</p>
-                                <p className="mt-1 font-semibold text-[#17202b]">{buildPrimaryTime(booking)}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">待ち合わせ場所</p>
-                                <p className="mt-1 font-semibold text-[#17202b]">
-                                    {booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">運用メモ</p>
-                                <p className="mt-1 text-sm leading-7 text-[#48505a]">{stageHint(booking.status)}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">チャット状態</p>
-                                <p className="mt-1 font-semibold text-[#17202b]">
-                                    {isThreadClosed ? `クローズ済み${closedAtLabel ? `（${closedAtLabel}）` : ''}` : '送受信可能'}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="mt-6 space-y-3">
-                            <Link
-                                to={`/therapist/bookings/${booking.public_id}`}
-                                className="inline-flex w-full items-center justify-center rounded-full bg-[#17202b] px-5 py-3 text-sm font-semibold text-white transition hover:bg-[#243447]"
-                            >
-                                予約詳細へ戻る
-                            </Link>
-                            <Link
-                                to="/therapist/bookings"
-                                className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
-                            >
-                                予約一覧へ戻る
-                            </Link>
-                        </div>
-                    </section>
-                </aside>
+                <BookingConversationDetails
+                    role="therapist"
+                    bookingId={booking.public_id}
+                    time={buildPrimaryTime(booking)}
+                    place={booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
+                    status={statusLabel(booking.status)}
+                    statusClass={statusTone(booking.status)}
+                    chatStatus={isThreadClosed ? `クローズ済み${closedAtLabel ? `（${closedAtLabel}）` : ''}` : '送受信可能'}
+                    onRefresh={() => { void loadData({ refresh: true }); }}
+                    isRefreshing={isRefreshing}
+                    stageHint={stageHint(booking.status)}
+                    onCloseThread={canCloseThread ? () => setIsCloseDialogOpen(true) : undefined}
+                    isClosingThread={isClosingThread}
+                />
             </ConversationHeader>
 
             {pageError ? (
@@ -890,12 +820,9 @@ export function TherapistBookingMessagesPage() {
                                 isPreparingImage={isPreparingImage}
                             />
 
-                            <details className="px-1 text-xs text-[#68707a]"><summary className="cursor-pointer">メッセージのご利用について</summary><div className="mt-2 flex items-start gap-2">
-                                <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#f1e7d8] text-[10px] font-bold text-[#8b6a3e]">
-                                    !
-                                </span>
-                                <span>連絡先交換につながる文言は送れません。待ち合わせや進行確認に必要な連絡だけに絞って使います。</span>
-                            </div></details>
+                            <p className="px-1 text-center text-xs leading-5 text-slate-500">
+                                連絡先交換につながる文言が送れません。
+                            </p>
 
                             {composeError ? (
                                 <p className="text-sm text-[#9a4b35]">{composeError}</p>

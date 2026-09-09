@@ -1,3 +1,4 @@
+import { BookingConversationDetails } from '../components/messages/BookingConversationDetails';
 import { ConversationHeader } from '../components/messages/ConversationHeader';
 import { MessageComposer } from '../components/messages/MessageComposer';
 import { useCallback, useEffect, useMemo, useRef, useState, type ChangeEvent, type FormEvent } from 'react';
@@ -608,71 +609,18 @@ export function UserBookingMessagesPage() {
     return (
         <div className="flex h-full min-h-0 flex-col bg-white text-[#17202b]">
             <ConversationHeader role="user" kind="bookings" name={counterpartyName} subtitle={statusLabel(booking.status)}>
-                    <div className="flex flex-wrap gap-3">
-                        <button
-                            type="button"
-                            onClick={() => {
-                                void loadData({ refresh: true });
-                            }}
-                            disabled={isRefreshing}
-                            className="inline-flex items-center rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-60"
-                        >
-                            {isRefreshing ? '更新中...' : '更新'}
-                        </button>
-                        <Link
-                            to={`/user/bookings/${booking.public_id}`}
-                            className="inline-flex items-center rounded-full border border-slate-200 px-5 py-3 text-sm font-semibold text-slate-700 transition hover:bg-slate-100"
-                        >
-                            予約詳細へ戻る
-                        </Link>
-                    </div>
-
-                <aside className="space-y-5">
-                    <section className="text-sm">
-                        <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">予約情報</p>
-                        <div className="mt-4 space-y-4 text-sm text-[#48505a]">
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">予約日時</p>
-                                <p className="mt-1 font-semibold text-[#17202b]">{buildPrimaryTime(booking)}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">待ち合わせ場所</p>
-                                <p className="mt-1 font-semibold text-[#17202b]">
-                                    {booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
-                                </p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">ステータス</p>
-                                <p className="mt-1 font-semibold text-[#17202b]">{statusLabel(booking.status)}</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">受信未読</p>
-                                <p className="mt-1 font-semibold text-[#17202b]">{meta?.unread_count ?? unreadIncomingCount}件</p>
-                            </div>
-                            <div>
-                                <p className="text-xs font-semibold text-[#7d6852]">チャット状態</p>
-                                <p className="mt-1 font-semibold text-[#17202b]">
-                                    {isThreadClosed ? `クローズ済み${closedAtLabel ? `（${closedAtLabel}）` : ''}` : '送受信可能'}
-                                </p>
-                            </div>
-                        </div>
-
-                        <div className="mt-6 space-y-3">
-                            <Link
-                                to={`/user/bookings/${booking.public_id}`}
-                                className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
-                            >
-                                予約詳細を見る
-                            </Link>
-                            <Link
-                                to={`/user/bookings/${booking.public_id}/report`}
-                                className="inline-flex w-full items-center justify-center rounded-full border border-[#d9c9ae] px-5 py-3 text-sm font-semibold text-[#17202b] transition hover:bg-[#fff8ee]"
-                            >
-                                通報する
-                            </Link>
-                        </div>
-                    </section>
-                </aside>
+                <BookingConversationDetails
+                    role="user"
+                    bookingId={booking.public_id}
+                    time={buildPrimaryTime(booking)}
+                    place={booking.service_address ? getServiceAddressLabel(booking.service_address) : '未設定'}
+                    status={statusLabel(booking.status)}
+                    statusClass={statusTone(booking.status)}
+                    chatStatus={isThreadClosed ? `クローズ済み${closedAtLabel ? `（${closedAtLabel}）` : ''}` : '送受信可能'}
+                    onRefresh={() => { void loadData({ refresh: true }); }}
+                    isRefreshing={isRefreshing}
+                    unreadCount={meta?.unread_count ?? unreadIncomingCount}
+                />
             </ConversationHeader>
 
             {pageError ? (
@@ -824,12 +772,9 @@ export function UserBookingMessagesPage() {
                                 isPreparingImage={isPreparingImage}
                             />
 
-                            <details className="px-1 text-xs text-[#7a7066]"><summary className="cursor-pointer">メッセージのご利用について</summary><div className="mt-2 flex items-start gap-2">
-                                <span className="mt-0.5 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#f1e7d8] text-[10px] font-bold text-[#8b6a3e]">
-                                    !
-                                </span>
-                                <span>連絡先交換につながる文言は送れません。待ち合わせや進行確認に必要な連絡だけに絞って使います。</span>
-                            </div></details>
+                            <p className="px-1 text-center text-xs leading-5 text-slate-500">
+                                連絡先交換につながる文言が送れません。
+                            </p>
 
                             {composeError ? (
                                 <div className="rounded-[20px] border border-[#f1d4b5] bg-[#fff4e8] px-4 py-3 text-sm text-[#9a4b35]">

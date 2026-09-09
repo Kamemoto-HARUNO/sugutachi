@@ -23,9 +23,8 @@ export function ConversationHeader({
     const triggerRef = useRef<HTMLButtonElement>(null);
     const panelRef = useRef<HTMLElement>(null);
     const panelId = useId();
-    const dropdown = kind === 'dm';
     useEffect(() => {
-        if (!open || !dropdown) return;
+        if (!open) return;
         const frame = requestAnimationFrame(() =>
             panelRef.current
                 ?.querySelector<HTMLElement>('a, button')
@@ -59,7 +58,7 @@ export function ConversationHeader({
             document.removeEventListener('focusin', outside);
             document.removeEventListener('keydown', escape);
         };
-    }, [open, dropdown]);
+    }, [open]);
     const identity = (
         <>
             {avatar ?? (
@@ -150,7 +149,6 @@ export function ConversationHeader({
                     aria-label="会話の詳細"
                     onClick={(event) => {
                         if (
-                            dropdown &&
                             event.target instanceof Element &&
                             event.target.closest(
                                 '[data-close-conversation-menu]',
@@ -160,11 +158,7 @@ export function ConversationHeader({
                             triggerRef.current?.focus({ preventScroll: true });
                         }
                     }}
-                    className={
-                        dropdown
-                            ? 'absolute right-3 top-[calc(100%+8px)] z-30 max-h-[calc(100dvh-100px)] w-[288px] max-w-[calc(100vw-32px)] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-1.5 text-sm shadow-[0_12px_40px_rgba(15,23,42,0.16)] sm:right-5'
-                            : 'max-h-[45dvh] space-y-3 overflow-y-auto border-t border-slate-100 bg-slate-50 p-4 text-sm'
-                    }
+                    className="absolute right-3 top-[calc(100%+8px)] z-30 max-h-[calc(100dvh-100px)] w-[288px] max-w-[calc(100vw-32px)] overflow-y-auto overscroll-contain rounded-2xl border border-slate-200 bg-white p-1.5 text-sm shadow-[0_12px_40px_rgba(15,23,42,0.16)] sm:right-5"
                 >
                     {children}
                 </section>
