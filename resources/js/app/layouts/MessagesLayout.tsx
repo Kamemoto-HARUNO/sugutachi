@@ -3,13 +3,15 @@ import { Outlet, useLocation } from 'react-router-dom';
 import { MessagesPage } from '../pages/MessagesPage';
 import { useAuth } from '../hooks/useAuth';
 import type { MessageRole } from '../lib/directMessages';
+import { useMessageViewport } from '../hooks/useMessageViewport';
 
 export function MessagesLayout({ role }: { role: MessageRole }) {
     const { account } = useAuth();
     const location = useLocation();
+    const viewportRef = useMessageViewport();
     const isInbox = location.pathname === `/${role}/messages`;
     return (
-        <main className="h-dvh overflow-hidden bg-white text-[#17202b]">
+        <main ref={viewportRef} className="message-viewport overflow-hidden bg-white text-[#17202b]">
             <div className="mx-auto flex h-full max-w-[1200px] border-x border-slate-200">
                 <aside
                     aria-label="会話一覧"
