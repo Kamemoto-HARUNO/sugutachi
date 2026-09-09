@@ -35,7 +35,7 @@ import {
 import type { ApiEnvelope, ServiceAddress, ServiceMeta, TherapistSearchResult } from '../lib/types';
 
 export function PublicHomePage() {
-    const { account, hasRole, isAuthenticated, token } = useAuth();
+    const { account, activeRole, hasRole, isAuthenticated, token } = useAuth();
     const [serviceMeta, setServiceMeta] = useState<ServiceMeta | null>(null);
     const [serviceAddresses, setServiceAddresses] = useState<ServiceAddress[]>([]);
     const [previewTherapists, setPreviewTherapists] = useState<TherapistSearchResult[]>([]);
@@ -58,7 +58,7 @@ export function PublicHomePage() {
     usePageTitle('ホーム');
     useToastOnMessage(error, 'error');
 
-    const canUseUserMode = isAuthenticated && hasRole('user');
+    const canUseUserMode = isAuthenticated && activeRole === 'user' && hasRole('user');
     const canUseTherapistMode = isAuthenticated && hasRole('therapist');
     const selectedAddress = useMemo(
         () => serviceAddresses.find((address) => address.public_id === selectedAddressId) ?? null,
@@ -91,7 +91,7 @@ export function PublicHomePage() {
 
         return sortTherapistSearchResults(filtered, selectedSort);
     }, [previewTherapists, priceRange, ratingOnly, selectedSort, walkingOnly]);
-    const heroMyPagePath = getMyPageEntryPath(account);
+    const heroMyPagePath = getMyPageEntryPath(account, activeRole);
 
     useEffect(() => {
         let isMounted = true;
@@ -298,15 +298,15 @@ export function PublicHomePage() {
     }, [isAuthenticated]);
 
     const footerPrimaryAction = canUseUserMode
-        ? { label: 'マイページ', to: getMyPageEntryPath(account) }
+        ? { label: 'マイページ', to: getMyPageEntryPath(account, activeRole) }
         : isAuthenticated
-            ? { label: '利用者モードを追加', to: '/role-select?add_role=user&return_to=%2Fuser%2Fdashboard' }
+            ? { label: 'マイページ', to: getMyPageEntryPath(account, activeRole) }
             : { label: 'ログイン・無料登録', to: '/register' };
 
     const footerSecondaryAction = canUseUserMode
         ? { label: '予約一覧', to: '/user/bookings' }
         : canUseTherapistMode
-            ? { label: 'マイページ', to: getMyPageEntryPath(account) }
+            ? { label: 'マイページ', to: getMyPageEntryPath(account, activeRole) }
         : isAuthenticated
             ? { label: 'タチキャストモードを追加', to: '/role-select?add_role=therapist&return_to=%2Ftherapist%2Fonboarding' }
             : { label: 'タチキャストとして登録', to: '/register' };
@@ -340,8 +340,8 @@ export function PublicHomePage() {
 
         if (isAuthenticated) {
             return {
-                label: '利用者モードを追加',
-                to: '/role-select?add_role=user&return_to=%2Fuser%2Ftherapists',
+                label: 'タチキャスト一覧を見る',
+                to: '/therapists',
             };
         }
 
@@ -373,12 +373,12 @@ export function PublicHomePage() {
             setScheduledStartAt(buildDefaultDiscoveryScheduledStartAt());
         }
     };
-    const discoverySectionTitle = '近くのタチキャスト';
+    const discoverySectionTitle = canUseUserMode ? '近くのタチキャスト' : 'タチキャストを探す';
     const discoverySectionDescription = canUseUserMode
         ? serviceAddresses.length > 0
             ? `待ち合わせ場所、予約タイプ、料金目安を変えながら、近さとレビューで候補を絞り込めます。現在 ${filteredPreviewTherapists.length}名を表示しています。`
             : '待ち合わせ場所を追加すると、あなたの条件に合う候補をこの画面で確認できます。'
-        : 'ログイン後は、移動時間目安レンジ、料金、レビューを見ながら自分の条件で比較できます。';
+        : isAuthenticated ? '公開プロフィールを閲覧できます。予約・質問は利用者モードに切り替えて行います。' : 'ログイン後は、移動時間目安レンジ、料金、レビューを見ながら自分の条件で比較できます。';
     const filterPanel = (
         <DiscoveryFilterPanel
             selectedStartType={selectedStartType}
@@ -433,7 +433,7 @@ export function PublicHomePage() {
                     secondaryAction={secondaryAction}
                 >
                     <DiscoverySearchPanel
-                        description="待ち合わせ場所と予約タイプを決めて一覧を更新できます。"
+                        description={isAuthenticated && !canUseUserMode ? "現在のモードのまま、公開プロフィールを閲覧できます。" : "待ち合わせ場所と予約タイプを決めて一覧を更新できます。"}
                         addressField={canUseUserMode && serviceAddresses.length > 0 ? (
                             <label className="rounded-[24px] bg-white px-5 py-3 text-[#121a23]">
                                 <span className="block text-xs font-semibold text-[#69707a]">{DISCOVERY_LOCATION_LABEL}</span>
@@ -457,7 +457,7 @@ export function PublicHomePage() {
                                         ? isLoadingAddresses
                                             ? '待ち合わせ場所を確認中'
                                             : 'まずは待ち合わせ場所を追加'
-                                        : 'ログイン後に待ち合わせ場所を選択'}
+                                        : isAuthenticated ? '待ち合わせ場所の指定は利用者モードで' : 'ログイン後に待ち合わせ場所を選択'}
                                 </p>
                             </div>
                         )}

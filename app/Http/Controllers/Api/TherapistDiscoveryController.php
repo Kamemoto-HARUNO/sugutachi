@@ -38,6 +38,8 @@ class TherapistDiscoveryController extends Controller
     {
         $validated = $request->validate([
             'limit' => ['nullable', 'integer', 'min:1', 'max:12'],
+            'page' => ['nullable', 'integer', 'min:1', 'max:10000'],
+            'q' => ['nullable', 'string', 'max:80'],
         ]);
 
         $viewer = $this->authenticatedViewer($request);
@@ -60,14 +62,17 @@ class TherapistDiscoveryController extends Controller
                     ->where('status', ProfilePhoto::STATUS_APPROVED)
                     ->where('visibility', ProfilePhoto::VISIBILITY_PRIVATE),
             ])
+            ->when($validated['q'] ?? null, fn ($query, $name) => $query->where('public_name', 'like', '%'.addcslashes($name, '%_\\').'%'))
             ->orderByDesc('is_online')
             ->orderByDesc('rating_average')
             ->orderByDesc('review_count')
             ->orderBy('id')
-            ->limit($limit)
+            ->offset((($validated['page'] ?? 1) - 1) * $limit)
+            ->limit($limit + 1)
             ->get();
 
-        $results = $profiles->map(function (TherapistProfile $profile): array {
+        $hasMore = $profiles->count() > $limit;
+        $results = $profiles->take($limit)->map(function (TherapistProfile $profile): array {
             $identityVerification = $profile->account?->latestIdentityVerification;
 
             return [
@@ -93,7 +98,7 @@ class TherapistDiscoveryController extends Controller
             ];
         });
 
-        return PublicTherapistSearchResultResource::collection($results);
+        return PublicTherapistSearchResultResource::collection($results)->additional(['meta' => ['has_more' => $hasMore]]);
     }
 
     public function availability(

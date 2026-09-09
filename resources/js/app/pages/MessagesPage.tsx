@@ -1,4 +1,3 @@
-import { MessageSelect } from "../components/messages/MessageSelect";
 import { useEffect, useState } from "react";
 import {
     Link,
@@ -17,7 +16,7 @@ import { BookingMessagesPage } from "./BookingMessagesPage";
 import { DirectMessagesPage } from "./DirectMessagesPage";
 
 export function MessagesPage({ role }: { role: MessageRole }) {
-    const { account, token, hasRole, selectRole } = useAuth();
+    const { account, token } = useAuth();
     const location = useLocation();
     const navigate = useNavigate();
     const [params] = useSearchParams();
@@ -93,21 +92,7 @@ export function MessagesPage({ role }: { role: MessageRole }) {
                 <h2 className="min-w-0 flex-1 truncate text-lg font-bold sm:text-xl">
                     メッセージ
                 </h2>
-                <MessageSelect
-                    aria-label="メッセージの役割"
-                    value={role}
-                    onChange={(e) => {
-                        const next = e.target.value as MessageRole;
-                        selectRole(next);
-                        navigate(`/${next}/messages?tab=dm`);
-                    }}
-                    className="bg-slate-50 font-semibold"
-                >
-                    {hasRole("user") && <option value="user">利用者</option>}
-                    {hasRole("therapist") && (
-                        <option value="therapist">タチキャスト</option>
-                    )}
-                </MessageSelect>
+
             </header>
             <div
                 className="mx-4 mb-3 flex shrink-0 gap-1 rounded-xl bg-slate-100 p-1"

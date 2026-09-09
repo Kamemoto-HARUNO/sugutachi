@@ -70,7 +70,7 @@ export function StickyHeroHeader({ actions }: StickyHeroHeaderProps) {
         <>
             <div
                 className={[
-                    'pointer-events-none fixed inset-x-0 top-0 z-50 px-4 pt-3 transition-all duration-300 sm:px-6',
+                    'mode-sticky-header pointer-events-none fixed inset-x-0 top-0 z-50 px-4 pt-3 transition-all duration-300 sm:px-6',
                     showStickyHeader ? 'translate-y-0 opacity-100' : '-translate-y-full opacity-0',
                 ].join(' ')}
             >

@@ -13,12 +13,12 @@ function navLinkClass(isActive: boolean): string {
 }
 
 export function PublicLayout() {
-    const { account, isAuthenticated } = useAuth();
+    const { account, activeRole, isAuthenticated } = useAuth();
     const location = useLocation();
     const returnTo = `${location.pathname}${location.search}`;
     const loginPath = location.pathname === '/login' ? '/login' : `/login?return_to=${encodeURIComponent(returnTo)}`;
     const registerPath = location.pathname === '/register' ? '/register' : `/register?return_to=${encodeURIComponent(returnTo)}`;
-    const myPagePath = getMyPageEntryPath(account);
+    const myPagePath = getMyPageEntryPath(account, activeRole);
     const headerActions = useMemo<PublicHeaderAction[]>(() => {
         if (isAuthenticated) {
             return [

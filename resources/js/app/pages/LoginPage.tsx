@@ -7,7 +7,6 @@ import { useToastOnMessage } from '../hooks/useToastOnMessage';
 import {
     getPostAuthPath,
     hasActiveRole,
-    inferRoleFromPath,
     sanitizeAppPath,
     type RoleName,
 } from '../lib/account';
@@ -42,7 +41,6 @@ export function LoginPage({ targetRole }: LoginPageProps) {
         () => resolveReturnTo(searchParams.get('return_to'), locationState),
         [locationState, searchParams],
     );
-    const returnRole = inferRoleFromPath(returnTo);
     const registerPath = returnTo ? `/register?return_to=${encodeURIComponent(returnTo)}` : '/register';
 
     usePageTitle(title);
@@ -66,8 +64,7 @@ export function LoginPage({ targetRole }: LoginPageProps) {
             }
 
             const nextRole =
-                (returnRole && hasActiveRole(account, returnRole) ? returnRole : null)
-                ?? (targetRole && hasActiveRole(account, targetRole) ? targetRole : null);
+                (targetRole && hasActiveRole(account, targetRole) ? targetRole : null);
 
             if (nextRole) {
                 selectRole(nextRole);

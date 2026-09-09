@@ -50,8 +50,8 @@ function normalizeSort(value: string | null): DiscoverySort {
 }
 
 export function UserTherapistSearchPage() {
-    const { account, token } = useAuth();
-    const myPagePath = getMyPageEntryPath(account);
+    const { account, activeRole, token } = useAuth();
+    const myPagePath = getMyPageEntryPath(account, activeRole);
     const [searchParams, setSearchParams] = useSearchParams();
     const [serviceAddresses, setServiceAddresses] = useState<ServiceAddress[]>([]);
     const [therapists, setTherapists] = useState<TherapistSearchResult[]>([]);

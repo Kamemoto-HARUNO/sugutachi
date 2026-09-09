@@ -58,6 +58,7 @@ class SupportStepScenarioTest extends TestCase
 
     public function test_admin_can_manage_support_step_scenario_preview_and_test_send(): void
     {
+        $this->travelTo(CarbonImmutable::parse('2026-05-12 12:00:00', 'Asia/Tokyo'));
         Mail::fake();
         $admin = $this->accountWithRole('admin');
         $user = $this->accountWithRole('user', ['created_at' => now()->subDays(2)]);

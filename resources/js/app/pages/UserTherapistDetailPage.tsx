@@ -231,7 +231,7 @@ async function fetchPrivatePhotoBlob(
 
 export function UserTherapistDetailPage() {
     const { publicId } = useParams();
-    const { account, hasRole, isAuthenticated, token } = useAuth();
+    const { account, activeRole, selectRole, hasRole, isAuthenticated, token } = useAuth();
     const navigate = useNavigate();
     const { showError, showSuccess } = useToast();
     const [searchParams, setSearchParams] = useSearchParams();
@@ -299,8 +299,8 @@ export function UserTherapistDetailPage() {
     }, [selectedMenu]);
     const queryString = searchParams.toString();
     const detailReturnPath = publicId ? `/therapists/${publicId}${queryString ? `?${queryString}` : ''}` : '/';
-    const myPagePath = getMyPageEntryPath(account);
-    const listPath = isAuthenticated ? `/user/therapists${queryString ? `?${queryString}` : ''}` : '/';
+    const myPagePath = getMyPageEntryPath(account, activeRole);
+    const listPath = `/therapists${queryString ? `?${queryString}` : ''}`;
     const intendedAvailabilityPath = useMemo(() => {
         if (!therapistDetail) {
             return null;
@@ -346,12 +346,22 @@ export function UserTherapistDetailPage() {
 
         return `/user/therapists/${therapistDetail.public_id}/travel-request${nextQueryString ? `?${nextQueryString}` : ''}`;
     }, [searchParams, selectedAddress?.prefecture, therapistDetail]);
-    const canUseUserFlows = isAuthenticated && hasRole('user');
+    const canUseUserFlows = isAuthenticated && activeRole === 'user' && hasRole('user');
+    const needsUserMode = isAuthenticated && !canUseUserFlows;
+    const switchToUser = (path = detailReturnPath) => {
+        if (hasRole('user')) {
+            selectRole('user');
+            navigate(path, { replace: true });
+        } else {
+            navigate(`/role-select?add_role=user&return_to=${encodeURIComponent(path)}`);
+        }
+    };
+    const switchUserLabel = hasRole('user') ? '利用者モードに切り替えて' : '利用者モードを追加して';
     const isUserVerificationReady = Boolean(
         account?.latest_identity_verification?.status === 'approved'
         && account.latest_identity_verification.is_age_verified,
     );
-    const pendingScheduledRequest = therapistDetail?.pending_scheduled_request ?? null;
+    const pendingScheduledRequest = canUseUserFlows ? therapistDetail?.pending_scheduled_request ?? null : null;
     const pendingScheduledRequestPath = pendingScheduledRequest ? `/user/bookings/${pendingScheduledRequest.public_id}` : '/user/bookings';
     const scheduledAvailabilityUnavailableMessage = 'このセラピストは空き枠が設定されていないのでリクエストを送ることができません。';
     const shouldBlockOfflineNowRequest = Boolean(
@@ -395,7 +405,9 @@ export function UserTherapistDetailPage() {
     const travelRequestEnableRolePath = intendedTravelRequestPath
         ? `/role-select?add_role=user&return_to=${encodeURIComponent(intendedTravelRequestPath)}`
         : '/role-select?add_role=user&return_to=%2Fuser';
-    const travelRequestAction: StickyHeroHeaderAction = canUseUserFlows
+    const travelRequestAction: StickyHeroHeaderAction = needsUserMode
+        ? { label: `${switchUserLabel}出張リクエストへ進む`, to: detailReturnPath, onClick: () => switchToUser(intendedTravelRequestPath ?? detailReturnPath) }
+        : canUseUserFlows
         ? { label: '出張リクエストを送る', to: intendedTravelRequestPath ?? '/user/therapists' }
         : isAuthenticated
             ? { label: '利用者モードを追加して出張リクエストを送る', to: travelRequestEnableRolePath }
@@ -405,7 +417,9 @@ export function UserTherapistDetailPage() {
         : isAuthenticated
             ? '/role-select?add_role=user&return_to=%2Fuser%2Fservice-addresses'
             : '/register';
-    const primaryAction: StickyHeroHeaderAction = canUseUserFlows
+    const primaryAction: StickyHeroHeaderAction = needsUserMode
+        ? { label: `${switchUserLabel}予約へ進む`, to: detailReturnPath, onClick: () => switchToUser() }
+        : canUseUserFlows
         ? !selectedAddress
             ? { label: '待ち合わせ場所を設定する', to: serviceAddressPath }
             : !isUserVerificationReady
@@ -501,7 +515,7 @@ export function UserTherapistDetailPage() {
             try {
                 const [metaPayload, addressPayload] = await Promise.all([
                     apiRequest<ApiEnvelope<ServiceMeta>>('/service-meta'),
-                    token
+                    canUseUserFlows && token
                         ? apiRequest<ApiEnvelope<ServiceAddress[]>>('/me/service-addresses', { token })
                         : Promise.resolve(null),
                 ]);
@@ -514,7 +528,7 @@ export function UserTherapistDetailPage() {
                 const nextAddresses = addressPayload ? unwrapData(addressPayload) : [];
                 setServiceAddresses(nextAddresses);
 
-                if (token && !selectedAddressId) {
+                if (canUseUserFlows && token && !selectedAddressId) {
                     const fallbackAddress = getDefaultServiceAddress(nextAddresses);
 
                     if (fallbackAddress) {
@@ -549,7 +563,7 @@ export function UserTherapistDetailPage() {
         return () => {
             isMounted = false;
         };
-    }, [publicId, selectedAddressId, selectedSort, selectedStartType, setSearchParams, token]);
+    }, [canUseUserFlows, publicId, selectedAddressId, selectedSort, selectedStartType, setSearchParams, token]);
 
     useEffect(() => {
         let isMounted = true;
@@ -568,7 +582,7 @@ export function UserTherapistDetailPage() {
             try {
                 const detailParams = new URLSearchParams();
 
-                if (isAuthenticated && selectedAddressId) {
+                if (canUseUserFlows && selectedAddressId) {
                     detailParams.set('service_address_id', selectedAddressId);
                 }
 
@@ -585,7 +599,8 @@ export function UserTherapistDetailPage() {
                     return;
                 }
 
-                setTherapistDetail(unwrapData(detailPayload));
+                const detail = unwrapData(detailPayload);
+                setTherapistDetail(canUseUserFlows ? detail : { ...detail, is_favorited: false, pending_scheduled_request: null, existing_direct_message_id: null });
                 setReviews(unwrapData(reviewPayload));
             } catch (requestError) {
                 if (!isMounted) {
@@ -612,7 +627,7 @@ export function UserTherapistDetailPage() {
         return () => {
             isMounted = false;
         };
-    }, [isAuthenticated, publicId, selectedAddressId, token]);
+    }, [canUseUserFlows, publicId, selectedAddressId, token]);
 
     useEffect(() => {
         setActivePhotoIndex(0);
@@ -1033,6 +1048,8 @@ export function UserTherapistDetailPage() {
             return;
         }
 
+        if (!canUseUserFlows) { switchToUser(); return; }
+
         setIsTogglingFavorite(true);
 
         try {
@@ -1326,12 +1343,12 @@ export function UserTherapistDetailPage() {
                                                             ? 'border-[#17202b] bg-[#17202b] text-white'
                                                             : 'border-[#ddcfb4] bg-white text-[#17202b] hover:bg-[#fffaf1]',
                                                     ].join(' ')}
-                                                    aria-label={therapistDetail.is_favorited ? 'お気に入りから外す' : 'お気に入りに追加'}
+                                                    aria-label={needsUserMode ? `${switchUserLabel}お気に入りを使う` : therapistDetail.is_favorited ? 'お気に入りから外す' : 'お気に入りに追加'}
                                                 >
                                                     <svg viewBox="0 0 24 24" className="h-5 w-5" fill={therapistDetail.is_favorited ? 'currentColor' : 'none'} stroke="currentColor" strokeWidth="1.9" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
                                                         <path d="M6.5 4.75A2.25 2.25 0 0 1 8.75 2.5h6.5a2.25 2.25 0 0 1 2.25 2.25v16.1l-5.5-3.2-5.5 3.2V4.75Z" />
                                                     </svg>
-                                                    {therapistDetail.is_favorited ? 'お気に入りから外す' : 'お気に入りに追加'}
+                                                    {needsUserMode ? `${switchUserLabel}お気に入りを使う` : therapistDetail.is_favorited ? 'お気に入りから外す' : 'お気に入りに追加'}
                                                 </button>
                                                 <p className="mt-3 text-xs leading-5 text-[#68707a]">
                                                     お気に入りに追加すると、このタチキャストがオンラインになった時や空き枠を公開した時に通知を受け取れます。
@@ -1478,7 +1495,7 @@ export function UserTherapistDetailPage() {
                                         <h2 className="mt-1 text-2xl font-semibold text-[#17202b]">この条件で予約を考える</h2>
                                     </div>
 
-                                    {activeUserBookingCampaign ? (
+                                    {canUseUserFlows && activeUserBookingCampaign ? (
                                         <div className="campaign-offer-float campaign-offer-banner-light rounded-[22px] p-4" style={{ animationDelay: '0.4s' }}>
                                             <p className="text-xs font-semibold tracking-wide text-[#9a661c]">期間限定キャンペーン適用中</p>
                                             <p className="mt-2 text-sm font-semibold text-[#17202b]">
@@ -1522,7 +1539,7 @@ export function UserTherapistDetailPage() {
                                             </div>
                                         </div>
 
-                                        <div className="rounded-[20px] bg-[#f6f1e7] p-4">
+                                        {!needsUserMode && <div className="rounded-[20px] bg-[#f6f1e7] p-4">
                                             <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">待ち合わせ場所</p>
                                             {selectedAddress ? (
                                                 <label className="mt-2 block">
@@ -1559,7 +1576,7 @@ export function UserTherapistDetailPage() {
                                                     {isAuthenticated ? '待ち合わせ場所を追加する' : '無料登録して待ち合わせ場所を設定する'}
                                                 </Link>
                                             ) : null}
-                                        </div>
+                                        </div>}
 
                                         <div className="rounded-[20px] bg-[#f6f1e7] p-4">
                                             <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">到着時間</p>
@@ -1653,7 +1670,8 @@ export function UserTherapistDetailPage() {
                                     </div>
 
                                     <div className="space-y-3">
-                                        {!isSelfPreview && (therapistDetail.consultation_enabled || therapistDetail.existing_direct_message_id) && <Link to={therapistDetail.existing_direct_message_id ? `/user/direct-messages/${therapistDetail.existing_direct_message_id}` : `/user/direct-messages/new?therapist_id=${encodeURIComponent(therapistDetail.public_id)}`} className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]">{therapistDetail.existing_direct_message_id ? 'DMを開く' : '予約前に質問する'}</Link>}
+                                        {!isSelfPreview && (therapistDetail.consultation_enabled || therapistDetail.existing_direct_message_id) && <Link to={therapistDetail.existing_direct_message_id ? `/user/direct-messages/${therapistDetail.existing_direct_message_id}` : `/user/direct-messages/new?therapist_id=${encodeURIComponent(therapistDetail.public_id)}`} onClick={needsUserMode ? (event) => { event.preventDefault(); switchToUser(`/user/direct-messages/new?therapist_id=${encodeURIComponent(therapistDetail.public_id)}`); } : undefined} className="inline-flex min-h-11 w-full items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]">{needsUserMode ? `${switchUserLabel}質問する` : therapistDetail.existing_direct_message_id ? 'DMを開く' : '予約前に質問する'}</Link>}
+                                        {needsUserMode && !isSelfPreview && <p className="rounded-2xl bg-[#eff9f2] p-4 text-sm leading-7 text-[#2d7048]">現在は{activeRole === 'therapist' ? 'タチキャスト' : '運営'}モードで閲覧しています。予約や事前の質問は、利用者プロフィールで行います。</p>}
                                         {isSelfPreview ? (
                                             <div className="rounded-[20px] border border-[#d8ccb9] bg-[#f7f1e7] p-4 text-sm leading-7 text-[#5d6774]">
                                                 <p className="text-xs font-semibold tracking-wide text-[#9a7a49]">自分のページを確認中です</p>
@@ -1702,6 +1720,7 @@ export function UserTherapistDetailPage() {
                                                 </p>
                                             </div>
                                         ) : null}
+                                        {needsUserMode && !isSelfPreview && <p className="rounded-2xl bg-[#eff9f2] p-4 text-sm leading-7 text-[#2d7048]">現在は{activeRole === 'therapist' ? 'タチキャスト' : '運営'}モードで閲覧しています。予約や事前の質問は、利用者プロフィールで行います。</p>}
                                         {isSelfPreview ? (
                                             <>
                                                 <span className={disabledActionClass()}>
@@ -1738,6 +1757,7 @@ export function UserTherapistDetailPage() {
                                                 )}
                                                 <Link
                                                     to={travelRequestAction.to}
+                                                    onClick={travelRequestAction.onClick ? (event) => { event.preventDefault(); travelRequestAction.onClick?.(); } : undefined}
                                                     className="inline-flex w-full items-center justify-center rounded-full border border-[#ddcfb4] px-5 py-3 text-sm font-semibold text-[#17202b]"
                                                 >
                                                     {travelRequestAction.label}
@@ -2035,7 +2055,7 @@ export function UserTherapistDetailPage() {
                 description={isAuthenticated
                     ? 'プロフィール、料金、レビューを確認したうえで、空き時間や予約導線へ進めます。'
                     : 'プロフィールとレビューは公開で確認でき、空き時間確認と予約導線はログイン後に続けられます。'}
-                primaryAction={primaryAction}
+                primaryAction={isSelfPreview ? { label: '自分のプロフィールを編集する', to: '/therapist/profile' } : primaryAction}
                 secondaryAction={secondaryAction}
             />
         </div>
