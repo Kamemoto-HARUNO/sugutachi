@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\Account;
+use App\Models\AdminAuditLog;
 use App\Models\IdentityVerification;
 use App\Models\ProfilePhoto;
 use App\Models\StripeConnectedAccount;
@@ -282,7 +283,7 @@ class AdminTherapistProfileTest extends TestCase
             ->assertJsonPath('data.profile_status', TherapistProfile::STATUS_DRAFT)
             ->assertJsonPath('data.is_online', false)
             ->assertJsonPath('data.approved_at', null)
-            ->assertJsonPath('data.rejected_reason_code', 'policy_violation');
+            ->assertJsonPath('data.rejected_reason_code', null);
 
         $this->assertDatabaseHas('therapist_profiles', [
             'id' => $profile->id,
@@ -290,8 +291,12 @@ class AdminTherapistProfileTest extends TestCase
             'is_online' => false,
             'approved_at' => null,
             'approved_by_account_id' => null,
-            'rejected_reason_code' => 'policy_violation',
+            'rejected_reason_code' => null,
         ]);
+        $audit = AdminAuditLog::query()->where('action', 'therapist_profile.restore')->sole();
+        $this->assertSame('policy_violation', $audit->before_json['rejected_reason_code']);
+        $this->assertNull($audit->after_json['rejected_reason_code']);
+
         $this->assertDatabaseHas('admin_audit_logs', [
             'actor_account_id' => $admin->id,
             'action' => 'therapist_profile.restore',

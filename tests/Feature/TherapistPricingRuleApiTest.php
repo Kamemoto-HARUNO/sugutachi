@@ -426,7 +426,7 @@ class TherapistPricingRuleApiTest extends TestCase
             'is_active' => true,
         ]);
 
-        $user = Account::factory()->create(['public_id' => 'acc_pricing_scheduled_timezone_user']);
+        $user = Account::factory()->create();
         IdentityVerification::create([
             'account_id' => $user->id,
             'status' => IdentityVerification::STATUS_APPROVED,
@@ -471,7 +471,7 @@ class TherapistPricingRuleApiTest extends TestCase
 
     private function createTherapistFixture(string $suffix): array
     {
-        $therapist = Account::factory()->create(['public_id' => "acc_pricing_therapist_{$suffix}"]);
+        $therapist = Account::factory()->create();
 
         IdentityVerification::create([
             'account_id' => $therapist->id,

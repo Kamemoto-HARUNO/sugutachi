@@ -9,6 +9,7 @@ use App\Models\ServiceAddress;
 use App\Models\TherapistAvailabilitySlot;
 use App\Models\TherapistBookingSetting;
 use App\Models\TherapistMenu;
+use App\Models\TherapistPricingRule;
 use App\Models\TherapistProfile;
 use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -52,7 +53,7 @@ class PublicTherapistAvailabilityApiTest extends TestCase
             ->assertJsonPath('data.date', '2030-01-05')
             ->assertJsonPath('data.walking_time_range', 'within_15_min')
             ->assertJsonPath('data.estimated_total_amount_range.min', 12300)
-            ->assertJsonPath('data.estimated_total_amount_range.max', 13300)
+            ->assertJsonPath('data.estimated_total_amount_range.max', 12300)
             ->assertJsonCount(1, 'data.available_dates')
             ->assertJsonPath('data.available_dates.0.date', '2030-01-05')
             ->assertJsonPath('data.available_dates.0.earliest_start_at', $defaultSlot->start_at->toJSON())
@@ -78,6 +79,21 @@ class PublicTherapistAvailabilityApiTest extends TestCase
             ->assertJsonPath('data.windows.1.dispatch_area_label', '博多駅周辺')
             ->assertJsonPath('data.windows.1.is_bookable', true)
             ->assertJsonPath('data.windows.1.unavailable_reason', null);
+
+        // Distance alone no longer adds a fee; an explicit cast pricing rule does.
+        TherapistPricingRule::create([
+            'therapist_profile_id' => $profile->id,
+            'rule_type' => TherapistPricingRule::RULE_TYPE_WALKING_TIME_RANGE,
+            'condition_json' => ['operator' => TherapistPricingRule::OPERATOR_NOT_EQUALS, 'value' => 'within_30_min'],
+            'adjustment_type' => TherapistPricingRule::ADJUSTMENT_TYPE_FIXED_AMOUNT,
+            'adjustment_amount' => 1000,
+            'priority' => 10,
+            'is_active' => true,
+        ]);
+        $this->getJson("/api/therapists/{$profile->public_id}/availability?service_address_id={$serviceAddress->public_id}&therapist_menu_id={$menu->public_id}&date=2030-01-05")
+            ->assertOk()
+            ->assertJsonPath('data.estimated_total_amount_range.min', 12300)
+            ->assertJsonPath('data.estimated_total_amount_range.max', 13300);
     }
 
     public function test_public_availability_excludes_hidden_outside_area_and_conflicted_time(): void
@@ -416,8 +432,8 @@ class PublicTherapistAvailabilityApiTest extends TestCase
 
     private function createAvailabilityFixture(): array
     {
-        $user = Account::factory()->create(['public_id' => 'acc_public_availability_user_'.fake()->unique()->numerify('###')]);
-        $therapist = Account::factory()->create(['public_id' => 'acc_public_availability_therapist_'.fake()->unique()->numerify('###')]);
+        $user = Account::factory()->create();
+        $therapist = Account::factory()->create();
 
         $serviceAddress = ServiceAddress::create([
             'public_id' => 'addr_public_availability_'.fake()->unique()->numerify('###'),

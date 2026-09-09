@@ -13,11 +13,48 @@ use Carbon\CarbonImmutable;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Support\Facades\Mail;
 use Laravel\Sanctum\Sanctum;
+use PHPUnit\Framework\Attributes\DataProvider;
 use Tests\TestCase;
 
 class SupportStepScenarioTest extends TestCase
 {
     use RefreshDatabase;
+
+    public static function scheduledTimes(): array
+    {
+        return [
+            'midnight short' => ['00:00'],
+            'morning short' => ['09:05'],
+            'evening full' => ['20:00:00'],
+            'end of day full' => ['23:59:00'],
+        ];
+    }
+
+    #[DataProvider('scheduledTimes')]
+    public function test_scheduled_delivery_matches_only_its_minute_and_does_not_resend(string $sendTime): void
+    {
+        Mail::fake();
+        $dueAt = CarbonImmutable::parse('2026-05-12 '.$sendTime, 'Asia/Tokyo');
+        $this->travelTo($dueAt);
+        $admin = $this->accountWithRole('admin');
+        $user = $this->accountWithRole('user', ['created_at' => $dueAt->subDays(2)]);
+        $scenario = $this->scenario($admin, ['send_time' => $sendTime]);
+        $this->scenario($admin, ['send_time' => $sendTime, 'status' => SupportStepScenario::STATUS_DRAFT]);
+        $service = app(SupportStepDeliveryService::class);
+
+        $this->assertSame(['sent' => 0, 'skipped' => 0, 'failed' => 0], $service->processDueScenarios($dueAt->subMinute()));
+        $this->assertSame(['sent' => 1, 'skipped' => 0, 'failed' => 0], $service->processDueScenarios($dueAt->addSeconds(45)));
+        $this->assertSame(['sent' => 0, 'skipped' => 1, 'failed' => 0], $service->processDueScenarios($dueAt->addSeconds(50)));
+        $this->assertSame(['sent' => 0, 'skipped' => 0, 'failed' => 0], $service->processDueScenarios($dueAt->addMinute()));
+        $this->assertDatabaseCount('support_tickets', 1);
+        $this->assertDatabaseHas('support_step_deliveries', [
+            'support_step_scenario_id' => $scenario->id,
+            'account_id' => $user->id,
+            'status' => SupportStepDelivery::STATUS_SENT,
+        ]);
+        $sent = SupportStepDelivery::query()->where('status', SupportStepDelivery::STATUS_SENT)->sole();
+        $this->assertSame('2026-05-12', $sent->scheduled_for_date->toDateString());
+    }
 
     public function test_admin_can_manage_support_step_scenario_preview_and_test_send(): void
     {
@@ -28,18 +65,18 @@ class SupportStepScenarioTest extends TestCase
 
         Sanctum::actingAs($admin);
         $scenarioId = $this->postJson('/api/admin/support-step-scenarios', [
-                'name' => '本人確認のご案内',
-                'status' => SupportStepScenario::STATUS_ACTIVE,
-                'target_role' => SupportStepScenario::TARGET_USER,
-                'identity_verification_status' => SupportStepScenario::IDENTITY_UNVERIFIED,
-                'elapsed_days' => 1,
-                'send_time' => '20:00',
-                'priority' => 100,
-                'ticket_title' => '本人確認のご案内',
-                'ticket_category' => 'account',
-                'message_body' => '{user_name}さん、本人確認をお願いします。{verification_url}',
-                'internal_notes' => '初回案内',
-            ])
+            'name' => '本人確認のご案内',
+            'status' => SupportStepScenario::STATUS_ACTIVE,
+            'target_role' => SupportStepScenario::TARGET_USER,
+            'identity_verification_status' => SupportStepScenario::IDENTITY_UNVERIFIED,
+            'elapsed_days' => 1,
+            'send_time' => '20:00',
+            'priority' => 100,
+            'ticket_title' => '本人確認のご案内',
+            'ticket_category' => 'account',
+            'message_body' => '{user_name}さん、本人確認をお願いします。{verification_url}',
+            'internal_notes' => '初回案内',
+        ])
             ->assertCreated()
             ->assertJsonPath('data.name', '本人確認のご案内')
             ->assertJsonPath('data.send_time', '20:00')

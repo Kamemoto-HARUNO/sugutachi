@@ -27,13 +27,13 @@ class LegalDocumentSyncCommandTest extends TestCase
         $this->assertDatabaseCount('legal_documents', 3);
         $this->assertDatabaseHas('legal_documents', [
             'document_type' => 'terms',
-            'version' => '2026-04-mvp-draft',
-            'title' => '利用規約（MVP草案）',
+            'version' => '2026-04-28',
+            'title' => '利用規約',
         ]);
 
         $commerce = LegalDocument::query()
             ->where('document_type', 'commerce')
-            ->where('version', '2026-04-mvp-draft')
+            ->where('version', '2026-04-28')
             ->firstOrFail();
 
         $this->assertStringContainsString('合同会社すぐタチ', $commerce->body);
@@ -43,6 +43,23 @@ class LegalDocumentSyncCommandTest extends TestCase
         $this->artisan('legal-documents:sync-default-drafts')
             ->assertExitCode(0);
 
+        $this->assertDatabaseCount('legal_documents', 3);
+    }
+
+    public function test_sync_preserves_published_document_and_updates_only_drafts(): void
+    {
+        $this->artisan('legal-documents:sync-default-drafts')->assertExitCode(0);
+        $terms = LegalDocument::query()->where('document_type', 'terms')->sole();
+        $terms->update(['body' => '公開済みの本文', 'published_at' => now(), 'effective_at' => now()]);
+        $published = $terms->fresh()->getRawOriginal();
+        $commerce = LegalDocument::query()->where('document_type', 'commerce')->sole();
+        $commerce->update(['body' => '古い草案']);
+
+        $this->artisan('legal-documents:sync-default-drafts')->assertExitCode(0);
+
+        $this->assertSame($published, $terms->fresh()->getRawOriginal());
+        $this->assertNotSame('古い草案', $commerce->fresh()->body);
+        $this->assertNull($commerce->fresh()->published_at);
         $this->assertDatabaseCount('legal_documents', 3);
     }
 }
