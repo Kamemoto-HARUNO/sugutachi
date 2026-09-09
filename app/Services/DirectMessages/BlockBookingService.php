@@ -3,9 +3,12 @@
 namespace App\Services\DirectMessages;
 
 use App\Models\Booking;
+use App\Models\Refund;
 use App\Models\RoleRelationship;
+use App\Models\StripeDispute;
 use App\Models\TherapistProfile;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Str;
 
 class BlockBookingService
 {
@@ -19,15 +22,36 @@ class BlockBookingService
             ->whereIn('status', [...self::BEFORE_START, ...self::REVIEW]);
     }
 
+    public function hasFinancialReview(Booking $booking): bool
+    {
+        return $booking->refunds()->where(fn ($q) => $q->whereNull('reason_code')->orWhere('reason_code', '!=', 'therapist_relationship_block'))
+            ->whereIn('status', [Refund::STATUS_REQUESTED, Refund::STATUS_APPROVED])->exists()
+            || $booking->disputes()->whereIn('status', [StripeDispute::STATUS_NEEDS_RESPONSE, StripeDispute::STATUS_UNDER_REVIEW])->exists();
+    }
+
+    public function requiresReview(Booking $booking): bool
+    {
+        return $booking->hasPendingNoShowReport() || in_array($booking->status, self::REVIEW, true)
+            || $this->hasFinancialReview($booking);
+    }
+
     public function cancelBeforeStart(RoleRelationship $relationship): void
     {
         foreach ($this->affected($relationship)->orderBy('id')->lockForUpdate()->get() as $booking) {
-            $review = $booking->hasPendingNoShowReport() || in_array($booking->status, self::REVIEW, true);
+            $review = $this->requiresReview($booking);
             $inserted = DB::table('block_booking_actions')->insertOrIgnore(['relationship_id' => $relationship->id, 'booking_id' => $booking->id, 'status' => $review ? 'review' : 'pending', 'due_at' => now(), 'created_at' => now(), 'updated_at' => now()]);
+            $noticeEvent = null;
             if (! $inserted) {
-                continue;
+                // A fresh block after an admin release must not inherit the old
+                // release decision. Repeated calls for an active block stay idempotent.
+                $reopened = DB::table('block_booking_actions')->where('booking_id', $booking->id)->where('status', 'resolved')
+                    ->update(['status' => $review ? 'review' : 'pending', 'attempts' => 0, 'due_at' => now(), 'completed_at' => null, 'updated_at' => now()]);
+                if (! $reopened) {
+                    continue;
+                }
+                $noticeEvent = 'reblock:'.Str::ulid();
             }
-            app(SystemNotice::class)->booking($booking, $review ? 'review' : 'pending');
+            app(SystemNotice::class)->booking($booking, $review ? 'review' : 'pending', $noticeEvent);
             if ($review) {
                 continue;
             }

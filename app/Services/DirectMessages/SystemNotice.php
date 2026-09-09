@@ -31,7 +31,7 @@ class SystemNotice
         }
     }
 
-    public function booking(Booking $booking, string $state): void
+    public function booking(Booking $booking, string $state, ?string $event = null): void
     {
         $body = match ($state) {
             'pending' => '予約をキャンセルしました。利用者負担は0円です。決済の取消・返金を処理しています。',
@@ -39,10 +39,10 @@ class SystemNotice
             default => '運営が予約と精算を確認しています。チャットの送信は停止しています。',
         };
         foreach (['user', 'therapist'] as $role) {
-            $this->create($booking->{$role.'_account_id'}, $role, 'block:'.$booking->public_id.':'.$state.':'.$role, '予約についてのお知らせ', $body, '/'.$role.'/bookings/'.$booking->public_id);
+            $this->create($booking->{$role.'_account_id'}, $role, 'block:'.$booking->public_id.':'.$state.':'.$role.($event ? ':'.$event : ''), '予約についてのお知らせ', $body, '/'.$role.'/bookings/'.$booking->public_id);
         }
         if ($state === 'review') {
-            $this->admins('block-review:'.$booking->public_id, '予約の精算確認が必要です', '/admin/message-operations');
+            $this->admins('block-review:'.$booking->public_id.($event ? ':'.$event : ''), '予約の精算確認が必要です', '/admin/message-operations');
         }
     }
 }

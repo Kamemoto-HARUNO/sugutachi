@@ -42,6 +42,12 @@ class BlockBookingSettlement
         DB::table('block_booking_actions')->where('id', $action->id)->update(['status' => 'processing', 'attempts' => $action->attempts + 1, 'due_at' => now()->addMinutes(5), 'updated_at' => now()]);
         try {
             $booking = Booking::findOrFail($action->booking_id);
+            if (app(BlockBookingService::class)->hasFinancialReview($booking)) {
+                DB::table('block_booking_actions')->where('id', $action->id)->update(['status' => 'review', 'updated_at' => now()]);
+                app(SystemNotice::class)->booking($booking, 'review');
+
+                return;
+            }
             $pending = false;
             foreach ($booking->paymentIntents()->get() as $payment) {
                 if (! $payment->stripe_payment_intent_id) {

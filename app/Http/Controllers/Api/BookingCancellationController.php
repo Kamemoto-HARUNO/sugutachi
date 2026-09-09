@@ -8,6 +8,7 @@ use App\Models\Account;
 use App\Models\Booking;
 use App\Models\TherapistProfile;
 use App\Services\Campaigns\CampaignService;
+use App\Services\DirectMessages\RelationshipPolicy;
 use App\Services\Bookings\BookingCancellationPolicy;
 use App\Services\Bookings\BookingCancellationSettlementService;
 use App\Services\Notifications\BookingNotificationService;
@@ -90,6 +91,8 @@ class BookingCancellationController extends Controller
         ]);
 
         $result = DB::transaction(function () use ($actor, $actorRole, $booking, $policy, $validated): array {
+            app(RelationshipPolicy::class)->lock($booking->user_account_id, $booking->therapist_account_id);
+            abort_if(DB::table('block_booking_actions')->where('booking_id', $booking->id)->where('status', '!=', 'resolved')->exists(), 409, '運営がこの予約の精算を確認しています。');
             $lockedBooking = Booking::query()
                 ->whereKey($booking->id)
                 ->lockForUpdate()

@@ -47,7 +47,7 @@ class RoleRelationshipController extends Controller
         $this->authorize($request, $role, $relationship);
         $affected = $role === 'therapist' ? $this->bookings->affected($relationship)->get() : collect();
 
-        return response()->json(['data' => ['public_id' => $relationship->public_id, 'blocked_by_me' => (bool) $relationship->getAttribute($role.'_blocked_at'), 'contact_unavailable' => $this->policy->blocked($relationship->user_account_id, $relationship->therapist_account_id), 'affected_bookings' => $affected->map(fn ($b) => ['public_id' => $b->public_id, 'status' => $b->status, 'scheduled_start_at' => $b->scheduled_start_at, 'paid_amount_estimate' => $b->total_amount, 'requires_review' => $b->hasPendingNoShowReport() || in_array($b->status, BlockBookingService::REVIEW, true)])]]);
+        return response()->json(['data' => ['public_id' => $relationship->public_id, 'blocked_by_me' => (bool) $relationship->getAttribute($role.'_blocked_at'), 'contact_unavailable' => $this->policy->blocked($relationship->user_account_id, $relationship->therapist_account_id), 'affected_bookings' => $affected->map(fn ($b) => ['public_id' => $b->public_id, 'status' => $b->status, 'scheduled_start_at' => $b->scheduled_start_at, 'paid_amount_estimate' => $b->total_amount, 'requires_review' => $this->bookings->requiresReview($b)])]]);
     }
 
     public function block(Request $request, string $role, RoleRelationship $relationship)
