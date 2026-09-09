@@ -5,6 +5,7 @@ import {
     useEffect,
     useMemo,
     useState,
+    useRef,
     type PropsWithChildren,
 } from 'react';
 import { ApiError, apiRequest, unwrapData } from '../lib/api';
@@ -61,7 +62,7 @@ function resolveRole(account: Account, candidateRole?: RoleName | null): RoleNam
         return candidateRole;
     }
 
-    const persistedRole = window.localStorage.getItem(ACTIVE_ROLE_STORAGE_KEY);
+    const persistedRole = window.localStorage.getItem(`${ACTIVE_ROLE_STORAGE_KEY}.${account.public_id}`);
 
     if (isRoleName(persistedRole) && hasActiveRole(account, persistedRole)) {
         return persistedRole;
@@ -75,12 +76,14 @@ export function AuthProvider({ children }: PropsWithChildren) {
     const [token, setToken] = useState<string | null>(null);
     const [activeRole, setActiveRole] = useState<RoleName | null>(null);
     const [isBootstrapping, setIsBootstrapping] = useState(true);
+    const selectedRoleRef = useRef<RoleName | null>(null);
 
     const clearSession = useCallback(() => {
         clearDirectMessageDrafts();
         setToken(null);
         setAccount(null);
         setActiveRole(null);
+        selectedRoleRef.current = null;
         window.localStorage.removeItem(ACCESS_TOKEN_STORAGE_KEY);
         window.localStorage.removeItem(ACTIVE_ROLE_STORAGE_KEY);
     }, []);
@@ -92,11 +95,12 @@ export function AuthProvider({ children }: PropsWithChildren) {
             setToken(nextToken);
             setAccount(nextAccount);
             setActiveRole(resolvedRole);
+            selectedRoleRef.current = resolvedRole;
 
             window.localStorage.setItem(ACCESS_TOKEN_STORAGE_KEY, nextToken);
 
             if (resolvedRole) {
-                window.localStorage.setItem(ACTIVE_ROLE_STORAGE_KEY, resolvedRole);
+                window.localStorage.setItem(`${ACTIVE_ROLE_STORAGE_KEY}.${nextAccount.public_id}`, resolvedRole);
             } else {
                 window.localStorage.removeItem(ACTIVE_ROLE_STORAGE_KEY);
             }
@@ -117,7 +121,11 @@ export function AuthProvider({ children }: PropsWithChildren) {
                 token: persistedToken,
             });
 
-            applySession(persistedToken, unwrapData(payload));
+            const nextAccount = unwrapData(payload);
+            const legacyRole = window.localStorage.getItem(ACTIVE_ROLE_STORAGE_KEY);
+            const hasScopedRole = window.localStorage.getItem(`${ACTIVE_ROLE_STORAGE_KEY}.${nextAccount.public_id}`);
+            applySession(persistedToken, nextAccount, selectedRoleRef.current ?? (!hasScopedRole && isRoleName(legacyRole) ? legacyRole : null));
+            window.localStorage.removeItem(ACTIVE_ROLE_STORAGE_KEY);
         } catch (error) {
             if (error instanceof ApiError && error.status === 401) {
                 clearSession();
@@ -215,8 +223,9 @@ export function AuthProvider({ children }: PropsWithChildren) {
                 return;
             }
 
+            selectedRoleRef.current = role;
             setActiveRole(role);
-            window.localStorage.setItem(ACTIVE_ROLE_STORAGE_KEY, role);
+            window.localStorage.setItem(`${ACTIVE_ROLE_STORAGE_KEY}.${account.public_id}`, role);
         },
         [account],
     );

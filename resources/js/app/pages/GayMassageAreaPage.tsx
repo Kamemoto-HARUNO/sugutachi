@@ -19,18 +19,18 @@ function areaIntro(name: string): string {
 }
 
 function usePublicActions() {
-    const { account, isAuthenticated } = useAuth();
+    const { account, activeRole, isAuthenticated } = useAuth();
 
     return useMemo(() => {
         const primaryAction = isAuthenticated
-            ? { label: 'マイページ', to: getMyPageEntryPath(account), icon: 'mypage' as const }
+            ? { label: 'マイページ', to: getMyPageEntryPath(account, activeRole), icon: 'mypage' as const }
             : { label: 'ログイン', to: '/login', icon: 'login' as const };
         const secondaryAction = isAuthenticated
             ? { label: 'エリア一覧', to: '/gay-massage' }
             : { label: '会員登録', to: '/register', variant: 'secondary' as const, icon: 'register' as const };
 
         return { primaryAction, secondaryAction };
-    }, [account, isAuthenticated]);
+    }, [account, activeRole, isAuthenticated]);
 }
 
 export function GayMassageIndexPage() {

@@ -18,6 +18,7 @@ export function useMessageViewport() {
             if (viewport && Math.abs(viewport.scale - 1) > 0.01) return;
             element.style.setProperty('--message-viewport-height', `${viewport?.height ?? window.innerHeight}px`);
             element.style.setProperty('--message-viewport-top', `${viewport?.offsetTop ?? 0}px`);
+            root.style.setProperty('--mode-viewport-top', `${viewport?.offsetTop ?? 0}px`);
         };
         const scheduleUpdate = () => {
             cancelAnimationFrame(frame);
@@ -35,6 +36,7 @@ export function useMessageViewport() {
             viewport?.removeEventListener('scroll', scheduleUpdate);
             window.removeEventListener('resize', scheduleUpdate);
             root.classList.remove('message-viewport-active');
+            root.style.removeProperty('--mode-viewport-top');
             element.style.removeProperty('--message-viewport-height');
             element.style.removeProperty('--message-viewport-top');
         };
